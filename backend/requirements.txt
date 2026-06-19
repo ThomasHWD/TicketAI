@@ -20,6 +20,8 @@ python-dotenv==1.2.2
 qdrant-client==1.18.0
 redis==8.0.0
 requests==2.34.2
+ruff==0.15.18
+pytest==8.2.2
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.7.0
