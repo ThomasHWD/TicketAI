@@ -1,0 +1,16 @@
+[tool.ruff]
+select = ["E", "F", "W", "W", "I"]
+fixable = ["ALL"]
+
+exclude = [
+    "venv",
+    "env",
+    ".venv",
+    ".env",
+    "build",
+    "dist",
+    "__pycache__",
+]
+
+[tool.ruff.per-file-ignores]
+"backend/tests/test_*.py" = ["F841"]
