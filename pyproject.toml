@@ -1,16 +1,21 @@
 [tool.ruff]
-select = ["E", "F", "W", "W", "I"]
-fixable = ["ALL"]
+# On augmente la taille max des lignes à 120 (standard moderne plus confortable)
+line-length = 120
+target-version = "py311"
 
-exclude = [
-    "venv",
-    "env",
-    ".venv",
-    ".env",
-    "build",
-    "dist",
-    "__pycache__",
+# Nouvelle syntaxe recommandée par Ruff pour les règles de linting
+[tool.ruff.lint]
+select = [
+    "E",   # Erreurs de style (pycodestyle)
+    "W",   # Avertissements de style (pycodestyle)
+    "F",   # Erreurs de logique (Pyflakes)
+    "I",   # Tri des imports (isort)
+    "B",   # Prévention des bugs (flake8-bugbear)
+    "C4",  # Optimisation des compréhensions (flake8-comprehensions)
 ]
+fixable = ["ALL"]
+unfixable = []
 
-[tool.ruff.per-file-ignores]
-"backend/tests/test_*.py" = ["F841"]
+[tool.ruff.lint.per-file-ignores]
+# On ignore certaines règles spécifiques dans les fichiers de tests si besoin
+"tests/**/*.py" = ["S101"]

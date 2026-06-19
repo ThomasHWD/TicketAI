@@ -1,9 +1,10 @@
-from dotenv import load_dotenv
 import os
-import requests
-from qdrant_client import QdrantClient
+
 import psycopg2
 import redis
+import requests
+from dotenv import load_dotenv
+from qdrant_client import QdrantClient
 
 print("--- TEST INFRA ---")
 
