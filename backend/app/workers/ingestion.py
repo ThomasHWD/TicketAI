@@ -1,5 +1,6 @@
 from app.workers.celery_app import celery_app
 
+
 @celery_app.task(
     name="ingestion_job",
     bind=True,
@@ -13,4 +14,4 @@ def ingestion_job(self, file_path: str, filename: str, domaine: str):
         # Les étapes seront ajoutées Jour 8 et 9
         return {"status": "OK", "filename": filename}
     except Exception as exc:
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc

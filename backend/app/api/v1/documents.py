@@ -1,5 +1,8 @@
 import uuid
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
 from app.workers.ingestion import ingestion_job
 
 router = APIRouter()
@@ -15,7 +18,7 @@ MAX_SIZE_MB = 50
 
 
 @router.post("/documents")
-async def upload_document(domaine: str, file: UploadFile = File(...)):
+async def upload_document(domaine: str, file: Annotated[UploadFile, File(...)]):
     # Validation type
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(400, f"Type non supporté : {file.content_type}")
