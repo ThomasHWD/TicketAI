@@ -42,5 +42,17 @@ jobs:
         run: pip install -r backend/requirements.txt
 
       - name: Run tests
+        env:
+            POSTGRES_HOST: localhost
+            POSTGRES_DB: ticketai_test
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: password
+            QDRANT_HOST: localhost
+            QDRANT_PORT: 6333
+            VALKEY_HOST: localhost
+            VALKEY_PORT: 6379
+            VALKEY_URL: redis://localhost:6379/0
+            LLM_URL: http://localhost:8000
+            LLM_MODEL_NAME: mock-model
         working-directory: backend
         run: pytest
