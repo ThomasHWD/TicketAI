@@ -1,8 +1,11 @@
 import uuid
-from sqlalchemy import Column, String, Text, Float, DateTime, ForeignKey, func
+
+from sqlalchemy import Column, DateTime, Float, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
 from app.database import Base
+
 
 class Reponse(Base):
     __tablename__ = "reponses"
