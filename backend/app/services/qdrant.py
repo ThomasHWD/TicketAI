@@ -1,9 +1,6 @@
-from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    VectorParams, Distance,
-    SparseVectorParams, SparseIndexParams
-)
 from app.config import settings
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, SparseIndexParams, SparseVectorParams, VectorParams
 
 client = QdrantClient(
     host=settings.qdrant_host,
