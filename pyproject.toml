@@ -19,3 +19,6 @@ unfixable = []
 [tool.ruff.lint.per-file-ignores]
 # On ignore certaines règles spécifiques dans les fichiers de tests si besoin
 "tests/**/*.py" = ["S101"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
