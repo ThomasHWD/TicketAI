@@ -1,16 +1,15 @@
 import os
-import uuid
 import shutil
+import uuid
 
-from celery import Task
 from langchain_community.document_loaders import Docx2txtLoader, PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client.models import PointStruct, SparseVector
 
-from app.services.qdrant import client, COLLECTION_NAME
 from app.config import settings
-from app.workers.celery_app import celery_app
 from app.services.embedding_mock import embed_texts_mock
+from app.services.qdrant import COLLECTION_NAME, client
+from app.workers.celery_app import celery_app
 
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 64
@@ -83,12 +82,12 @@ def ingestion_job(self, file_path: str, filename: str, domaine: str):
         # Étape 3 — Embedding
         print(f"[INGESTION] Embedding de {len(chunks)} chunks...")
         embeddings = embed_texts_mock(chunks)
-        print(f"[INGESTION] Embeddings générés")
+        print("[INGESTION] Embeddings générés")
 
         # Étape 4 — Indexation Qdrant (batch unique)
-        print(f"[INGESTION] Indexation dans Qdrant...")
+        print("[INGESTION] Indexation dans Qdrant...")
         points = []
-        for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+        for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=False)):
             points.append(
                 PointStruct(
                     id=str(uuid.uuid4()),

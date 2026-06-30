@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # IA
     llm_url: str
     llm_model_name: str
-    
+
     # Documents storage
     documents_storage_path: str
 
