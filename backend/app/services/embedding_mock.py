@@ -1,6 +1,7 @@
 import hashlib
 import random
 
+
 def embed_texts_mock(texts: list[str]) -> list[dict]:
     results = []
     for text in texts:

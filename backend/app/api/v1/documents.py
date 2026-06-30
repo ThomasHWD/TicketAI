@@ -1,12 +1,11 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
-
-from app.workers.ingestion import ingestion_job
-from app.workers.celery_app import celery_app
 from celery.result import AsyncResult
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
+from app.workers.celery_app import celery_app
+from app.workers.ingestion import ingestion_job
 
 router = APIRouter()
 
