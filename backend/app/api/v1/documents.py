@@ -2,8 +2,11 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 from app.workers.ingestion import ingestion_job
+from app.workers.celery_app import celery_app
+from celery.result import AsyncResult
 
 router = APIRouter()
 
@@ -47,3 +50,21 @@ async def upload_document(domaine: str, file: Annotated[UploadFile, File(...)]):
     )
 
     return {"job_id": job.id, "filename": file.filename, "statut": "EN_ATTENTE"}
+
+
+@router.get("/documents/{job_id}/status")
+async def statut_document(job_id: str):
+    result = AsyncResult(job_id, app=celery_app)
+
+    reponse = {
+        "job_id": job_id,
+        "statut": result.status,  # PENDING / STARTED / SUCCESS / FAILURE / RETRY
+    }
+
+    if result.status == "SUCCESS":
+        reponse["resultat"] = result.result
+
+    elif result.status == "FAILURE":
+        reponse["erreur"] = str(result.result)
+
+    return reponse
