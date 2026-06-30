@@ -1,5 +1,6 @@
 from app.workers.celery_app import celery_app
 
+
 @celery_app.task(
     name="question_job",
     bind=True,
@@ -9,7 +10,7 @@ from app.workers.celery_app import celery_app
 )
 def question_job(self, question: str, domaine: str, user_id: str | None = None):
     try:
-        print(f"❓ --- NOUVELLE QUESTION ---")
+        print("❓ --- NOUVELLE QUESTION ---")
         print(f"[QUESTION] Domaine  : {domaine}")
         print(f"[QUESTION] Question : {question}")
 
