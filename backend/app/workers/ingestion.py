@@ -1,16 +1,22 @@
 import os
+import uuid
+import shutil
 
 from celery import Task
 from langchain_community.document_loaders import Docx2txtLoader, PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from qdrant_client.models import PointStruct, SparseVector
 
+from app.services.qdrant import client, COLLECTION_NAME
+from app.config import settings
 from app.workers.celery_app import celery_app
+from app.services.embedding_mock import embed_texts_mock
 
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 64
 
 
-def extract_text(file_path) -> str:
+def extract_text(file_path) -> list[str]:
     """Extrait le texte d'un fichier PDF, DOCX, TXT, MD"""
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Fichier non trouvé : {file_path}")
@@ -40,7 +46,16 @@ def chunk_text(pages: list[str]) -> list[str]:
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
         separators=["\n\n", "\n", ".", " ", ""],
-    ).split_text("\n".join(pages))
+    ).split_text("\n\n".join(pages))
+
+
+def store_file(tmp_path: str, doc_id: str, filename: str) -> str:
+    """Déplace le fichier de /tmp vers le stockage permanent."""
+    dest_dir = os.path.join(settings.documents_storage_path, doc_id)
+    os.makedirs(dest_dir, exist_ok=True)
+    dest_path = os.path.join(dest_dir, filename)
+    shutil.move(tmp_path, dest_path)
+    return dest_path
 
 
 @celery_app.task(
@@ -50,21 +65,66 @@ def chunk_text(pages: list[str]) -> list[str]:
     default_retry_delay=60,
     queue="queue_ingestion",
 )
-def ingestion_job(self: Task, file_path: str, filename: str, domaine: str):
+def ingestion_job(self, file_path: str, filename: str, domaine: str):
+    doc_id = str(uuid.uuid4())
+    stored_path = None
+
     try:
         print(f"📄 --- DÉBUT DE L'INGESTION DU FICHIER '{filename}' ---")
 
-        # 1. Extraction du texte
+        # Étape 1 — Extraction
         pages = extract_text(file_path)
         print(f"[INGESTION] {len(pages)} pages extraites")
 
-        # 2. Chunking du texte
+        # Étape 2 — Chunking
         chunks = chunk_text(pages)
         print(f"[INGESTION] {len(chunks)} chunks générés")
 
-        # TODO 3 + 4. Embedding et ingestion dans Qdrant
-        return {"statut": "OK", "filename": filename, "nb_chunks": len(chunks)}
+        # Étape 3 — Embedding
+        print(f"[INGESTION] Embedding de {len(chunks)} chunks...")
+        embeddings = embed_texts_mock(chunks)
+        print(f"[INGESTION] Embeddings générés")
 
-    except Exception as e:
-        print(f"[INGESTION] ERREUR : {str(e)}")
-        raise self.retry(exc=e) from e
+        # Étape 4 — Indexation Qdrant (batch unique)
+        print(f"[INGESTION] Indexation dans Qdrant...")
+        points = []
+        for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+            points.append(
+                PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector={
+                        "dense": emb["dense"],
+                        "sparse": SparseVector(
+                            indices=emb["sparse"]["indices"],
+                            values=emb["sparse"]["values"],
+                        ),
+                    },
+                    payload={
+                        "doc_id": doc_id,
+                        "chunk_index": i,
+                        "source": filename,
+                        "domaine": domaine,
+                        "contenu": chunk,
+                        "stored_path": stored_path,
+                    },
+                )
+            )
+
+        client.upsert(collection_name=COLLECTION_NAME, points=points)
+        print(f"[INGESTION] ✅ {len(points)} points indexés dans Qdrant")
+
+        # Étape 5 — Stockage permanent
+        stored_path = store_file(file_path, doc_id, filename)
+        print(f"[INGESTION] Fichier stocké : {stored_path}")
+
+        return {
+            "statut": "OK",
+            "filename": filename,
+            "doc_id": doc_id,
+            "stored_path": stored_path,
+            "nb_chunks": len(chunks),
+        }
+
+    except Exception as exc:
+        print(f"[INGESTION] ❌ Erreur : {exc}")
+        raise self.retry(exc=exc) from exc
