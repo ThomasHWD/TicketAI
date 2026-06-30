@@ -1,6 +1,6 @@
-import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
 from app.workers.question import question_job
 
 router = APIRouter()
@@ -41,6 +41,7 @@ async def soumettre_question(payload: QuestionRequest):
 @router.get("/tickets/{job_id}/status")
 async def statut_ticket(job_id: str):
     from celery.result import AsyncResult
+
     from app.workers.celery_app import celery_app
 
     result = AsyncResult(job_id, app=celery_app)
