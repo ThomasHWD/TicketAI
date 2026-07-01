@@ -1,16 +1,44 @@
-import httpx
-from app.config import settings
+import os
 
-TEI_EMBEDDING_URL = f"http://{settings.qdrant_host}:{settings.qdrant_port}"
+from FlagEmbedding import BGEM3FlagModel
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-async def get_embedding(texts: list[str]) -> list[dict]:
-    """
-    Retourne une liste de { "dense": [...], "sparse": {"indices": [...], "values": [...]} }
-    """
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(
-            f"{TEI_EMBEDDING_URL}/embed", json={"inputs": texts}
+_model = None
+
+def get_model() -> BGEM3FlagModel:
+    global _model
+    if _model is None:
+        print("[EMBEDDING] Chargement BGE-M3 via FlagEmbedding...")
+        _model = BGEM3FlagModel(
+            'BAAI/BGE-M3',
+            use_fp16=False,  # CPU — pas de fp16
         )
-        response.raise_for_status()
-        return response.json()
+        print("[EMBEDDING] BGE-M3 prêt")
+    return _model
+
+
+def embed_texts(texts: list[str], is_query: bool = False) -> list[dict]:
+    model = get_model()
+
+    output = model.encode(
+        texts,
+        return_dense=True,
+        return_sparse=True,
+        return_colbert_vecs=False,
+    )
+
+    results = []
+    for i in range(len(texts)):
+        dense = output["dense_vecs"][i].tolist()
+
+        sparse_weights = output["lexical_weights"][i]
+        indices = [int(k) for k in sparse_weights.keys()]
+        values = [float(v) for v in sparse_weights.values()]
+
+        results.append({
+            "dense": dense,
+            "sparse": {"indices": indices, "values": values}
+        })
+
+    return results
