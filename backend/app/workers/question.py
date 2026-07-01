@@ -1,14 +1,15 @@
 from app.services.search import search_hybrid
 from app.workers.celery_app import celery_app
 
-SEUIL_SIMILARITE = 0.92
+SEUIL_COSINUS = 0.50  # TEMPORAIRE — à recalibrer avec BGE-M3 réel sur Spark
+
 
 @celery_app.task(
     name="question_job",
     bind=True,
     max_retries=3,
     default_retry_delay=60,
-    queue="queue_questions"
+    queue="queue_questions",
 )
 def question_job(self, question: str, domaine: str, user_id: str | None = None):
     try:
@@ -22,18 +23,18 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
         print(f"[QUESTION] {len(chunks)} chunks trouvés")
 
         for i, chunk in enumerate(chunks[:3]):
-            print(f"[QUESTION] #{i+1} score={chunk['score']:.4f} source={chunk['source']}")
-
-        # Étape 2 — Branche canonique (Jour 13)
-        # Étape 3 — Reranking (Jour 14)
-        # Étape 4 — Génération LLM (Jour 14)
+            print(
+                f"[QUESTION] #{i+1} score_cosinus={chunk['score_cosinus']:.4f} score_rrf={chunk['score_rrf']:.4f} \
+                    source={chunk['source']}"
+            )
 
         return {
             "statut": "OK",
             "question": question,
             "domaine": domaine,
             "nb_chunks": len(chunks),
-            "top_score": chunks[0]["score"] if chunks else 0,
+            "top_score_cosinus": chunks[0]["score_cosinus"] if chunks else 0,
+            "top_score_rrf": chunks[0]["score_rrf"] if chunks else 0,
         }
 
     except Exception as exc:
