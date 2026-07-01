@@ -25,4 +25,5 @@ celery_app.conf.update(
         "queue_ingestion": {"exchange": "queue_ingestion"},
     },
     task_default_queue="queue_questions",
+    worker_pool="threads",
 )

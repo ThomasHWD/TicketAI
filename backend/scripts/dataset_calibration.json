@@ -1,0 +1,52 @@
+[
+  {
+    "question": "Quelles sont les origines philosophiques de l'intelligence artificielle ?",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Comment fonctionne l'apprentissage automatique ?",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Qu'est-ce que l'IA générative ?",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Quels sont les risques liés au développement de l'IA ?",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Comment les réseaux de neurones ont-ils évolué ?",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Quelle est la procédure pour poser des congés payés ?",
+    "domaine": "IT",
+    "pertinent": false
+  },
+  {
+    "question": "Comment réinitialiser mon mot de passe Windows ?",
+    "domaine": "IT",
+    "pertinent": false
+  },
+  {
+    "question": "Quelle est la recette de la tarte aux pommes ?",
+    "domaine": "IT",
+    "pertinent": false
+  },
+  {
+    "question": "Comment fonctionne un moteur à combustion ?",
+    "domaine": "IT",
+    "pertinent": false
+  },
+  {
+    "question": "Quels sont les délais légaux de préavis de licenciement ?",
+    "domaine": "IT",
+    "pertinent": false
+  }
+]
