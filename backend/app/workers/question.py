@@ -1,7 +1,7 @@
-from app.services.search import search_hybrid
-from app.workers.celery_app import celery_app
 from app.database import SessionLocal
 from app.models.reponse import Reponse
+from app.services.search import search_hybrid
+from app.workers.celery_app import celery_app
 
 SEUIL_COSINUS = 0.50  # TEMPORAIRE — à recalibrer avec BGE-M3 réel sur Spark
 
@@ -38,7 +38,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
             print(
                 f"[QUESTION] Score {top_score:.4f} ≥ seuil {SEUIL_COSINUS} → lookup PostgreSQL"
             )
-            doc_id = chunks[0].get("doc_id")
+            chunks[0].get("doc_id")
 
             db = SessionLocal()
             try:
@@ -52,7 +52,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                 db.close()
 
         if reponse_canonique:
-            print(f"[QUESTION] ✅ Réponse canonique trouvée — pas d'appel LLM")
+            print("[QUESTION] ✅ Réponse canonique trouvée — pas d'appel LLM")
             return {
                 "statut": "OK",
                 "branche": "CANONIQUE",
