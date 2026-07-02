@@ -56,6 +56,7 @@ jobs:
             VALKEY_URL: redis://localhost:6379/0
             LLM_URL: http://localhost:8000
             LLM_MODEL_NAME: mock-model
+            DOCUMENTS_STORAGE_PATH: ./test_storage_dir
             PYTHONPATH: .
         working-directory: backend
         run: pytest
