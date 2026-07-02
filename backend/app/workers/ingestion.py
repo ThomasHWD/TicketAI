@@ -1,7 +1,7 @@
 import os
+import re
 import shutil
 import uuid
-import re
 
 from langchain_community.document_loaders import Docx2txtLoader, PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
