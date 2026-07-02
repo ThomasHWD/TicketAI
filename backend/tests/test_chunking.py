@@ -3,7 +3,7 @@ from app.workers.ingestion import chunk_text, clean_text
 
 def test_chunk_text_it():
     pages = ["Mot " * 200]
-    chunks = chunk_text(pages, "IT")
+    chunks = chunk_text(pages)
     assert len(chunks) > 0
     assert all(len(c) > 0 for c in chunks)
 
