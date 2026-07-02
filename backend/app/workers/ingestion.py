@@ -1,6 +1,7 @@
 import os
 import shutil
 import uuid
+import re
 
 from langchain_community.document_loaders import Docx2txtLoader, PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -11,8 +12,20 @@ from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
 
-CHUNK_SIZE = 512
-CHUNK_OVERLAP = 64
+CHUNK_SIZE = 384
+CHUNK_OVERLAP = 48
+
+
+def clean_text(text: str) -> str:
+    # Supprime les numéros de page isolés
+    text = re.sub(r"\n\s*\d+\s*\n", "\n", text)
+    # Supprime les espaces multiples
+    text = re.sub(r" +", " ", text)
+    # Supprime les lignes vides multiples
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    # Supprime les headers/footers répétitifs (ligne < 5 mots répétée)
+    text = text.strip()
+    return text
 
 
 def extract_text(file_path) -> list[str]:
@@ -25,16 +38,16 @@ def extract_text(file_path) -> list[str]:
     if ext == ".pdf":
         loader = PyMuPDFLoader(file_path)
         docs = loader.load()
-        return [doc.page_content for doc in docs]
+        return [clean_text(doc.page_content) for doc in docs]
 
     elif ext == ".docx":
         loader = Docx2txtLoader(file_path)
         docs = loader.load()
-        return [doc.page_content for doc in docs]
+        return [clean_text(doc.page_content) for doc in docs]
 
     elif ext in [".txt", ".md"]:
         with open(file_path, "r", encoding="utf-8") as f:
-            return [f.read()]
+            return [clean_text(f.read())]
     else:
         raise ValueError(f"Type de fichier non supporté : {ext}")
 
