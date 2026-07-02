@@ -1,51 +1,101 @@
 [
   {
-    "question": "Quelles sont les origines philosophiques de l'intelligence artificielle ?",
+    "question": "Qui a conçu les premières machines à calculer mécaniques au XVIIe siècle ? [cite: 13]",
     "domaine": "IT",
     "pertinent": true
   },
   {
-    "question": "Comment fonctionne l'apprentissage automatique ?",
+    "question": "Qu'est-ce que le jeu de l'imitation proposé par Alan Turing en 1950 pour évaluer l'intelligence d'une machine ? [cite: 22, 23]",
     "domaine": "IT",
     "pertinent": true
   },
   {
-    "question": "Qu'est-ce que l'IA générative ?",
+    "question": "Quels scientifiques visionnaires ont participé à l'atelier historique du Dartmouth College à l'été 1956 ? [cite: 29, 30]",
     "domaine": "IT",
     "pertinent": true
   },
   {
-    "question": "Quels sont les risques liés au développement de l'IA ?",
+    "question": "Quelle est la différence fondamentale entre l'approche symbolique (GOFAI) et l'approche connexionniste ? [cite: 37, 39]",
     "domaine": "IT",
     "pertinent": true
   },
   {
-    "question": "Comment les réseaux de neurones ont-ils évolué ?",
+    "question": "Quel problème logique simple le Perceptron à couche unique était-il incapable de résoudre selon le livre de Minsky et Papert en 1969 ? [cite: 46, 47]",
     "domaine": "IT",
     "pertinent": true
   },
   {
-    "question": "Quelle est la procédure pour poser des congés payés ?",
+    "question": "Qu'est-ce qui a caractérisé le premier 'Hiver de l'IA' au début des années 1970 après le rapport Lighthill ? [cite: 52, 53]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Quels sont les inconvénients majeurs des systèmes experts qui ont conduit au second hiver de l'IA à la fin des années 1980 ? [cite: 55, 57, 58]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Quel algorithme mathématique popularisé au milieu des années 1980 a permis d'entraîner des réseaux de neurones à plusieurs couches cachées ? [cite: 63, 64]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Sur quel type de puissance de calcul le supercalculateur Deep Blue d'IBM reposait-il pour battre Garry Kasparov en 1997 ? [cite: 71, 72]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Quelle innovation matérielle a été utilisée par l'équipe d'AlexNet en 2012 pour gérer les calculs matriciels parallèles massifs ? [cite: 78, 79, 80]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Comment le programme AlphaGo de DeepMind a-t-il développé une forme d'intuition artificielle pour battre Lee Sedol ? [cite: 86, 87]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Quel mécanisme permet à l'architecture Transformer de traiter tous les mots d'un texte simultanément de manière partagée ? [cite: 93, 94]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Pourquoi qualifie-t-on souvent les grands réseaux de neurones profonds de 'boîtes noires' ? [cite: 104]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Qu'est-ce que le problème de l'alignement et quel est son objectif principal pour la sécurité de l'humanité ? [cite: 110, 111]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Quelle approche réglementaire l'Union européenne a-t-elle adoptée dans son projet de loi AI Act ? [cite: 113]",
+    "domaine": "IT",
+    "pertinent": true
+  },
+  {
+    "question": "Comment configurer un reverse proxy Nginx pour distribuer la charge sur trois conteneurs FastAPI distincts ?",
     "domaine": "IT",
     "pertinent": false
   },
   {
-    "question": "Comment réinitialiser mon mot de passe Windows ?",
+    "question": "Quelle est la commande Celery exacte pour purger toutes les tâches en attente dans la file d'attente Redis ?",
     "domaine": "IT",
     "pertinent": false
   },
   {
-    "question": "Quelle est la recette de la tarte aux pommes ?",
+    "question": "Comment résoudre une erreur d'importation de module provoquée par une mauvaise configuration de la variable PYTHONPATH ?",
     "domaine": "IT",
     "pertinent": false
   },
   {
-    "question": "Comment fonctionne un moteur à combustion ?",
+    "question": "Quelle est la méthode recommandée pour migrer une base de données relationnelle PostgreSQL vers un cluster de documents MongoDB ?",
     "domaine": "IT",
     "pertinent": false
   },
   {
-    "question": "Quels sont les délais légaux de préavis de licenciement ?",
+    "question": "Quels sont les meilleurs hyperparamètres pour optimiser un modèle de vision par ordinateur YOLOv8 sur un dataset de support technique ?",
     "domaine": "IT",
     "pertinent": false
   }

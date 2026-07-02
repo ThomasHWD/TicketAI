@@ -1,3 +1,5 @@
+from app.database import SessionLocal
+from app.models.reponse import Reponse
 from app.services.search import search_hybrid
 from app.workers.celery_app import celery_app
 
@@ -28,13 +30,49 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                     source={chunk['source']}"
             )
 
+        top_score = chunks[0]["score_cosinus"] if chunks else 0.0
+
+        # Etape 2 - Lookup PostgreSQL branche canonique
+        reponse_canonique = None
+        if top_score >= SEUIL_COSINUS:
+            print(
+                f"[QUESTION] Score {top_score:.4f} ≥ seuil {SEUIL_COSINUS} → lookup PostgreSQL"
+            )
+            chunks[0].get("doc_id")
+
+            db = SessionLocal()
+            try:
+                reponse_canonique = (
+                    db.query(Reponse)
+                    .filter(Reponse.statut == "VALIDÉE")
+                    .order_by(Reponse.validated_at.desc())
+                    .first()
+                )
+            finally:
+                db.close()
+
+        if reponse_canonique:
+            print("[QUESTION] ✅ Réponse canonique trouvée — pas d'appel LLM")
+            return {
+                "statut": "OK",
+                "branche": "CANONIQUE",
+                "question": question,
+                "reponse": reponse_canonique.contenu,
+                "top_score_cosinus": top_score,
+            }
+
+        # Étape 3 — Reranking (Jour 14)
+        # Étape 4 — Génération LLM (Jour 14)
+        print(
+            f"[QUESTION] Score {top_score:.4f} < seuil ou pas de réponse validée → pipeline RAG"
+        )
         return {
             "statut": "OK",
+            "branche": "RAG",
             "question": question,
             "domaine": domaine,
             "nb_chunks": len(chunks),
-            "top_score_cosinus": chunks[0]["score_cosinus"] if chunks else 0,
-            "top_score_rrf": chunks[0]["score_rrf"] if chunks else 0,
+            "top_score_cosinus": top_score,
         }
 
     except Exception as exc:
