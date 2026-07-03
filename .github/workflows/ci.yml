@@ -43,6 +43,10 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
+      
+      - name: Start Qdrant DB
+        run: |
+          docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
       - name: Run tests
         env:
