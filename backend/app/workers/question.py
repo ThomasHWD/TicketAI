@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from app.database import SessionLocal
 from app.models.reponse import Reponse
@@ -64,46 +65,62 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
 
         # Étape 4 — Génération LLM
         print("[QUESTION] Génération LLM...")
-        reponse_texte = generate(question, chunks_rerankes)
-        print(f"[QUESTION] ✅ Réponse générée ({len(reponse_texte)} caractères)")
+        try:
+            reponse_texte = generate(question, chunks_rerankes)
+            print(f"[QUESTION] ✅ Réponse générée ({len(reponse_texte)} caractères)")
+            statut_job = "TERMINÉ"
+            erreur = None
+        except Exception as llm_exc:
+            print(f"[QUESTION] ❌ Erreur LLM : {llm_exc}")
+            reponse_texte = None
+            statut_job = "ÉCHOUÉ"
+            erreur = str(llm_exc)
 
-       # Étape 5 — Sauvegarde PostgreSQL
+        # Étape 5 — Sauvegarde PostgreSQL
         db = SessionLocal()
         try:
-            # Crée d'abord le ticket
             ticket = Ticket(
                 id=uuid.uuid4(),
                 question=question,
                 domaine=domaine,
                 user_id=uuid.UUID(user_id) if user_id else None,
                 job_id=uuid.UUID(self.request.id),
-                statut_job="TERMINÉ",
-                statut_ticket="RÉPONDU",
+                statut_job=statut_job,
+                statut_ticket="RÉPONDU" if reponse_texte else "NOUVEAU",
                 score_similarite=top_score,
                 canonique=False,
+                erreur=erreur,
+                processed_at=datetime.now(timezone.utc),
             )
             db.add(ticket)
-            db.flush()  # génère l'id sans commit
+            db.flush()
 
-            # Puis la réponse liée au ticket
-            reponse = Reponse(
-                id=uuid.uuid4(),
-                ticket_id=ticket.id,
-                contenu=reponse_texte,
-                statut="EN_ATTENTE",
-                source="LLM",
-                score_similarite=top_score,
-            )
-            db.add(reponse)
+            if reponse_texte:
+                reponse = Reponse(
+                    id=uuid.uuid4(),
+                    ticket_id=ticket.id,
+                    contenu=reponse_texte,
+                    statut="EN_ATTENTE",
+                    source="LLM",
+                    score_similarite=top_score,
+                )
+                db.add(reponse)
+
             db.commit()
-            db.refresh(reponse)
-            reponse_id = str(reponse.id)
+            db.refresh(ticket)
             ticket_id = str(ticket.id)
+            reponse_id = str(reponse.id) if reponse_texte else None
         finally:
             db.close()
 
         print(f"[QUESTION] Ticket créé (id={ticket_id})")
-        print(f"[QUESTION] Réponse sauvegardée (id={reponse_id})")
+
+        # Si LLM a échoué après sauvegarde → retry
+        if statut_job == "ÉCHOUÉ":
+            raise self.retry(
+                exc=Exception(erreur),
+                countdown=60
+            )
 
         return {
             "statut": "OK",
