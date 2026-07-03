@@ -13,7 +13,7 @@ from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
 
 CHUNK_SIZE = 384
-CHUNK_OVERLAP = 48
+CHUNK_OVERLAP = 128
 
 
 def clean_text(text: str) -> str:
