@@ -1,11 +1,12 @@
-from app.workers.celery_app import celery_app
-from app.services.search import search_hybrid
-from app.services.reranker import rerank
-from app.services.llm import generate
+import uuid
+
 from app.database import SessionLocal
 from app.models.reponse import Reponse
 from app.models.ticket import Ticket
-import uuid
+from app.services.llm import generate
+from app.services.reranker import rerank
+from app.services.search import search_hybrid
+from app.workers.celery_app import celery_app
 
 SEUIL_COSINUS = 0.48
 
@@ -18,12 +19,12 @@ SEUIL_COSINUS = 0.48
 )
 def question_job(self, question: str, domaine: str, user_id: str | None = None):
     try:
-        print(f"❓ --- NOUVELLE QUESTION ---")
+        print("❓ --- NOUVELLE QUESTION ---")
         print(f"[QUESTION] Domaine  : {domaine}")
         print(f"[QUESTION] Question : {question}")
 
         # Étape 1 — Embedding + recherche hybride
-        print(f"[QUESTION] Recherche hybride dans Qdrant...")
+        print("[QUESTION] Recherche hybride dans Qdrant...")
         chunks = search_hybrid(question, domaine, top_k=15)
         print(f"[QUESTION] {len(chunks)} chunks trouvés")
 
@@ -46,7 +47,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                 db.close()
 
             if reponse_canonique:
-                print(f"[QUESTION] ✅ Réponse canonique trouvée")
+                print("[QUESTION] ✅ Réponse canonique trouvée")
                 return {
                     "statut": "OK",
                     "branche": "CANONIQUE",
@@ -56,13 +57,13 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                 }
 
         # Étape 3 — Reranking
-        print(f"[QUESTION] Reranking des chunks...")
+        print("[QUESTION] Reranking des chunks...")
         chunks_rerankes = rerank(question, chunks, top_k=5)
         for i, chunk in enumerate(chunks_rerankes):
             print(f"[QUESTION] Rerank #{i+1} score={chunk['rerank_score']:.4f} source={chunk['source']}")
-        
+
         # Étape 4 — Génération LLM
-        print(f"[QUESTION] Génération LLM...")
+        print("[QUESTION] Génération LLM...")
         reponse_texte = generate(question, chunks_rerankes)
         print(f"[QUESTION] ✅ Réponse générée ({len(reponse_texte)} caractères)")
 

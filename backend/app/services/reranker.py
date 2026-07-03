@@ -23,7 +23,7 @@ def rerank(question: str, chunks: list[dict], top_k: int = 3) -> list[dict]:
     scores = reranker.predict(pairs)
 
     ranked = sorted(
-        zip(chunks, scores),
+        zip(chunks, scores, strict=False),
         key=lambda x: x[1],
         reverse=True
     )

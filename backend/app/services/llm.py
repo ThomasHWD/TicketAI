@@ -12,7 +12,7 @@ def generate(question: str, chunks: list[dict]) -> str:
         for c in chunks
     ])
 
-    prompt_system = """Tu es un assistant de support interne. 
+    prompt_system = """Tu es un assistant de support interne.
 Réponds uniquement à partir des documents fournis dans le contexte.
 Si l'information n'est pas dans le contexte, dis-le explicitement.
 Ne génère jamais d'information qui ne figure pas dans les sources.

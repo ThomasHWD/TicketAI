@@ -1,5 +1,4 @@
-from unittest.mock import patch, MagicMock
-import numpy as np
+from unittest.mock import patch
 
 
 def make_chunks(n=3):
