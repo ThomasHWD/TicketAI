@@ -12,8 +12,27 @@ from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
 
-CHUNK_SIZE = 384
-CHUNK_OVERLAP = 128
+CHUNK_SIZE = 384     # en tokens BGE-M3 (conforme spec Phase 2)
+CHUNK_OVERLAP = 128  # en tokens BGE-M3
+
+_splitter = None
+
+
+def get_splitter() -> RecursiveCharacterTextSplitter:
+    """Splitter basé sur le tokenizer BGE-M3 : chunk_size/overlap comptés en tokens,
+    pas en caractères (le seuil cosinus est calibré sur des chunks de 384 tokens)."""
+    global _splitter
+    if _splitter is None:
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained("BAAI/bge-m3")
+        _splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
+            tokenizer,
+            chunk_size=CHUNK_SIZE,
+            chunk_overlap=CHUNK_OVERLAP,
+            separators=["\n\n", "\n", ".", " ", ""],
+        )
+    return _splitter
 
 
 def clean_text(text: str) -> str:
@@ -53,12 +72,8 @@ def extract_text(file_path) -> list[str]:
 
 
 def chunk_text(pages: list[str]) -> list[str]:
-    """Découpe le texte en chunks"""
-    return RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ".", " ", ""],
-    ).split_text("\n\n".join(pages))
+    """Découpe le texte en chunks de CHUNK_SIZE tokens BGE-M3"""
+    return get_splitter().split_text("\n\n".join(pages))
 
 
 def store_file(tmp_path: str, doc_id: str, filename: str) -> str:
