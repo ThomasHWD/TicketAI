@@ -1,0 +1,73 @@
+import uuid
+from unittest.mock import MagicMock
+
+import pytest
+
+REPONSE_ID = str(uuid.uuid4())
+VALIDATOR_ID = "00000000-0000-0000-0000-000000000001"
+
+
+def make_reponse(statut="EN_ATTENTE"):
+    r = MagicMock()
+    r.id = uuid.UUID(REPONSE_ID)
+    r.statut = statut
+    r.ticket_id = uuid.uuid4()
+    r.contenu = "Réponse test"
+    r.contenu_corrige = None
+    r.validator_id = None
+    r.validated_at = None
+    return r
+
+
+def make_ticket():
+    t = MagicMock()
+    t.user_id = uuid.uuid4()  # différent du validator
+    t.statut_ticket = "RÉPONDU"
+    return t
+
+
+def test_verifier_etat_initial_bloque_etat_final():
+    from app.api.v1.reponses import verifier_etat_initial
+    from fastapi import HTTPException
+
+    reponse = make_reponse(statut="VALIDÉE")
+    with pytest.raises(HTTPException) as exc:
+        verifier_etat_initial(reponse)
+    assert exc.value.status_code == 409
+
+
+def test_verifier_etat_initial_autorise_en_attente():
+    from app.api.v1.reponses import verifier_etat_initial
+
+    reponse = make_reponse(statut="EN_ATTENTE")
+    verifier_etat_initial(reponse)  # ne doit pas lever
+
+
+def test_verifier_auto_validation_bloque_si_meme_user():
+    from app.api.v1.reponses import verifier_auto_validation
+    from fastapi import HTTPException
+
+    validator_id = uuid.uuid4()
+    reponse = make_reponse()
+    ticket = MagicMock()
+    ticket.user_id = validator_id
+    with pytest.raises(HTTPException) as exc:
+        verifier_auto_validation(reponse, validator_id, ticket)
+    assert exc.value.status_code == 403
+
+
+def test_verifier_auto_validation_autorise_si_user_different():
+    from app.api.v1.reponses import verifier_auto_validation
+
+    reponse = make_reponse()
+    ticket = make_ticket()
+    verifier_auto_validation(reponse, uuid.uuid4(), ticket)  # ne doit pas lever
+
+
+def test_etats_finaux_complets():
+    from app.api.v1.reponses import ETATS_FINAUX
+
+    assert "VALIDÉE" in ETATS_FINAUX
+    assert "REJETÉE" in ETATS_FINAUX
+    assert "CORRIGÉE" in ETATS_FINAUX
+    assert "EN_ATTENTE" not in ETATS_FINAUX
