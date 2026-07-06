@@ -1,6 +1,6 @@
 from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
-from qdrant_client.models import SparseVector
+from qdrant_client.models import FieldCondition, Filter, MatchValue, SparseVector
 
 
 def reciprocal_rank_fusion(dense_results, sparse_results, k: int = 60) -> list[dict]:
@@ -33,6 +33,7 @@ def reciprocal_rank_fusion(dense_results, sparse_results, k: int = 60) -> list[d
             "domaine": payloads[pid].get("domaine"),
             "doc_id": payloads[pid].get("doc_id"),
             "chunk_index": payloads[pid].get("chunk_index"),
+            "reponse_id": payloads[pid].get("reponse_id"),  # ← réponse canonique liée (Phase 4)
         }
         for pid in sorted_ids
     ]
@@ -44,10 +45,16 @@ def search_hybrid(question: str, domaine: str, top_k: int = 10) -> list[dict]:
     embeddings = embed_texts([question], is_query=True)
     emb = embeddings[0]
 
+    # Filtre strict par domaine : pas de fuite inter-domaines (IT / RH / JURIDIQUE)
+    domaine_filter = Filter(
+        must=[FieldCondition(key="domaine", match=MatchValue(value=domaine))]
+    )
+
     dense_results = client.query_points(
         collection_name=COLLECTION_NAME,
         query=emb["dense"],
         using="dense",
+        query_filter=domaine_filter,
         limit=top_k,
         with_payload=True,
     )
@@ -59,6 +66,7 @@ def search_hybrid(question: str, domaine: str, top_k: int = 10) -> list[dict]:
             values=emb["sparse"]["values"]
         ),
         using="sparse",
+        query_filter=domaine_filter,
         limit=top_k,
         with_payload=True,
     )
