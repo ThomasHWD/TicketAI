@@ -111,6 +111,14 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                         processed_at=datetime.now(timezone.utc),
                     )
                     ticket_id = str(ticket.id)
+
+                    # ADD OCCURENCE +1
+                    ticket_source = db.query(Ticket).filter(
+                    Ticket.id == reponse_canonique.ticket_id
+                    ).first()
+
+                    if ticket_source:
+                        ticket_source.occurence += 1
                     db.commit()
 
                     return {

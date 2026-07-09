@@ -22,6 +22,7 @@ class Ticket(Base):
     score_similarite = Column(Float, nullable=True)
     canonique        = Column(Boolean, nullable=False, default=False)
     nb_retries       = Column(Integer, nullable=False, default=0)
+    occurence        = Column(Integer, nullable=False, default=0)
     erreur           = Column(Text, nullable=True)
     created_at       = Column(DateTime(timezone=True), server_default=func.now())
     processed_at     = Column(DateTime(timezone=True), nullable=True)
