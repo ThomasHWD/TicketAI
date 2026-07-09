@@ -16,7 +16,7 @@ def generate(question: str, chunks: list[dict]) -> str:
 Réponds uniquement à partir des documents fournis dans le contexte.
 Si l'information n'est pas dans le contexte, dis-le explicitement.
 Ne génère jamais d'information qui ne figure pas dans les sources.
-Réponds de manière formelleen français, de façon concise et précise."""
+Réponds de manière formelle en français, de façon concise et précise."""
 
     prompt_user = f"""Contexte :
 {context}

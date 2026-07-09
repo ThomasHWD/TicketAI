@@ -7,6 +7,7 @@ from app.database import SessionLocal
 from app.models.reponse import Reponse
 from app.models.ticket import Ticket
 from app.schemas.reponse import CorrigerRequest, RejeterRequest, ValiderRequest
+from app.workers.feedback import feedback_job
 
 router = APIRouter()
 
@@ -14,9 +15,7 @@ ETATS_FINAUX = {"VALIDÉE", "REJETÉE", "CORRIGÉE"}
 
 
 def get_reponse_or_404(db, reponse_id: str) -> Reponse:
-    reponse = db.query(Reponse).filter(
-        Reponse.id == uuid.UUID(reponse_id)
-    ).first()
+    reponse = db.query(Reponse).filter(Reponse.id == uuid.UUID(reponse_id)).first()
     if not reponse:
         raise HTTPException(404, f"Réponse {reponse_id} introuvable")
     return reponse
@@ -27,15 +26,14 @@ def verifier_etat_initial(reponse: Reponse):
         raise HTTPException(
             409,
             f"Réponse déjà traitée (statut={reponse.statut}). "
-            f"Seules les réponses EN_ATTENTE peuvent être traitées."
+            f"Seules les réponses EN_ATTENTE peuvent être traitées.",
         )
 
 
 def verifier_auto_validation(reponse: Reponse, validator_id: uuid.UUID, ticket: Ticket):
     if ticket and ticket.user_id and ticket.user_id == validator_id:
         raise HTTPException(
-            403,
-            "Un validateur ne peut pas traiter ses propres tickets."
+            403, "Un validateur ne peut pas traiter ses propres tickets."
         )
 
 
@@ -46,9 +44,7 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
         reponse = get_reponse_or_404(db, reponse_id)
         verifier_etat_initial(reponse)
 
-        ticket = db.query(Ticket).filter(
-            Ticket.id == reponse.ticket_id
-        ).first()
+        ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
         verifier_auto_validation(reponse, payload.validator_id, ticket)
 
         # Transition EN_ATTENTE → VALIDÉE
@@ -61,13 +57,19 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
 
         db.commit()
 
-        print(f"[VALIDATION] ✅ Réponse {reponse_id} validée par {payload.validator_id}")
+        # Feedback job to reindex the validated response in Qdrant
+        print(f"[VALIDATION] ✅ Réponse {reponse_id} validée et en cours d'indexation dans Qdrant.")
+        feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
+
+        print(
+            f"[VALIDATION] ✅ Réponse {reponse_id} validée par {payload.validator_id}"
+        )
 
         return {
             "reponse_id": reponse_id,
             "statut": "VALIDÉE",
             "validated_at": reponse.validated_at.isoformat(),
-            "message": "Réponse validée. La boucle de feedback sera déclenchée au Jour 18."
+            "message": "Réponse validée.",
         }
     finally:
         db.close()
@@ -80,9 +82,7 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest):
         reponse = get_reponse_or_404(db, reponse_id)
         verifier_etat_initial(reponse)
 
-        ticket = db.query(Ticket).filter(
-            Ticket.id == reponse.ticket_id
-        ).first()
+        ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
         verifier_auto_validation(reponse, payload.validator_id, ticket)
 
         # Transition EN_ATTENTE → REJETÉE
@@ -95,13 +95,15 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest):
 
         db.commit()
 
-        print(f"[VALIDATION] ❌ Réponse {reponse_id} rejetée par {payload.validator_id}")
+        print(
+            f"[VALIDATION] ❌ Réponse {reponse_id} rejetée par {payload.validator_id}"
+        )
 
         return {
             "reponse_id": reponse_id,
             "statut": "REJETÉE",
             "raison": payload.raison,
-            "message": "Réponse rejetée."
+            "message": "Réponse rejetée.",
         }
     finally:
         db.close()
@@ -117,9 +119,7 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
         if not payload.contenu_corrige.strip():
             raise HTTPException(400, "Le contenu corrigé ne peut pas être vide.")
 
-        ticket = db.query(Ticket).filter(
-            Ticket.id == reponse.ticket_id
-        ).first()
+        ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
         verifier_auto_validation(reponse, payload.validator_id, ticket)
 
         # Transition EN_ATTENTE → CORRIGÉE
@@ -133,13 +133,15 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
 
         db.commit()
 
-        print(f"[VALIDATION] ✏️  Réponse {reponse_id} corrigée par {payload.validator_id}")
+        # Feedback job to reindex the validated response in Qdrant
+        print(f"[CORRECTION] ✏️  Réponse {reponse_id} corrigée et en cours d'indexation dans Qdrant.")
+        feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
 
         return {
             "reponse_id": reponse_id,
             "statut": "CORRIGÉE",
             "contenu_corrige": payload.contenu_corrige,
-            "message": "Réponse corrigée. La boucle de feedback sera déclenchée au Jour 18."
+            "message": "Réponse corrigée.",
         }
     finally:
         db.close()
@@ -150,10 +152,10 @@ async def lister_reponses_en_attente(domaine: str | None = None, limit: int = 20
     """Liste les réponses en attente de validation — utile pour l'interface back-office."""
     db = SessionLocal()
     try:
-        query = db.query(Reponse, Ticket).join(
-            Ticket, Ticket.id == Reponse.ticket_id
-        ).filter(
-            Reponse.statut == "EN_ATTENTE"
+        query = (
+            db.query(Reponse, Ticket)
+            .join(Ticket, Ticket.id == Reponse.ticket_id)
+            .filter(Reponse.statut == "EN_ATTENTE")
         )
 
         if domaine:
