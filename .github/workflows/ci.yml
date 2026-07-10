@@ -62,6 +62,13 @@ jobs:
             LLM_URL: http://localhost:8000
             LLM_MODEL_NAME: mock-model
             DOCUMENTS_STORAGE_PATH: ./test_storage_dir
+            ALBERT_API_KEY: "mock_key_for_tests"
+            ALBERT_LLM_URL: "https://localhost/v1"
+            ALBERT_LLM_MODEL_NAME: "mock-llm"
+            ALBERT_EMBEDDINGS_URL: "https://localhost/v1"
+            ALBERT_EMBEDDINGS_MODEL_NAME: "mock-embeddings"
+            ALBERT_RERANKER_URL: "https://localhost/v1/rerank"
+            ALBERT_RERANKER_MODEL_NAME: "mock-reranker"
             PYTHONPATH: .
         working-directory: backend
         run: pytest

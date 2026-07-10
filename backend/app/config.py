@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     # IA
     llm_url: str
     llm_model_name: str
+    albert_api_key: str
+    albert_llm_url: str
+    albert_llm_model_name: str
+    albert_embeddings_url: str
+    albert_embeddings_model_name: str
+    albert_reranker_url: str
+    albert_reranker_model_name: str
 
     # Documents storage
     documents_storage_path: str
