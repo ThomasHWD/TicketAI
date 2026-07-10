@@ -1,44 +1,33 @@
-import os
+from app.config import settings
+from openai import OpenAI
 
-from FlagEmbedding import BGEM3FlagModel
-
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-_model = None
-
-def get_model() -> BGEM3FlagModel:
-    global _model
-    if _model is None:
-        print("[EMBEDDING] Chargement BGE-M3 via FlagEmbedding...")
-        _model = BGEM3FlagModel(
-            'BAAI/BGE-M3',
-            use_fp16=False,  # CPU — pas de fp16
-        )
-        print("[EMBEDDING] BGE-M3 prêt")
-    return _model
-
+# Initialisation du client configuré pour Albert
+client = OpenAI(
+    base_url=settings.albert_llm_url,
+    api_key=settings.albert_api_key
+)
 
 def embed_texts(texts: list[str], is_query: bool = False) -> list[dict]:
-    model = get_model()
-
-    output = model.encode(
-        texts,
-        return_dense=True,
-        return_sparse=True,
-        return_colbert_vecs=False,
-    )
-
+    # Limite imposée par l'API Albert
+    MAX_BATCH_SIZE = 64
     results = []
-    for i in range(len(texts)):
-        dense = output["dense_vecs"][i].tolist()
 
-        sparse_weights = output["lexical_weights"][i]
-        indices = [int(k) for k in sparse_weights.keys()]
-        values = [float(v) for v in sparse_weights.values()]
+    # On découpe la liste 'texts' en morceaux de 64
+    for i in range(0, len(texts), MAX_BATCH_SIZE):
+        batch = texts[i:i + MAX_BATCH_SIZE]
 
-        results.append({
-            "dense": dense,
-            "sparse": {"indices": indices, "values": values}
-        })
+        print(f"[EMBEDDING] Envoi d'un lot de {len(batch)} textes à l'API Albert ({i + len(batch)}/{len(texts)})...")
+
+        response = client.embeddings.create(
+            model=settings.albert_embeddings_model_name,
+            input=batch  # On envoie uniquement le lot courant
+        )
+
+        # On extrait les embeddings de ce lot et on les ajoute à nos résultats globaux
+        for item in response.data:
+            results.append({
+                "dense": item.embedding,
+                "sparse": {"indices": [], "values": []}
+            })
 
     return results
