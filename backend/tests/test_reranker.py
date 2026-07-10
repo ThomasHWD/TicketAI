@@ -1,54 +1,66 @@
-from unittest.mock import patch
-
-
-def make_chunks(n=3):
-    return [
-        {
-            "contenu": f"texte {i}",
-            "source": "doc.pdf",
-            "score_cosinus": 0.5,
-            "score_rrf": 0.01,
-            "doc_id": "1",
-            "domaine": "IT",
-            "chunk_index": i,
-        }
-        for i in range(n)
-    ]
+from unittest.mock import MagicMock, patch
 
 
 def test_rerank_chunks_vides():
     from app.services.reranker import rerank
 
-    with patch("app.services.reranker.get_reranker") as mock:
-        mock.return_value.predict.return_value = []
-        results = rerank("question", [], top_k=3)
-        assert results == []
+    # Si la liste est vide, pas d'appel API, retour immédiat
+    assert rerank("question", []) == []
 
 
 def test_rerank_top_k_respecte():
     from app.services.reranker import rerank
 
-    with patch("app.services.reranker.get_reranker") as mock:
-        mock.return_value.predict.return_value = [0.9, 0.5, 0.3]
-        results = rerank("question test", make_chunks(3), top_k=2)
-        assert len(results) <= 2
+    chunks = [{"contenu": "texte A"}, {"contenu": "texte B"}]
+
+    with patch("app.services.reranker.requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "results": [{"index": 0, "relevance_score": 0.95}]
+        }
+        mock_post.return_value = mock_response
+
+        res = rerank("ma question", chunks, top_k=1)
+        assert len(res) == 1
+        assert res[0]["contenu"] == "texte A"
 
 
 def test_rerank_trie_par_score_decroissant():
     from app.services.reranker import rerank
 
-    with patch("app.services.reranker.get_reranker") as mock:
-        mock.return_value.predict.return_value = [0.3, 0.9]
-        chunks = make_chunks(2)
-        results = rerank("question", chunks, top_k=2)
-        assert results[0]["rerank_score"] >= results[1]["rerank_score"]
+    chunks = [{"contenu": "Moins bon"}, {"contenu": "Le meilleur"}]
+
+    with patch("app.services.reranker.requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        # Albert renvoie trié par score, par exemple l'index 1 en premier
+        mock_response.json.return_value = {
+            "results": [
+                {"index": 1, "relevance_score": 0.99},
+                {"index": 0, "relevance_score": 0.42},
+            ]
+        }
+        mock_post.return_value = mock_response
+
+        res = rerank("ma question", chunks, top_k=2)
+        assert res[0]["contenu"] == "Le meilleur"
+        assert res[1]["contenu"] == "Moins bon"
 
 
 def test_rerank_contient_rerank_score():
     from app.services.reranker import rerank
 
-    with patch("app.services.reranker.get_reranker") as mock:
-        mock.return_value.predict.return_value = [0.85]
-        results = rerank("deep learning", make_chunks(1), top_k=1)
-        assert "rerank_score" in results[0]
-        assert isinstance(results[0]["rerank_score"], float)
+    chunks = [{"contenu": "texte d'exemple"}]
+
+    with patch("app.services.reranker.requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "results": [{"index": 0, "relevance_score": 0.88}]
+        }
+        mock_post.return_value = mock_response
+
+        res = rerank("ma question", chunks)
+        assert "rerank_score" in res[0]
+        assert res[0]["rerank_score"] == 0.88

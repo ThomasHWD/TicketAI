@@ -26,9 +26,13 @@ Question : {question}
 Réponse :"""
 
     response = httpx.post(
-        f"{settings.llm_url}/chat/completions",
+        f"{settings.albert_llm_url}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {settings.albert_api_key}",
+            "Content-Type": "application/json",
+        },
         json={
-            "model": settings.llm_model_name,
+            "model": settings.albert_llm_model_name,
             "messages": [
                 {"role": "system", "content": prompt_system},
                 {"role": "user", "content": prompt_user}
