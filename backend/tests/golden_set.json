@@ -1,0 +1,42 @@
+[
+  {
+    "query": "Comment faire pour commander mon ordinateur et ma clé d'accès avant mon premier jour ?",
+    "expected_file": "Procedure_Onboarding_IT.md",
+    "ground_truth": "La commande de matériel (PC portable et clé Yubikey) doit être effectuée par le manager N+1 via le portail ITSM (ServiceNow) 7 jours avant l'arrivée du collaborateur, suite à la synchronisation du profil depuis le logiciel RH Workday."
+  },
+  {
+    "query": "Est-ce que mon manager a le droit de lire mes emails si je ne suis pas là ?",
+    "expected_file": "Charte_Utilisation_Informatique.md",
+    "ground_truth": "Conformément à l'Arrêt Nikon, l'employeur ne peut pas ouvrir les e-mails identifiés comme personnels par le salarié. Les messages ou dossiers doivent donc comporter explicitement la mention 'Personnel' ou 'Privé' pour être protégés ; à défaut, ils sont présumés professionnels et accessibles."
+  },
+  {
+    "query": "À combien s'élève la prime internet pour le travail à la maison et comment l'avoir ?",
+    "expected_file": "Accord_Teletravail_Reglementation.md",
+    "ground_truth": "OmniCorp verse une indemnité forfaitaire mensuelle de 15 € sur le bulletin de paie pour couvrir l'abonnement internet et l'énergie, sous réserve d'avoir signé un avenant au contrat de travail et d'effectuer au minimum 4 jours de télétravail par mois."
+  },
+  {
+    "query": "Je souhaite obtenir une copie complète de toutes les évaluations et fiches de paye de mon dossier de salarié. À qui dois-je écrire et quel est le délai ?",
+    "expected_file": "Gestion_Donnees_Salarie_RGPD.md",
+    "ground_truth": "Conformément à l'Article 15 du RGPD (droit d'accès), vous devez adresser votre demande au Délégué à la Protection des Données (DPO) à l'adresse dpo@omnicorp.fr. Les documents vous seront fournis dans un délai maximum d'un mois."
+  },
+  {
+    "query": "Combien de temps l'entreprise garde-t-elle l'historique de mes connexions internet et des accès VPN ?",
+    "expected_file": "Charte_Utilisation_Informatique.md",
+    "ground_truth": "Conformément au RGPD et aux directives de la CNIL, les logs de navigation web et de connexions VPN d'OmniCorp sont conservés pour une durée maximale de 90 jours avant d'être automatiquement purgés."
+  },
+  {
+    "query": "Je suis en télétravail et mon chef m'envoie des messages sur Slack à 22h, est-ce normal que je ne reçoive rien ? Est-ce que le système est en panne ?",
+    "expected_file": "Accord_Teletravail_Reglementation.md",
+    "ground_truth": "Le système n'est pas en panne. Dans le cadre du droit à la déconnexion chez OmniCorp (Art. L2242-17 du Code du travail), un blocage technique automatique des notifications push sur Slack et Teams est appliqué entre 20h00 et 07h00."
+  },
+  {
+    "query": "Un ancien salarié parti en 2019 demande à ce que l'on supprime son dossier papier et ses données de paie. Comment sont chiffrées ces bases et quand la suppression a-t-elle lieu ?",
+    "expected_file": "Gestion_Donnees_Salarie_RGPD.md",
+    "ground_truth": "Les bases de données de paie sont protégées par un chiffrement AES-256. La suppression et l'effacement des données du dossier RH s'effectuent de manière automatique et irréversible 5 ans après le départ effectif du salarié."
+  },
+  {
+    "query": "Quelles sont les modalités de remboursement du Pass Navigo pour mes trajets quotidiens jusqu'au siège d'OmniCorp ?",
+    "expected_file": null,
+    "ground_truth": "Désolé, je ne trouve aucune information dans la base de connaissances concernant les modalités de remboursement des frais de transport ou du Pass Navigo."
+  }
+]
