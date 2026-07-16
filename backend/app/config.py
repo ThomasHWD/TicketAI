@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     albert_reranker_url: str
     albert_reranker_model_name: str
 
+    # SEUILS
+    seuil_canonique: int = 3
+    seuil_cosinus: float = 0.60
+
     # Documents storage
     documents_storage_path: str
 
