@@ -10,6 +10,8 @@ load_dotenv()
 
 from app.database import Base  # noqa: E402
 
+# -------------------------
+
 config = context.config
 
 # Injecte l'URL construite depuis les variables d'environnement
@@ -37,7 +39,12 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
+        )
         with context.begin_transaction():
             context.run_migrations()
 
