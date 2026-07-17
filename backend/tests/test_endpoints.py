@@ -30,7 +30,8 @@ def test_verifier_etat_initial_bloque_etat_final():
     from app.api.v1.reponses import verifier_etat_initial
     from fastapi import HTTPException
 
-    reponse = make_reponse(statut="VALIDÉE")
+    # MODIFICATION : "VALIDÉE" -> "CANONIQUE"
+    reponse = make_reponse(statut="CANONIQUE")
     with pytest.raises(HTTPException) as exc:
         verifier_etat_initial(reponse)
     assert exc.value.status_code == 409
@@ -67,7 +68,8 @@ def test_verifier_auto_validation_autorise_si_user_different():
 def test_etats_finaux_complets():
     from app.api.v1.reponses import ETATS_FINAUX
 
-    assert "VALIDÉE" in ETATS_FINAUX
+    # MODIFICATION : "VALIDÉE" -> "CANONIQUE"
+    assert "CANONIQUE" in ETATS_FINAUX
     assert "REJETÉE" in ETATS_FINAUX
     assert "CORRIGÉE" in ETATS_FINAUX
     assert "EN_ATTENTE" not in ETATS_FINAUX

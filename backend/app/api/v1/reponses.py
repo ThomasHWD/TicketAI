@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models.reponse import Reponse
 from app.models.ticket import Ticket
@@ -11,7 +12,7 @@ from app.workers.feedback import feedback_job
 
 router = APIRouter()
 
-ETATS_FINAUX = {"VALIDÉE", "REJETÉE", "CORRIGÉE"}
+ETATS_FINAUX = {"REJETÉE", "CORRIGÉE", "CANONIQUE"}
 
 
 def get_reponse_or_404(db, reponse_id: str) -> Reponse:
@@ -55,21 +56,43 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
         if ticket:
             ticket.statut_ticket = "VALIDÉ"
 
+        reponse_source = None
+
+        # Increment the number of validations
+        if reponse.reponse_source_id:
+            # Incrémenter sur la réponse SOURCE, pas sur la réponse courante
+            reponse_source = db.query(Reponse).filter(
+                Reponse.id == reponse.reponse_source_id
+            ).first()
+            if reponse_source:
+                reponse_source.nb_validations += 1
+                if reponse_source.nb_validations >= settings.seuil_canonique:
+                    reponse_source.canonique = True
+        else:
+            # Pas de source → c'est une réponse LLM originale
+            reponse.nb_validations += 1
+            if reponse.nb_validations >= settings.seuil_canonique:
+                reponse.canonique = True
+
         db.commit()
 
         # Feedback job to reindex the validated response in Qdrant
-        print(f"[VALIDATION] ✅ Réponse {reponse_id} validée et en cours d'indexation dans Qdrant.")
-        feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
-
-        print(
-            f"[VALIDATION] ✅ Réponse {reponse_id} validée par {payload.validator_id}"
-        )
+        if reponse.reponse_source_id and reponse_source and reponse_source.canonique:
+            feedback_job.apply_async(args=[str(reponse_source.id)], queue="queue_ingestion")
+        elif not reponse.reponse_source_id and reponse.canonique:
+            feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
 
         return {
             "reponse_id": reponse_id,
             "statut": "VALIDÉE",
+            "nb_validations": reponse.nb_validations,
+            "canonique": reponse.canonique,
             "validated_at": reponse.validated_at.isoformat(),
-            "message": "Réponse validée.",
+            "message": (
+                "Réponse validée et indexée comme canonique."
+                if reponse.canonique
+                else "Réponse validée."
+            ),
         }
     finally:
         db.close()
@@ -134,7 +157,9 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
         db.commit()
 
         # Feedback job to reindex the validated response in Qdrant
-        print(f"[CORRECTION] ✏️  Réponse {reponse_id} corrigée et en cours d'indexation dans Qdrant.")
+        print(
+            f"[CORRECTION] ✏️  Réponse {reponse_id} corrigée et en cours d'indexation dans Qdrant."
+        )
         feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
 
         return {
