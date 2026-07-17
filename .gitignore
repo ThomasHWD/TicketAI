@@ -5,6 +5,7 @@ __pycache__/
 backend/.venv/
 TicketAI_Workflows.docx
 AUDIT_TICKETAI.md
+.claude
 
 # React / Node
 node_modules/
