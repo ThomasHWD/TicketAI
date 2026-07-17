@@ -4,23 +4,20 @@ from datetime import datetime, timezone
 from celery.exceptions import Retry
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models.reponse import Reponse
+from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
 from app.services.llm import generate
 from app.services.reranker import rerank
 from app.services.search import search_hybrid
 from app.workers.celery_app import celery_app
 
-SEUIL_COSINUS = 0.48
+SEUIL_COSINUS = settings.seuil_cosinus
 
 
 def _upsert_ticket(db: Session, job_id: uuid.UUID, **fields) -> Ticket:
-    """Crée ou met à jour le ticket lié à ce job.
-
-    Idempotent : au retry Celery, self.request.id est identique — on met à jour
-    le ticket existant au lieu de violer la contrainte UNIQUE sur job_id.
-    """
     ticket = db.query(Ticket).filter(Ticket.job_id == job_id).first()
     if ticket is None:
         ticket = Ticket(id=uuid.uuid4(), job_id=job_id, **fields)
@@ -32,8 +29,14 @@ def _upsert_ticket(db: Session, job_id: uuid.UUID, **fields) -> Ticket:
     return ticket
 
 
-def _upsert_reponse(db: Session, ticket: Ticket, contenu: str, top_score: float) -> Reponse:
-    """Crée ou met à jour la réponse LLM du ticket (idempotent au retry)."""
+def _upsert_reponse(
+    db: Session,
+    ticket: Ticket,
+    contenu: str,
+    top_score: float,
+    source: str = "LLM",
+    reponse_source_id: uuid.UUID | None = None,
+) -> Reponse:
     reponse = db.query(Reponse).filter(Reponse.ticket_id == ticket.id).first()
     if reponse is None:
         reponse = Reponse(
@@ -41,8 +44,9 @@ def _upsert_reponse(db: Session, ticket: Ticket, contenu: str, top_score: float)
             ticket_id=ticket.id,
             contenu=contenu,
             statut="EN_ATTENTE",
-            source="LLM",
+            source=source,
             score_similarite=top_score,
+            reponse_source_id=reponse_source_id,
         )
         db.add(reponse)
     else:
@@ -57,7 +61,7 @@ def _upsert_reponse(db: Session, ticket: Ticket, contenu: str, top_score: float)
     bind=True,
     max_retries=3,
     default_retry_delay=60,
-    queue="queue_questions"
+    queue="queue_questions",
 )
 def question_job(self, question: str, domaine: str, user_id: str | None = None):
     try:
@@ -74,31 +78,36 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
         print(f"[QUESTION] {len(chunks)} chunks trouvés")
 
         for i, chunk in enumerate(chunks[:3]):
-            print(f"[QUESTION] #{i+1} score_cosinus={chunk['score_cosinus']:.4f} source={chunk['source']}")
+            print(
+                f"[QUESTION] #{i+1} score_cosinus={chunk['score_cosinus']:.4f} source={chunk['source']}"
+            )
 
         top_score = chunks[0]["score_cosinus"] if chunks else 0.0
 
-        # Étape 2 — Branche canonique
-        # Le chunk qui franchit le seuil doit porter la référence de SA réponse
-        # validée (payload reponse_id, écrit lors de la réindexation Phase 4).
-        # Sans ce lien, on ne renvoie rien de canonique : on tombe dans le RAG.
+        # Étape 2.1 — Branche canonique (aucune validation humaine requise)
         reponse_id_canonique = chunks[0].get("reponse_id") if chunks else None
         if top_score >= SEUIL_COSINUS and reponse_id_canonique:
-            print(f"[QUESTION] Score {top_score:.4f} ≥ seuil {SEUIL_COSINUS} → lookup réponse {reponse_id_canonique}")
+            print(
+                f"[QUESTION] Score {top_score:.4f} ≥ seuil {SEUIL_COSINUS} → lookup réponse {reponse_id_canonique}"
+            )
             db = SessionLocal()
             try:
-                reponse_canonique = db.query(Reponse).filter(
-                    Reponse.id == uuid.UUID(str(reponse_id_canonique)),
-                    Reponse.statut == "VALIDÉE",
-                ).first()
-
+                reponse_canonique = (
+                    db.query(Reponse)
+                    .filter(
+                        Reponse.id == uuid.UUID(str(reponse_id_canonique)),
+                        Reponse.statut == "VALIDÉE",
+                    )
+                    .first()
+                )
                 if reponse_canonique:
                     print("[QUESTION] ✅ Réponse canonique trouvée")
-                    # Une correction humaine prime sur le contenu d'origine
-                    contenu_canonique = reponse_canonique.contenu_corrige or reponse_canonique.contenu
-
+                    contenu_canonique = (
+                        reponse_canonique.contenu_corrige or reponse_canonique.contenu
+                    )
                     ticket = _upsert_ticket(
-                        db, job_id,
+                        db,
+                        job_id,
                         question=question,
                         domaine=domaine,
                         user_id=user_uuid,
@@ -112,11 +121,11 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                     )
                     ticket_id = str(ticket.id)
 
-                    # ADD OCCURENCE +1
-                    ticket_source = db.query(Ticket).filter(
-                    Ticket.id == reponse_canonique.ticket_id
-                    ).first()
-
+                    ticket_source = (
+                        db.query(Ticket)
+                        .filter(Ticket.id == reponse_canonique.ticket_id)
+                        .first()
+                    )
                     if ticket_source:
                         ticket_source.occurence += 1
                     db.commit()
@@ -134,11 +143,94 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
             finally:
                 db.close()
 
+        # Étape 2.2 — Branche suggestion (validation humaine requise)
+        # Cherche une réponse VALIDÉE dont les chunks sources correspondent
+        # sémantiquement à la question actuelle (via doc_id des chunks Qdrant)
+        if top_score >= SEUIL_COSINUS:
+            print(
+                f"[QUESTION] Score {top_score:.4f} ≥ seuil {SEUIL_COSINUS} → recherche réponse validée par similarité"
+            )
+            db = SessionLocal()
+            try:
+                reponse_validee = None
+
+                # Parcourt les chunks retournés par Qdrant
+                # et cherche si l'un d'eux a servi à générer une réponse VALIDÉE
+                for chunk in chunks:
+                    doc_id = chunk.get("doc_id")
+                    if not doc_id:
+                        continue
+
+                    # Cherche une réponse VALIDÉE générée à partir de ce doc_id
+                    candidat = (
+                        db.query(Reponse)
+                        .join(ReponseChunk, ReponseChunk.reponse_id == Reponse.id)
+                        .join(Ticket, Ticket.id == Reponse.ticket_id)
+                        .filter(
+                            ReponseChunk.doc_id == doc_id,
+                            Reponse.statut == "VALIDÉE",
+                            Ticket.domaine == domaine,
+                        )
+                        .order_by(Reponse.nb_validations.desc())
+                        .first()
+                    )
+
+                    if candidat:
+                        reponse_validee = candidat
+                        print(
+                            f"[QUESTION] ✅ Réponse validée trouvée via doc_id={doc_id} (id={reponse_validee.id})"
+                        )
+                        break
+
+                if reponse_validee:
+                    contenu_suggere = (
+                        reponse_validee.contenu_corrige or reponse_validee.contenu
+                    )
+                    ticket = _upsert_ticket(
+                        db,
+                        job_id,
+                        question=question,
+                        domaine=domaine,
+                        user_id=user_uuid,
+                        statut_job="TERMINÉ",
+                        statut_ticket="RÉPONDU",
+                        score_similarite=top_score,
+                        canonique=False,
+                        nb_retries=self.request.retries,
+                        erreur=None,
+                        processed_at=datetime.now(timezone.utc),
+                    )
+                    reponse = _upsert_reponse(
+                        db,
+                        ticket,
+                        contenu_suggere,
+                        top_score,
+                        source="SUGGESTION",
+                        reponse_source_id=reponse_validee.id,
+                    )
+                    db.commit()
+
+                    return {
+                        "statut": "OK",
+                        "branche": "SUGGESTION",
+                        "question": question,
+                        "domaine": domaine,
+                        "reponse": contenu_suggere,
+                        "ticket_id": str(ticket.id),
+                        "reponse_id": str(reponse.id),
+                        "reponse_source_id": str(reponse_validee.id),
+                        "top_score_cosinus": top_score,
+                    }
+            finally:
+                db.close()
+
         # Étape 3 — Reranking
         print("[QUESTION] Reranking des chunks...")
         chunks_rerankes = rerank(question, chunks, top_k=5)
         for i, chunk in enumerate(chunks_rerankes):
-            print(f"[QUESTION] Rerank #{i+1} score={chunk['rerank_score']:.4f} source={chunk['source']}")
+            print(
+                f"[QUESTION] Rerank #{i+1} score={chunk['rerank_score']:.4f} source={chunk['source']}"
+            )
 
         # Étape 4 — Génération LLM
         print("[QUESTION] Génération LLM...")
@@ -153,11 +245,12 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
             statut_job = "ÉCHOUÉ"
             erreur = str(llm_exc)
 
-        # Étape 5 — Sauvegarde PostgreSQL (idempotente au retry via job_id)
+        # Étape 5 — Sauvegarde PostgreSQL + enregistrement chunks
         db = SessionLocal()
         try:
             ticket = _upsert_ticket(
-                db, job_id,
+                db,
+                job_id,
                 question=question,
                 domaine=domaine,
                 user_id=user_uuid,
@@ -175,6 +268,20 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                 reponse = _upsert_reponse(db, ticket, reponse_texte, top_score)
                 reponse_id = str(reponse.id)
 
+                # Enregistre les chunks utilisés pour la génération
+                for chunk in chunks_rerankes:
+                    if not chunk.get("doc_id"):
+                        continue
+                    rc = ReponseChunk(
+                        id=uuid.uuid4(),
+                        reponse_id=reponse.id,
+                        doc_id=chunk.get("doc_id"),
+                        chunk_index=chunk.get("chunk_index", 0),
+                        score_cosinus=chunk.get("score_cosinus"),
+                        rerank_score=chunk.get("rerank_score"),
+                    )
+                    db.add(rc)
+
             ticket_id = str(ticket.id)
             db.commit()
         finally:
@@ -182,12 +289,8 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
 
         print(f"[QUESTION] Ticket créé (id={ticket_id})")
 
-        # Si LLM a échoué après sauvegarde → retry
         if statut_job == "ÉCHOUÉ":
-            raise self.retry(
-                exc=Exception(erreur),
-                countdown=60
-            )
+            raise self.retry(exc=Exception(erreur), countdown=60)
 
         return {
             "statut": "OK",
@@ -201,7 +304,6 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
         }
 
     except Retry:
-        # self.retry() a déjà été appelé plus haut — ne pas le ré-encapsuler
         raise
     except Exception as exc:
         print(f"[QUESTION] ❌ Erreur : {exc}")
