@@ -40,6 +40,49 @@ async def soumettre_question(payload: QuestionRequest):
     }
 
 
+@router.get("/tickets")
+async def liste_tickets(
+    page: int = 1,
+    limit: int = 10,
+    domaine: str | None = None,
+    statut: str | None = None,
+):
+    db = SessionLocal()
+    try:
+        query = db.query(Ticket)
+        if domaine:
+            query = query.filter(Ticket.domaine == domaine.upper())
+        if statut:
+            query = query.filter(Ticket.statut_ticket == statut.upper())
+        total = query.count()
+        tickets = (
+            query.order_by(Ticket.created_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "items": [
+                {
+                    "id": str(t.id),
+                    "question": t.question,
+                    "domaine": t.domaine,
+                    "statut_ticket": t.statut_ticket,
+                    "statut_job": t.statut_job,
+                    "user_id": str(t.user_id) if t.user_id else None,
+                    "user_email": t.user.email if t.user else None,
+                    "created_at": t.created_at.isoformat() if t.created_at else None,
+                }
+                for t in tickets
+            ],
+        }
+    finally:
+        db.close()
+
+
 @router.get("/tickets/{job_id}/status")
 async def statut_ticket(job_id: str):
     # Statut Celery
