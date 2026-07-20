@@ -1,11 +1,13 @@
 import type {
+  Ticket,
+  TicketsResponse,
+  TicketReponse,
   ReponseEnAttente,
   ValiderPayload,
   RejeterPayload,
   CorrigerPayload,
   Domaine,
-  TicketsResponse,
-} from "../types";
+} from "../types.ts";
 
 const BASE_URL = "/api/v1";
 
@@ -22,6 +24,18 @@ export async function getTickets(params?: {
   if (params?.statut) query.set("statut", params.statut);
   const res = await fetch(`${BASE_URL}/tickets?${query}`);
   if (!res.ok) throw new Error("Erreur chargement tickets");
+  return res.json();
+}
+
+export async function getTicket(ticketId: string): Promise<Ticket> {
+  const res = await fetch(`${BASE_URL}/tickets/${ticketId}`);
+  if (!res.ok) throw new Error("Ticket introuvable");
+  return res.json();
+}
+
+export async function getReponsesByTicket(ticketId: string): Promise<TicketReponse[]> {
+  const res = await fetch(`${BASE_URL}/tickets/${ticketId}/reponses`);
+  if (!res.ok) throw new Error("Erreur chargement réponses");
   return res.json();
 }
 
