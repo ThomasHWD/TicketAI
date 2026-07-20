@@ -6,6 +6,7 @@ backend/.venv/
 TicketAI_Workflows.docx
 AUDIT_TICKETAI.md
 .claude
+CLAUDE.md
 
 # React / Node
 node_modules/

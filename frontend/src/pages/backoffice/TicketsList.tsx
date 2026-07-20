@@ -1,21 +1,30 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getTickets } from "../../lib/api";
-import type { Ticket, StatutTicket } from "../../types";
+import type { Ticket, StatutTicket } from "../../types.ts";
 
-const STATUT_STYLE: Record<StatutTicket, { label: string; className: string }> = {
-  NOUVEAU:  { label: "Nouvelle",  className: "bg-blue-50 text-blue-600 border-blue-200" },
-  RÉPONDU:  { label: "Répondue",  className: "bg-yellow-50 text-yellow-600 border-yellow-200" },
-  VALIDÉ:   { label: "Validée",   className: "bg-emerald-50 text-emerald-600 border-emerald-200" },
-  REJETÉ:   { label: "Rejetée",   className: "bg-red-50 text-red-600 border-red-200" },
-};
+function statutLabel(statut: StatutTicket, canonique: boolean) {
+  if (canonique) return "Canonique";
+  if (statut === "VALIDÉ") return "Validée";
+  if (statut === "RÉPONDU") return "Suggestion";
+  if (statut === "REJETÉ") return "Rejetée";
+  return "Nouvelle";
+}
 
-function StatutBadge({ statut }: { statut: StatutTicket }) {
-  const s = STATUT_STYLE[statut] ?? { label: statut, className: "bg-gray-100 text-gray-500 border-gray-200" };
+function statutClass(statut: StatutTicket, canonique: boolean) {
+  if (statut === "REJETÉ") return "bg-red-50 text-red-600 border-red-200";
+  if (canonique) return "bg-emerald-50 text-emerald-600 border-emerald-200";
+  if (statut === "VALIDÉ") return "bg-blue-50 text-blue-600 border-blue-200";
+  if (statut === "RÉPONDU") return "bg-yellow-50 text-yellow-600 border-yellow-200";
+  return "bg-blue-50 text-blue-600 border-blue-200";
+}
+
+function StatutBadge({ statut, canonique }: { statut: StatutTicket; canonique: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${s.className}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${statutClass(statut, canonique)}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current" />
-      {s.label}
+      {statutLabel(statut, canonique)}
     </span>
   );
 }
@@ -31,13 +40,11 @@ function formatDate(iso: string | null) {
   }).format(new Date(iso));
 }
 
-function shortId(id: string) {
-  return id.slice(0, 6).toUpperCase();
-}
 
 const LIMIT = 10;
 
 export default function TicketsList() {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -115,7 +122,15 @@ export default function TicketsList() {
                 </tr>
               )}
               {!loading && tickets.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50 transition-colors cursor-pointer">
+                <tr
+                  key={t.id}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer focus-within:bg-gray-50"
+                  onClick={() => navigate(`/tickets/${t.id}`)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
+                  tabIndex={0}
+                  role="link"
+                  aria-label={`Voir le ticket : ${t.question}`}
+                >
                   <td className="px-6 py-4 text-gray-600 max-w-xs truncate" title={t.question}>
                     {t.question}
                   </td>
@@ -123,7 +138,7 @@ export default function TicketsList() {
                     {formatDate(t.created_at)}
                   </td>
                   <td className="px-6 py-4">
-                    <StatutBadge statut={t.statut_ticket as StatutTicket} />
+                    <StatutBadge statut={t.statut_ticket as StatutTicket} canonique={t.canonique} />
                   </td>
                 </tr>
               ))}

@@ -76,10 +76,13 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
 
         db.commit()
 
-        # Feedback job to reindex the validated response in Qdrant
-        if reponse.reponse_source_id and reponse_source and reponse_source.canonique:
+        # Feedback job : réindexe la réponse validée dans Qdrant dès la 1re validation
+        # (et pas seulement une fois canonique) pour qu'elle soit retrouvable comme
+        # SUGGESTION sur des questions similaires. Réindexe la réponse SOURCE si la
+        # réponse courante est une copie de suggestion, sinon la réponse elle-même.
+        if reponse.reponse_source_id and reponse_source:
             feedback_job.apply_async(args=[str(reponse_source.id)], queue="queue_ingestion")
-        elif not reponse.reponse_source_id and reponse.canonique:
+        elif not reponse.reponse_source_id:
             feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
 
         return {

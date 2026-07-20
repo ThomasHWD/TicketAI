@@ -74,10 +74,73 @@ async def liste_tickets(
                     "statut_job": t.statut_job,
                     "user_id": str(t.user_id) if t.user_id else None,
                     "user_email": t.user.email if t.user else None,
+                    "canonique": t.canonique,
                     "created_at": t.created_at.isoformat() if t.created_at else None,
                 }
                 for t in tickets
             ],
+        }
+    finally:
+        db.close()
+
+
+@router.get("/tickets/{ticket_id}/reponses")
+async def reponses_par_ticket(ticket_id: str):
+    from app.models.reponse import Reponse as ReponseModel
+    db = SessionLocal()
+    try:
+        try:
+            tid = uuid.UUID(ticket_id)
+        except ValueError:
+            raise HTTPException(400, "ticket_id invalide")
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            raise HTTPException(404, "Ticket introuvable")
+        reponses = (
+            db.query(ReponseModel)
+            .filter(ReponseModel.ticket_id == tid)
+            .order_by(ReponseModel.created_at.asc())
+            .all()
+        )
+        return [
+            {
+                "id": str(r.id),
+                "ticket_id": str(r.ticket_id),
+                "contenu": r.contenu,
+                "statut": r.statut,
+                "source": r.source,
+                "nb_validations": r.nb_validations,
+                "canonique": r.canonique,
+                "score_similarite": r.score_similarite,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in reponses
+        ]
+    finally:
+        db.close()
+
+
+@router.get("/tickets/{ticket_id}")
+async def get_ticket(ticket_id: str):
+    db = SessionLocal()
+    try:
+        try:
+            tid = uuid.UUID(ticket_id)
+        except ValueError:
+            raise HTTPException(400, "ticket_id invalide")
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            raise HTTPException(404, "Ticket introuvable")
+        return {
+            "id": str(ticket.id),
+            "question": ticket.question,
+            "domaine": ticket.domaine,
+            "statut_ticket": ticket.statut_ticket,
+            "statut_job": ticket.statut_job,
+            "user_id": str(ticket.user_id) if ticket.user_id else None,
+            "user_email": ticket.user.email if ticket.user else None,
+            "canonique": ticket.canonique,
+            "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
         }
     finally:
         db.close()

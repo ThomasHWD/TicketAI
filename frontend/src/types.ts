@@ -2,6 +2,10 @@ export type Domaine = "IT" | "RH" | "JURIDIQUE";
 
 export type StatutTicket = "NOUVEAU" | "RÉPONDU" | "VALIDÉ" | "REJETÉ";
 
+export type StatutReponse = "EN_ATTENTE" | "VALIDÉE" | "REJETÉE" | "CORRIGÉE";
+
+export type Source = "LLM" | "SUGGESTION" | "CANONIQUE";
+
 export interface Ticket {
   id: string;
   question: string;
@@ -10,6 +14,7 @@ export interface Ticket {
   statut_job: string;
   user_id: string | null;
   user_email: string | null;
+  canonique: boolean;
   created_at: string | null;
 }
 
@@ -20,14 +25,27 @@ export interface TicketsResponse {
   items: Ticket[];
 }
 
-export interface ReponseEnAttente {
+export interface TicketReponse {
   id: string;
   ticket_id: string;
   contenu: string;
-  statut: string;
-  source: string;
+  statut: StatutReponse;
+  source: Source;
+  nb_validations: number;
+  canonique: boolean;
   score_similarite: number | null;
   created_at: string | null;
+}
+
+export interface ReponseEnAttente {
+  reponse_id: string;
+  ticket_id: string;
+  question: string;
+  domaine: Domaine;
+  reponse: string;
+  source: Source;
+  score_similarite: number;
+  created_at: string;
 }
 
 export interface ValiderPayload {

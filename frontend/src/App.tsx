@@ -4,6 +4,7 @@ import Sidebar from "./components/layout/Sidebar";
 import Navbar from "./components/layout/Navbar";
 import Dashboard from "./pages/backoffice/Dashboard";
 import TicketsList from "./pages/backoffice/TicketsList";
+import TicketDetail from "./pages/backoffice/TicketDetail";
 
 function Layout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -30,6 +31,7 @@ export default function App() {
         </Route>
         <Route element={<Layout />}>
           <Route path="/tickets" element={<TicketsList />} />
+          <Route path="/tickets/:id" element={<TicketDetail />} />
         </Route>
       </Routes>
     </BrowserRouter>
