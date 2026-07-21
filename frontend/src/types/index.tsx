@@ -16,6 +16,18 @@ export interface Ticket {
   user_email: string | null;
   canonique: boolean;
   created_at: string | null;
+  // Verrou collaboratif : renseigné uniquement si un bail est actif.
+  locked_by: string | null;
+  locked_by_email: string | null;
+  lock_expires_at: string | null;
+}
+
+export interface LockState {
+  ticket_id: string;
+  is_mine: boolean;
+  locked_by: string | null;
+  locked_by_email: string | null;
+  lock_expires_at: string | null;
 }
 
 export interface TicketsResponse {

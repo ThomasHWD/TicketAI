@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { getTickets } from "../../lib/api";
 import type { Ticket, StatutTicket } from "../../types.ts";
+
+function isLocked(t: Ticket): boolean {
+  return !!(t.lock_expires_at && new Date(t.lock_expires_at) > new Date());
+}
 
 function statutLabel(statut: StatutTicket, canonique: boolean) {
   if (canonique) return "Canonique";
@@ -45,23 +50,16 @@ const LIMIT = 10;
 
 export default function TicketsList() {
   const navigate = useNavigate();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    getTickets({ page, limit: LIMIT })
-      .then((data) => {
-        setTickets(data.items);
-        setTotal(data.total);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [page]);
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ["tickets", page],
+    queryFn: () => getTickets({ page, limit: LIMIT }),
+    placeholderData: (prev) => prev,
+  });
+
+  const tickets = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   const totalPages = Math.ceil(total / LIMIT);
   const from = (page - 1) * LIMIT + 1;
@@ -110,7 +108,7 @@ export default function TicketsList() {
               {error && (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-red-400">
-                    {error}
+                    {error instanceof Error ? error.message : "Erreur de chargement"}
                   </td>
                 </tr>
               )}
@@ -121,7 +119,9 @@ export default function TicketsList() {
                   </td>
                 </tr>
               )}
-              {!loading && tickets.map((t) => (
+              {!loading && tickets.map((t) => {
+                const locked = isLocked(t);
+                return (
                 <tr
                   key={t.id}
                   className="hover:bg-gray-50 transition-colors cursor-pointer focus-within:bg-gray-50"
@@ -129,10 +129,20 @@ export default function TicketsList() {
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
                   tabIndex={0}
                   role="link"
-                  aria-label={`Voir le ticket : ${t.question}`}
+                  aria-label={`Voir le ticket : ${t.question}${locked ? ` (pris en charge par ${t.locked_by_email ?? "un validateur"})` : ""}`}
                 >
-                  <td className="px-6 py-4 text-gray-600 max-w-xs truncate" title={t.question}>
-                    {t.question}
+                  <td className="px-6 py-4 text-gray-600">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {locked && (
+                        <span
+                          className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 text-amber-500 ring-1 ring-amber-200"
+                          title={`Pris en charge par ${t.locked_by_email ?? "un validateur"}`}
+                        >
+                          <Lock size={11} aria-hidden="true" />
+                        </span>
+                      )}
+                      <span className="truncate max-w-xs" title={t.question}>{t.question}</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-gray-500 whitespace-nowrap">
                     {formatDate(t.created_at)}
@@ -141,7 +151,8 @@ export default function TicketsList() {
                     <StatutBadge statut={t.statut_ticket as StatutTicket} canonique={t.canonique} />
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -38,6 +38,29 @@ def verifier_auto_validation(reponse: Reponse, validator_id: uuid.UUID, ticket: 
         )
 
 
+def verifier_verrou(ticket: Ticket, validator_id: uuid.UUID):
+    """Refuse l'écriture si le ticket est verrouillé par un autre validateur
+    (bail encore actif). Un bail expiré ou absent n'empêche rien."""
+    if not ticket:
+        return
+    now = datetime.now(timezone.utc)
+    if (
+        ticket.locked_by
+        and ticket.locked_by != validator_id
+        and ticket.lock_expires_at
+        and ticket.lock_expires_at > now
+    ):
+        raise HTTPException(409, "Ticket verrouillé par un autre validateur.")
+
+
+def liberer_verrou(ticket: Ticket):
+    """Libère le verrou après une transition terminale du ticket."""
+    if ticket:
+        ticket.locked_by = None
+        ticket.locked_at = None
+        ticket.lock_expires_at = None
+
+
 @router.post("/reponses/{reponse_id}/valider")
 async def valider_reponse(reponse_id: str, payload: ValiderRequest):
     db = SessionLocal()
@@ -47,6 +70,7 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
         verifier_auto_validation(reponse, payload.validator_id, ticket)
+        verifier_verrou(ticket, payload.validator_id)
 
         # Transition EN_ATTENTE → VALIDÉE
         reponse.statut = "VALIDÉE"
@@ -55,6 +79,7 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
 
         if ticket:
             ticket.statut_ticket = "VALIDÉ"
+            liberer_verrou(ticket)
 
         reponse_source = None
 
@@ -110,6 +135,7 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest):
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
         verifier_auto_validation(reponse, payload.validator_id, ticket)
+        verifier_verrou(ticket, payload.validator_id)
 
         # Transition EN_ATTENTE → REJETÉE
         reponse.statut = "REJETÉE"
@@ -118,6 +144,7 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest):
 
         if ticket:
             ticket.statut_ticket = "REJETÉ"
+            liberer_verrou(ticket)
 
         db.commit()
 
@@ -147,6 +174,7 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
         verifier_auto_validation(reponse, payload.validator_id, ticket)
+        verifier_verrou(ticket, payload.validator_id)
 
         # Transition EN_ATTENTE → CORRIGÉE
         reponse.statut = "CORRIGÉE"
@@ -156,6 +184,7 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
 
         if ticket:
             ticket.statut_ticket = "VALIDÉ"
+            liberer_verrou(ticket)
 
         db.commit()
 
