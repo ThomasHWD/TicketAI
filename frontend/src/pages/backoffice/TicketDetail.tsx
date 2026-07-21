@@ -254,8 +254,8 @@ export default function TicketDetail() {
   if (error || !ticket) {
     return (
       <div className="p-6">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 mb-4">
-          <ArrowLeft size={16} aria-hidden="true" /> Retour
+        <button onClick={() => navigate(-1)} className="group inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 hover:bg-white hover:text-gray-900 hover:border-gray-300 dark:hover:bg-white/10 dark:hover:text-white transition-colors mb-4">
+          <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" /> Retour
         </button>
         <p className="text-red-400" role="alert">
           {error instanceof Error ? error.message : "Ticket introuvable"}
@@ -268,10 +268,10 @@ export default function TicketDetail() {
     <div className="p-6 space-y-4 max-w-6xl">
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
+        className="group inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 hover:bg-white hover:text-gray-900 hover:border-gray-300 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
         aria-label="Retour à la liste des tickets"
       >
-        <ArrowLeft size={16} aria-hidden="true" /> Retour aux tickets
+        <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" /> Retour aux tickets
       </button>
 
       {/* Bandeau : ticket pris en charge par un autre validateur */}

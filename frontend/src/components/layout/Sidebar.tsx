@@ -74,7 +74,7 @@ interface SidebarProps {
 export default function Sidebar({ collapsed }: SidebarProps) {
   return (
     <aside
-      className={`flex flex-col bg-white/60 dark:bg-white/5 backdrop-blur-2xl border-r border-white/70 dark:border-white/10 shrink-0 overflow-hidden
+      className={`flex flex-col bg-white/90 dark:bg-white/5 backdrop-blur-xl border-r border-gray-200/70 dark:border-white/10 shrink-0 overflow-hidden
         transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
         ${collapsed ? "w-16" : "w-60"}`}
     >
