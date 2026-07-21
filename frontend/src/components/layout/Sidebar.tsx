@@ -48,8 +48,8 @@ function NavItem({
           collapsed ? "justify-center" : ""
         } ${
           isActive
-            ? "bg-green-100 text-green-700 font-medium"
-            : "text-gray-600 hover:bg-gray-100"
+            ? "bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300 font-medium"
+            : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
         }`
       }
     >
@@ -74,7 +74,7 @@ interface SidebarProps {
 export default function Sidebar({ collapsed }: SidebarProps) {
   return (
     <aside
-      className={`flex flex-col bg-white border-r border-gray-200 shrink-0 overflow-hidden
+      className={`flex flex-col bg-white/60 dark:bg-white/5 backdrop-blur-2xl border-r border-white/70 dark:border-white/10 shrink-0 overflow-hidden
         transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
         ${collapsed ? "w-16" : "w-60"}`}
     >
@@ -105,7 +105,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         ))}
       </nav>
 
-      <hr className="mx-3 border-gray-200" />
+      <hr className="mx-3 border-gray-200 dark:border-white/10" />
 
       {/* Settings nav */}
       <nav className="flex flex-col gap-1 px-2 py-4 flex-1">
@@ -116,7 +116,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
 
       {/* User footer */}
       <div
-        className={`flex items-center gap-3 px-3 py-4 border-t border-gray-200 overflow-hidden ${
+        className={`flex items-center gap-3 px-3 py-4 border-t border-gray-200 dark:border-white/10 overflow-hidden ${
           collapsed ? "justify-center" : ""
         }`}
       >
@@ -133,8 +133,8 @@ export default function Sidebar({ collapsed }: SidebarProps) {
           }`}
         >
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-400">Bonjour 👋</p>
-            <p className="text-sm font-semibold text-gray-800 truncate">Thomas</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Bonjour 👋</p>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">Thomas</p>
           </div>
           <ChevronRight size={16} className="text-gray-400 shrink-0" />
         </div>

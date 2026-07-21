@@ -1,1 +1,4 @@
 @import "tailwindcss";
+
+/* Active le dark mode par classe sur <html> (stratégie togglée, pas média). */
+@custom-variant dark (&:where(.dark, .dark *));
