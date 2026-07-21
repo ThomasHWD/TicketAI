@@ -91,8 +91,8 @@ async def reponses_par_ticket(ticket_id: str):
     try:
         try:
             tid = uuid.UUID(ticket_id)
-        except ValueError:
-            raise HTTPException(400, "ticket_id invalide")
+        except ValueError as e:
+            raise HTTPException(400, "ticket_id invalide") from e
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
@@ -126,8 +126,8 @@ async def get_ticket(ticket_id: str):
     try:
         try:
             tid = uuid.UUID(ticket_id)
-        except ValueError:
-            raise HTTPException(400, "ticket_id invalide")
+        except ValueError as e:
+            raise HTTPException(400, "ticket_id invalide") from e
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
