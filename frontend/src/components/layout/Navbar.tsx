@@ -38,7 +38,7 @@ function DevValidatorSwitcher() {
 export default function Navbar({ breadcrumb = "Dashboard", collapsed, onToggle }: NavbarProps) {
   const { theme, toggle } = useTheme();
   return (
-    <div className="h-20 bg-white/60 dark:bg-white/5 backdrop-blur-2xl border-b border-white/70 dark:border-white/10 shadow-sm shadow-emerald-500/5 flex items-center px-5 gap-3 shrink-0">
+    <div className="h-20 bg-white/90 dark:bg-white/5 backdrop-blur-xl border-b border-gray-200/70 dark:border-white/10 flex items-center px-5 gap-3 shrink-0">
       {/* Collapse */}
       <button
         onClick={onToggle}
