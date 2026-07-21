@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     seuil_canonique: int = 3
     seuil_cosinus: float = 0.60
 
+    # Verrou de ticket (durée du bail en secondes, prolongé par heartbeat)
+    lock_ttl_seconds: int = 300
+
     # Documents storage
     documents_storage_path: str
 

@@ -36,6 +36,8 @@ def _upsert_reponse(
     top_score: float,
     source: str = "LLM",
     reponse_source_id: uuid.UUID | None = None,
+    statut: str = "EN_ATTENTE",
+    canonique: bool = False,
 ) -> Reponse:
     reponse = db.query(Reponse).filter(Reponse.ticket_id == ticket.id).first()
     if reponse is None:
@@ -43,10 +45,11 @@ def _upsert_reponse(
             id=uuid.uuid4(),
             ticket_id=ticket.id,
             contenu=contenu,
-            statut="EN_ATTENTE",
+            statut=statut,
             source=source,
             score_similarite=top_score,
             reponse_source_id=reponse_source_id,
+            canonique=canonique,
         )
         db.add(reponse)
     else:
@@ -84,27 +87,119 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
 
         top_score = chunks[0]["score_cosinus"] if chunks else 0.0
 
-        # Étape 2.1 — Branche canonique (aucune validation humaine requise)
-        reponse_id_canonique = chunks[0].get("reponse_id") if chunks else None
-        if top_score >= SEUIL_COSINUS and reponse_id_canonique:
-            print(
-                f"[QUESTION] Score {top_score:.4f} ≥ seuil {SEUIL_COSINUS} → lookup réponse {reponse_id_canonique}"
-            )
+        # Étape 2 — Réponse déjà validée, retrouvée DIRECTEMENT via son reponse_id.
+        # feedback_job réindexe dans Qdrant chaque réponse validée (payload `reponse_id`).
+        # On récupère donc LA réponse liée sémantiquement à la question — et non une réponse
+        # qui partagerait seulement un document source (ancien matching par doc_id, trop large
+        # et à l'origine des suggestions sans rapport).
+        # Seuil suggestion légèrement sous SEUIL_COSINUS : question très proche d'une validée.
+        SEUIL_SUGGESTION = SEUIL_COSINUS - 0.05
+
+        # Plusieurs réponses validées peuvent matcher la même question (doublons de tests,
+        # mêmes questions posées et validées séparément) → toutes au même score. On collecte
+        # les candidates (meilleur score par reponse_id) puis on choisit de façon DÉTERMINISTE
+        # la meilleure, pour rester cohérent d'un appel à l'autre et faire converger les
+        # validations vers une seule réponse (sinon aucune n'atteint jamais le seuil canonique).
+        scores_par_reponse: dict[str, float] = {}
+        for c in chunks:
+            rid = c.get("reponse_id")
+            if rid and c["score_cosinus"] >= SEUIL_SUGGESTION:
+                rid = str(rid)
+                scores_par_reponse[rid] = max(
+                    scores_par_reponse.get(rid, 0.0), c["score_cosinus"]
+                )
+
+        if scores_par_reponse:
             db = SessionLocal()
             try:
-                reponse_canonique = (
+                candidats = (
                     db.query(Reponse)
                     .filter(
-                        Reponse.id == uuid.UUID(str(reponse_id_canonique)),
+                        Reponse.id.in_([uuid.UUID(r) for r in scores_par_reponse]),
                         Reponse.statut == "VALIDÉE",
                     )
-                    .first()
+                    .all()
                 )
-                if reponse_canonique:
-                    print("[QUESTION] ✅ Réponse canonique trouvée")
-                    contenu_canonique = (
-                        reponse_canonique.contenu_corrige or reponse_canonique.contenu
+                # Priorité : canonique, puis la plus validée, puis meilleur score,
+                # puis id (départage stable → strictement déterministe).
+                reponse_liee = (
+                    max(
+                        candidats,
+                        key=lambda r: (
+                            r.canonique,
+                            r.nb_validations,
+                            scores_par_reponse[str(r.id)],
+                            str(r.id),
+                        ),
                     )
+                    if candidats
+                    else None
+                )
+                if reponse_liee:
+                    score_liee = scores_par_reponse[str(reponse_liee.id)]
+                    print(
+                        f"[QUESTION] Score {score_liee:.4f} → réponse validée {reponse_liee.id}"
+                    )
+                    contenu = reponse_liee.contenu_corrige or reponse_liee.contenu
+
+                    # Étape 2.1 — Branche CANONIQUE : réponse promue canonique
+                    # (nb_validations ≥ seuil_canonique) ET score ≥ seuil → aucune revue humaine.
+                    if reponse_liee.canonique and score_liee >= SEUIL_COSINUS:
+                        print(f"[QUESTION] ✅ Réponse canonique {reponse_liee.id}")
+                        ticket = _upsert_ticket(
+                            db,
+                            job_id,
+                            question=question,
+                            domaine=domaine,
+                            user_id=user_uuid,
+                            statut_job="TERMINÉ",
+                            statut_ticket="RÉPONDU",
+                            score_similarite=score_liee,
+                            canonique=True,
+                            nb_retries=self.request.retries,
+                            erreur=None,
+                            processed_at=datetime.now(timezone.utc),
+                        )
+                        ticket_id = str(ticket.id)
+
+                        # Persiste une réponse (déjà validée / canonique) pour qu'elle
+                        # s'affiche dans le back-office — sans revue humaine à faire.
+                        reponse = _upsert_reponse(
+                            db,
+                            ticket,
+                            contenu,
+                            score_liee,
+                            source="CANONIQUE",
+                            reponse_source_id=reponse_liee.id,
+                            statut="VALIDÉE",
+                            canonique=True,
+                        )
+
+                        ticket_source = (
+                            db.query(Ticket)
+                            .filter(Ticket.id == reponse_liee.ticket_id)
+                            .first()
+                        )
+                        if ticket_source:
+                            ticket_source.occurence += 1
+                        db.commit()
+
+                        return {
+                            "statut": "OK",
+                            "branche": "CANONIQUE",
+                            "question": question,
+                            "domaine": domaine,
+                            "reponse": contenu,
+                            "ticket_id": ticket_id,
+                            "reponse_id": str(reponse.id),
+                            "reponse_source_id": str(reponse_liee.id),
+                            "top_score_cosinus": score_liee,
+                        }
+
+                    # Étape 2.2 — Branche SUGGESTION : réponse validée au moins une fois
+                    # mais pas encore canonique (ou canonique sous le seuil de confiance)
+                    # → on propose CETTE réponse précise, revue humaine requise.
+                    print(f"[QUESTION] 💡 Suggestion via réponse validée {reponse_liee.id}")
                     ticket = _upsert_ticket(
                         db,
                         job_id,
@@ -113,88 +208,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                         user_id=user_uuid,
                         statut_job="TERMINÉ",
                         statut_ticket="RÉPONDU",
-                        score_similarite=top_score,
-                        canonique=True,
-                        nb_retries=self.request.retries,
-                        erreur=None,
-                        processed_at=datetime.now(timezone.utc),
-                    )
-                    ticket_id = str(ticket.id)
-
-                    ticket_source = (
-                        db.query(Ticket)
-                        .filter(Ticket.id == reponse_canonique.ticket_id)
-                        .first()
-                    )
-                    if ticket_source:
-                        ticket_source.occurence += 1
-                    db.commit()
-
-                    return {
-                        "statut": "OK",
-                        "branche": "CANONIQUE",
-                        "question": question,
-                        "domaine": domaine,
-                        "reponse": contenu_canonique,
-                        "ticket_id": ticket_id,
-                        "reponse_id": str(reponse_id_canonique),
-                        "top_score_cosinus": top_score,
-                    }
-            finally:
-                db.close()
-
-        # Étape 2.2 — Branche suggestion (validation humaine requise)
-        # Cherche une réponse VALIDÉE dont les chunks sources correspondent
-        # sémantiquement à la question actuelle (via doc_id des chunks Qdrant)
-        if top_score >= SEUIL_COSINUS:
-            print(
-                f"[QUESTION] Score {top_score:.4f} ≥ seuil {SEUIL_COSINUS} → recherche réponse validée par similarité"
-            )
-            db = SessionLocal()
-            try:
-                reponse_validee = None
-
-                # Parcourt les chunks retournés par Qdrant
-                # et cherche si l'un d'eux a servi à générer une réponse VALIDÉE
-                for chunk in chunks:
-                    doc_id = chunk.get("doc_id")
-                    if not doc_id:
-                        continue
-
-                    # Cherche une réponse VALIDÉE générée à partir de ce doc_id
-                    candidat = (
-                        db.query(Reponse)
-                        .join(ReponseChunk, ReponseChunk.reponse_id == Reponse.id)
-                        .join(Ticket, Ticket.id == Reponse.ticket_id)
-                        .filter(
-                            ReponseChunk.doc_id == doc_id,
-                            Reponse.statut == "VALIDÉE",
-                            Ticket.domaine == domaine,
-                        )
-                        .order_by(Reponse.nb_validations.desc())
-                        .first()
-                    )
-
-                    if candidat:
-                        reponse_validee = candidat
-                        print(
-                            f"[QUESTION] ✅ Réponse validée trouvée via doc_id={doc_id} (id={reponse_validee.id})"
-                        )
-                        break
-
-                if reponse_validee:
-                    contenu_suggere = (
-                        reponse_validee.contenu_corrige or reponse_validee.contenu
-                    )
-                    ticket = _upsert_ticket(
-                        db,
-                        job_id,
-                        question=question,
-                        domaine=domaine,
-                        user_id=user_uuid,
-                        statut_job="TERMINÉ",
-                        statut_ticket="RÉPONDU",
-                        score_similarite=top_score,
+                        score_similarite=score_liee,
                         canonique=False,
                         nb_retries=self.request.retries,
                         erreur=None,
@@ -203,10 +217,10 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                     reponse = _upsert_reponse(
                         db,
                         ticket,
-                        contenu_suggere,
-                        top_score,
+                        contenu,
+                        score_liee,
                         source="SUGGESTION",
-                        reponse_source_id=reponse_validee.id,
+                        reponse_source_id=reponse_liee.id,
                     )
                     db.commit()
 
@@ -215,11 +229,11 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                         "branche": "SUGGESTION",
                         "question": question,
                         "domaine": domaine,
-                        "reponse": contenu_suggere,
+                        "reponse": contenu,
                         "ticket_id": str(ticket.id),
                         "reponse_id": str(reponse.id),
-                        "reponse_source_id": str(reponse_validee.id),
-                        "top_score_cosinus": top_score,
+                        "reponse_source_id": str(reponse_liee.id),
+                        "top_score_cosinus": score_liee,
                     }
             finally:
                 db.close()

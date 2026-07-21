@@ -38,6 +38,29 @@ def verifier_auto_validation(reponse: Reponse, validator_id: uuid.UUID, ticket: 
         )
 
 
+def verifier_verrou(ticket: Ticket, validator_id: uuid.UUID):
+    """Refuse l'écriture si le ticket est verrouillé par un autre validateur
+    (bail encore actif). Un bail expiré ou absent n'empêche rien."""
+    if not ticket:
+        return
+    now = datetime.now(timezone.utc)
+    if (
+        ticket.locked_by
+        and ticket.locked_by != validator_id
+        and ticket.lock_expires_at
+        and ticket.lock_expires_at > now
+    ):
+        raise HTTPException(409, "Ticket verrouillé par un autre validateur.")
+
+
+def liberer_verrou(ticket: Ticket):
+    """Libère le verrou après une transition terminale du ticket."""
+    if ticket:
+        ticket.locked_by = None
+        ticket.locked_at = None
+        ticket.lock_expires_at = None
+
+
 @router.post("/reponses/{reponse_id}/valider")
 async def valider_reponse(reponse_id: str, payload: ValiderRequest):
     db = SessionLocal()
@@ -47,6 +70,7 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
         verifier_auto_validation(reponse, payload.validator_id, ticket)
+        verifier_verrou(ticket, payload.validator_id)
 
         # Transition EN_ATTENTE → VALIDÉE
         reponse.statut = "VALIDÉE"
@@ -55,6 +79,7 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
 
         if ticket:
             ticket.statut_ticket = "VALIDÉ"
+            liberer_verrou(ticket)
 
         reponse_source = None
 
@@ -76,10 +101,13 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
 
         db.commit()
 
-        # Feedback job to reindex the validated response in Qdrant
-        if reponse.reponse_source_id and reponse_source and reponse_source.canonique:
+        # Feedback job : réindexe la réponse validée dans Qdrant dès la 1re validation
+        # (et pas seulement une fois canonique) pour qu'elle soit retrouvable comme
+        # SUGGESTION sur des questions similaires. Réindexe la réponse SOURCE si la
+        # réponse courante est une copie de suggestion, sinon la réponse elle-même.
+        if reponse.reponse_source_id and reponse_source:
             feedback_job.apply_async(args=[str(reponse_source.id)], queue="queue_ingestion")
-        elif not reponse.reponse_source_id and reponse.canonique:
+        elif not reponse.reponse_source_id:
             feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
 
         return {
@@ -107,6 +135,7 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest):
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
         verifier_auto_validation(reponse, payload.validator_id, ticket)
+        verifier_verrou(ticket, payload.validator_id)
 
         # Transition EN_ATTENTE → REJETÉE
         reponse.statut = "REJETÉE"
@@ -115,6 +144,7 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest):
 
         if ticket:
             ticket.statut_ticket = "REJETÉ"
+            liberer_verrou(ticket)
 
         db.commit()
 
@@ -144,6 +174,7 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
         verifier_auto_validation(reponse, payload.validator_id, ticket)
+        verifier_verrou(ticket, payload.validator_id)
 
         # Transition EN_ATTENTE → CORRIGÉE
         reponse.statut = "CORRIGÉE"
@@ -153,6 +184,7 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
 
         if ticket:
             ticket.statut_ticket = "VALIDÉ"
+            liberer_verrou(ticket)
 
         db.commit()
 
