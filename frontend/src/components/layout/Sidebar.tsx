@@ -9,10 +9,12 @@ import {
   BookText,
   ChevronRight,
   History,
+  TicketPlus,
 } from "lucide-react";
 
 const navMain = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
+  { to: "/nouveau-ticket", icon: TicketPlus, label: "Nouvelle question" },
   { to: "/tickets", icon: TicketMinus, label: "Tickets" },
   {
     to: "/reponses-enregistrees",

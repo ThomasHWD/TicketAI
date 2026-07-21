@@ -101,6 +101,7 @@ async def liste_tickets(
     limit: int = 10,
     domaine: str | None = None,
     statut: str | None = None,
+    user_id: str | None = None,
 ):
     db = SessionLocal()
     try:
@@ -109,6 +110,11 @@ async def liste_tickets(
             query = query.filter(Ticket.domaine == domaine.upper())
         if statut:
             query = query.filter(Ticket.statut_ticket == statut.upper())
+        if user_id:
+            try:
+                query = query.filter(Ticket.user_id == uuid.UUID(user_id))
+            except ValueError as e:
+                raise HTTPException(400, "user_id invalide") from e
         total = query.count()
         tickets = (
             query.order_by(Ticket.created_at.desc())
@@ -163,6 +169,7 @@ async def reponses_par_ticket(ticket_id: str):
                 "id": str(r.id),
                 "ticket_id": str(r.ticket_id),
                 "contenu": r.contenu,
+                "contenu_corrige": r.contenu_corrige,
                 "statut": r.statut,
                 "source": r.source,
                 "nb_validations": r.nb_validations,
