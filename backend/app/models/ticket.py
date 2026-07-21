@@ -27,5 +27,12 @@ class Ticket(Base):
     created_at       = Column(DateTime(timezone=True), server_default=func.now())
     processed_at     = Column(DateTime(timezone=True), nullable=True)
 
+    # Verrou collaboratif (bail à expiration) : évite que deux validateurs
+    # traitent le même ticket en même temps. Voir app/api/v1/tickets.py.
+    locked_by        = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    locked_at        = Column(DateTime(timezone=True), nullable=True)
+    lock_expires_at  = Column(DateTime(timezone=True), nullable=True)
+
     reponses         = relationship("Reponse", back_populates="ticket")
-    user             = relationship("User")
+    user             = relationship("User", foreign_keys=[user_id])
+    locker           = relationship("User", foreign_keys=[locked_by])

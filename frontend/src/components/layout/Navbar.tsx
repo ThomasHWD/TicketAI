@@ -1,10 +1,37 @@
 import { Link } from "react-router-dom";
 import { Search, Bell, Sun, Plus, ChevronDown, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
+import { getValidatorId, setValidatorId } from "../../lib/currentUser";
 
 interface NavbarProps {
   breadcrumb?: string;
   collapsed: boolean;
   onToggle: () => void;
+}
+
+// Validateurs fictifs pour tester le verrouillage à plusieurs — DEV UNIQUEMENT.
+// À supprimer quand l'authentification réelle sera en place.
+const DEV_VALIDATORS = [
+  { id: "00000000-0000-0000-0000-000000000001", label: "Validateur A" },
+  { id: "00000000-0000-0000-0000-000000000002", label: "Validateur B" },
+];
+
+function DevValidatorSwitcher() {
+  return (
+    <select
+      defaultValue={getValidatorId()}
+      onChange={(e) => {
+        setValidatorId(e.target.value);
+        window.location.reload();
+      }}
+      className="text-xs border border-amber-200 bg-amber-50 text-amber-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
+      title="Simuler un validateur (dev)"
+      aria-label="Validateur simulé (dev)"
+    >
+      {DEV_VALIDATORS.map((v) => (
+        <option key={v.id} value={v.id}>{v.label}</option>
+      ))}
+    </select>
+  );
 }
 
 export default function Navbar({ breadcrumb = "Dashboard", collapsed, onToggle }: NavbarProps) {
@@ -61,6 +88,9 @@ export default function Navbar({ breadcrumb = "Dashboard", collapsed, onToggle }
 
       {/* Divider */}
       <div className="w-px h-5 bg-gray-200 shrink-0" />
+
+      {/* Sélecteur de validateur (dev uniquement) */}
+      {import.meta.env.DEV && <DevValidatorSwitcher />}
 
       {/* Add Ticket */}
       <button className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors shadow-sm shadow-emerald-200">

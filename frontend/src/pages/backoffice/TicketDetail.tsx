@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil, X, Check, ThumbsUp } from "lucide-react";
-import { getTicket, getReponsesByTicket, corrigerReponse, validerReponse } from "../../lib/api";
-import type { Ticket, TicketReponse, StatutTicket, StatutReponse } from "../../types.ts";
-
-const VALIDATOR_ID = "00000000-0000-0000-0000-000000000001";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Pencil, X, Check, ThumbsUp, Lock } from "lucide-react";
+import {
+  getTicket,
+  getReponsesByTicket,
+  corrigerReponse,
+  validerReponse,
+  LockConflictError,
+} from "../../lib/api";
+import { getValidatorId } from "../../lib/currentUser";
+import { useTicketLock } from "../../hooks/useTicketLock";
+import type { TicketReponse, StatutTicket, StatutReponse } from "../../types.ts";
 
 const MOCK_OBJET = "Demande de clarification sur la politique de télétravail";
 
@@ -79,26 +86,38 @@ const SOURCE_LABEL: Record<string, string> = {
 
 function ReponseItem({
   reponse,
-  onUpdated,
+  readOnly,
+  onChanged,
+  onLockConflict,
 }: {
   reponse: TicketReponse;
-  onUpdated: (id: string, patch: Partial<TicketReponse>) => void;
+  readOnly: boolean;
+  onChanged: () => void;
+  onLockConflict: (message: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(reponse.contenu);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canAct = reponse.statut === "EN_ATTENTE";
+  const canAct = reponse.statut === "EN_ATTENTE" && !readOnly;
+
+  function handleError(e: unknown) {
+    if (e instanceof LockConflictError) {
+      onLockConflict(e.message);
+      return;
+    }
+    setError(e instanceof Error ? e.message : "Erreur");
+  }
 
   async function handleValider() {
     setLoading(true);
     setError(null);
     try {
-      const res = await validerReponse(reponse.id, { validator_id: VALIDATOR_ID });
-      onUpdated(reponse.id, { statut: "VALIDÉE", nb_validations: res.nb_validations, canonique: res.canonique });
+      await validerReponse(reponse.id, { validator_id: getValidatorId() });
+      onChanged();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erreur");
+      handleError(e);
     } finally {
       setLoading(false);
     }
@@ -109,11 +128,11 @@ function ReponseItem({
     setLoading(true);
     setError(null);
     try {
-      await corrigerReponse(reponse.id, { contenu_corrige: draft, validator_id: VALIDATOR_ID });
-      onUpdated(reponse.id, { contenu: draft, statut: "CORRIGÉE" });
+      await corrigerReponse(reponse.id, { contenu_corrige: draft, validator_id: getValidatorId() });
       setEditing(false);
+      onChanged();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erreur");
+      handleError(e);
     } finally {
       setLoading(false);
     }
@@ -203,36 +222,32 @@ function ReponseItem({
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [reponses, setReponses] = useState<TicketReponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { isMine, lockedByEmail, checking } = useTicketLock(id);
 
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    setError(null);
-    Promise.all([getTicket(id), getReponsesByTicket(id)])
-      .then(([t, r]) => { setTicket(t); setReponses(r); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [id]);
+  const ticketQuery = useQuery({
+    queryKey: ["ticket", id],
+    queryFn: () => getTicket(id!),
+    enabled: !!id,
+  });
 
-  function handleUpdated(reponseId: string, patch: Partial<TicketReponse>) {
-    setReponses((prev) =>
-      prev.map((r) => r.id === reponseId ? { ...r, ...patch } : r)
-    );
-    if (patch.statut === "VALIDÉE" || patch.statut === "CORRIGÉE") {
-      setTicket((prev) => prev ? {
-        ...prev,
-        statut_ticket: "VALIDÉ" as StatutTicket,
-        canonique: prev.canonique || (patch.canonique ?? false),
-      } : prev);
-    } else if (patch.statut === "REJETÉE") {
-      setTicket((prev) => prev ? { ...prev, statut_ticket: "REJETÉ" as StatutTicket } : prev);
-    }
+  const reponsesQuery = useQuery({
+    queryKey: ["ticket", id, "reponses"],
+    queryFn: () => getReponsesByTicket(id!),
+    enabled: !!id,
+  });
+
+  const ticket = ticketQuery.data;
+  const reponses = reponsesQuery.data ?? [];
+  const loading = ticketQuery.isLoading || reponsesQuery.isLoading;
+  const error = ticketQuery.error || reponsesQuery.error;
+
+  function refresh() {
+    queryClient.invalidateQueries({ queryKey: ["ticket", id] });
   }
+
+  const readOnly = !isMine;
 
   if (loading) return <div className="p-6 text-center text-gray-400" aria-live="polite">Chargement…</div>;
 
@@ -242,7 +257,9 @@ export default function TicketDetail() {
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4">
           <ArrowLeft size={16} aria-hidden="true" /> Retour
         </button>
-        <p className="text-red-400" role="alert">{error ?? "Ticket introuvable"}</p>
+        <p className="text-red-400" role="alert">
+          {error instanceof Error ? error.message : "Ticket introuvable"}
+        </p>
       </div>
     );
   }
@@ -256,6 +273,20 @@ export default function TicketDetail() {
       >
         <ArrowLeft size={16} aria-hidden="true" /> Retour aux tickets
       </button>
+
+      {/* Bandeau : ticket pris en charge par un autre validateur */}
+      {!checking && readOnly && (
+        <div
+          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm"
+          role="status"
+        >
+          <Lock size={16} aria-hidden="true" />
+          <span>
+            Ticket en cours de traitement par{" "}
+            <span className="font-medium">{lockedByEmail ?? "un autre validateur"}</span>. Lecture seule.
+          </span>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -287,7 +318,13 @@ export default function TicketDetail() {
             ) : (
               <ul className="divide-y divide-gray-100" aria-label="Réponses au ticket">
                 {reponses.map((r) => (
-                  <ReponseItem key={r.id} reponse={r} onUpdated={handleUpdated} />
+                  <ReponseItem
+                    key={r.id}
+                    reponse={r}
+                    readOnly={readOnly}
+                    onChanged={refresh}
+                    onLockConflict={refresh}
+                  />
                 ))}
               </ul>
             )}
