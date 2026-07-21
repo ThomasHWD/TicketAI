@@ -1,9 +1,12 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import or_
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models.ticket import Ticket
 from app.workers.celery_app import celery_app
@@ -18,6 +21,58 @@ class QuestionRequest(BaseModel):
     question: str
     domaine: str
     user_id: str | None = None
+
+
+class LockRequest(BaseModel):
+    validator_id: uuid.UUID
+
+
+def lock_info(ticket: Ticket, now: datetime | None = None) -> dict:
+    """Sérialise l'état du verrou. Un bail expiré est considéré comme libre."""
+    now = now or datetime.now(timezone.utc)
+    actif = bool(
+        ticket.locked_by
+        and ticket.lock_expires_at
+        and ticket.lock_expires_at > now
+    )
+    return {
+        "locked_by": str(ticket.locked_by) if actif else None,
+        "locked_by_email": ticket.locker.email if actif and ticket.locker else None,
+        "lock_expires_at": ticket.lock_expires_at.isoformat() if actif else None,
+    }
+
+
+def _acquire_lock(db, tid: uuid.UUID, validator_id: uuid.UUID) -> Ticket | None:
+    """Acquiert/prolonge le bail de façon atomique (UPDATE conditionnel).
+
+    Réussit uniquement si le ticket est libre, déjà détenu par ce validateur,
+    ou si le bail précédent a expiré. Renvoie le ticket si acquis, sinon None.
+    """
+    now = datetime.now(timezone.utc)
+    expiry = now + timedelta(seconds=settings.lock_ttl_seconds)
+    rows = (
+        db.query(Ticket)
+        .filter(
+            Ticket.id == tid,
+            or_(
+                Ticket.locked_by.is_(None),
+                Ticket.locked_by == validator_id,
+                Ticket.lock_expires_at < now,
+            ),
+        )
+        .update(
+            {
+                Ticket.locked_by: validator_id,
+                Ticket.locked_at: now,
+                Ticket.lock_expires_at: expiry,
+            },
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    if not rows:
+        return None
+    return db.query(Ticket).filter(Ticket.id == tid).first()
 
 
 @router.post("/tickets")
@@ -38,6 +93,191 @@ async def soumettre_question(payload: QuestionRequest):
         "domaine": payload.domaine.upper(),
         "statut": "EN_ATTENTE",
     }
+
+
+@router.get("/tickets")
+async def liste_tickets(
+    page: int = 1,
+    limit: int = 10,
+    domaine: str | None = None,
+    statut: str | None = None,
+):
+    db = SessionLocal()
+    try:
+        query = db.query(Ticket)
+        if domaine:
+            query = query.filter(Ticket.domaine == domaine.upper())
+        if statut:
+            query = query.filter(Ticket.statut_ticket == statut.upper())
+        total = query.count()
+        tickets = (
+            query.order_by(Ticket.created_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "items": [
+                {
+                    "id": str(t.id),
+                    "question": t.question,
+                    "domaine": t.domaine,
+                    "statut_ticket": t.statut_ticket,
+                    "statut_job": t.statut_job,
+                    "user_id": str(t.user_id) if t.user_id else None,
+                    "user_email": t.user.email if t.user else None,
+                    "canonique": t.canonique,
+                    "created_at": t.created_at.isoformat() if t.created_at else None,
+                    **lock_info(t),
+                }
+                for t in tickets
+            ],
+        }
+    finally:
+        db.close()
+
+
+@router.get("/tickets/{ticket_id}/reponses")
+async def reponses_par_ticket(ticket_id: str):
+    from app.models.reponse import Reponse as ReponseModel
+    db = SessionLocal()
+    try:
+        try:
+            tid = uuid.UUID(ticket_id)
+        except ValueError as e:
+            raise HTTPException(400, "ticket_id invalide") from e
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            raise HTTPException(404, "Ticket introuvable")
+        reponses = (
+            db.query(ReponseModel)
+            .filter(ReponseModel.ticket_id == tid)
+            .order_by(ReponseModel.created_at.asc())
+            .all()
+        )
+        return [
+            {
+                "id": str(r.id),
+                "ticket_id": str(r.ticket_id),
+                "contenu": r.contenu,
+                "statut": r.statut,
+                "source": r.source,
+                "nb_validations": r.nb_validations,
+                "canonique": r.canonique,
+                "score_similarite": r.score_similarite,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in reponses
+        ]
+    finally:
+        db.close()
+
+
+@router.get("/tickets/{ticket_id}")
+async def get_ticket(ticket_id: str):
+    db = SessionLocal()
+    try:
+        try:
+            tid = uuid.UUID(ticket_id)
+        except ValueError as e:
+            raise HTTPException(400, "ticket_id invalide") from e
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            raise HTTPException(404, "Ticket introuvable")
+        return {
+            "id": str(ticket.id),
+            "question": ticket.question,
+            "domaine": ticket.domaine,
+            "statut_ticket": ticket.statut_ticket,
+            "statut_job": ticket.statut_job,
+            "user_id": str(ticket.user_id) if ticket.user_id else None,
+            "user_email": ticket.user.email if ticket.user else None,
+            "canonique": ticket.canonique,
+            "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
+            **lock_info(ticket),
+        }
+    finally:
+        db.close()
+
+
+def _parse_ticket_id(ticket_id: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(ticket_id)
+    except ValueError as e:
+        raise HTTPException(400, "ticket_id invalide") from e
+
+
+@router.post("/tickets/{ticket_id}/lock")
+async def verrouiller_ticket(ticket_id: str, payload: LockRequest):
+    """Prend (ou prolonge) le verrou du ticket pour le validateur courant."""
+    tid = _parse_ticket_id(ticket_id)
+    db = SessionLocal()
+    try:
+        if not db.query(Ticket).filter(Ticket.id == tid).first():
+            raise HTTPException(404, "Ticket introuvable")
+
+        ticket = _acquire_lock(db, tid, payload.validator_id)
+        if ticket is None:
+            # Détenu par un autre validateur, bail encore valide → conflit
+            ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+            raise HTTPException(
+                409,
+                {
+                    "message": "Ticket verrouillé par un autre validateur.",
+                    **lock_info(ticket),
+                },
+            )
+        return {"ticket_id": ticket_id, "is_mine": True, **lock_info(ticket)}
+    finally:
+        db.close()
+
+
+@router.post("/tickets/{ticket_id}/heartbeat")
+async def heartbeat_ticket(ticket_id: str, payload: LockRequest):
+    """Prolonge le bail tant que le validateur garde le ticket ouvert."""
+    tid = _parse_ticket_id(ticket_id)
+    db = SessionLocal()
+    try:
+        ticket = _acquire_lock(db, tid, payload.validator_id)
+        if ticket is None:
+            ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+            if not ticket:
+                raise HTTPException(404, "Ticket introuvable")
+            raise HTTPException(
+                409,
+                {
+                    "message": "Verrou perdu au profit d'un autre validateur.",
+                    **lock_info(ticket),
+                },
+            )
+        return {"ticket_id": ticket_id, "is_mine": True, **lock_info(ticket)}
+    finally:
+        db.close()
+
+
+@router.post("/tickets/{ticket_id}/unlock", status_code=204)
+async def deverrouiller_ticket(ticket_id: str, payload: LockRequest):
+    """Libère le verrou (uniquement si détenu par ce validateur). Idempotent."""
+    tid = _parse_ticket_id(ticket_id)
+    db = SessionLocal()
+    try:
+        db.query(Ticket).filter(
+            Ticket.id == tid,
+            Ticket.locked_by == payload.validator_id,
+        ).update(
+            {
+                Ticket.locked_by: None,
+                Ticket.locked_at: None,
+                Ticket.lock_expires_at: None,
+            },
+            synchronize_session=False,
+        )
+        db.commit()
+    finally:
+        db.close()
 
 
 @router.get("/tickets/{job_id}/status")
