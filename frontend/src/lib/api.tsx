@@ -8,9 +8,33 @@ import type {
   CorrigerPayload,
   Domaine,
   LockState,
+  SoumettreQuestionPayload,
+  SoumettreQuestionResponse,
 } from "../types.ts";
 
 const BASE_URL = "/api/v1";
+
+/** Soumet une nouvelle question. Renvoie l'identifiant du job Celery à suivre. */
+export async function soumettreQuestion(
+  payload: SoumettreQuestionPayload,
+): Promise<SoumettreQuestionResponse> {
+  const res = await fetch(`${BASE_URL}/tickets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    let detail = "Erreur lors de la soumission de la question";
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      /* corps non JSON : on garde le message par défaut */
+    }
+    throw new Error(detail);
+  }
+  return res.json();
+}
 
 /** Levée sur un 409 (verrou détenu par un autre validateur). Porte le détenteur. */
 export class LockConflictError extends Error {
@@ -29,12 +53,14 @@ export async function getTickets(params?: {
   limit?: number;
   domaine?: Domaine;
   statut?: string;
+  userId?: string;
 }): Promise<TicketsResponse> {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.domaine) query.set("domaine", params.domaine);
   if (params?.statut) query.set("statut", params.statut);
+  if (params?.userId) query.set("user_id", params.userId);
   const res = await fetch(`${BASE_URL}/tickets?${query}`);
   if (!res.ok) throw new Error("Erreur chargement tickets");
   return res.json();

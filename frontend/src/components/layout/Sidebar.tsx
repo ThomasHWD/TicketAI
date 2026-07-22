@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import Logo from "../../assets/logo.svg";
+import LogoDark from "../../assets/logo_dark.svg";
 import SmallLogo from "../../assets/small_logo.svg";
 import {
   LayoutDashboard,
@@ -9,10 +10,12 @@ import {
   BookText,
   ChevronRight,
   History,
+  TicketPlus,
 } from "lucide-react";
 
 const navMain = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
+  { to: "/nouveau-ticket", icon: TicketPlus, label: "Nouvelle question" },
   { to: "/tickets", icon: TicketMinus, label: "Tickets" },
   {
     to: "/reponses-enregistrees",
@@ -49,7 +52,7 @@ function NavItem({
         } ${
           isActive
             ? "bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300 font-medium"
-            : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
+            : "text-gray-700 dark:text-gray-300 hover:bg-white/60 dark:hover:bg-white/5"
         }`
       }
     >
@@ -74,17 +77,25 @@ interface SidebarProps {
 export default function Sidebar({ collapsed }: SidebarProps) {
   return (
     <aside
-      className={`flex flex-col bg-white/90 dark:bg-white/5 backdrop-blur-xl border-r border-gray-200/70 dark:border-white/10 shrink-0 overflow-hidden
+      className={`flex flex-col bg-white/50 dark:bg-white/5 backdrop-blur-2xl border-r border-white/60 dark:border-white/10 shadow-[1px_0_24px_0_rgba(0,0,0,0.06)] shrink-0 overflow-hidden
         transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
         ${collapsed ? "w-16" : "w-60"}`}
     >
       {/* Logo */}
       <div className="relative flex items-center justify-center h-20 px-3 overflow-hidden">
-        {/* Full logo */}
+        {/* Full logo — light */}
         <img
           src={Logo}
           alt="TicketAI"
-          className={`absolute w-[80%] h-auto transition-all duration-300 ease-in-out ${
+          className={`absolute w-[80%] h-auto transition-all duration-300 ease-in-out dark:hidden ${
+            collapsed ? "opacity-0 scale-90 pointer-events-none" : "opacity-100 scale-100"
+          }`}
+        />
+        {/* Full logo — dark */}
+        <img
+          src={LogoDark}
+          alt="TicketAI"
+          className={`absolute w-[80%] h-auto transition-all duration-300 ease-in-out hidden dark:block ${
             collapsed ? "opacity-0 scale-90 pointer-events-none" : "opacity-100 scale-100"
           }`}
         />
@@ -123,7 +134,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         <div className="w-9 h-9 rounded-full bg-gray-300 overflow-hidden shrink-0">
           <img
             src="https://i.pravatar.cc/36"
-            alt="avatar"
+            alt=""
             className="w-full h-full object-cover"
           />
         </div>
@@ -133,8 +144,8 @@ export default function Sidebar({ collapsed }: SidebarProps) {
           }`}
         >
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-400 dark:text-gray-500">Bonjour 👋</p>
-            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">Thomas</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">Bonjour 👋</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Thomas</p>
           </div>
           <ChevronRight size={16} className="text-gray-400 shrink-0" />
         </div>
