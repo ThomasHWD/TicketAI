@@ -6,6 +6,7 @@ import Aurora from "./components/ui/Aurora";
 import Dashboard from "./pages/backoffice/Dashboard";
 import TicketsList from "./pages/backoffice/TicketsList";
 import TicketDetail from "./pages/backoffice/TicketDetail";
+import SavedAnswers from "./pages/backoffice/SavedAnswers";
 import NewTicket from "./pages/user/NewTicket";
 import UserTicketHistory from "./pages/user/UserTicketHistory";
 import UserTicketDetail from "./pages/user/UserTicketDetail";
@@ -52,6 +53,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/tickets" element={<TicketsList />} />
           <Route path="/tickets/:id" element={<TicketDetail />} />
+          <Route path="/reponses-enregistrees" element={<SavedAnswers />} />
           <Route path="/nouveau-ticket" element={<NewTicket />} />
           <Route path="/historique" element={<UserTicketHistory />} />
           <Route path="/historique/:id" element={<UserTicketDetail />} />

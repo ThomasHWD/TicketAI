@@ -11,22 +11,24 @@ import {
   ChevronRight,
   History,
   TicketPlus,
+  MessagesSquare,
 } from "lucide-react";
 
 const navMain = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
-  { to: "/nouveau-ticket", icon: TicketPlus, label: "Nouvelle question" },
   { to: "/tickets", icon: TicketMinus, label: "Tickets" },
+  { to: "/mon-suivi", icon: MessagesSquare, label: "Mon suivi" },
   {
     to: "/reponses-enregistrees",
     icon: MessageSquare,
     label: "Réponses Enregistrées",
   },
+  { to: "/Documentations", icon: BookText, label: "Documentations" },
 ];
 
 const navSettings = [
+  { to: "/nouveau-ticket", icon: TicketPlus, label: "Nouvelle question" },
   { to: "/historique", icon: History, label: "Mon historique" },
-  { to: "/Documentations", icon: BookText, label: "Documentations" },
   { to: "/parametres", icon: Settings, label: "Paramètres" },
 ];
 

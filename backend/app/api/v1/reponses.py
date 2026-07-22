@@ -6,8 +6,15 @@ from fastapi import APIRouter, HTTPException
 from app.config import settings
 from app.database import SessionLocal
 from app.models.reponse import Reponse
+from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
-from app.schemas.reponse import CorrigerRequest, RejeterRequest, ValiderRequest
+from app.schemas.reponse import (
+    CorrigerRequest,
+    EditerCanoniqueRequest,
+    RejeterRequest,
+    ValiderRequest,
+)
+from app.services.qdrant import delete_response_point
 from app.workers.feedback import feedback_job
 
 router = APIRouter()
@@ -233,5 +240,140 @@ async def lister_reponses_en_attente(domaine: str | None = None, limit: int = 20
             }
             for r, t in resultats
         ]
+    finally:
+        db.close()
+
+
+@router.get("/reponses/canoniques")
+async def lister_reponses_canoniques(
+    domaine: str | None = None, page: int = 1, limit: int = 20
+):
+    """Liste paginée des réponses canoniques — une entrée par réponse canonique.
+
+    On ne retourne que les réponses **sources** (`reponse_source_id IS NULL`) : chaque
+    question ré-servie via la branche CANONIQUE crée une copie (`canonique=True` mais
+    `reponse_source_id` renseigné) qu'il ne faut pas afficher, sinon la même réponse
+    apparaîtrait autant de fois qu'elle a été réutilisée. `Ticket.occurence` porte le
+    nombre de réutilisations. Sert la page de gestion « Réponses Enregistrées »."""
+    db = SessionLocal()
+    try:
+        query = (
+            db.query(Reponse, Ticket)
+            .join(Ticket, Ticket.id == Reponse.ticket_id)
+            .filter(Reponse.canonique.is_(True))
+            .filter(Reponse.reponse_source_id.is_(None))
+        )
+
+        if domaine:
+            query = query.filter(Ticket.domaine == domaine.upper())
+
+        total = query.count()
+        resultats = (
+            query.order_by(Reponse.validated_at.desc().nullslast())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "items": [
+                {
+                    "reponse_id": str(r.id),
+                    "ticket_id": str(r.ticket_id),
+                    "question": t.question,
+                    "domaine": t.domaine,
+                    "contenu": r.contenu,
+                    "contenu_corrige": r.contenu_corrige,
+                    "nb_validations": r.nb_validations,
+                    "occurence": t.occurence,
+                    "validated_at": r.validated_at.isoformat()
+                    if r.validated_at
+                    else None,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r, t in resultats
+            ],
+        }
+    finally:
+        db.close()
+
+
+@router.put("/reponses/{reponse_id}/editer")
+async def editer_reponse_canonique(reponse_id: str, payload: EditerCanoniqueRequest):
+    """Édite le contenu servi d'une réponse canonique puis la réindexe dans Qdrant,
+    afin que les futures questions renvoient le nouveau texte. Le nouveau contenu est
+    stocké dans `contenu_corrige` (champ privilégié par le feedback_job)."""
+    db = SessionLocal()
+    try:
+        reponse = get_reponse_or_404(db, reponse_id)
+
+        if not reponse.canonique:
+            raise HTTPException(
+                409, "Seules les réponses canoniques peuvent être éditées ici."
+            )
+
+        if not payload.contenu.strip():
+            raise HTTPException(400, "Le contenu ne peut pas être vide.")
+
+        reponse.contenu_corrige = payload.contenu
+        db.commit()
+
+        # Réindexe le point Qdrant avec le nouveau contenu en payload.
+        feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
+
+        return {
+            "reponse_id": reponse_id,
+            "contenu_corrige": payload.contenu,
+            "message": "Réponse canonique éditée et en cours de réindexation.",
+        }
+    finally:
+        db.close()
+
+
+@router.delete("/reponses/{reponse_id}")
+async def supprimer_reponse_canonique(reponse_id: str):
+    """Supprime définitivement une réponse canonique : retrait du point Qdrant et de
+    la ligne en base. Les futures questions similaires repassent par le pipeline RAG
+    normal. Aucune cascade n'étant déclarée sur les FK, on nettoie manuellement les
+    chunks liés et on détache les copies (réutilisations CANONIQUE) avant la suppression."""
+    db = SessionLocal()
+    try:
+        reponse = get_reponse_or_404(db, reponse_id)
+
+        if not reponse.canonique:
+            raise HTTPException(
+                409, "Seules les réponses canoniques peuvent être supprimées ici."
+            )
+
+        # 1. Retrait du point Qdrant (plus de match CANONIQUE/SUGGESTION).
+        delete_response_point(reponse_id)
+
+        # 2. Chunks liés (pas de cascade en base).
+        db.query(ReponseChunk).filter(
+            ReponseChunk.reponse_id == reponse.id
+        ).delete(synchronize_session=False)
+
+        # 3. Détacher les copies (réutilisations) qui pointent sur cette source.
+        #    On retire aussi leur flag `canonique` : sinon, une fois orphelines
+        #    (reponse_source_id NULL), elles réapparaîtraient comme des sources
+        #    dans la liste des réponses canoniques.
+        db.query(Reponse).filter(
+            Reponse.reponse_source_id == reponse.id
+        ).update(
+            {"reponse_source_id": None, "canonique": False},
+            synchronize_session=False,
+        )
+
+        # 4. Suppression de la réponse elle-même.
+        db.delete(reponse)
+        db.commit()
+
+        return {
+            "reponse_id": reponse_id,
+            "message": "Réponse canonique supprimée.",
+        }
     finally:
         db.close()

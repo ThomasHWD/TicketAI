@@ -13,3 +13,6 @@ class RejeterRequest(BaseModel):
 class CorrigerRequest(BaseModel):
     validator_id: UUID
     contenu_corrige: str
+
+class EditerCanoniqueRequest(BaseModel):
+    contenu: str
