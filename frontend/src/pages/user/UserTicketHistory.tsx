@@ -96,21 +96,21 @@ export default function UserTicketHistory() {
             <tbody className="divide-y divide-gray-50 dark:divide-white/5">
               {loading && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     Chargement…
                   </td>
                 </tr>
               )}
               {error && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-red-400">
+                  <td colSpan={4} className="px-6 py-12 text-center text-red-600 dark:text-red-400">
                     {error instanceof Error ? error.message : "Erreur de chargement"}
                   </td>
                 </tr>
               )}
               {!loading && !error && tickets.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     Vous n'avez encore posé aucune question.
                   </td>
                 </tr>
@@ -119,7 +119,7 @@ export default function UserTicketHistory() {
                 tickets.map((t) => (
                   <tr
                     key={t.id}
-                    className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer focus-within:bg-gray-50 dark:focus-within:bg-white/5"
+                    className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer focus-within:bg-gray-50 dark:focus-within:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
                     onClick={() => navigate(`/historique/${t.id}`)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {

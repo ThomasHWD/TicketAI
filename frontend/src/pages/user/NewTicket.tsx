@@ -117,12 +117,12 @@ export default function NewTicket() {
               onChange={(e) => setQuestion(e.target.value)}
               rows={5}
               placeholder="Ex. : Combien de jours de congés puis-je reporter sur l'année suivante ?"
-              className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-white/5 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
+              className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-white/5 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y"
             />
           </div>
 
           {submit.isError && (
-            <div className="flex items-center gap-2 text-sm text-red-500">
+            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
               <AlertCircle size={16} />
               {submit.error instanceof Error
                 ? submit.error.message
