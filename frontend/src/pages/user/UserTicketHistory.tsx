@@ -16,10 +16,10 @@ function statutLabel(statut: StatutTicket, canonique: boolean) {
 
 function statutClass(statut: StatutTicket, canonique: boolean) {
   if (statut === "REJETÉ")
-    return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
+    return "bg-red-500/10 text-red-700 border-red-300/50 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (statut === "VALIDÉ" || canonique)
-    return "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
-  return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
+    return "bg-emerald-500/10 text-emerald-700 border-emerald-300/50 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
+  return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
 }
 
 function StatutBadge({
@@ -76,13 +76,13 @@ export default function UserTicketHistory() {
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
           Mon historique
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
           Retrouvez les questions que vous avez posées et leurs réponses.
         </p>
       </div>
 
       {/* Card */}
-      <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 overflow-hidden">
+      <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -93,7 +93,7 @@ export default function UserTicketHistory() {
                 <th className="px-6 py-3 font-medium">Statut</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-white/5">
+            <tbody className="divide-y divide-gray-200 dark:divide-white/5">
               {loading && (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
@@ -153,7 +153,7 @@ export default function UserTicketHistory() {
 
         {/* Pagination */}
         {!loading && total > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-white/10 text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-white/10 text-sm text-gray-500 dark:text-gray-400">
             <span>
               {from}–{to} sur {total}
             </span>

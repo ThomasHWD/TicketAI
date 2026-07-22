@@ -50,14 +50,14 @@ export default function NewTicket() {
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
           Besoin d'un renseignement ?
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
           Posez votre question — Nous y répondrons dans les plus brefs délais.
         </p>
       </div>
 
       {submitted ? (
         /* Confirmation d'envoi */
-        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 p-8 flex flex-col items-center text-center gap-3">
+        <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-8 flex flex-col items-center text-center gap-3">
           <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400">
             <CheckCircle2 size={26} />
           </span>
@@ -81,7 +81,7 @@ export default function NewTicket() {
         /* Formulaire */
         <form
           onSubmit={handleSubmit}
-          className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 p-6 space-y-5"
+          className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6 space-y-5"
         >
           <div className="space-y-1.5">
             <label

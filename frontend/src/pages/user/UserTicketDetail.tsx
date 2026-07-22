@@ -67,7 +67,7 @@ function ReponseItem({ reponse }: { reponse: TicketReponse }) {
           {formatDate(reponse.created_at)}
         </span>
       </div>
-      <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
+      <div className="bg-white/40 dark:bg-white/5 rounded-xl p-4">
         <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
           {reponse.contenu_corrige ?? reponse.contenu}
         </p>
@@ -104,7 +104,7 @@ export default function UserTicketDetail() {
   const BackButton = (
     <button
       onClick={() => navigate(-1)}
-      className="group inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 hover:bg-white hover:text-gray-900 hover:border-gray-300 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
+      className="group inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 dark:hover:border-emerald-400/20 shadow-sm transition-all duration-200"
       aria-label="Retour à mon historique"
     >
       <ArrowLeft
@@ -141,7 +141,7 @@ export default function UserTicketDetail() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
+          <p className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-0.5">
             Ma question
           </p>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
@@ -156,7 +156,7 @@ export default function UserTicketDetail() {
         {/* Colonne principale : question + réponses */}
         <div className="flex-1 min-w-0 space-y-4">
           {/* Question */}
-          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 p-6">
+          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6">
             <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">
               Question
             </p>
@@ -166,8 +166,8 @@ export default function UserTicketDetail() {
           </div>
 
           {/* Réponses */}
-          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10">
+          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
               <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                 Réponses
               </h2>
@@ -179,7 +179,7 @@ export default function UserTicketDetail() {
               </p>
             ) : (
               <ul
-                className="divide-y divide-gray-100 dark:divide-white/10"
+                className="divide-y divide-gray-200 dark:divide-white/10"
                 aria-label="Réponses à ma question"
               >
                 {reponses.map((r) => (
@@ -192,7 +192,7 @@ export default function UserTicketDetail() {
 
         {/* Colonne latérale : infos */}
         <div className="w-72 shrink-0 space-y-4">
-          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 p-5 space-y-4">
+          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-5 space-y-4">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               Informations
             </p>

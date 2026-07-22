@@ -192,7 +192,7 @@ function ReponseItem({
           </div>
         </div>
       ) : (
-        <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4">
+        <div className="bg-white/40 dark:bg-white/5 rounded-xl p-4">
           <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">{reponse.contenu}</p>
         </div>
       )}
@@ -255,7 +255,7 @@ export default function TicketDetail() {
   if (error || !ticket) {
     return (
       <div className="p-6">
-        <button onClick={() => navigate(-1)} className="group inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 hover:bg-white hover:text-gray-900 hover:border-gray-300 dark:hover:bg-white/10 dark:hover:text-white transition-colors mb-4">
+        <button onClick={() => navigate(-1)} className="group inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 dark:hover:border-emerald-400/20 shadow-sm transition-all duration-200 mb-4">
           <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" /> Retour
         </button>
         <p className="text-red-600 dark:text-red-400" role="alert">
@@ -269,7 +269,7 @@ export default function TicketDetail() {
     <div className="p-6 space-y-4 max-w-6xl">
       <button
         onClick={() => navigate(-1)}
-        className="group inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 hover:bg-white hover:text-gray-900 hover:border-gray-300 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
+        className="group inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 dark:hover:border-emerald-400/20 shadow-sm transition-all duration-200"
         aria-label="Retour à la liste des tickets"
       >
         <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" /> Retour aux tickets
@@ -292,7 +292,7 @@ export default function TicketDetail() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Objet</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-0.5">Objet</p>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{MOCK_OBJET}</h1>
         </div>
         <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} />
@@ -304,20 +304,20 @@ export default function TicketDetail() {
         {/* Colonne principale : question + réponses */}
         <div className="flex-1 min-w-0 space-y-4">
           {/* Question */}
-          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 p-6">
+          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6">
             <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">Question</p>
             <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">{ticket.question}</p>
           </div>
 
           {/* Réponses */}
-          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-white/10">
+          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
               <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Réponses</h2>
             </div>
             {reponses.length === 0 ? (
               <p className="px-6 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">Aucune réponse pour ce ticket.</p>
             ) : (
-              <ul className="divide-y divide-gray-100 dark:divide-white/10" aria-label="Réponses au ticket">
+              <ul className="divide-y divide-gray-200 dark:divide-white/10" aria-label="Réponses au ticket">
                 {reponses.map((r) => (
                   <ReponseItem
                     key={r.id}
@@ -336,7 +336,7 @@ export default function TicketDetail() {
         <div className="w-72 shrink-0 space-y-4">
 
           {/* Infos ticket */}
-          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 p-5 space-y-4">
+          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-5 space-y-4">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Informations</p>
             <dl className="space-y-3 text-sm">
               <div>
@@ -359,7 +359,7 @@ export default function TicketDetail() {
           </div>
 
           {/* Demandeur */}
-          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 p-5 space-y-4">
+          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-5 space-y-4">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Demandeur</p>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300 font-semibold text-sm flex items-center justify-center shrink-0" aria-hidden="true">
@@ -370,7 +370,7 @@ export default function TicketDetail() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{MOCK_AUTHOR.role}</p>
               </div>
             </div>
-            <dl className="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/10 pt-3">
+            <dl className="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-white/10 pt-3">
               <div>
                 <dt className="text-gray-500 dark:text-gray-400 mb-0.5">Département</dt>
                 <dd className="text-gray-700 dark:text-gray-200">{MOCK_AUTHOR.department}</dd>
