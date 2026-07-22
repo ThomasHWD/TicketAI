@@ -38,11 +38,11 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   return (
-    <div className="h-20 bg-white/90 dark:bg-white/5 backdrop-blur-xl border-b border-gray-200/70 dark:border-white/10 flex items-center px-5 gap-3 shrink-0">
+    <div className="h-20 bg-white/50 dark:bg-white/5 backdrop-blur-2xl border-b border-white/60 dark:border-white/10 shadow-[0_1px_24px_0_rgba(0,0,0,0.06)] flex items-center px-5 gap-3 shrink-0">
       {/* Collapse */}
       <button
         onClick={onToggle}
-        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors shrink-0"
+        className="p-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 transition-colors shrink-0"
         title={collapsed ? "Déplier le menu" : "Replier le menu"}
         aria-label={collapsed ? "Déplier le menu latéral" : "Replier le menu latéral"}
       >
@@ -54,7 +54,7 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
       {/* Theme toggle */}
       <button
         onClick={toggle}
-        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-amber-300 transition-colors shrink-0"
+        className="p-2 rounded-lg hover:bg-white/60 dark:hover:bg-white/10 text-gray-600 dark:text-amber-300 transition-colors shrink-0"
         title={theme === "dark" ? "Passer en thème clair" : "Passer en thème sombre"}
         aria-label={theme === "dark" ? "Passer en thème clair" : "Passer en thème sombre"}
       >
@@ -83,7 +83,7 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
           alt=""
           className="w-8 h-8 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
         />
-        <p className="hidden md:block text-sm font-medium text-gray-700 dark:text-gray-100 leading-tight whitespace-nowrap">
+        <p className="hidden md:block text-sm font-medium text-gray-900 dark:text-gray-100 leading-tight whitespace-nowrap">
           Thomas HENWOOD
         </p>
       </div>
