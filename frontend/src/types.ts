@@ -41,6 +41,7 @@ export interface TicketReponse {
   id: string;
   ticket_id: string;
   contenu: string;
+  contenu_corrige: string | null;
   statut: StatutReponse;
   source: Source;
   nb_validations: number;
@@ -58,6 +59,19 @@ export interface ReponseEnAttente {
   source: Source;
   score_similarite: number;
   created_at: string;
+}
+
+export interface SoumettreQuestionPayload {
+  question: string;
+  domaine: Domaine;
+  user_id?: string | null;
+}
+
+export interface SoumettreQuestionResponse {
+  job_id: string;
+  question: string;
+  domaine: Domaine;
+  statut: string;
 }
 
 export interface ValiderPayload {

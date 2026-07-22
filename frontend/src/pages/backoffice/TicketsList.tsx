@@ -18,11 +18,11 @@ function statutLabel(statut: StatutTicket, canonique: boolean) {
 }
 
 function statutClass(statut: StatutTicket, canonique: boolean) {
-  if (statut === "REJETÉ") return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
-  if (canonique) return "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
-  if (statut === "VALIDÉ") return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
-  if (statut === "RÉPONDU") return "bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20";
-  return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
+  if (statut === "REJETÉ") return "bg-red-500/10 text-red-700 border-red-300/50 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
+  if (canonique) return "bg-emerald-500/10 text-emerald-700 border-emerald-300/50 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
+  if (statut === "VALIDÉ") return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
+  if (statut === "RÉPONDU") return "bg-amber-500/10 text-amber-700 border-amber-300/50 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20";
+  return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
 }
 
 function StatutBadge({ statut, canonique }: { statut: StatutTicket; canonique: boolean }) {
@@ -70,20 +70,19 @@ export default function TicketsList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Tickets</h1>
-        <select className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-          <option>Trier par date</option>
-          <option>Trier par statut</option>
-        </select>
       </div>
 
       {/* Card */}
-      <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 overflow-hidden">
+      <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
         {/* Card header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-white/10">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Dernières questions</h2>
-          <button className="flex items-center gap-1.5 text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+          <button
+            onClick={() => navigate("/nouveau-ticket")}
+            className="flex items-center gap-1.5 text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+          >
             Créer un ticket
-            <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 dark:text-gray-300 text-xs font-bold">+</span>
+            <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 dark:text-gray-300 text-xs font-bold" aria-hidden="true">+</span>
           </button>
         </div>
 
@@ -97,24 +96,24 @@ export default function TicketsList() {
                 <th className="px-6 py-3 font-medium">Statut</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-white/5">
+            <tbody className="divide-y divide-gray-200 dark:divide-white/5">
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     Chargement…
                   </td>
                 </tr>
               )}
               {error && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-red-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-red-600 dark:text-red-400">
                     {error instanceof Error ? error.message : "Erreur de chargement"}
                   </td>
                 </tr>
               )}
               {!loading && !error && tickets.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     Aucun ticket
                   </td>
                 </tr>
@@ -124,7 +123,7 @@ export default function TicketsList() {
                 return (
                 <tr
                   key={t.id}
-                  className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer focus-within:bg-gray-50 dark:focus-within:bg-white/5"
+                  className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer focus-within:bg-gray-50 dark:focus-within:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
                   onClick={() => navigate(`/tickets/${t.id}`)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
                   tabIndex={0}
@@ -159,7 +158,7 @@ export default function TicketsList() {
 
         {/* Pagination */}
         {!loading && total > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-white/10 text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-white/10 text-sm text-gray-500 dark:text-gray-400">
             <span>{from}–{to} sur {total}</span>
             <div className="flex items-center gap-1">
               <button
