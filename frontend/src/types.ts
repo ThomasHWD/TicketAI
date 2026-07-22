@@ -74,6 +74,30 @@ export interface SoumettreQuestionResponse {
   statut: string;
 }
 
+export interface ReponseCanonique {
+  reponse_id: string;
+  ticket_id: string;
+  question: string;
+  domaine: Domaine;
+  contenu: string;
+  contenu_corrige: string | null;
+  nb_validations: number;
+  occurence: number;
+  validated_at: string | null;
+  created_at: string | null;
+}
+
+export interface ReponsesCanoniquesResponse {
+  total: number;
+  page: number;
+  limit: number;
+  items: ReponseCanonique[];
+}
+
+export interface EditerCanoniquePayload {
+  contenu: string;
+}
+
 export interface ValiderPayload {
   validator_id: string;
 }

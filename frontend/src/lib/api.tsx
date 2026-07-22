@@ -3,6 +3,8 @@ import type {
   TicketsResponse,
   TicketReponse,
   ReponseEnAttente,
+  ReponsesCanoniquesResponse,
+  EditerCanoniquePayload,
   ValiderPayload,
   RejeterPayload,
   CorrigerPayload,
@@ -84,6 +86,41 @@ export async function getReponsesEnAttente(
   const params = domaine ? `?domaine=${domaine}` : "";
   const res = await fetch(`${BASE_URL}/reponses/en-attente${params}`);
   if (!res.ok) throw new Error("Erreur chargement réponses");
+  return res.json();
+}
+
+export async function getReponsesCanoniques(params?: {
+  page?: number;
+  limit?: number;
+  domaine?: Domaine;
+}): Promise<ReponsesCanoniquesResponse> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.domaine) query.set("domaine", params.domaine);
+  const res = await fetch(`${BASE_URL}/reponses/canoniques?${query}`);
+  if (!res.ok) throw new Error("Erreur chargement réponses canoniques");
+  return res.json();
+}
+
+export async function editerReponseCanonique(
+  reponseId: string,
+  payload: EditerCanoniquePayload,
+) {
+  const res = await fetch(`${BASE_URL}/reponses/${reponseId}/editer`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Erreur édition réponse canonique");
+  return res.json();
+}
+
+export async function supprimerReponseCanonique(reponseId: string) {
+  const res = await fetch(`${BASE_URL}/reponses/${reponseId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Erreur suppression réponse canonique");
   return res.json();
 }
 
