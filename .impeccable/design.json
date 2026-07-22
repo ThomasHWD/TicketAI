@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-21T14:23:04Z",
+  "title": "Design System: TicketAI",
+  "extensions": {
+    "colorMeta": {
+      "emerald-primary": { "role": "primary", "displayName": "Emerald Primary", "canonical": "#10b981", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#a7f3d0"] },
+      "emerald-deep": { "role": "primary", "displayName": "Emerald Deep", "canonical": "#059669", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7"] },
+      "green-active-bg": { "role": "primary", "displayName": "Calm Active Green", "canonical": "#dcfce7", "tonalRamp": ["#052e16", "#14532d", "#15803d", "#16a34a", "#22c55e", "#86efac", "#dcfce7", "#f0fdf4"] },
+      "ink-body": { "role": "neutral", "displayName": "Ink Body", "canonical": "#4b5563", "tonalRamp": ["#111827", "#1f2937", "#374151", "#4b5563", "#6b7280", "#9ca3af", "#e5e7eb", "#f9fafb"] },
+      "night": { "role": "neutral", "displayName": "Night Canvas", "canonical": "#05070f", "tonalRamp": ["#05070f", "#0b0f1c", "#131826", "#1f2637", "#2b3446", "#3b4657", "#6b7280", "#9ca3af"] },
+      "state-info": { "role": "tertiary", "displayName": "Validated Blue", "canonical": "#2563eb", "tonalRamp": ["#172554", "#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#93c5fd", "#dbeafe", "#eff6ff"] },
+      "state-warn": { "role": "tertiary", "displayName": "Suggestion Amber", "canonical": "#ca8a04", "tonalRamp": ["#422006", "#713f12", "#a16207", "#ca8a04", "#eab308", "#fde047", "#fef9c3", "#fefce8"] },
+      "state-danger": { "role": "tertiary", "displayName": "Rejected Red", "canonical": "#dc2626", "tonalRamp": ["#450a0a", "#7f1d1d", "#b91c1c", "#dc2626", "#ef4444", "#fca5a5", "#fee2e2", "#fef2f2"] }
+    },
+    "typographyMeta": {
+      "page-title": { "displayName": "Page Title", "purpose": "One per screen; text-2xl semibold heading." },
+      "section-title": { "displayName": "Section Title", "purpose": "Panel and card headers." },
+      "body": { "displayName": "Body", "purpose": "Default text, table cells, paragraph copy (cap prose 65-75ch)." },
+      "label": { "displayName": "Label", "purpose": "Form field labels; medium weight, ink-strong." },
+      "eyebrow": { "displayName": "Eyebrow", "purpose": "Uppercase tracked panel section markers (Informations, Demandeur)." },
+      "meta": { "displayName": "Meta", "purpose": "Timestamps, pagination counts, hints; faint gray." }
+    },
+    "shadows": [
+      { "name": "panel-lift", "value": "0 1px 2px 0 rgba(17,24,39,0.05)", "purpose": "The only structural shadow: whisper-lift under every glass panel and the floating back-button." },
+      { "name": "accent-glow", "value": "0 1px 3px 0 rgba(167,243,208,0.5)", "purpose": "shadow-emerald-200 halo under the primary Add Ticket CTA only; ties the button to the aurora." }
+    ],
+    "motion": [
+      { "name": "color-transition", "value": "150ms ease", "purpose": "Default transition-colors on buttons, nav, rows, links." },
+      { "name": "shell-collapse", "value": "300ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Sidebar width + label fade/slide on collapse — the only choreographed motion." },
+      { "name": "spinner", "value": "linear infinite", "purpose": "Loader2 animate-spin during pending mutations." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The emerald CTA — primary action on every screen; carries the accent glow in the navbar.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>Add Ticket</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; background: #10b981; color: #fff; font-size: 0.875rem; font-weight: 500; padding: 8px 16px; border: none; border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(167,243,208,0.5); cursor: pointer; transition: background-color 150ms ease; } .ds-btn-primary:hover { background: #059669; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #10b981; } .ds-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ghost/bordered action for non-primary tasks (Créer un ticket, Corriger).",
+      "html": "<button class=\"ds-btn-secondary\">Créer un ticket<span class=\"ds-btn-secondary__badge\">+</span></button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.8); color: #4b5563; font-size: 0.875rem; padding: 6px 12px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: background-color 150ms ease; } .ds-btn-secondary:hover { background: #f9fafb; } .ds-btn-secondary__badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 9999px; background: #f3f4f6; color: #6b7280; font-size: 0.75rem; font-weight: 700; }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "status-pill",
+      "description": "Rounded status badge with a bg-current leading dot; color maps to business status. Shown here as Canonique (emerald).",
+      "html": "<span class=\"ds-pill\"><span class=\"ds-pill__dot\"></span>Canonique</span>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; } .ds-pill__dot { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; }"
+    },
+    {
+      "name": "Glass Panel",
+      "kind": "card",
+      "refersTo": "glass-panel",
+      "description": "The signature frosted-glass surface — every content container. Translucent white + backdrop blur, never opaque.",
+      "html": "<div class=\"ds-panel\"><p class=\"ds-panel__eyebrow\">Informations</p><p class=\"ds-panel__body\">Frosted glass floats over the aurora; the atmosphere stays faintly visible through the surface.</p></div>",
+      "css": ".ds-panel { background: rgba(255,255,255,0.8); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(229,231,235,0.7); border-radius: 16px; box-shadow: 0 1px 2px 0 rgba(17,24,39,0.05); padding: 24px; } .ds-panel__eyebrow { margin: 0 0 8px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #6b7280; } .ds-panel__body { margin: 0; font-size: 0.875rem; line-height: 1.5; color: #4b5563; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard field with the universal emerald focus ring; select and textarea share this vocabulary.",
+      "html": "<input class=\"ds-input\" placeholder=\"Ex. : Combien de jours de congés puis-je reporter ?\" />",
+      "css": ".ds-input { width: 100%; box-sizing: border-box; font-size: 0.875rem; color: #374151; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; transition: box-shadow 150ms ease, border-color 150ms ease; } .ds-input::placeholder { color: #9ca3af; } .ds-input:focus { outline: none; box-shadow: 0 0 0 2px #10b981; border-color: transparent; }"
+    },
+    {
+      "name": "Nav Item (active)",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Sidebar navigation entry. Active state uses the calm flat green, distinct from the emerald button accent.",
+      "html": "<a class=\"ds-nav-item ds-nav-item--active\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg>Tableau de bord</a>",
+      "css": ".ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.875rem; color: #4b5563; text-decoration: none; transition: background-color 150ms ease; } .ds-nav-item:hover { background: #f3f4f6; } .ds-nav-item--active { background: #dcfce7; color: #15803d; font-weight: 500; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Aurora Desk",
+    "overview": "TicketAI is a human-in-the-loop workspace where validators review AI-drafted helpdesk answers before they ship. The identity is carried by a single living element: an animated WebGL aurora (emerald simplex-noise) fixed behind the entire app. Everything else — sidebar, topbar, every content panel — is a sheet of frosted glass laid over that aurora, letting emerald light bleed up from beneath. The aurora is the brand; the glass is the desk. Emerald is the one true accent — primary actions, current nav, canonical answers, the aurora itself — and appears nowhere as decoration. Neutrals do the heavy lifting; dark mode is a first-class near-black night palette. The system rejects the flat opaque-card SaaS dashboard: surfaces are translucent, blurred, and border-defined, so the atmosphere behind them is always faintly present.",
+    "keyCharacteristics": [
+      "One accent (emerald), one atmosphere (aurora), one surface material (frosted glass).",
+      "Fixed rem type scale, single system-sans family, tight hierarchy.",
+      "Translucency + backdrop-blur instead of heavy shadows for depth.",
+      "Class-toggled dark mode with a near-black night palette; no FOUC.",
+      "Standardized semantic state colors mapped to business statuses."
+    ],
+    "rules": [
+      { "name": "The One Emerald Rule", "body": "Emerald is reserved for primary action, current selection, canonical/success state, and the aurora. It is never a decorative fill, gradient, or background band.", "section": "colors" },
+      { "name": "The Translucent Surface Rule", "body": "No content surface is solid #ffffff. Every panel is white/80 + backdrop-blur-xl; every dark surface is white/5. The aurora must always be faintly readable behind the chrome.", "section": "colors" },
+      { "name": "The Fixed-Scale Rule", "body": "Type sizes are fixed rem steps, never clamp/fluid. Headings that shrink in a collapsed sidebar look broken, not responsive.", "section": "typography" },
+      { "name": "The Weight-Not-Color Rule", "body": "Emphasis is created with weight (500/600) and the gray ramp, not with the accent. Text is almost never emerald.", "section": "typography" },
+      { "name": "The Frosted-Depth Rule", "body": "Depth is backdrop-blur-xl + translucency, never a dark shadow. If a surface needs to feel lifted, increase blur or opacity contrast — do not reach for shadow-lg.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep emerald to the four sanctioned roles (primary action, current selection, canonical/success, aurora).",
+      "Do render every content surface as frosted glass: white/80 + backdrop-blur-xl + border-gray-200/70 + shadow-sm.",
+      "Do use the emerald focus ring (focus:ring-2 focus:ring-emerald-500) on every interactive control.",
+      "Do map status to the standardized semantic triad (emerald / blue / yellow / red) with a light and a /10 dark variant.",
+      "Do use fixed rem type sizes and the single system-sans family; create hierarchy with weight and the gray ramp.",
+      "Do provide light and dark variants for every color — dark mode is first-class, not an afterthought.",
+      "Do keep transitions to transition-colors (~150-250ms); reserve the duration-300 choreography for the sidebar collapse only."
+    ],
+    "donts": [
+      "Don't ship a solid opaque #ffffff card with a hard drop shadow — frosted glass only.",
+      "Don't reach for shadow-lg/deep shadows for depth; use backdrop-blur + translucency.",
+      "Don't use emerald as a decorative fill, gradient text, or background band. No background-clip: text gradients.",
+      "Don't use border-left/border-right colored side-stripes on panels, alerts, or list items; use the full border + bg-current dot pattern.",
+      "Don't introduce a second font family or a display face for UI labels, buttons, or data.",
+      "Don't use clamp/fluid type in the app UI; headings stay at fixed rem steps.",
+      "Don't invent new status colors or one-off accent hues; extend the existing semantic vocabulary."
+    ]
+  }
+}

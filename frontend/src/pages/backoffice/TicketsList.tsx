@@ -70,10 +70,6 @@ export default function TicketsList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Tickets</h1>
-        <select className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-          <option>Trier par date</option>
-          <option>Trier par statut</option>
-        </select>
       </div>
 
       {/* Card */}
@@ -81,9 +77,12 @@ export default function TicketsList() {
         {/* Card header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/10">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Dernières questions</h2>
-          <button className="flex items-center gap-1.5 text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+          <button
+            onClick={() => navigate("/nouveau-ticket")}
+            className="flex items-center gap-1.5 text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+          >
             Créer un ticket
-            <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 dark:text-gray-300 text-xs font-bold">+</span>
+            <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 dark:text-gray-300 text-xs font-bold" aria-hidden="true">+</span>
           </button>
         </div>
 
@@ -100,21 +99,21 @@ export default function TicketsList() {
             <tbody className="divide-y divide-gray-50 dark:divide-white/5">
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     Chargement…
                   </td>
                 </tr>
               )}
               {error && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-red-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-red-600 dark:text-red-400">
                     {error instanceof Error ? error.message : "Erreur de chargement"}
                   </td>
                 </tr>
               )}
               {!loading && !error && tickets.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     Aucun ticket
                   </td>
                 </tr>
@@ -124,7 +123,7 @@ export default function TicketsList() {
                 return (
                 <tr
                   key={t.id}
-                  className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer focus-within:bg-gray-50 dark:focus-within:bg-white/5"
+                  className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer focus-within:bg-gray-50 dark:focus-within:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
                   onClick={() => navigate(`/tickets/${t.id}`)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
                   tabIndex={0}

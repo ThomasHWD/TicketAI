@@ -125,7 +125,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         <div className="w-9 h-9 rounded-full bg-gray-300 overflow-hidden shrink-0">
           <img
             src="https://i.pravatar.cc/36"
-            alt="avatar"
+            alt=""
             className="w-full h-full object-cover"
           />
         </div>
@@ -135,7 +135,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
           }`}
         >
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-400 dark:text-gray-500">Bonjour 👋</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Bonjour 👋</p>
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">Thomas</p>
           </div>
           <ChevronRight size={16} className="text-gray-400 shrink-0" />

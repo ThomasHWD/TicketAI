@@ -148,17 +148,18 @@ function ReponseItem({
     <li className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={`text-xs px-2.5 py-0.5 rounded-full border font-medium ${reponseStatutClass(reponse.statut, reponse.canonique)}`}>
+          <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full border font-medium ${reponseStatutClass(reponse.statut, reponse.canonique)}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
             {reponseStatutLabel(reponse.statut, reponse.canonique)}
           </span>
-          <span className="text-xs text-gray-400">{SOURCE_LABEL[reponse.source] ?? reponse.source}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{SOURCE_LABEL[reponse.source] ?? reponse.source}</span>
           {reponse.score_similarite != null && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               · similarité {(reponse.score_similarite * 100).toFixed(0)} %
             </span>
           )}
         </div>
-        <span className="text-xs text-gray-400 shrink-0">{formatDate(reponse.created_at)}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">{formatDate(reponse.created_at)}</span>
       </div>
 
       {editing ? (
@@ -172,7 +173,7 @@ function ReponseItem({
             autoFocus
             aria-label="Contenu corrigé"
           />
-          {error && <p className="text-xs text-red-500" role="alert">{error}</p>}
+          {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
           <div className="flex items-center gap-2">
             <button
               onClick={handleCorriger}
@@ -212,7 +213,7 @@ function ReponseItem({
           >
             <Pencil size={14} aria-hidden="true" /> Corriger
           </button>
-          {error && <p className="text-xs text-red-500 ml-1" role="alert">{error}</p>}
+          {error && <p className="text-xs text-red-600 dark:text-red-400 ml-1" role="alert">{error}</p>}
         </div>
       )}
     </li>
@@ -249,7 +250,7 @@ export default function TicketDetail() {
 
   const readOnly = !isMine;
 
-  if (loading) return <div className="p-6 text-center text-gray-400" aria-live="polite">Chargement…</div>;
+  if (loading) return <div className="p-6 text-center text-gray-500 dark:text-gray-400" aria-live="polite">Chargement…</div>;
 
   if (error || !ticket) {
     return (
@@ -257,7 +258,7 @@ export default function TicketDetail() {
         <button onClick={() => navigate(-1)} className="group inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 hover:bg-white hover:text-gray-900 hover:border-gray-300 dark:hover:bg-white/10 dark:hover:text-white transition-colors mb-4">
           <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" /> Retour
         </button>
-        <p className="text-red-400" role="alert">
+        <p className="text-red-600 dark:text-red-400" role="alert">
           {error instanceof Error ? error.message : "Ticket introuvable"}
         </p>
       </div>
@@ -291,7 +292,7 @@ export default function TicketDetail() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Objet</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Objet</p>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{MOCK_OBJET}</h1>
         </div>
         <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} />
@@ -304,7 +305,7 @@ export default function TicketDetail() {
         <div className="flex-1 min-w-0 space-y-4">
           {/* Question */}
           <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 p-6">
-            <p className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide mb-2">Question</p>
+            <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">Question</p>
             <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">{ticket.question}</p>
           </div>
 
@@ -314,7 +315,7 @@ export default function TicketDetail() {
               <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Réponses</h2>
             </div>
             {reponses.length === 0 ? (
-              <p className="px-6 py-10 text-center text-gray-400 text-sm">Aucune réponse pour ce ticket.</p>
+              <p className="px-6 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">Aucune réponse pour ce ticket.</p>
             ) : (
               <ul className="divide-y divide-gray-100 dark:divide-white/10" aria-label="Réponses au ticket">
                 {reponses.map((r) => (
@@ -339,19 +340,19 @@ export default function TicketDetail() {
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Informations</p>
             <dl className="space-y-3 text-sm">
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 text-xs mb-0.5">Domaine</dt>
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Domaine</dt>
                 <dd className="text-gray-700 dark:text-gray-200 font-medium">{DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}</dd>
               </div>
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 text-xs mb-0.5">Créé le</dt>
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Créé le</dt>
                 <dd className="text-gray-700 dark:text-gray-200">{formatDate(ticket.created_at)}</dd>
               </div>
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 text-xs mb-0.5">Référence</dt>
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Référence</dt>
                 <dd className="text-gray-500 dark:text-gray-400 font-mono text-xs break-all">{ticket.id}</dd>
               </div>
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 text-xs mb-0.5">Statut traitement</dt>
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Statut traitement</dt>
                 <dd className="text-gray-700 dark:text-gray-200">{ticket.statut_job}</dd>
               </div>
             </dl>
@@ -371,15 +372,15 @@ export default function TicketDetail() {
             </div>
             <dl className="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/10 pt-3">
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 mb-0.5">Département</dt>
+                <dt className="text-gray-500 dark:text-gray-400 mb-0.5">Département</dt>
                 <dd className="text-gray-700 dark:text-gray-200">{MOCK_AUTHOR.department}</dd>
               </div>
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 mb-0.5">Email</dt>
+                <dt className="text-gray-500 dark:text-gray-400 mb-0.5">Email</dt>
                 <dd className="text-gray-700 dark:text-gray-200 break-all">{MOCK_AUTHOR.email}</dd>
               </div>
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 mb-0.5">Téléphone</dt>
+                <dt className="text-gray-500 dark:text-gray-400 mb-0.5">Téléphone</dt>
                 <dd className="text-gray-700 dark:text-gray-200">{MOCK_AUTHOR.phone}</dd>
               </div>
             </dl>

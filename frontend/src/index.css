@@ -2,3 +2,24 @@
 
 /* Active le dark mode par classe sur <html> (stratégie togglée, pas média). */
 @custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  /* Titres : lignes équilibrées, pas de mot orphelin. */
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+}
+
+/* Accessibilité : neutralise transitions et animations pour les utilisateurs
+   qui préfèrent moins de mouvement (repli de la sidebar, spinners, etc.).
+   L'aurora WebGL est gérée séparément dans Aurora.tsx (rendu figé). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

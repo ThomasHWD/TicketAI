@@ -63,7 +63,7 @@ function ReponseItem({ reponse }: { reponse: TicketReponse }) {
         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 size={14} aria-hidden="true" /> Réponse validée
         </span>
-        <span className="text-xs text-gray-400 shrink-0">
+        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
           {formatDate(reponse.created_at)}
         </span>
       </div>
@@ -118,7 +118,7 @@ export default function UserTicketDetail() {
 
   if (loading)
     return (
-      <div className="p-6 text-center text-gray-400" aria-live="polite">
+      <div className="p-6 text-center text-gray-500 dark:text-gray-400" aria-live="polite">
         Chargement…
       </div>
     );
@@ -127,7 +127,7 @@ export default function UserTicketDetail() {
     return (
       <div className="p-6 space-y-4">
         {BackButton}
-        <p className="text-red-400" role="alert">
+        <p className="text-red-600 dark:text-red-400" role="alert">
           {error instanceof Error ? error.message : "Question introuvable"}
         </p>
       </div>
@@ -141,7 +141,7 @@ export default function UserTicketDetail() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
             Ma question
           </p>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
@@ -157,7 +157,7 @@ export default function UserTicketDetail() {
         <div className="flex-1 min-w-0 space-y-4">
           {/* Question */}
           <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-white/10 shadow-sm shadow-gray-900/5 p-6">
-            <p className="text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide mb-2">
+            <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">
               Question
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
@@ -173,7 +173,7 @@ export default function UserTicketDetail() {
               </h2>
             </div>
             {reponses.length === 0 ? (
-              <p className="px-6 py-10 text-center text-gray-400 text-sm">
+              <p className="px-6 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">
                 Votre question est en cours de traitement. La réponse
                 s'affichera ici dès qu'elle sera disponible.
               </p>
@@ -198,7 +198,7 @@ export default function UserTicketDetail() {
             </p>
             <dl className="space-y-3 text-sm">
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 text-xs mb-0.5">
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
                   Domaine
                 </dt>
                 <dd className="text-gray-700 dark:text-gray-200 font-medium">
@@ -206,7 +206,7 @@ export default function UserTicketDetail() {
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 text-xs mb-0.5">
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
                   Posée le
                 </dt>
                 <dd className="text-gray-700 dark:text-gray-200">
@@ -214,7 +214,7 @@ export default function UserTicketDetail() {
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 text-xs mb-0.5">
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
                   Statut
                 </dt>
                 <dd>
@@ -222,7 +222,7 @@ export default function UserTicketDetail() {
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-400 dark:text-gray-500 text-xs mb-0.5">
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
                   Référence
                 </dt>
                 <dd className="text-gray-500 dark:text-gray-400 font-mono text-xs break-all">

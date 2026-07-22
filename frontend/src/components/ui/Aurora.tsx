@@ -218,9 +218,13 @@ export default function Aurora({
     ctn.appendChild(canvas);
     resize();
 
+    // Respecte prefers-reduced-motion : on rend une seule frame figée plutôt
+    // que d'animer en continu (moins de mouvement, moins de charge GPU).
+    const reduceMotion =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
     let animateId = 0;
     const update = (t: number) => {
-      animateId = requestAnimationFrame(update);
       const p = propsRef.current;
       const now = p.time ?? t * 0.01;
 
@@ -234,8 +238,14 @@ export default function Aurora({
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.bindVertexArray(vao);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      if (!reduceMotion) animateId = requestAnimationFrame(update);
     };
-    animateId = requestAnimationFrame(update);
+    if (reduceMotion) {
+      update(0); // frame statique unique
+    } else {
+      animateId = requestAnimationFrame(update);
+    }
 
     return () => {
       cancelAnimationFrame(animateId);
