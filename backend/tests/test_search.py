@@ -7,6 +7,10 @@ import pytest
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
+# Ce module exige un vrai Qdrant (fixture setup_test_qdrant ci-dessous) → catégorie
+# intégration : exécuté sur GitHub Actions, auto-skippé en local sans infra.
+pytestmark = pytest.mark.integration
+
 # 🎯 Chemin dynamique vers ton fichier de test
 GOLDEN_SET_PATH = os.path.join(os.path.dirname(__file__), "golden_set.json")
 

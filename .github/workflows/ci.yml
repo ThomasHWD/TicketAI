@@ -26,10 +26,40 @@ jobs:
       - name: Run Ruff
         run: ruff check .
 
-  # 2. Exécution des tests
+  # 2. Exécution des tests (suite complète : unitaires + intégration)
+  # GitHub Actions est l'environnement de référence pour les tests d'intégration :
+  # Postgres et Valkey sont provisionnés en services, Qdrant en conteneur. La base
+  # `ticketai_test` déclenche l'exécution réelle des tests marqués `integration`
+  # (cf. garde-fou dans backend/tests/conftest.py).
   tests:
     needs: lint
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ticketai_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      valkey:
+        image: valkey/valkey:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,10 +73,20 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
-      
+
       - name: Start Qdrant DB
         run: |
           docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant
+
+      - name: Wait for Qdrant
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:6333/readyz > /dev/null; then
+              echo "Qdrant prêt."; exit 0
+            fi
+            echo "Attente de Qdrant ($i)..."; sleep 2
+          done
+          echo "Qdrant n'a pas démarré à temps"; exit 1
 
       - name: Run tests
         env:
@@ -72,3 +112,29 @@ jobs:
             PYTHONPATH: .
         working-directory: backend
         run: pytest
+
+  # 3. Frontend : lint + tests unitaires (vitest)
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Run tests
+        working-directory: frontend
+        run: npm run test

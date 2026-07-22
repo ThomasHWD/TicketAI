@@ -2,6 +2,11 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+backend/test_storage_dir/
 backend/.venv/
 TicketAI_Workflows.docx
 AUDIT_TICKETAI.md

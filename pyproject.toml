@@ -22,3 +22,14 @@ unfixable = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Couverture activée par défaut (rapport, sans seuil bloquant pour l'instant : on
+# veut la visibilité, pas casser les PR en plein dev). Un `--cov-fail-under` pourra
+# être ajouté plus tard une fois la couverture stabilisée.
+addopts = "--cov=app --cov-report=term-missing"
+markers = [
+    "integration: nécessite une infra réelle (Postgres/Valkey/Qdrant) ; auto-skippé en local sans infra",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["tests/*"]
