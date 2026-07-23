@@ -12,7 +12,11 @@ from unittest.mock import MagicMock
 import pytest
 from app.models.reponse import Reponse
 from app.models.ticket import Ticket
-from app.workers.question import _upsert_reponse, _upsert_ticket
+from app.workers.question import (
+    _charger_contexte_fil,
+    _upsert_reponse,
+    _upsert_ticket,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -67,9 +71,7 @@ def mock_question_job(monkeypatch):
 # --------------------------------------------------------------------------- #
 # POST /tickets/{id}/suivi
 # --------------------------------------------------------------------------- #
-def test_suivi_enqueue_le_job_sur_le_ticket_existant(
-    client, db_session, mock_question_job
-):
+def test_suivi_enqueue_le_job_sur_le_ticket_existant(client, db_session, mock_question_job):
     ticket, _ = seed_ticket_reponse(db_session, domaine="RH")
 
     resp = client.post(
@@ -99,9 +101,7 @@ def test_suivi_enqueue_le_job_sur_le_ticket_existant(
 def test_suivi_ticket_cloture_renvoie_409(client, db_session, mock_question_job):
     from datetime import datetime, timezone
 
-    ticket, _ = seed_ticket_reponse(
-        db_session, closed_at=datetime.now(timezone.utc)
-    )
+    ticket, _ = seed_ticket_reponse(db_session, closed_at=datetime.now(timezone.utc))
 
     resp = client.post(
         f"{API}/tickets/{ticket.id}/suivi",
@@ -151,9 +151,7 @@ def test_cloturer_pose_closed_at(client, db_session):
 def test_cloturer_deja_cloture_renvoie_409(client, db_session):
     from datetime import datetime, timezone
 
-    ticket, _ = seed_ticket_reponse(
-        db_session, closed_at=datetime.now(timezone.utc)
-    )
+    ticket, _ = seed_ticket_reponse(db_session, closed_at=datetime.now(timezone.utc))
 
     resp = client.post(f"{API}/tickets/{ticket.id}/cloturer", json={})
 
@@ -203,9 +201,7 @@ def test_upsert_reponse_mode_suivi_ajoute_sans_ecraser(db_session):
 
     assert nouvelle.id != initiale.id
     assert nouvelle.question_suivi == "Ma précision"
-    reponses = (
-        db_session.query(Reponse).filter(Reponse.ticket_id == ticket.id).all()
-    )
+    reponses = db_session.query(Reponse).filter(Reponse.ticket_id == ticket.id).all()
     assert len(reponses) == 2
     # La réponse initiale n'a pas été écrasée.
     assert db_session.get(Reponse, initiale.id).contenu == "Réponse initiale"
@@ -270,9 +266,7 @@ def test_feedback_indexe_la_precision_sous_sa_propre_question(db_session, monkey
 
 
 def test_upsert_ticket_mode_suivi_ne_reecrit_pas_la_question(db_session):
-    ticket, _ = seed_ticket_reponse(
-        db_session, question="Question initiale ?", domaine="IT"
-    )
+    ticket, _ = seed_ticket_reponse(db_session, question="Question initiale ?", domaine="IT")
 
     _upsert_ticket(
         db_session,
@@ -291,6 +285,156 @@ def test_upsert_ticket_mode_suivi_ne_reecrit_pas_la_question(db_session):
     assert reloaded.question == "Question initiale ?"
     assert reloaded.domaine == "IT"
     assert reloaded.statut_job == "TERMINÉ"
+
+
+# --------------------------------------------------------------------------- #
+# Worker : contexte du fil pour une précision (_charger_contexte_fil)
+# --------------------------------------------------------------------------- #
+def test_charger_contexte_fil_construit_historique_et_requete(db_session):
+    """Une précision doit être traitée AVEC le contexte du fil : historique LLM
+    alterné user/assistant et requête de recherche concaténant les intentions
+    utilisateur (question d'origine + précisions + précision courante)."""
+    ticket, initiale = seed_ticket_reponse(db_session, question="Comment poser mes congés payés ?")
+    # Un tour de suivi déjà validé dans le fil.
+    db_session.add(
+        Reponse(
+            ticket_id=ticket.id,
+            contenu="Réponse au premier suivi",
+            contenu_corrige="Réponse corrigée au premier suivi",
+            statut="VALIDÉE",
+            source="LLM",
+            question_suivi="Combien de jours par an ?",
+        )
+    )
+    db_session.commit()
+
+    historique, requete = _charger_contexte_fil(ticket.id, "Et pour un CDD ?")
+
+    # Historique : Q initiale → réponse initiale → précision → sa réponse (corrigée).
+    assert historique == [
+        {"role": "user", "content": "Comment poser mes congés payés ?"},
+        {"role": "assistant", "content": "Réponse initiale"},
+        {"role": "user", "content": "Combien de jours par an ?"},
+        {"role": "assistant", "content": "Réponse corrigée au premier suivi"},
+    ]
+    # Requête de recherche : uniquement les tours utilisateur + la précision courante.
+    assert requete == ("Comment poser mes congés payés ?\nCombien de jours par an ?\nEt pour un CDD ?")
+
+
+def test_charger_contexte_fil_ticket_introuvable(db_session):
+    historique, requete = _charger_contexte_fil(uuid.uuid4(), "Et pour un CDD ?")
+    assert historique == []
+    assert requete == "Et pour un CDD ?"
+
+
+def test_question_job_suivi_contextualise_recherche_et_generation(db_session, monkeypatch):
+    """En mode suivi et hors réutilisation, la branche RAG doit :
+    - refaire une recherche CONTEXTUALISÉE (requête = intentions du fil) ;
+    - appeler ``generate`` avec un historique non vide (question d'origine…)."""
+    import app.workers.question as q
+
+    ticket, _ = seed_ticket_reponse(db_session, question="Comment poser mes congés payés ?", domaine="RH")
+
+    # Chunk sans reponse_id → aucune réutilisation possible → branche RAG.
+    chunk = {
+        "score_cosinus": 0.5,
+        "rerank_score": 0.9,
+        "source": "doc.md",
+        "contenu": "Texte source",
+        "doc_id": str(uuid.uuid4()),
+        "chunk_index": 0,
+        "reponse_id": None,
+    }
+    search_mock = MagicMock(return_value=[chunk])
+    rerank_mock = MagicMock(return_value=[chunk])
+    generate_mock = MagicMock(return_value="Réponse contextuelle")
+    monkeypatch.setattr(q, "search_hybrid", search_mock)
+    monkeypatch.setattr(q, "rerank", rerank_mock)
+    monkeypatch.setattr(q, "generate", generate_mock)
+
+    q.question_job.apply(
+        args=["Et pour un CDD ?", "RH", None],
+        kwargs={"ticket_id": str(ticket.id)},
+        throw=True,
+    )
+
+    # generate reçoit l'historique du fil (question d'origine en tête).
+    assert generate_mock.called
+    historique = generate_mock.call_args.kwargs["historique"]
+    assert historique
+    assert historique[0] == {
+        "role": "user",
+        "content": "Comment poser mes congés payés ?",
+    }
+    # Une recherche a bien été contextualisée (intentions du fil concaténées),
+    # en plus de la recherche initiale sur la précision brute.
+    requetes = [call.args[0] for call in search_mock.call_args_list]
+    assert "Comment poser mes congés payés ?\nEt pour un CDD ?" in requetes
+    # Le rerank utilise également la requête contextualisée.
+    assert rerank_mock.call_args.args[0] == ("Comment poser mes congés payés ?\nEt pour un CDD ?")
+
+
+def test_question_job_suivi_match_contextuel_ressort_en_suggestion(db_session, monkeypatch):
+    """Un match de réutilisation obtenu par CONTEXTUALISATION du fil ne doit jamais
+    être servi automatiquement : même si la réponse liée est canonique, le tour
+    ressort en SUGGESTION (revue humaine), pas en CANONIQUE."""
+    import app.workers.question as q
+
+    # Réponse canonique existante (ex. « Qui a créé AlphaGO ? » → DeepMind) posée
+    # sur le ticket ; le suivi « Même question » se pose sur ce même fil.
+    ticket, _ = seed_ticket_reponse(db_session, question="Qui a créé AlphaGO ?", domaine="IT")
+    canonique = Reponse(
+        ticket_id=ticket.id,
+        contenu="DeepMind, filiale de Google.",
+        statut="VALIDÉE",
+        source="LLM",
+        canonique=True,
+        nb_validations=3,
+    )
+    db_session.add(canonique)
+    db_session.commit()
+
+    # Recherche : sur la précision BRUTE → rien de réutilisable (score sous seuil,
+    # pas de reponse_id) ; sur la requête CONTEXTUALISÉE → chunk lié à la canonique.
+    chunk_brut = {
+        "score_cosinus": 0.50,
+        "source": None,
+        "contenu": "x",
+        "doc_id": None,
+        "chunk_index": 0,
+        "reponse_id": None,
+    }
+    chunk_ctx = {
+        "score_cosinus": 0.90,
+        "source": None,
+        "contenu": "x",
+        "doc_id": None,
+        "chunk_index": 0,
+        "reponse_id": str(canonique.id),
+    }
+    search_mock = MagicMock(side_effect=[[chunk_brut], [chunk_ctx]])
+    generate_mock = MagicMock(return_value="ne doit pas être appelé")
+    monkeypatch.setattr(q, "search_hybrid", search_mock)
+    monkeypatch.setattr(q, "generate", generate_mock)
+
+    res = q.question_job.apply(
+        args=["Même question", "IT", None],
+        kwargs={"ticket_id": str(ticket.id)},
+        throw=True,
+    )
+
+    # Servi en SUGGESTION malgré une source canonique (match purement contextuel) ;
+    # aucune génération LLM (réutilisation servie avant la branche RAG).
+    assert res.result["branche"] == "SUGGESTION"
+    generate_mock.assert_not_called()
+
+    # Un nouveau tour SUGGESTION (non canonique) référence la réponse d'origine.
+    db_session.expire_all()
+    suggestions = db_session.query(Reponse).filter(Reponse.ticket_id == ticket.id, Reponse.source == "SUGGESTION").all()
+    assert len(suggestions) == 1
+    assert suggestions[0].canonique is False
+    assert suggestions[0].question_suivi == "Même question"
+    assert suggestions[0].reponse_source_id == canonique.id
 
 
 def test_upsert_ticket_mode_suivi_rebascule_le_statut(db_session):
