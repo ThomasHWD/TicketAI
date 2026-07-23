@@ -12,11 +12,13 @@ import {
   History,
   TicketPlus,
   MessagesSquare,
+  ArchiveX,
 } from "lucide-react";
 
 const navMain = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
   { to: "/tickets", icon: TicketMinus, label: "Tickets" },
+  { to: "/tickets-clotures", icon: ArchiveX, label: "Tickets clôturés" },
   { to: "/mon-suivi", icon: MessagesSquare, label: "Mon suivi" },
   {
     to: "/reponses-enregistrees",

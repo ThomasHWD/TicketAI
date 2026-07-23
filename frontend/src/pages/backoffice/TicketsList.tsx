@@ -62,8 +62,8 @@ export default function TicketsList() {
   const [page, setPage] = useState(1);
 
   const { data, isLoading: loading, error } = useQuery({
-    queryKey: ["tickets", page],
-    queryFn: () => getTickets({ page, limit: LIMIT }),
+    queryKey: ["tickets", "open", page],
+    queryFn: () => getTickets({ page, limit: LIMIT, closed: false }),
     placeholderData: (prev) => prev,
   });
 
