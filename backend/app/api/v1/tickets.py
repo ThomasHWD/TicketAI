@@ -186,6 +186,7 @@ async def liste_tickets(
     domaine: str | None = None,
     statut: str | None = None,
     user_id: str | None = None,
+    closed: bool | None = None,
 ):
     db = SessionLocal()
     try:
@@ -194,6 +195,10 @@ async def liste_tickets(
             query = query.filter(Ticket.domaine == domaine.upper())
         if statut:
             query = query.filter(Ticket.statut_ticket == statut.upper())
+        if closed is True:
+            query = query.filter(Ticket.closed_at.isnot(None))
+        elif closed is False:
+            query = query.filter(Ticket.closed_at.is_(None))
         if user_id:
             try:
                 query = query.filter(Ticket.user_id == uuid.UUID(user_id))
