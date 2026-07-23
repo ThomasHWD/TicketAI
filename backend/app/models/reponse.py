@@ -21,6 +21,9 @@ class Reponse(Base):
     canonique        = Column(Boolean, nullable=False, default=False)
     reponse_source_id = Column(UUID(as_uuid=True), ForeignKey("reponses.id"), nullable=True)
     contenu_corrige  = Column(Text, nullable=True)
+    # Texte de la précision (relance utilisateur) ayant déclenché cette réponse.
+    # NULL pour la réponse à la question initiale du ticket.
+    question_suivi   = Column(Text, nullable=True)
     chunks           = relationship("ReponseChunk", back_populates="reponse")
     score_similarite = Column(Float, nullable=True)
     validator_id     = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)

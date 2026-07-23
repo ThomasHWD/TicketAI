@@ -24,7 +24,14 @@ const MOCK_AUTHOR = {
   phone: "+33 6 12 34 56 78",
 };
 
-function ticketStatutLabel(statut: StatutTicket, canonique: boolean) {
+// Job en cours (question initiale OU précision fraîchement soumise) → « en cours ».
+function isProcessing(statutJob: string) {
+  return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";
+}
+
+function ticketStatutLabel(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean) {
+  if (closed) return "Clôturé";
+  if (processing) return "En cours";
   if (canonique) return "Canonique";
   if (statut === "VALIDÉ") return "Validée";
   if (statut === "RÉPONDU") return "Suggestion";
@@ -32,7 +39,9 @@ function ticketStatutLabel(statut: StatutTicket, canonique: boolean) {
   return "Nouvelle";
 }
 
-function ticketStatutClass(statut: StatutTicket, canonique: boolean) {
+function ticketStatutClass(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean) {
+  if (closed) return "bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/15";
+  if (processing) return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
   if (statut === "REJETÉ") return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (canonique) return "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
   if (statut === "VALIDÉ") return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
@@ -56,11 +65,11 @@ function reponseStatutClass(statut: StatutReponse, canonique: boolean) {
   return "bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20";
 }
 
-function StatutBadge({ statut, canonique }: { statut: StatutTicket; canonique: boolean }) {
+function StatutBadge({ statut, canonique, closed, processing }: { statut: StatutTicket; canonique: boolean; closed: boolean; processing: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique)}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique, closed, processing)}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
-      {ticketStatutLabel(statut, canonique)}
+      {ticketStatutLabel(statut, canonique, closed, processing)}
     </span>
   );
 }
@@ -161,6 +170,18 @@ function ReponseItem({
         </div>
         <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">{formatDate(reponse.created_at)}</span>
       </div>
+
+      {/* Précision de relance ayant déclenché cette réponse (fil de suivi). */}
+      {reponse.question_suivi && (
+        <div className="rounded-xl border border-blue-200/60 dark:border-blue-500/20 bg-blue-50/60 dark:bg-blue-500/10 p-3">
+          <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
+            Précision de l'utilisateur
+          </p>
+          <p className="text-sm text-blue-900/80 dark:text-blue-100/90 leading-relaxed whitespace-pre-wrap">
+            {reponse.question_suivi}
+          </p>
+        </div>
+      )}
 
       {editing ? (
         <div className="space-y-3">
@@ -295,7 +316,7 @@ export default function TicketDetail() {
           <p className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-0.5">Objet</p>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{MOCK_OBJET}</h1>
         </div>
-        <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} />
+        <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={isProcessing(ticket.statut_job)} />
       </div>
 
       {/* Layout 2 colonnes */}

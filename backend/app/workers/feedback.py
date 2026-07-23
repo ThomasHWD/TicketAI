@@ -36,13 +36,23 @@ def feedback_job(self, responde_id: str):
         ticket = db.query(Ticket).filter(Ticket.id == r.ticket_id).first()
         domaine = ticket.domaine if ticket else "NONE"
 
-        # On indexe le vecteur de la QUESTION d'origine, PAS le texte de la réponse.
+        # On indexe le vecteur de la QUESTION, PAS le texte de la réponse.
         # Le lookup (CANONIQUE/SUGGESTION) compare une nouvelle question à ce point :
         # question↔question donne un cosinus élevé pour des questions proches, alors que
         # question↔réponse plafonnait vers ~0.50 et n'atteignait jamais le seuil (0.60).
-        # Fallback sur le contenu de la réponse si le ticket n'a pas de question.
+        #
+        # Un tour de suivi porte sa PROPRE question (la précision, dans `question_suivi`) :
+        # on l'indexe sous cette précision — et non sous la question initiale du ticket —
+        # pour qu'une future question proche de la précision la retrouve, et que la
+        # précision puisse converger vers une réponse canonique à part entière.
+        # Fallback sur le contenu de la réponse si aucune question n'est disponible.
         r_content = r.contenu_corrige if r.contenu_corrige else r.contenu
-        texte_a_indexer = ticket.question if ticket and ticket.question else r_content
+        if r.question_suivi:
+            texte_a_indexer = r.question_suivi
+        elif ticket and ticket.question:
+            texte_a_indexer = ticket.question
+        else:
+            texte_a_indexer = r_content
         embeddings = embed_texts([texte_a_indexer])
 
         client.upsert(
