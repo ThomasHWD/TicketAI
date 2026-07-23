@@ -104,6 +104,7 @@ export async function getTickets(params?: {
   domaine?: Domaine;
   statut?: string;
   userId?: string;
+  closed?: boolean;
 }): Promise<TicketsResponse> {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
@@ -111,6 +112,7 @@ export async function getTickets(params?: {
   if (params?.domaine) query.set("domaine", params.domaine);
   if (params?.statut) query.set("statut", params.statut);
   if (params?.userId) query.set("user_id", params.userId);
+  if (params?.closed !== undefined) query.set("closed", String(params.closed));
   const res = await fetch(`${BASE_URL}/tickets?${query}`);
   if (!res.ok) throw new Error("Erreur chargement tickets");
   return res.json();
