@@ -283,7 +283,10 @@ async def lister_reponses_canoniques(
                 {
                     "reponse_id": str(r.id),
                     "ticket_id": str(r.ticket_id),
-                    "question": t.question,
+                    # Une réponse issue d'un tour de suivi porte sa propre question
+                    # (la précision) : on l'affiche à la place de la question initiale
+                    # du ticket, cohérent avec ce qui est indexé dans Qdrant.
+                    "question": r.question_suivi or t.question,
                     "domaine": t.domaine,
                     "contenu": r.contenu,
                     "contenu_corrige": r.contenu_corrige,

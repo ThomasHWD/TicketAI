@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # SEUILS
     seuil_canonique: int = 3
-    seuil_cosinus: float = 0.60
+    seuil_cosinus: float = 0.70
 
     # Verrou de ticket (durée du bail en secondes, prolongé par heartbeat)
     lock_ttl_seconds: int = 300
