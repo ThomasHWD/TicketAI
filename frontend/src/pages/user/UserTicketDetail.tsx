@@ -1,38 +1,82 @@
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
-import { getTicket, getReponsesByTicket } from "../../lib/api";
-import type { TicketReponse, StatutTicket } from "../../types.ts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CheckCheck,
+  Clock,
+  Lock,
+  Loader2,
+  AlertCircle,
+  Send,
+} from "lucide-react";
+import {
+  getTicket,
+  getReponsesByTicket,
+  poserSuivi,
+  cloturerTicket,
+} from "../../lib/api";
+import { getValidatorId } from "../../lib/currentUser";
+import type { TicketReponse } from "../../types.ts";
 
-// La réponse n'est « disponible » pour l'utilisateur qu'une fois validée
-// (statut_ticket VALIDÉ) ou canonique.
-function ticketStatutLabel(statut: StatutTicket, canonique: boolean) {
-  if (statut === "REJETÉ") return "Sans réponse";
-  if (statut === "VALIDÉ" || canonique) return "Répondu";
-  return "En cours de traitement";
+// Statut du fil déduit de l'état réel des tours : il rebascule en « en cours »
+// dès qu'une précision est en attente de validation, et revient à « Répondu »
+// une fois celle-ci validée. Plus fiable que statut_ticket/canonique du ticket,
+// qui ne portent que sur un seul tour.
+type FilStatut = "closed" | "processing" | "answered" | "rejected";
+
+function deriveFilStatut(
+  closed: boolean,
+  reponses: TicketReponse[],
+  processing: boolean,
+): FilStatut {
+  if (closed) return "closed";
+  // `processing` : précision tout juste envoyée (optimiste, avant que le worker
+  // n'ait créé le tour). Une précision déjà en attente de validation prime aussi.
+  if (processing || reponses.some((r) => r.statut === "EN_ATTENTE"))
+    return "processing";
+  if (reponses.some(reponseVisible)) return "answered";
+  if (reponses.length > 0 && reponses.every((r) => r.statut === "REJETÉE"))
+    return "rejected";
+  return "processing";
 }
 
-function ticketStatutClass(statut: StatutTicket, canonique: boolean) {
-  if (statut === "REJETÉ")
-    return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
-  if (statut === "VALIDÉ" || canonique)
-    return "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
-  return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
-}
+const FIL_STATUT_META: Record<FilStatut, { label: string; className: string }> = {
+  closed: {
+    label: "Clôturé",
+    className:
+      "bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/10",
+  },
+  answered: {
+    label: "Répondu",
+    className:
+      "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
+  },
+  processing: {
+    label: "En cours de traitement",
+    className:
+      "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
+  },
+  rejected: {
+    label: "Sans réponse",
+    className:
+      "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20",
+  },
+};
 
-function StatutBadge({
-  statut,
-  canonique,
-}: {
-  statut: StatutTicket;
-  canonique: boolean;
-}) {
+function FilBadge({ statut }: { statut: FilStatut }) {
+  const { label, className } = FIL_STATUT_META[statut];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique)}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${className}`}
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
-      {ticketStatutLabel(statut, canonique)}
+      {statut === "closed" ? (
+        <Lock size={11} aria-hidden="true" />
+      ) : (
+        <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
+      )}
+      {label}
     </span>
   );
 }
@@ -54,9 +98,45 @@ const DOMAINE_LABEL: Record<string, string> = {
   JURIDIQUE: "Juridique",
 };
 
-/** Une réponse dans le fil, du point de vue de l'utilisateur (lecture seule).
- *  Seules des réponses fiables (validées ou canoniques) sont passées ici. */
-function ReponseItem({ reponse }: { reponse: TicketReponse }) {
+/** Une réponse est visible par l'utilisateur seulement si elle est fiable
+ *  (validée / corrigée / canonique). Les réponses provisoires restent masquées. */
+function reponseVisible(r: TicketReponse) {
+  return r.statut === "VALIDÉE" || r.statut === "CORRIGÉE" || r.canonique;
+}
+
+/** Un tour « utilisateur » du fil : la question initiale ou une précision. */
+function QuestionBubble({
+  text,
+  date,
+  precision = false,
+}: {
+  text: string;
+  date: string | null;
+  precision?: boolean;
+}) {
+  return (
+    <li className="p-6 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          {precision ? "Ma précision" : "Ma question"}
+        </span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
+          {formatDate(date)}
+        </span>
+      </div>
+      <div className="bg-white/40 dark:bg-white/5 rounded-xl p-4">
+        <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+          {text}
+        </p>
+      </div>
+    </li>
+  );
+}
+
+/** Un tour « réponse » du fil. Le contenu n'apparaît qu'une fois la réponse fiable ;
+ *  sinon un état « en cours de traitement » est affiché. */
+function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
+  if (!reponseVisible(reponse)) return <PendingAnswer date={reponse.created_at} />;
   return (
     <li className="p-6 space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -76,9 +156,30 @@ function ReponseItem({ reponse }: { reponse: TicketReponse }) {
   );
 }
 
+function PendingAnswer({ date }: { date: string | null }) {
+  return (
+    <li className="p-6 space-y-2">
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+        <Clock size={14} aria-hidden="true" /> Réponse en cours de traitement
+      </span>
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        La réponse s'affichera ici dès qu'elle aura été validée.
+        {date ? ` · ${formatDate(date)}` : ""}
+      </p>
+    </li>
+  );
+}
+
 export default function UserTicketDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [precision, setPrecision] = useState("");
+  // Fenêtre optimiste : entre l'envoi d'une précision et l'apparition du nouveau
+  // tour côté serveur, on force l'état « en cours ». On mémorise le nombre de
+  // réponses au moment de l'envoi ; dès qu'il augmente, le tour a atterri.
+  const [awaitingCount, setAwaitingCount] = useState<number | null>(null);
+  const reponsesCountRef = useRef(0);
 
   const ticketQuery = useQuery({
     queryKey: ["ticket", id],
@@ -92,14 +193,51 @@ export default function UserTicketDetail() {
     enabled: !!id,
   });
 
+  const suivi = useMutation({
+    mutationFn: () => poserSuivi(id!, { question: precision.trim(), user_id: getValidatorId() }),
+    onSuccess: () => {
+      setPrecision("");
+      setAwaitingCount(reponsesCountRef.current);
+      queryClient.invalidateQueries({ queryKey: ["ticket", id, "reponses"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket", id] });
+    },
+  });
+
+  const cloture = useMutation({
+    mutationFn: () => cloturerTicket(id!, { user_id: getValidatorId() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ticket", id] });
+      queryClient.invalidateQueries({ queryKey: ["mes-tickets"] });
+    },
+  });
+
   const ticket = ticketQuery.data;
-  // On ne transmet à l'utilisateur que les réponses fiables : validées / corrigées
-  // ou canoniques. Les réponses provisoires (EN_ATTENTE) restent masquées.
-  const reponses = (reponsesQuery.data ?? []).filter(
-    (r) => r.statut === "VALIDÉE" || r.statut === "CORRIGÉE" || r.canonique,
-  );
+  // Fil complet, trié par date (le back-end renvoie déjà les réponses par created_at ASC).
+  const reponses = reponsesQuery.data ?? [];
   const loading = ticketQuery.isLoading || reponsesQuery.isLoading;
   const error = ticketQuery.error || reponsesQuery.error;
+
+  reponsesCountRef.current = reponses.length;
+  // Le tour a atterri dès que le nombre de réponses augmente (précision en
+  // attente OU canonique validée d'emblée) → on lève l'état optimiste.
+  useEffect(() => {
+    if (awaitingCount !== null && reponses.length > awaitingCount) {
+      setAwaitingCount(null);
+    }
+  }, [reponses.length, awaitingCount]);
+
+  const closed = !!ticket?.closed_at;
+  const awaiting = awaitingCount !== null;
+  // « en cours » si : envoi optimiste, fenêtre d'attente, ou job serveur en vol
+  // (précision soumise ailleurs / traitement encore en cours).
+  const jobEnCours =
+    ticket?.statut_job === "EN_ATTENTE" || ticket?.statut_job === "EN_COURS";
+  const processing = suivi.isPending || awaiting || jobEnCours;
+  const filStatut = deriveFilStatut(closed, reponses, processing);
+  const hasVisibleAnswer = reponses.some(reponseVisible);
+  const hasPending = reponses.some((r) => r.statut === "EN_ATTENTE");
+  const canSubmitSuivi =
+    precision.trim().length > 0 && !processing && !hasPending;
 
   const BackButton = (
     <button
@@ -148,46 +286,141 @@ export default function UserTicketDetail() {
             {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
           </h1>
         </div>
-        <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} />
+        <FilBadge statut={filStatut} />
       </div>
 
       {/* Layout 2 colonnes */}
       <div className="flex gap-5 items-start">
-        {/* Colonne principale : question + réponses */}
+        {/* Colonne principale : fil de conversation + actions */}
         <div className="flex-1 min-w-0 space-y-4">
-          {/* Question */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6">
-            <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">
-              Question
-            </p>
-            <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
-              {ticket.question}
-            </p>
-          </div>
-
-          {/* Réponses */}
+          {/* Fil : question initiale → réponse → précision → réponse … */}
           <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
               <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                Réponses
+                Échange
               </h2>
             </div>
-            {reponses.length === 0 ? (
-              <p className="px-6 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">
-                Votre question est en cours de traitement. La réponse
-                s'affichera ici dès qu'elle sera disponible.
-              </p>
-            ) : (
-              <ul
-                className="divide-y divide-gray-200 dark:divide-white/10"
-                aria-label="Réponses à ma question"
-              >
-                {reponses.map((r) => (
-                  <ReponseItem key={r.id} reponse={r} />
-                ))}
-              </ul>
-            )}
+            <ul
+              className="divide-y divide-gray-200 dark:divide-white/10"
+              aria-label="Fil de la conversation"
+            >
+              <QuestionBubble text={ticket.question} date={ticket.created_at} />
+              {reponses.length === 0 ? (
+                <PendingAnswer date={null} />
+              ) : (
+                reponses.map((r) => (
+                  <Fragment key={r.id}>
+                    {r.question_suivi && (
+                      <QuestionBubble
+                        text={r.question_suivi}
+                        date={r.created_at}
+                        precision
+                      />
+                    )}
+                    <AnswerBubble reponse={r} />
+                  </Fragment>
+                ))
+              )}
+            </ul>
           </div>
+
+          {/* Actions utilisateur : uniquement après une première réponse fiable,
+              tant que le ticket n'est pas clôturé. */}
+          {closed ? (
+            <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6 flex items-center gap-3">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400 shrink-0">
+                <CheckCheck size={18} aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                  Demande clôturée
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Vous avez indiqué que cette réponse vous convenait.
+                </p>
+              </div>
+            </div>
+          ) : (
+            hasVisibleAnswer && (
+              <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                    Cette réponse vous convient-elle ?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => cloture.mutate()}
+                    disabled={cloture.isPending}
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {cloture.isPending ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <CheckCheck size={16} />
+                    )}
+                    Oui, clôturer ma demande
+                  </button>
+                </div>
+
+                {cloture.isError && (
+                  <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                    <AlertCircle size={16} />
+                    {cloture.error instanceof Error
+                      ? cloture.error.message
+                      : "Une erreur est survenue"}
+                  </div>
+                )}
+
+                <div className="border-t border-gray-200 dark:border-white/10 pt-5 space-y-3">
+                  <label
+                    htmlFor="precision"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+                  >
+                    Sinon, apportez une précision
+                  </label>
+                  <textarea
+                    id="precision"
+                    value={precision}
+                    onChange={(e) => setPrecision(e.target.value)}
+                    rows={3}
+                    disabled={hasPending || awaiting}
+                    placeholder="Ex. : Et dans le cas d'un contrat à durée déterminée ?"
+                    className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-white/5 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+
+                  {(hasPending || awaiting) && (
+                    <p className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                      <Clock size={13} /> Votre précision est en cours de
+                      traitement…
+                    </p>
+                  )}
+
+                  {suivi.isError && (
+                    <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                      <AlertCircle size={16} />
+                      {suivi.error instanceof Error
+                        ? suivi.error.message
+                        : "Une erreur est survenue"}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => suivi.mutate()}
+                    disabled={!canSubmitSuivi}
+                    className="inline-flex items-center gap-2 rounded-lg bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-200 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {suivi.isPending ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Send size={16} />
+                    )}
+                    Envoyer la précision
+                  </button>
+                </div>
+              </div>
+            )
+          )}
         </div>
 
         {/* Colonne latérale : infos */}
@@ -218,9 +451,19 @@ export default function UserTicketDetail() {
                   Statut
                 </dt>
                 <dd>
-                  <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} />
+                  <FilBadge statut={filStatut} />
                 </dd>
               </div>
+              {closed && (
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
+                    Clôturée le
+                  </dt>
+                  <dd className="text-gray-700 dark:text-gray-200">
+                    {formatDate(ticket.closed_at)}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
                   Référence
