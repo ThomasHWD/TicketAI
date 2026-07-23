@@ -26,7 +26,7 @@ def _upsert_ticket(db: Session, job_id: uuid.UUID, ticket_id: uuid.UUID | None =
     # en attente de validation doit rebasculer le ticket en « en cours » (badges).
     if ticket_id is not None:
         ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-        for key in ("question", "domaine", "user_id"):
+        for key in ("question", "domaine", "user_id", "objet"):
             fields.pop(key, None)
         for key, value in fields.items():
             setattr(ticket, key, value)
@@ -179,6 +179,7 @@ def _servir_reutilisation(
     est_suivi: bool,
     nb_retries: int,
     autoriser_canonique: bool,
+    objet: str | None = None,
 ) -> dict:
     """Persiste et renvoie la réutilisation d'une réponse validée.
 
@@ -199,6 +200,7 @@ def _servir_reutilisation(
             job_id,
             ticket_id=ticket_uuid,
             question=question,
+            objet=objet,
             domaine=domaine,
             user_id=user_uuid,
             statut_job="TERMINÉ",
@@ -251,6 +253,7 @@ def _servir_reutilisation(
         job_id,
         ticket_id=ticket_uuid,
         question=question,
+        objet=objet,
         domaine=domaine,
         user_id=user_uuid,
         statut_job="TERMINÉ",
@@ -299,6 +302,7 @@ def question_job(
     domaine: str,
     user_id: str | None = None,
     ticket_id: str | None = None,
+    objet: str | None = None,
 ):
     try:
         print("❓ --- NOUVELLE QUESTION ---")
@@ -376,6 +380,7 @@ def question_job(
                     est_suivi,
                     self.request.retries,
                     autoriser_canonique,
+                    objet,
                 )
         finally:
             db.close()
@@ -416,6 +421,7 @@ def question_job(
                 job_id,
                 ticket_id=ticket_uuid,
                 question=question,
+                objet=objet,
                 domaine=domaine,
                 user_id=user_uuid,
                 statut_job=statut_job,

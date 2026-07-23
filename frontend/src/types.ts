@@ -9,6 +9,9 @@ export type Source = "LLM" | "SUGGESTION" | "CANONIQUE";
 export interface Ticket {
   id: string;
   question: string;
+  // Titre court saisi à la création, affiché à la place de la question dans les tableaux
+  // (null pour les anciens tickets → fallback sur la question à l'affichage).
+  objet: string | null;
   domaine: Domaine;
   statut_ticket: StatutTicket;
   statut_job: string;
@@ -68,6 +71,7 @@ export interface ReponseEnAttente {
 
 export interface SoumettreQuestionPayload {
   question: string;
+  objet: string;
   domaine: Domaine;
   user_id?: string | null;
 }

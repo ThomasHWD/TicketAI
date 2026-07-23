@@ -58,7 +58,7 @@ export default function ClosedTicketsList() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-green-100 dark:bg-emerald-400/10 text-green-700 dark:text-emerald-300 text-left">
-                <th className="px-6 py-3 font-medium">Question</th>
+                <th className="px-6 py-3 font-medium">Objet</th>
                 <th className="px-6 py-3 font-medium">Créée le</th>
                 <th className="px-6 py-3 font-medium">Clôturé le</th>
                 <th className="px-6 py-3 font-medium">Statut</th>
@@ -94,10 +94,10 @@ export default function ClosedTicketsList() {
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
                   tabIndex={0}
                   role="link"
-                  aria-label={`Voir le ticket : ${t.question}`}
+                  aria-label={`Voir le ticket : ${t.objet ?? t.question}`}
                 >
                   <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                    <span className="truncate max-w-xs block" title={t.question}>{t.question}</span>
+                    <span className="truncate max-w-xs block" title={t.objet ?? t.question}>{t.objet ?? t.question}</span>
                   </td>
                   <td className="px-6 py-4 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {formatDate(t.created_at)}
