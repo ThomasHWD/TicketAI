@@ -113,7 +113,7 @@ export default function UserTicketHistory() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-green-100 dark:bg-emerald-400/10 text-green-700 dark:text-emerald-300 text-left">
-                <th className="px-6 py-3 font-medium">Question</th>
+                <th className="px-6 py-3 font-medium">Objet</th>
                 <th className="px-6 py-3 font-medium">Domaine</th>
                 <th className="px-6 py-3 font-medium">Posée le</th>
                 <th className="px-6 py-3 font-medium">Statut</th>
@@ -155,11 +155,11 @@ export default function UserTicketHistory() {
                     }}
                     tabIndex={0}
                     role="link"
-                    aria-label={`Voir le détail de : ${t.question}`}
+                    aria-label={`Voir le détail de : ${t.objet ?? t.question}`}
                   >
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                      <span className="block truncate max-w-md" title={t.question}>
-                        {t.question}
+                      <span className="block truncate max-w-md" title={t.objet ?? t.question}>
+                        {t.objet ?? t.question}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
