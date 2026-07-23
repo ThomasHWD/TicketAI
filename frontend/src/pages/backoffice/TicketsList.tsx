@@ -100,7 +100,7 @@ export default function TicketsList() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-green-100 dark:bg-emerald-400/10 text-green-700 dark:text-emerald-300 text-left">
-                <th className="px-6 py-3 font-medium">Question</th>
+                <th className="px-6 py-3 font-medium">Objet</th>
                 <th className="px-6 py-3 font-medium">Créée le</th>
                 <th className="px-6 py-3 font-medium">Statut</th>
               </tr>
@@ -137,7 +137,7 @@ export default function TicketsList() {
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
                   tabIndex={0}
                   role="link"
-                  aria-label={`Voir le ticket : ${t.question}${locked ? ` (pris en charge par ${t.locked_by_email ?? "un validateur"})` : ""}`}
+                  aria-label={`Voir le ticket : ${t.objet ?? t.question}${locked ? ` (pris en charge par ${t.locked_by_email ?? "un validateur"})` : ""}`}
                 >
                   <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
                     <div className="flex items-center gap-2 min-w-0">
@@ -149,7 +149,7 @@ export default function TicketsList() {
                           <Lock size={11} aria-hidden="true" />
                         </span>
                       )}
-                      <span className="truncate max-w-xs" title={t.question}>{t.question}</span>
+                      <span className="truncate max-w-xs" title={t.objet ?? t.question}>{t.objet ?? t.question}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-gray-500 dark:text-gray-400 whitespace-nowrap">

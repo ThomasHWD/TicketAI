@@ -282,10 +282,10 @@ export default function UserTicketDetail() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-0.5">
-            Ma question
+            {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
           </p>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-            {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
+            {ticket.objet ?? ticket.question}
           </h1>
         </div>
         <FilBadge statut={filStatut} />

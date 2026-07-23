@@ -13,8 +13,6 @@ import { getValidatorId } from "../../lib/currentUser";
 import { useTicketLock } from "../../hooks/useTicketLock";
 import type { TicketReponse, StatutTicket, StatutReponse } from "../../types.ts";
 
-const MOCK_OBJET = "Demande de clarification sur la politique de télétravail";
-
 const MOCK_AUTHOR = {
   name: "Sophie Martin",
   role: "Responsable RH",
@@ -314,7 +312,7 @@ export default function TicketDetail() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-0.5">Objet</p>
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{MOCK_OBJET}</h1>
+          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{ticket.objet ?? ticket.question}</h1>
         </div>
         <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={isProcessing(ticket.statut_job)} />
       </div>

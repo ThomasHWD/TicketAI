@@ -13,6 +13,7 @@ const DOMAINES: { value: Domaine; label: string }[] = [
 
 export default function NewTicket() {
   const queryClient = useQueryClient();
+  const [objet, setObjet] = useState("");
   const [question, setQuestion] = useState("");
   const [domaine, setDomaine] = useState<Domaine>("IT");
 
@@ -20,6 +21,7 @@ export default function NewTicket() {
     mutationFn: () =>
       soumettreQuestion({
         question: question.trim(),
+        objet: objet.trim(),
         domaine,
         user_id: getValidatorId(),
       }),
@@ -30,9 +32,11 @@ export default function NewTicket() {
   });
 
   const submitted = submit.isSuccess;
-  const canSubmit = question.trim().length > 0 && !submit.isPending;
+  const canSubmit =
+    objet.trim().length > 0 && question.trim().length > 0 && !submit.isPending;
 
   function reset() {
+    setObjet("");
     setQuestion("");
     setDomaine("IT");
     submit.reset();
@@ -102,6 +106,24 @@ export default function NewTicket() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="objet"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
+              Objet
+            </label>
+            <input
+              id="objet"
+              type="text"
+              value={objet}
+              onChange={(e) => setObjet(e.target.value)}
+              maxLength={255}
+              placeholder="Ex. : Report de congés"
+              className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-white/5 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
 
           <div className="space-y-1.5">
