@@ -19,6 +19,7 @@ DOMAINES_VALIDES = {"IT", "RH", "JURIDIQUE"}
 
 class QuestionRequest(BaseModel):
     question: str
+    objet: str | None = None
     domaine: str
     user_id: str | None = None
 
@@ -55,6 +56,7 @@ def _serialize_ticket(ticket: Ticket) -> dict:
     return {
         "id": str(ticket.id),
         "question": ticket.question,
+        "objet": ticket.objet,
         "domaine": ticket.domaine,
         "statut_ticket": ticket.statut_ticket,
         "statut_job": ticket.statut_job,
@@ -109,6 +111,7 @@ async def soumettre_question(payload: QuestionRequest):
 
     job = question_job.apply_async(
         args=[payload.question, payload.domaine.upper(), payload.user_id],
+        kwargs={"objet": payload.objet},
         queue="queue_questions",
     )
 
