@@ -16,6 +16,8 @@ export interface Ticket {
   user_email: string | null;
   canonique: boolean;
   created_at: string | null;
+  // Clôture par l'utilisateur (null = ouvert).
+  closed_at: string | null;
   // Verrou collaboratif : renseigné uniquement si un bail est actif.
   locked_by: string | null;
   locked_by_email: string | null;
@@ -42,6 +44,9 @@ export interface TicketReponse {
   ticket_id: string;
   contenu: string;
   contenu_corrige: string | null;
+  // Texte de la précision (relance) ayant déclenché cette réponse ; null pour
+  // la réponse à la question initiale.
+  question_suivi: string | null;
   statut: StatutReponse;
   source: Source;
   nb_validations: number;
@@ -72,6 +77,15 @@ export interface SoumettreQuestionResponse {
   question: string;
   domaine: Domaine;
   statut: string;
+}
+
+export interface PoserSuiviPayload {
+  question: string;
+  user_id?: string | null;
+}
+
+export interface CloturerPayload {
+  user_id?: string | null;
 }
 
 export interface ReponseCanonique {

@@ -9,7 +9,14 @@ function isLocked(t: Ticket): boolean {
   return !!(t.lock_expires_at && new Date(t.lock_expires_at) > new Date());
 }
 
-function statutLabel(statut: StatutTicket, canonique: boolean) {
+// Job en cours (question initiale OU précision fraîchement soumise) → « en cours ».
+function isProcessing(statutJob: string) {
+  return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";
+}
+
+function statutLabel(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean) {
+  if (closed) return "Clôturé";
+  if (processing) return "En cours";
   if (canonique) return "Canonique";
   if (statut === "VALIDÉ") return "Validée";
   if (statut === "RÉPONDU") return "Suggestion";
@@ -17,7 +24,9 @@ function statutLabel(statut: StatutTicket, canonique: boolean) {
   return "Nouvelle";
 }
 
-function statutClass(statut: StatutTicket, canonique: boolean) {
+function statutClass(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean) {
+  if (closed) return "bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/10";
+  if (processing) return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
   if (statut === "REJETÉ") return "bg-red-500/10 text-red-700 border-red-300/50 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (canonique) return "bg-emerald-500/10 text-emerald-700 border-emerald-300/50 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
   if (statut === "VALIDÉ") return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
@@ -25,11 +34,11 @@ function statutClass(statut: StatutTicket, canonique: boolean) {
   return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
 }
 
-function StatutBadge({ statut, canonique }: { statut: StatutTicket; canonique: boolean }) {
+function StatutBadge({ statut, canonique, closed, processing }: { statut: StatutTicket; canonique: boolean; closed: boolean; processing: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${statutClass(statut, canonique)}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${statutClass(statut, canonique, closed, processing)}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current" />
-      {statutLabel(statut, canonique)}
+      {statutLabel(statut, canonique, closed, processing)}
     </span>
   );
 }
@@ -147,7 +156,7 @@ export default function TicketsList() {
                     {formatDate(t.created_at)}
                   </td>
                   <td className="px-6 py-4">
-                    <StatutBadge statut={t.statut_ticket as StatutTicket} canonique={t.canonique} />
+                    <StatutBadge statut={t.statut_ticket as StatutTicket} canonique={t.canonique} closed={!!t.closed_at} processing={isProcessing(t.statut_job)} />
                   </td>
                 </tr>
                 );

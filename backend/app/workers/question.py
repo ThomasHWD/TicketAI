@@ -17,7 +17,22 @@ from app.workers.celery_app import celery_app
 SEUIL_COSINUS = settings.seuil_cosinus
 
 
-def _upsert_ticket(db: Session, job_id: uuid.UUID, **fields) -> Ticket:
+def _upsert_ticket(
+    db: Session, job_id: uuid.UUID, ticket_id: uuid.UUID | None = None, **fields
+) -> Ticket:
+    # Mode suivi : on cible le ticket existant (par son id) au lieu de le retrouver
+    # par job_id. On ne réécrit ni la question, ni le domaine, ni l'auteur d'origine.
+    # En revanche `statut_ticket`/`canonique` suivent le DERNIER tour : une précision
+    # en attente de validation doit rebasculer le ticket en « en cours » (badges).
+    if ticket_id is not None:
+        ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+        for key in ("question", "domaine", "user_id"):
+            fields.pop(key, None)
+        for key, value in fields.items():
+            setattr(ticket, key, value)
+        db.flush()
+        return ticket
+
     ticket = db.query(Ticket).filter(Ticket.job_id == job_id).first()
     if ticket is None:
         ticket = Ticket(id=uuid.uuid4(), job_id=job_id, **fields)
@@ -38,8 +53,15 @@ def _upsert_reponse(
     reponse_source_id: uuid.UUID | None = None,
     statut: str = "EN_ATTENTE",
     canonique: bool = False,
+    question_suivi: str | None = None,
+    nouveau: bool = False,
 ) -> Reponse:
-    reponse = db.query(Reponse).filter(Reponse.ticket_id == ticket.id).first()
+    # Mode suivi (`nouveau`) : on ajoute TOUJOURS une nouvelle réponse au fil, sans
+    # écraser la précédente, et on mémorise le texte de la précision (`question_suivi`).
+    reponse = (
+        None if nouveau
+        else db.query(Reponse).filter(Reponse.ticket_id == ticket.id).first()
+    )
     if reponse is None:
         reponse = Reponse(
             id=uuid.uuid4(),
@@ -50,6 +72,7 @@ def _upsert_reponse(
             score_similarite=top_score,
             reponse_source_id=reponse_source_id,
             canonique=canonique,
+            question_suivi=question_suivi,
         )
         db.add(reponse)
     else:
@@ -66,7 +89,13 @@ def _upsert_reponse(
     default_retry_delay=60,
     queue="queue_questions",
 )
-def question_job(self, question: str, domaine: str, user_id: str | None = None):
+def question_job(
+    self,
+    question: str,
+    domaine: str,
+    user_id: str | None = None,
+    ticket_id: str | None = None,
+):
     try:
         print("❓ --- NOUVELLE QUESTION ---")
         print(f"[QUESTION] Domaine  : {domaine}")
@@ -74,6 +103,13 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
 
         job_id = uuid.UUID(self.request.id)
         user_uuid = uuid.UUID(user_id) if user_id else None
+
+        # Mode suivi : la question est une précision ajoutée à un ticket existant.
+        # On la mémorise comme `question_suivi` du nouveau tour et on rattache la
+        # réponse au ticket d'origine plutôt que d'en créer un nouveau.
+        ticket_uuid = uuid.UUID(ticket_id) if ticket_id else None
+        est_suivi = ticket_uuid is not None
+        question_suivi = question if est_suivi else None
 
         # Étape 1 — Embedding + recherche hybride
         print("[QUESTION] Recherche hybride dans Qdrant...")
@@ -149,6 +185,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                         ticket = _upsert_ticket(
                             db,
                             job_id,
+                            ticket_id=ticket_uuid,
                             question=question,
                             domaine=domaine,
                             user_id=user_uuid,
@@ -160,7 +197,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                             erreur=None,
                             processed_at=datetime.now(timezone.utc),
                         )
-                        ticket_id = str(ticket.id)
+                        ticket_id_str = str(ticket.id)
 
                         # Persiste une réponse (déjà validée / canonique) pour qu'elle
                         # s'affiche dans le back-office — sans revue humaine à faire.
@@ -173,6 +210,8 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                             reponse_source_id=reponse_liee.id,
                             statut="VALIDÉE",
                             canonique=True,
+                            question_suivi=question_suivi,
+                            nouveau=est_suivi,
                         )
 
                         ticket_source = (
@@ -190,7 +229,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                             "question": question,
                             "domaine": domaine,
                             "reponse": contenu,
-                            "ticket_id": ticket_id,
+                            "ticket_id": ticket_id_str,
                             "reponse_id": str(reponse.id),
                             "reponse_source_id": str(reponse_liee.id),
                             "top_score_cosinus": score_liee,
@@ -203,6 +242,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                     ticket = _upsert_ticket(
                         db,
                         job_id,
+                        ticket_id=ticket_uuid,
                         question=question,
                         domaine=domaine,
                         user_id=user_uuid,
@@ -221,6 +261,8 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                         score_liee,
                         source="SUGGESTION",
                         reponse_source_id=reponse_liee.id,
+                        question_suivi=question_suivi,
+                        nouveau=est_suivi,
                     )
                     db.commit()
 
@@ -265,6 +307,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
             ticket = _upsert_ticket(
                 db,
                 job_id,
+                ticket_id=ticket_uuid,
                 question=question,
                 domaine=domaine,
                 user_id=user_uuid,
@@ -279,7 +322,14 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
 
             reponse_id = None
             if reponse_texte:
-                reponse = _upsert_reponse(db, ticket, reponse_texte, top_score)
+                reponse = _upsert_reponse(
+                    db,
+                    ticket,
+                    reponse_texte,
+                    top_score,
+                    question_suivi=question_suivi,
+                    nouveau=est_suivi,
+                )
                 reponse_id = str(reponse.id)
 
                 # Enregistre les chunks utilisés pour la génération
@@ -296,12 +346,12 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
                     )
                     db.add(rc)
 
-            ticket_id = str(ticket.id)
+            ticket_id_str = str(ticket.id)
             db.commit()
         finally:
             db.close()
 
-        print(f"[QUESTION] Ticket créé (id={ticket_id})")
+        print(f"[QUESTION] Ticket créé (id={ticket_id_str})")
 
         if statut_job == "ÉCHOUÉ":
             raise self.retry(exc=Exception(erreur), countdown=60)
@@ -312,7 +362,7 @@ def question_job(self, question: str, domaine: str, user_id: str | None = None):
             "question": question,
             "domaine": domaine,
             "reponse": reponse_texte,
-            "ticket_id": ticket_id,
+            "ticket_id": ticket_id_str,
             "reponse_id": reponse_id,
             "top_score_cosinus": top_score,
         }

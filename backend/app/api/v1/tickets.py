@@ -23,6 +23,15 @@ class QuestionRequest(BaseModel):
     user_id: str | None = None
 
 
+class SuiviRequest(BaseModel):
+    question: str
+    user_id: str | None = None
+
+
+class CloturerRequest(BaseModel):
+    user_id: str | None = None
+
+
 class LockRequest(BaseModel):
     validator_id: uuid.UUID
 
@@ -39,6 +48,22 @@ def lock_info(ticket: Ticket, now: datetime | None = None) -> dict:
         "locked_by": str(ticket.locked_by) if actif else None,
         "locked_by_email": ticket.locker.email if actif and ticket.locker else None,
         "lock_expires_at": ticket.lock_expires_at.isoformat() if actif else None,
+    }
+
+
+def _serialize_ticket(ticket: Ticket) -> dict:
+    return {
+        "id": str(ticket.id),
+        "question": ticket.question,
+        "domaine": ticket.domaine,
+        "statut_ticket": ticket.statut_ticket,
+        "statut_job": ticket.statut_job,
+        "user_id": str(ticket.user_id) if ticket.user_id else None,
+        "user_email": ticket.user.email if ticket.user else None,
+        "canonique": ticket.canonique,
+        "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
+        "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
+        **lock_info(ticket),
     }
 
 
@@ -95,6 +120,65 @@ async def soumettre_question(payload: QuestionRequest):
     }
 
 
+@router.post("/tickets/{ticket_id}/suivi")
+async def soumettre_suivi(ticket_id: str, payload: SuiviRequest):
+    """Ajoute une précision au fil du ticket : relance le pipeline RAG sur le
+    ticket existant (nouvelle réponse, la question d'origine est conservée)."""
+    if not payload.question.strip():
+        raise HTTPException(400, "La question ne peut pas être vide")
+    tid = _parse_ticket_id(ticket_id)
+    db = SessionLocal()
+    try:
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            raise HTTPException(404, "Ticket introuvable")
+        if ticket.closed_at is not None:
+            raise HTTPException(409, "Ticket clôturé : impossible d'ajouter une précision")
+        domaine = ticket.domaine
+        user_id = payload.user_id or (str(ticket.user_id) if ticket.user_id else None)
+        # Marque le ticket « en cours » DÈS la soumission (avant même que le worker
+        # ne tourne) pour que les badges des listes se mettent à jour au prochain
+        # poll, sans attendre la fin du traitement. Le worker repassera statut_job
+        # à TERMINÉ/ÉCHOUÉ et fixera le statut métier final.
+        ticket.statut_job = "EN_ATTENTE"
+        db.commit()
+    finally:
+        db.close()
+
+    job = question_job.apply_async(
+        args=[payload.question, domaine, user_id],
+        kwargs={"ticket_id": ticket_id},
+        queue="queue_questions",
+    )
+    return {
+        "job_id": job.id,
+        "ticket_id": ticket_id,
+        "question": payload.question,
+        "domaine": domaine,
+        "statut": "EN_ATTENTE",
+    }
+
+
+@router.post("/tickets/{ticket_id}/cloturer")
+async def cloturer_ticket(ticket_id: str, payload: CloturerRequest):
+    """Clôture le ticket (l'utilisateur est satisfait). Idempotence refusée :
+    un ticket déjà clôturé renvoie 409."""
+    tid = _parse_ticket_id(ticket_id)
+    db = SessionLocal()
+    try:
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            raise HTTPException(404, "Ticket introuvable")
+        if ticket.closed_at is not None:
+            raise HTTPException(409, "Ticket déjà clôturé")
+        ticket.closed_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(ticket)
+        return _serialize_ticket(ticket)
+    finally:
+        db.close()
+
+
 @router.get("/tickets")
 async def liste_tickets(
     page: int = 1,
@@ -126,21 +210,7 @@ async def liste_tickets(
             "total": total,
             "page": page,
             "limit": limit,
-            "items": [
-                {
-                    "id": str(t.id),
-                    "question": t.question,
-                    "domaine": t.domaine,
-                    "statut_ticket": t.statut_ticket,
-                    "statut_job": t.statut_job,
-                    "user_id": str(t.user_id) if t.user_id else None,
-                    "user_email": t.user.email if t.user else None,
-                    "canonique": t.canonique,
-                    "created_at": t.created_at.isoformat() if t.created_at else None,
-                    **lock_info(t),
-                }
-                for t in tickets
-            ],
+            "items": [_serialize_ticket(t) for t in tickets],
         }
     finally:
         db.close()
@@ -170,6 +240,7 @@ async def reponses_par_ticket(ticket_id: str):
                 "ticket_id": str(r.ticket_id),
                 "contenu": r.contenu,
                 "contenu_corrige": r.contenu_corrige,
+                "question_suivi": r.question_suivi,
                 "statut": r.statut,
                 "source": r.source,
                 "nb_validations": r.nb_validations,
@@ -194,18 +265,7 @@ async def get_ticket(ticket_id: str):
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
-        return {
-            "id": str(ticket.id),
-            "question": ticket.question,
-            "domaine": ticket.domaine,
-            "statut_ticket": ticket.statut_ticket,
-            "statut_job": ticket.statut_job,
-            "user_id": str(ticket.user_id) if ticket.user_id else None,
-            "user_email": ticket.user.email if ticket.user else None,
-            "canonique": ticket.canonique,
-            "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
-            **lock_info(ticket),
-        }
+        return _serialize_ticket(ticket)
     finally:
         db.close()
 

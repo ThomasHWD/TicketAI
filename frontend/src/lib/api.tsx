@@ -12,6 +12,8 @@ import type {
   LockState,
   SoumettreQuestionPayload,
   SoumettreQuestionResponse,
+  PoserSuiviPayload,
+  CloturerPayload,
 } from "../types.ts";
 
 const BASE_URL = "/api/v1";
@@ -48,6 +50,52 @@ export class LockConflictError extends Error {
     this.lockedByEmail = lockedByEmail;
     this.lockExpiresAt = lockExpiresAt;
   }
+}
+
+/** Ajoute une précision au fil d'un ticket. Renvoie le job Celery à suivre. */
+export async function poserSuivi(
+  ticketId: string,
+  payload: PoserSuiviPayload,
+): Promise<SoumettreQuestionResponse> {
+  const res = await fetch(`${BASE_URL}/tickets/${ticketId}/suivi`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    let detail = "Erreur lors de l'envoi de la précision";
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      /* corps non JSON : on garde le message par défaut */
+    }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+/** Clôture le ticket (l'utilisateur est satisfait de la réponse). */
+export async function cloturerTicket(
+  ticketId: string,
+  payload: CloturerPayload,
+): Promise<Ticket> {
+  const res = await fetch(`${BASE_URL}/tickets/${ticketId}/cloturer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    let detail = "Erreur lors de la clôture du ticket";
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      /* corps non JSON : on garde le message par défaut */
+    }
+    throw new Error(detail);
+  }
+  return res.json();
 }
 
 export async function getTickets(params?: {

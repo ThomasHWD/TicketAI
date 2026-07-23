@@ -6,15 +6,37 @@ import { getTickets } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
 import type { Ticket, StatutTicket } from "../../types.ts";
 
+// Un job en cours (question initiale OU précision qui vient d'être soumise)
+// prime : le ticket est « en cours de traitement ».
+function isProcessing(statutJob: string) {
+  return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";
+}
+
 // La réponse n'est « disponible » pour l'utilisateur qu'une fois validée
-// (statut_ticket VALIDÉ) ou canonique.
-function statutLabel(statut: StatutTicket, canonique: boolean) {
+// (statut_ticket VALIDÉ) ou canonique. Clôturé prime, puis le traitement en cours.
+function statutLabel(
+  statut: StatutTicket,
+  canonique: boolean,
+  closed: boolean,
+  processing: boolean,
+) {
+  if (closed) return "Clôturé";
+  if (processing) return "En cours de traitement";
   if (statut === "REJETÉ") return "Sans réponse";
   if (statut === "VALIDÉ" || canonique) return "Répondu";
   return "En cours de traitement";
 }
 
-function statutClass(statut: StatutTicket, canonique: boolean) {
+function statutClass(
+  statut: StatutTicket,
+  canonique: boolean,
+  closed: boolean,
+  processing: boolean,
+) {
+  if (closed)
+    return "bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/10";
+  if (processing)
+    return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
   if (statut === "REJETÉ")
     return "bg-red-500/10 text-red-700 border-red-300/50 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (statut === "VALIDÉ" || canonique)
@@ -25,16 +47,20 @@ function statutClass(statut: StatutTicket, canonique: boolean) {
 function StatutBadge({
   statut,
   canonique,
+  closed,
+  processing,
 }: {
   statut: StatutTicket;
   canonique: boolean;
+  closed: boolean;
+  processing: boolean;
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${statutClass(statut, canonique)}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${statutClass(statut, canonique, closed, processing)}`}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-current" />
-      {statutLabel(statut, canonique)}
+      {statutLabel(statut, canonique, closed, processing)}
     </span>
   );
 }
@@ -143,7 +169,12 @@ export default function UserTicketHistory() {
                       {formatDate(t.created_at)}
                     </td>
                     <td className="px-6 py-4">
-                      <StatutBadge statut={t.statut_ticket as StatutTicket} canonique={t.canonique} />
+                      <StatutBadge
+                        statut={t.statut_ticket as StatutTicket}
+                        canonique={t.canonique}
+                        closed={!!t.closed_at}
+                        processing={isProcessing(t.statut_job)}
+                      />
                     </td>
                   </tr>
                 ))}
