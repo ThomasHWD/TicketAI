@@ -211,6 +211,30 @@ def test_upsert_reponse_mode_suivi_ajoute_sans_ecraser(db_session):
     assert db_session.get(Reponse, initiale.id).contenu == "Réponse initiale"
 
 
+def test_canoniques_affiche_la_question_de_la_precision(client, db_session):
+    """Une réponse canonique issue d'un suivi doit s'afficher avec le texte de la
+    précision (`question_suivi`), pas la question initiale du ticket."""
+    ticket, _ = seed_ticket_reponse(db_session, question="Question initiale ?")
+    db_session.add(
+        Reponse(
+            ticket_id=ticket.id,
+            contenu="Réponse canonique de la précision",
+            statut="VALIDÉE",
+            source="LLM",
+            canonique=True,
+            question_suivi="Et pour un CDD ?",
+        )
+    )
+    db_session.commit()
+
+    resp = client.get(f"{API}/reponses/canoniques", params={"page": 1, "limit": 20})
+
+    assert resp.status_code == 200
+    questions = [item["question"] for item in resp.json()["items"]]
+    assert "Et pour un CDD ?" in questions
+    assert "Question initiale ?" not in questions
+
+
 def test_feedback_indexe_la_precision_sous_sa_propre_question(db_session, monkeypatch):
     """Une réponse de suivi validée doit être indexée sous le texte de la précision
     (`question_suivi`), pas sous la question initiale du ticket — sinon elle ne

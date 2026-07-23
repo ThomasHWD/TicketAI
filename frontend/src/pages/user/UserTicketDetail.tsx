@@ -236,8 +236,10 @@ export default function UserTicketDetail() {
   const filStatut = deriveFilStatut(closed, reponses, processing);
   const hasVisibleAnswer = reponses.some(reponseVisible);
   const hasPending = reponses.some((r) => r.statut === "EN_ATTENTE");
-  const canSubmitSuivi =
-    precision.trim().length > 0 && !processing && !hasPending;
+  // Tant qu'une précision est en cours (envoi optimiste, job en vol, ou tour en
+  // attente de validation), on interdit clôture ET nouvelle précision.
+  const suiviEnCours = processing || hasPending;
+  const canSubmitSuivi = precision.trim().length > 0 && !suiviEnCours;
 
   const BackButton = (
     <button
@@ -343,6 +345,13 @@ export default function UserTicketDetail() {
           ) : (
             hasVisibleAnswer && (
               <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6 space-y-5">
+                {suiviEnCours && (
+                  <div className="flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+                    <Clock size={14} aria-hidden="true" />
+                    Votre précision est en cours de traitement. Vous pourrez la
+                    clôturer ou en poser une nouvelle une fois qu'elle sera traitée.
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
                     Cette réponse vous convient-elle ?
@@ -350,7 +359,7 @@ export default function UserTicketDetail() {
                   <button
                     type="button"
                     onClick={() => cloture.mutate()}
-                    disabled={cloture.isPending}
+                    disabled={cloture.isPending || suiviEnCours}
                     className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {cloture.isPending ? (
@@ -383,17 +392,10 @@ export default function UserTicketDetail() {
                     value={precision}
                     onChange={(e) => setPrecision(e.target.value)}
                     rows={3}
-                    disabled={hasPending || awaiting}
+                    disabled={suiviEnCours}
                     placeholder="Ex. : Et dans le cas d'un contrat à durée déterminée ?"
                     className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-white/5 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
                   />
-
-                  {(hasPending || awaiting) && (
-                    <p className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
-                      <Clock size={13} /> Votre précision est en cours de
-                      traitement…
-                    </p>
-                  )}
 
                   {suivi.isError && (
                     <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
