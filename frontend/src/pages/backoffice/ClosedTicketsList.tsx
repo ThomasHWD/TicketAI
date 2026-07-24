@@ -49,7 +49,7 @@ export default function ClosedTicketsList() {
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Tickets clôturés</h1>
       </div>
 
-      <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
+      <div className="glass-card rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Historique des tickets clôturés</h2>
         </div>

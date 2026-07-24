@@ -88,7 +88,7 @@ const DOMAINE_LABEL: Record<string, string> = {
 const SOURCE_LABEL: Record<string, string> = {
   LLM: "Généré par IA",
   SUGGESTION: "Suggestion",
-  CANONIQUE: "Canonique",
+  CANONIQUE: "",
 };
 
 function ReponseItem({
@@ -323,13 +323,13 @@ export default function TicketDetail() {
         {/* Colonne principale : question + réponses */}
         <div className="flex-1 min-w-0 space-y-4">
           {/* Question */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6">
+          <div className="glass-card rounded-2xl p-6">
             <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">Question</p>
             <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">{ticket.question}</p>
           </div>
 
           {/* Réponses */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
+          <div className="glass-card rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
               <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Réponses</h2>
             </div>
@@ -355,7 +355,7 @@ export default function TicketDetail() {
         <div className="w-72 shrink-0 space-y-4">
 
           {/* Infos ticket */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-5 space-y-4">
+          <div className="glass-card rounded-2xl p-5 space-y-4">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Informations</p>
             <dl className="space-y-3 text-sm">
               <div>
@@ -378,7 +378,7 @@ export default function TicketDetail() {
           </div>
 
           {/* Demandeur */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-5 space-y-4">
+          <div className="glass-card rounded-2xl p-5 space-y-4">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Demandeur</p>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300 font-semibold text-sm flex items-center justify-center shrink-0" aria-hidden="true">
