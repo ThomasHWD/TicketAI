@@ -10,6 +10,7 @@ import {
   Loader2,
   AlertCircle,
   Send,
+  User,
 } from "lucide-react";
 import {
   getTicket,
@@ -115,17 +116,18 @@ function QuestionBubble({
   precision?: boolean;
 }) {
   return (
-    <li className="p-6 space-y-2">
+    <li className="p-6 space-y-3 bg-emerald-50/25 dark:bg-emerald-500/[0.04]">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+          <User size={13} aria-hidden="true" className="text-emerald-600 dark:text-emerald-400" />
           {precision ? "Ma précision" : "Ma question"}
         </span>
         <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
           {formatDate(date)}
         </span>
       </div>
-      <div className="bg-white/40 dark:bg-white/5 rounded-xl p-4">
-        <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+      <div className="bg-white/80 dark:bg-white/[0.09] rounded-xl p-4 border border-white/60 dark:border-white/10">
+        <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
           {text}
         </p>
       </div>
@@ -140,15 +142,15 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
   return (
     <li className="p-6 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 size={14} aria-hidden="true" /> Réponse validée
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+          <CheckCircle2 size={13} aria-hidden="true" /> Réponse validée
         </span>
         <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
           {formatDate(reponse.created_at)}
         </span>
       </div>
-      <div className="bg-white/40 dark:bg-white/5 rounded-xl p-4">
-        <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+      <div className="bg-white/80 dark:bg-white/[0.09] rounded-xl p-4 border border-white/60 dark:border-white/10">
+        <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
           {reponse.contenu_corrige ?? reponse.contenu}
         </p>
       </div>
@@ -159,10 +161,10 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
 function PendingAnswer({ date }: { date: string | null }) {
   return (
     <li className="p-6 space-y-2">
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400">
-        <Clock size={14} aria-hidden="true" /> Réponse en cours de traitement
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wide">
+        <Clock size={13} aria-hidden="true" /> Réponse en cours de traitement
       </span>
-      <p className="text-sm text-gray-500 dark:text-gray-400">
+      <p className="text-sm text-gray-600 dark:text-gray-300">
         La réponse s'affichera ici dès qu'elle aura été validée.
         {date ? ` · ${formatDate(date)}` : ""}
       </p>
@@ -280,11 +282,11 @@ export default function UserTicketDetail() {
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-0.5">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
           </p>
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white leading-snug">
             {ticket.objet ?? ticket.question}
           </h1>
         </div>
@@ -296,7 +298,7 @@ export default function UserTicketDetail() {
         {/* Colonne principale : fil de conversation + actions */}
         <div className="flex-1 min-w-0 space-y-4">
           {/* Fil : question initiale → réponse → précision → réponse … */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
+          <div className="glass-card rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
               <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                 Échange
@@ -329,7 +331,7 @@ export default function UserTicketDetail() {
           {/* Actions utilisateur : uniquement après une première réponse fiable,
               tant que le ticket n'est pas clôturé. */}
           {closed ? (
-            <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6 flex items-center gap-3">
+            <div className="glass-card rounded-2xl p-6 flex items-center gap-3">
               <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400 shrink-0">
                 <CheckCheck size={18} aria-hidden="true" />
               </span>
@@ -344,7 +346,7 @@ export default function UserTicketDetail() {
             </div>
           ) : (
             hasVisibleAnswer && (
-              <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6 space-y-5">
+              <div className="glass-card rounded-2xl p-6 space-y-5">
                 {suiviEnCours && (
                   <div className="flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
                     <Clock size={14} aria-hidden="true" />
@@ -353,7 +355,7 @@ export default function UserTicketDetail() {
                   </div>
                 )}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
                     Cette réponse vous convient-elle ?
                   </p>
                   <button
@@ -427,21 +429,21 @@ export default function UserTicketDetail() {
 
         {/* Colonne latérale : infos */}
         <div className="w-72 shrink-0 space-y-4">
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-5 space-y-4">
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <div className="glass-card rounded-2xl p-5 space-y-4">
+            <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
               Informations
             </p>
-            <dl className="space-y-3 text-sm">
+            <dl className="space-y-3.5 text-sm">
               <div>
-                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
+                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">
                   Domaine
                 </dt>
-                <dd className="text-gray-700 dark:text-gray-200 font-medium">
+                <dd className="text-gray-800 dark:text-gray-100 font-medium">
                   {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
+                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">
                   Posée le
                 </dt>
                 <dd className="text-gray-700 dark:text-gray-200">
@@ -449,7 +451,7 @@ export default function UserTicketDetail() {
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
+                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                   Statut
                 </dt>
                 <dd>
@@ -458,7 +460,7 @@ export default function UserTicketDetail() {
               </div>
               {closed && (
                 <div>
-                  <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
+                  <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">
                     Clôturée le
                   </dt>
                   <dd className="text-gray-700 dark:text-gray-200">
@@ -466,8 +468,8 @@ export default function UserTicketDetail() {
                   </dd>
                 </div>
               )}
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">
+              <div className="pt-1 border-t border-gray-200 dark:border-white/10">
+                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">
                   Référence
                 </dt>
                 <dd className="text-gray-500 dark:text-gray-400 font-mono text-xs break-all">

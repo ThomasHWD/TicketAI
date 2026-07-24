@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import GlassSurface from "@@/components/GlassSurface";
 import Logo from "../../assets/logo.svg";
 import LogoDark from "../../assets/logo_dark.svg";
 import SmallLogo from "../../assets/small_logo.svg";
@@ -81,10 +82,28 @@ interface SidebarProps {
 export default function Sidebar({ collapsed }: SidebarProps) {
   return (
     <aside
-      className={`flex flex-col bg-white/50 dark:bg-white/5 backdrop-blur-2xl border-r border-white/60 dark:border-white/10 shadow-[1px_0_24px_0_rgba(0,0,0,0.06)] shrink-0 overflow-hidden
+      className={`relative flex flex-col shrink-0 overflow-hidden
         transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
         ${collapsed ? "w-16" : "w-60"}`}
     >
+      {/* Effet glass — positionné en absolu pour ne pas bloquer la transition de largeur CSS */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <GlassSurface
+          width="100%"
+          height="100%"
+          borderRadius={0}
+          backgroundOpacity={0.1}
+          brightness={52}
+          opacity={0.9}
+          blur={14}
+          distortionScale={-100}
+          className="!w-full !h-full border-r border-white/30 dark:border-white/8"
+        />
+      </div>
+
+      {/* Contenu au-dessus du layer glass */}
+      <div className="relative z-10 flex flex-col flex-1 overflow-hidden">
+
       {/* Logo */}
       <div className="relative flex items-center justify-center h-20 px-3 overflow-hidden">
         {/* Full logo — light */}
@@ -154,6 +173,8 @@ export default function Sidebar({ collapsed }: SidebarProps) {
           <ChevronRight size={16} className="text-gray-400 shrink-0" />
         </div>
       </div>
+
+      </div>{/* fin contenu z-10 */}
     </aside>
   );
 }

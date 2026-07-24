@@ -16,7 +16,7 @@ function Layout() {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="relative flex min-h-screen">
+    <div className="relative flex h-screen overflow-hidden">
       {/* Fond animé Aurora — fixe derrière toute l'interface.
           Clair : dégradé blanc → menthe. Sombre : quasi-noir. */}
       <div className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-br from-emerald-50/70 via-white to-slate-50 dark:from-[#05070f] dark:via-[#05070f] dark:to-[#05070f]">
@@ -34,9 +34,9 @@ function Layout() {
       </div>
 
       <Sidebar collapsed={collapsed} />
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden">
         <Navbar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
-        <main className="flex-1 overflow-auto">
+        <main className="absolute inset-0 overflow-auto pt-20">
           <Outlet />
         </main>
       </div>
