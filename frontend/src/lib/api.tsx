@@ -14,6 +14,10 @@ import type {
   SoumettreQuestionResponse,
   PoserSuiviPayload,
   CloturerPayload,
+  DocumentUploadResponse,
+  DocumentStatus,
+  IndexedDocumentsResponse,
+  DocumentChunksResponse,
 } from "../types.ts";
 
 const BASE_URL = "/api/v1";
@@ -275,4 +279,56 @@ export async function unlockTicket(
     body: JSON.stringify({ validator_id: validatorId }),
     keepalive: true,
   });
+}
+
+// ── Documents ────────────────────────────────────────────────────────
+
+export async function uploadDocument(
+  file: File,
+  domaine: Domaine,
+  description = "",
+): Promise<DocumentUploadResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  const params = new URLSearchParams({ domaine });
+  if (description) params.set("description", description);
+  const res = await fetch(`${BASE_URL}/documents?${params}`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    let detail = "Erreur lors de l'envoi du document";
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      /* corps non JSON */
+    }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+export async function getDocumentStatus(jobId: string): Promise<DocumentStatus> {
+  const res = await fetch(`${BASE_URL}/documents/${jobId}/status`);
+  if (!res.ok) throw new Error("Erreur récupération statut");
+  return res.json();
+}
+
+export async function listDocuments(domaine?: Domaine): Promise<IndexedDocumentsResponse> {
+  const params = domaine ? `?domaine=${domaine}` : "";
+  const res = await fetch(`${BASE_URL}/documents${params}`);
+  if (!res.ok) throw new Error("Erreur chargement documents");
+  return res.json();
+}
+
+export async function getDocumentChunks(docId: string): Promise<DocumentChunksResponse> {
+  const res = await fetch(`${BASE_URL}/documents/${docId}/chunks`);
+  if (!res.ok) throw new Error("Erreur chargement chunks");
+  return res.json();
+}
+
+export async function deleteDocument(docId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/documents/${docId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Erreur suppression document");
 }

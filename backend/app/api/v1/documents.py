@@ -1,11 +1,17 @@
+import hashlib
 import os
 import re
+import shutil
 import uuid
 from typing import Annotated
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
 
+from app.config import settings
+from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
 from app.workers.ingestion import ingestion_job
 
@@ -36,7 +42,7 @@ def sanitize_filename(filename: str | None) -> str:
 
 
 @router.post("/documents")
-async def upload_document(domaine: str, file: Annotated[UploadFile, File(...)]):
+async def upload_document(domaine: str, file: Annotated[UploadFile, File(...)], description: str = ""):
     # Validation domaine
     domaine = domaine.upper()
     if domaine not in DOMAINES_VALIDES:
@@ -67,7 +73,27 @@ async def upload_document(domaine: str, file: Annotated[UploadFile, File(...)]):
         except UnicodeDecodeError:
             raise HTTPException(400, "Fichier texte non encodé en UTF-8") from None
 
-    # Stockage fichier brut
+    # Détection de doublon via hash SHA-256 du contenu
+    content_hash = hashlib.sha256(contents).hexdigest()
+    existing, _ = client.scroll(
+        collection_name=COLLECTION_NAME,
+        scroll_filter=Filter(
+            must=[FieldCondition(key="content_hash", match=MatchValue(value=content_hash))]
+        ),
+        with_payload=["doc_id", "source"],
+        with_vectors=False,
+        limit=1,
+    )
+    if existing:
+        p = existing[0].payload or {}
+        return {
+            "job_id": None,
+            "filename": p.get("source", filename),
+            "doc_id": p.get("doc_id"),
+            "statut": "DÉJÀ_INDEXÉ",
+        }
+
+    # Stockage fichier brut (seulement si document nouveau)
     file_id = str(uuid.uuid4())
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{filename}")
@@ -76,10 +102,140 @@ async def upload_document(domaine: str, file: Annotated[UploadFile, File(...)]):
 
     # Push job Celery
     job = ingestion_job.apply_async(
-        args=[file_path, filename, domaine], queue="queue_ingestion"
+        args=[file_path, filename, domaine, description.strip(), content_hash],
+        queue="queue_ingestion",
     )
 
     return {"job_id": job.id, "filename": filename, "statut": "EN_ATTENTE"}
+
+
+@router.get("/documents")
+async def list_documents(domaine: str | None = None):
+    """Retourne la liste des documents indexés dans Qdrant, groupés par doc_id."""
+    filter_: Filter | None = None
+    if domaine:
+        domaine = domaine.upper()
+        if domaine not in DOMAINES_VALIDES:
+            raise HTTPException(400, f"Domaine invalide : {domaine}")
+        filter_ = Filter(must=[FieldCondition(key="domaine", match=MatchValue(value=domaine))])
+
+    docs: dict[str, dict] = {}
+    offset = None
+
+    while True:
+        results, offset = client.scroll(
+            collection_name=COLLECTION_NAME,
+            scroll_filter=filter_,
+            with_payload=True,
+            with_vectors=False,
+            limit=100,
+            offset=offset,
+        )
+        for point in results:
+            p = point.payload or {}
+            doc_id = p.get("doc_id")
+            if not doc_id:
+                continue
+            if doc_id not in docs:
+                docs[doc_id] = {
+                    "doc_id": doc_id,
+                    "filename": p.get("source"),
+                    "domaine": p.get("domaine"),
+                    "stored_path": p.get("stored_path"),
+                    "description": p.get("description", ""),
+                    "nb_chunks": 0,
+                }
+            docs[doc_id]["nb_chunks"] += 1
+
+        if offset is None:
+            break
+
+    return {"total": len(docs), "items": list(docs.values())}
+
+
+@router.get("/documents/{doc_id}/chunks")
+async def get_document_chunks(doc_id: str):
+    """Retourne les chunks d'un document indexé."""
+    results, _ = client.scroll(
+        collection_name=COLLECTION_NAME,
+        scroll_filter=Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]),
+        with_payload=True,
+        with_vectors=False,
+        limit=1000,
+    )
+    if not results:
+        raise HTTPException(404, "Document introuvable")
+
+    chunks = sorted(
+        [
+            {"chunk_index": p.payload.get("chunk_index"), "contenu": p.payload.get("contenu")}
+            for p in results
+            if p.payload
+        ],
+        key=lambda x: x["chunk_index"] or 0,
+    )
+    return {"doc_id": doc_id, "chunks": chunks}
+
+
+@router.get("/documents/{doc_id}/download")
+async def download_document(doc_id: str):
+    """Renvoie le fichier original stocké sur disque."""
+    results, _ = client.scroll(
+        collection_name=COLLECTION_NAME,
+        scroll_filter=Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]),
+        with_payload=["stored_path", "source"],
+        with_vectors=False,
+        limit=1,
+    )
+    if not results:
+        raise HTTPException(404, "Document introuvable")
+
+    payload = results[0].payload or {}
+    stored_path = payload.get("stored_path")
+    filename = payload.get("source") or os.path.basename(stored_path or "")
+
+    # Fallback pour les documents indexés avant la correction du worker
+    if (not stored_path or not os.path.isfile(stored_path)) and filename:
+        stored_path = os.path.join(settings.documents_storage_path, doc_id, filename)
+
+    if not stored_path or not os.path.isfile(stored_path):
+        raise HTTPException(404, "Fichier non disponible sur disque")
+
+    return FileResponse(
+        path=stored_path,
+        filename=filename,
+        media_type="application/octet-stream",
+    )
+
+
+@router.delete("/documents/{doc_id}")
+async def delete_document(doc_id: str):
+    """Supprime un document de Qdrant et du stockage permanent."""
+    doc_filter = Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))])
+
+    results, _ = client.scroll(
+        collection_name=COLLECTION_NAME,
+        scroll_filter=doc_filter,
+        with_payload=["stored_path"],
+        with_vectors=False,
+        limit=1,
+    )
+    if not results:
+        raise HTTPException(404, "Document introuvable")
+
+    stored_path = (results[0].payload or {}).get("stored_path")
+
+    client.delete(
+        collection_name=COLLECTION_NAME,
+        points_selector=FilterSelector(filter=doc_filter),
+    )
+
+    if stored_path:
+        doc_dir = os.path.dirname(stored_path)
+        if os.path.isdir(doc_dir):
+            shutil.rmtree(doc_dir, ignore_errors=True)
+
+    return {"statut": "OK", "doc_id": doc_id}
 
 
 @router.get("/documents/{job_id}/status")

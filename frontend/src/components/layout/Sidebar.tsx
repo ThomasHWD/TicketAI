@@ -14,6 +14,7 @@ import {
   TicketPlus,
   MessagesSquare,
   ArchiveX,
+  Files,
 } from "lucide-react";
 
 const navMain = [
@@ -27,6 +28,7 @@ const navMain = [
     label: "Réponses Enregistrées",
   },
   { to: "/Documentations", icon: BookText, label: "Documentations" },
+  { to: "/documents-indexes", icon: Files, label: "Documents indexés" },
 ];
 
 const navSettings = [
