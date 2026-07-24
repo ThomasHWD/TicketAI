@@ -1,0 +1,16 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/user/UserTicketDetail.tsx"
+        ],
+        "createdAt": "2026-07-24T09:56:04.762Z"
+      }
+    ]
+  }
+}

@@ -88,7 +88,7 @@ const DOMAINE_LABEL: Record<string, string> = {
 const SOURCE_LABEL: Record<string, string> = {
   LLM: "Généré par IA",
   SUGGESTION: "Suggestion",
-  CANONIQUE: "Canonique",
+  CANONIQUE: "",
 };
 
 function ReponseItem({
