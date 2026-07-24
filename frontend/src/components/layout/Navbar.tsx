@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Sun, Moon, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { getValidatorId, setValidatorId } from "../../lib/currentUser";
 import { useTheme } from "../../hooks/useTheme";
+import GlassSurface from "@@/components/GlassSurface";
 
 interface NavbarProps {
   collapsed: boolean;
@@ -38,7 +39,19 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   return (
-    <div className="h-20 bg-white/50 dark:bg-white/5 backdrop-blur-2xl border-b border-white/60 dark:border-white/10 shadow-[0_1px_24px_0_rgba(0,0,0,0.06)] flex items-center px-5 gap-3 shrink-0">
+    <GlassSurface
+      width="100%"
+      height={80}
+      borderRadius={0}
+      backgroundOpacity={0.3}
+      brightness={55}
+      opacity={0.92}
+      blur={14}
+      distortionScale={-120}
+      className="shrink-0 border-b border-white/40 dark:border-white/10 !flex-row !justify-start"
+      style={{ borderBottom: undefined }}
+    >
+      <div className="flex items-center w-full px-5 gap-3 h-full">
       {/* Collapse */}
       <button
         onClick={onToggle}
@@ -87,6 +100,7 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
           Thomas HENWOOD
         </p>
       </div>
-    </div>
+      </div>
+    </GlassSurface>
   );
 }
