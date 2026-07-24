@@ -296,7 +296,7 @@ export default function UserTicketDetail() {
         {/* Colonne principale : fil de conversation + actions */}
         <div className="flex-1 min-w-0 space-y-4">
           {/* Fil : question initiale → réponse → précision → réponse … */}
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
+          <div className="glass-card rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
               <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                 Échange
@@ -329,7 +329,7 @@ export default function UserTicketDetail() {
           {/* Actions utilisateur : uniquement après une première réponse fiable,
               tant que le ticket n'est pas clôturé. */}
           {closed ? (
-            <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6 flex items-center gap-3">
+            <div className="glass-card rounded-2xl p-6 flex items-center gap-3">
               <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400 shrink-0">
                 <CheckCheck size={18} aria-hidden="true" />
               </span>
@@ -344,7 +344,7 @@ export default function UserTicketDetail() {
             </div>
           ) : (
             hasVisibleAnswer && (
-              <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-6 space-y-5">
+              <div className="glass-card rounded-2xl p-6 space-y-5">
                 {suiviEnCours && (
                   <div className="flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
                     <Clock size={14} aria-hidden="true" />
@@ -427,7 +427,7 @@ export default function UserTicketDetail() {
 
         {/* Colonne latérale : infos */}
         <div className="w-72 shrink-0 space-y-4">
-          <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] p-5 space-y-4">
+          <div className="glass-card rounded-2xl p-5 space-y-4">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               Informations
             </p>

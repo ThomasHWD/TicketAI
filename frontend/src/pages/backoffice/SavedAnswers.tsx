@@ -90,7 +90,7 @@ export default function SavedAnswers() {
       </div>
 
       {/* Card */}
-      <div className="bg-white/50 dark:bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/60 dark:border-white/10 shadow-[0_2px_24px_0_rgba(0,0,0,0.08)] overflow-hidden">
+      <div className="glass-card rounded-2xl overflow-hidden">
         <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-200 dark:border-white/10">
           <BadgeCheck size={18} className="text-emerald-500" aria-hidden="true" />
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
