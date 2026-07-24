@@ -112,11 +112,16 @@ def mock_side_effects(monkeypatch):
     ``feedback_job.apply_async`` (enqueue Celery/Valkey) et
     ``delete_response_point`` (appel Qdrant) sont remplacés par des mocks, de
     sorte que les tests d'intégration n'exercent que la logique métier + la base.
+    ``init_collection`` est mocké pour éviter un appel Qdrant au démarrage du
+    lifespan FastAPI dans les tests unitaires.
     """
     import app.api.v1.reponses as reponses_module
+    import app.main as main_module
 
     feedback_mock = MagicMock()
     delete_point_mock = MagicMock()
     monkeypatch.setattr(reponses_module.feedback_job, "apply_async", feedback_mock)
     monkeypatch.setattr(reponses_module, "delete_response_point", delete_point_mock)
+    if not DB_AVAILABLE:
+        monkeypatch.setattr(main_module, "init_collection", MagicMock())
     return _SideEffectMocks(feedback_mock, delete_point_mock)
