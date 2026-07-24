@@ -45,6 +45,14 @@ def init_collection():
     )
     print("Index payload 'domaine' assuré.")
 
+    # Index payload pour la détection de doublons par hash (idempotent)
+    client.create_payload_index(
+        collection_name=COLLECTION_NAME,
+        field_name="content_hash",
+        field_schema="keyword",
+    )
+    print("Index payload 'content_hash' assuré.")
+
 
 def delete_response_point(reponse_id: str) -> None:
     """Supprime de Qdrant le point associé à une réponse.

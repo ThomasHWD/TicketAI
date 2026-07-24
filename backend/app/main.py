@@ -1,11 +1,22 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api.v1 import documents, reponses, tickets
+from app.services.qdrant import init_collection
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_collection()
+    yield
+
 
 app = FastAPI(
     title="TicketAI",
     description="API de gestion de tickets grâce à l'IA",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.include_router(documents.router, prefix="/api/v1")

@@ -23,3 +23,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
