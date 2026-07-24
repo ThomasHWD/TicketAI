@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import Sidebar from "./components/layout/Sidebar";
 import Navbar from "./components/layout/Navbar";
 import Aurora from "./components/ui/Aurora";
+import JobTracker from "./components/ui/JobTracker";
+import { JobsProvider } from "./context/JobsContext";
 import Dashboard from "./pages/backoffice/Dashboard";
 import TicketsList from "./pages/backoffice/TicketsList";
 import ClosedTicketsList from "./pages/backoffice/ClosedTicketsList";
@@ -11,6 +13,9 @@ import SavedAnswers from "./pages/backoffice/SavedAnswers";
 import NewTicket from "./pages/user/NewTicket";
 import UserTicketHistory from "./pages/user/UserTicketHistory";
 import UserTicketDetail from "./pages/user/UserTicketDetail";
+import Ingestion from "./pages/backoffice/Ingestion";
+import AllDocs from "./pages/backoffice/AllDocs";
+import NotFound from "./pages/user/404";
 
 function Layout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -40,27 +45,33 @@ function Layout() {
           <Outlet />
         </main>
       </div>
+      <JobTracker />
     </div>
   );
 }
 
 export default function App() {
   return (
+    <JobsProvider>
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
         </Route>
         <Route element={<Layout />}>
+          <Route path="*" element={<NotFound />} />
           <Route path="/tickets" element={<TicketsList />} />
           <Route path="/tickets/:id" element={<TicketDetail />} />
           <Route path="/tickets-clotures" element={<ClosedTicketsList />} />
           <Route path="/reponses-enregistrees" element={<SavedAnswers />} />
+          <Route path="/Documentations" element={<Ingestion />} />
+          <Route path="/documents-indexes" element={<AllDocs />} />
           <Route path="/nouveau-ticket" element={<NewTicket />} />
           <Route path="/historique" element={<UserTicketHistory />} />
           <Route path="/historique/:id" element={<UserTicketDetail />} />
         </Route>
       </Routes>
     </BrowserRouter>
+    </JobsProvider>
   );
 }

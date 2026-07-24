@@ -1,5 +1,48 @@
 export type Domaine = "IT" | "RH" | "JURIDIQUE";
 
+export interface IndexedDocument {
+  doc_id: string;
+  filename: string | null;
+  domaine: Domaine | null;
+  stored_path: string | null;
+  description: string;
+  nb_chunks: number;
+}
+
+export interface IndexedDocumentsResponse {
+  total: number;
+  items: IndexedDocument[];
+}
+
+export interface DocumentChunk {
+  chunk_index: number;
+  contenu: string;
+}
+
+export interface DocumentChunksResponse {
+  doc_id: string;
+  chunks: DocumentChunk[];
+}
+
+export interface DocumentUploadResponse {
+  job_id: string | null;
+  filename: string;
+  statut: "EN_ATTENTE" | "DÉJÀ_INDEXÉ";
+  doc_id?: string;
+}
+
+export interface DocumentStatus {
+  job_id: string;
+  statut: "PENDING" | "STARTED" | "SUCCESS" | "FAILURE" | "RETRY";
+  resultat?: {
+    filename: string;
+    doc_id: string;
+    stored_path: string;
+    nb_chunks: number;
+  };
+  erreur?: string;
+}
+
 export type StatutTicket = "NOUVEAU" | "RÉPONDU" | "VALIDÉ" | "REJETÉ";
 
 export type StatutReponse = "EN_ATTENTE" | "VALIDÉE" | "REJETÉE" | "CORRIGÉE";

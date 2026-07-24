@@ -5,7 +5,7 @@ import uuid
 
 from langchain_community.document_loaders import Docx2txtLoader, PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from qdrant_client.models import PointStruct, SparseVector
+from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct, SparseVector
 
 from app.config import settings
 from app.services.embedding import embed_texts
@@ -92,7 +92,7 @@ def store_file(tmp_path: str, doc_id: str, filename: str) -> str:
     default_retry_delay=60,
     queue="queue_ingestion",
 )
-def ingestion_job(self, file_path: str, filename: str, domaine: str):
+def ingestion_job(self, file_path: str, filename: str, domaine: str, description: str = "", content_hash: str = ""):
     doc_id = str(uuid.uuid4())
     stored_path = None
 
@@ -133,6 +133,8 @@ def ingestion_job(self, file_path: str, filename: str, domaine: str):
                         "domaine": domaine,
                         "contenu": chunk,
                         "stored_path": stored_path,
+                        "description": description,
+                        "content_hash": content_hash,
                     },
                 )
             )
@@ -143,6 +145,14 @@ def ingestion_job(self, file_path: str, filename: str, domaine: str):
         # Étape 5 — Stockage permanent
         stored_path = store_file(file_path, doc_id, filename)
         print(f"[INGESTION] Fichier stocké : {stored_path}")
+
+        # Étape 6 — Mise à jour du stored_path dans Qdrant
+        client.set_payload(
+            collection_name=COLLECTION_NAME,
+            payload={"stored_path": stored_path},
+            points=Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]),
+        )
+        print("[INGESTION] stored_path mis à jour dans Qdrant")
 
         return {
             "statut": "OK",
