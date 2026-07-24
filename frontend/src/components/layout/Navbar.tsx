@@ -48,7 +48,7 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
       opacity={0.92}
       blur={14}
       distortionScale={-120}
-      className="shrink-0 border-b border-white/40 dark:border-white/10 !flex-row !justify-start"
+      className="absolute top-0 left-0 right-0 z-20 border-b border-white/40 dark:border-white/10 !flex-row !justify-start"
       style={{ borderBottom: undefined }}
     >
       <div className="flex items-center w-full px-5 gap-3 h-full">
