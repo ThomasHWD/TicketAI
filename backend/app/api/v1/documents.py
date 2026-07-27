@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse
 from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
 
 from app.config import settings
+from app.core.security import AdminUser, CurrentUser
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
 from app.workers.ingestion import ingestion_job
@@ -42,7 +43,12 @@ def sanitize_filename(filename: str | None) -> str:
 
 
 @router.post("/documents")
-async def upload_document(domaine: str, file: Annotated[UploadFile, File(...)], description: str = ""):
+async def upload_document(
+    current_user: CurrentUser,
+    domaine: str,
+    file: Annotated[UploadFile, File(...)],
+    description: str = "",
+):
     # Validation domaine
     domaine = domaine.upper()
     if domaine not in DOMAINES_VALIDES:
@@ -110,7 +116,7 @@ async def upload_document(domaine: str, file: Annotated[UploadFile, File(...)], 
 
 
 @router.get("/documents")
-async def list_documents(domaine: str | None = None):
+async def list_documents(current_user: CurrentUser, domaine: str | None = None):
     """Retourne la liste des documents indexés dans Qdrant, groupés par doc_id."""
     filter_: Filter | None = None
     if domaine:
@@ -154,7 +160,7 @@ async def list_documents(domaine: str | None = None):
 
 
 @router.get("/documents/{doc_id}/chunks")
-async def get_document_chunks(doc_id: str):
+async def get_document_chunks(doc_id: str, current_user: CurrentUser):
     """Retourne les chunks d'un document indexé."""
     results, _ = client.scroll(
         collection_name=COLLECTION_NAME,
@@ -178,7 +184,7 @@ async def get_document_chunks(doc_id: str):
 
 
 @router.get("/documents/{doc_id}/download")
-async def download_document(doc_id: str):
+async def download_document(doc_id: str, current_user: CurrentUser):
     """Renvoie le fichier original stocké sur disque."""
     results, _ = client.scroll(
         collection_name=COLLECTION_NAME,
@@ -209,7 +215,7 @@ async def download_document(doc_id: str):
 
 
 @router.delete("/documents/{doc_id}")
-async def delete_document(doc_id: str):
+async def delete_document(doc_id: str, current_user: AdminUser):
     """Supprime un document de Qdrant et du stockage permanent."""
     doc_filter = Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))])
 
@@ -239,7 +245,7 @@ async def delete_document(doc_id: str):
 
 
 @router.get("/documents/{job_id}/status")
-async def statut_document(job_id: str):
+async def statut_document(job_id: str, current_user: CurrentUser):
     result = AsyncResult(job_id, app=celery_app)
 
     reponse = {

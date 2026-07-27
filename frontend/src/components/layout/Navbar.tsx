@@ -1,7 +1,9 @@
-import { useNavigate } from "react-router-dom";
-import { Sun, Moon, Plus, ChevronLeft, ChevronRight } from "lucide-react";
-import { getValidatorId, setValidatorId } from "../../lib/currentUser";
+import { useNavigate, useMatch } from "react-router-dom";
+import { Sun, Moon, Plus, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../hooks/useTheme";
+import { unlockTicket } from "../../lib/api";
+import { getValidatorId } from "../../lib/currentUser";
 import GlassSurface from "@@/components/GlassSurface";
 
 interface NavbarProps {
@@ -9,35 +11,28 @@ interface NavbarProps {
   onToggle: () => void;
 }
 
-// Validateurs fictifs pour tester le verrouillage à plusieurs — DEV UNIQUEMENT.
-// À supprimer quand l'authentification réelle sera en place.
-const DEV_VALIDATORS = [
-  { id: "00000000-0000-0000-0000-000000000001", label: "Validateur A" },
-  { id: "00000000-0000-0000-0000-000000000002", label: "Validateur B" },
-];
-
-function DevValidatorSwitcher() {
-  return (
-    <select
-      defaultValue={getValidatorId()}
-      onChange={(e) => {
-        setValidatorId(e.target.value);
-        window.location.reload();
-      }}
-      className="text-xs border border-amber-200 bg-amber-50 text-amber-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
-      title="Simuler un validateur (dev)"
-      aria-label="Validateur simulé (dev)"
-    >
-      {DEV_VALIDATORS.map((v) => (
-        <option key={v.id} value={v.id}>{v.label}</option>
-      ))}
-    </select>
-  );
+/** Nom affichable de l'utilisateur : « Prénom NOM », sinon email. */
+function displayName(user: { prenom: string | null; nom: string | null; email: string }): string {
+  const full = [user.prenom, user.nom].filter(Boolean).join(" ").trim();
+  return full || user.email;
 }
 
 export default function Navbar({ collapsed, onToggle }: NavbarProps) {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const ticketMatch = useMatch("/tickets/:id");
+  const ticketId = ticketMatch?.params.id;
+
+  async function handleLogout() {
+    if (ticketId) {
+      try {
+        await unlockTicket(ticketId, getValidatorId());
+      } catch { /* ignore */ }
+    }
+    logout();
+    navigate("/login");
+  }
   return (
     <GlassSurface
       width="100%"
@@ -77,9 +72,6 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
       {/* Divider */}
       <div className="w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" />
 
-      {/* Sélecteur de validateur (dev uniquement) */}
-      {import.meta.env.DEV && <DevValidatorSwitcher />}
-
       {/* Nouvelle question */}
       <button
         onClick={() => navigate("/nouveau-ticket")}
@@ -89,7 +81,7 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
         <span className="hidden sm:inline">Ticket</span>
       </button>
 
-      {/* User (identité, statique tant qu'il n'y a pas de menu réel) */}
+      {/* Utilisateur connecté */}
       <div className="flex items-center gap-2.5 pl-1 shrink-0">
         <img
           src="https://i.pravatar.cc/36"
@@ -97,9 +89,19 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
           className="w-8 h-8 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
         />
         <p className="hidden md:block text-sm font-medium text-gray-900 dark:text-gray-100 leading-tight whitespace-nowrap">
-          Thomas HENWOOD
+          {user ? displayName(user) : ""}
         </p>
       </div>
+
+      {/* Déconnexion */}
+      <button
+        onClick={handleLogout}
+        className="p-2 rounded-lg hover:bg-white/60 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 transition-colors shrink-0"
+        title="Se déconnecter"
+        aria-label="Se déconnecter"
+      >
+        <LogOut size={18} />
+      </button>
       </div>
     </GlassSurface>
   );

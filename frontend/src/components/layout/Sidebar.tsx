@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../../lib/auth";
 import GlassSurface from "@@/components/GlassSurface";
 import Logo from "../../assets/logo.svg";
 import LogoDark from "../../assets/logo_dark.svg";
@@ -82,6 +83,8 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed }: SidebarProps) {
+  const { user } = useAuth();
+  const greetingName = user?.prenom || user?.email || "";
   return (
     <aside
       className={`relative flex flex-col shrink-0 overflow-hidden
@@ -170,7 +173,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         >
           <div className="flex-1 min-w-0">
             <p className="text-xs text-gray-600 dark:text-gray-400">Bonjour 👋</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Thomas</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{greetingName}</p>
           </div>
           <ChevronRight size={16} className="text-gray-400 shrink-0" />
         </div>

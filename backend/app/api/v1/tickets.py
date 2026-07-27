@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy import or_
 
 from app.config import settings
+from app.core.security import CurrentUser
 from app.database import SessionLocal
 from app.models.ticket import Ticket
 from app.workers.celery_app import celery_app
@@ -16,25 +17,18 @@ router = APIRouter()
 
 DOMAINES_VALIDES = {"IT", "RH", "JURIDIQUE"}
 
+# L'identité (user_id / validator_id) est désormais dérivée du JWT via
+# get_current_user, et non plus transmise dans le corps des requêtes.
+
 
 class QuestionRequest(BaseModel):
     question: str
     objet: str | None = None
     domaine: str
-    user_id: str | None = None
 
 
 class SuiviRequest(BaseModel):
     question: str
-    user_id: str | None = None
-
-
-class CloturerRequest(BaseModel):
-    user_id: str | None = None
-
-
-class LockRequest(BaseModel):
-    validator_id: uuid.UUID
 
 
 def lock_info(ticket: Ticket, now: datetime | None = None) -> dict:
@@ -103,14 +97,14 @@ def _acquire_lock(db, tid: uuid.UUID, validator_id: uuid.UUID) -> Ticket | None:
 
 
 @router.post("/tickets")
-async def soumettre_question(payload: QuestionRequest):
+async def soumettre_question(payload: QuestionRequest, current_user: CurrentUser):
     if payload.domaine.upper() not in DOMAINES_VALIDES:
         raise HTTPException(400, f"Domaine invalide : {payload.domaine}")
     if not payload.question.strip():
         raise HTTPException(400, "La question ne peut pas être vide")
 
     job = question_job.apply_async(
-        args=[payload.question, payload.domaine.upper(), payload.user_id],
+        args=[payload.question, payload.domaine.upper(), str(current_user.id)],
         kwargs={"objet": payload.objet},
         queue="queue_questions",
     )
@@ -124,7 +118,11 @@ async def soumettre_question(payload: QuestionRequest):
 
 
 @router.post("/tickets/{ticket_id}/suivi")
-async def soumettre_suivi(ticket_id: str, payload: SuiviRequest):
+async def soumettre_suivi(
+    ticket_id: str,
+    payload: SuiviRequest,
+    current_user: CurrentUser,
+):
     """Ajoute une précision au fil du ticket : relance le pipeline RAG sur le
     ticket existant (nouvelle réponse, la question d'origine est conservée)."""
     if not payload.question.strip():
@@ -138,7 +136,7 @@ async def soumettre_suivi(ticket_id: str, payload: SuiviRequest):
         if ticket.closed_at is not None:
             raise HTTPException(409, "Ticket clôturé : impossible d'ajouter une précision")
         domaine = ticket.domaine
-        user_id = payload.user_id or (str(ticket.user_id) if ticket.user_id else None)
+        user_id = str(current_user.id)
         # Marque le ticket « en cours » DÈS la soumission (avant même que le worker
         # ne tourne) pour que les badges des listes se mettent à jour au prochain
         # poll, sans attendre la fin du traitement. Le worker repassera statut_job
@@ -163,7 +161,7 @@ async def soumettre_suivi(ticket_id: str, payload: SuiviRequest):
 
 
 @router.post("/tickets/{ticket_id}/cloturer")
-async def cloturer_ticket(ticket_id: str, payload: CloturerRequest):
+async def cloturer_ticket(ticket_id: str, current_user: CurrentUser):
     """Clôture le ticket (l'utilisateur est satisfait). Idempotence refusée :
     un ticket déjà clôturé renvoie 409."""
     tid = _parse_ticket_id(ticket_id)
@@ -184,6 +182,7 @@ async def cloturer_ticket(ticket_id: str, payload: CloturerRequest):
 
 @router.get("/tickets")
 async def liste_tickets(
+    current_user: CurrentUser,
     page: int = 1,
     limit: int = 10,
     domaine: str | None = None,
@@ -225,7 +224,7 @@ async def liste_tickets(
 
 
 @router.get("/tickets/{ticket_id}/reponses")
-async def reponses_par_ticket(ticket_id: str):
+async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
     from app.models.reponse import Reponse as ReponseModel
     db = SessionLocal()
     try:
@@ -267,7 +266,7 @@ async def reponses_par_ticket(ticket_id: str):
 
 
 @router.get("/tickets/{ticket_id}")
-async def get_ticket(ticket_id: str):
+async def get_ticket(ticket_id: str, current_user: CurrentUser):
     db = SessionLocal()
     try:
         try:
@@ -290,7 +289,7 @@ def _parse_ticket_id(ticket_id: str) -> uuid.UUID:
 
 
 @router.post("/tickets/{ticket_id}/lock")
-async def verrouiller_ticket(ticket_id: str, payload: LockRequest):
+async def verrouiller_ticket(ticket_id: str, current_user: CurrentUser):
     """Prend (ou prolonge) le verrou du ticket pour le validateur courant."""
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
@@ -298,7 +297,7 @@ async def verrouiller_ticket(ticket_id: str, payload: LockRequest):
         if not db.query(Ticket).filter(Ticket.id == tid).first():
             raise HTTPException(404, "Ticket introuvable")
 
-        ticket = _acquire_lock(db, tid, payload.validator_id)
+        ticket = _acquire_lock(db, tid, current_user.id)
         if ticket is None:
             # Détenu par un autre validateur, bail encore valide → conflit
             ticket = db.query(Ticket).filter(Ticket.id == tid).first()
@@ -315,12 +314,12 @@ async def verrouiller_ticket(ticket_id: str, payload: LockRequest):
 
 
 @router.post("/tickets/{ticket_id}/heartbeat")
-async def heartbeat_ticket(ticket_id: str, payload: LockRequest):
+async def heartbeat_ticket(ticket_id: str, current_user: CurrentUser):
     """Prolonge le bail tant que le validateur garde le ticket ouvert."""
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
     try:
-        ticket = _acquire_lock(db, tid, payload.validator_id)
+        ticket = _acquire_lock(db, tid, current_user.id)
         if ticket is None:
             ticket = db.query(Ticket).filter(Ticket.id == tid).first()
             if not ticket:
@@ -338,14 +337,14 @@ async def heartbeat_ticket(ticket_id: str, payload: LockRequest):
 
 
 @router.post("/tickets/{ticket_id}/unlock", status_code=204)
-async def deverrouiller_ticket(ticket_id: str, payload: LockRequest):
+async def deverrouiller_ticket(ticket_id: str, current_user: CurrentUser):
     """Libère le verrou (uniquement si détenu par ce validateur). Idempotent."""
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
     try:
         db.query(Ticket).filter(
             Ticket.id == tid,
-            Ticket.locked_by == payload.validator_id,
+            Ticket.locked_by == current_user.id,
         ).update(
             {
                 Ticket.locked_by: None,
@@ -360,7 +359,7 @@ async def deverrouiller_ticket(ticket_id: str, payload: LockRequest):
 
 
 @router.get("/tickets/{job_id}/status")
-async def statut_ticket(job_id: str):
+async def statut_ticket(job_id: str, current_user: CurrentUser):
     # Statut Celery
     result = AsyncResult(job_id, app=celery_app)
 
