@@ -99,6 +99,8 @@ export interface TicketReponse {
   canonique: boolean;
   score_similarite: number | null;
   created_at: string | null;
+  validator_email: string | null;
+  validator_nom_complet: string | null;
 }
 
 export interface ReponseEnAttente {
