@@ -1,9 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
 import GlassSurface from "@@/components/GlassSurface";
-import Logo from "../../assets/logo.svg";
-import LogoDark from "../../assets/logo_dark.svg";
-import SmallLogo from "../../assets/small_logo.svg";
+import TicketAIMark from "../../assets/ticketai_mark.svg";
 import {
   LayoutDashboard,
   TicketMinus,
@@ -15,7 +13,7 @@ import {
   TicketPlus,
   MessagesSquare,
   ArchiveX,
-  Files,
+  File,
 } from "lucide-react";
 
 const navMain = [
@@ -29,7 +27,7 @@ const navMain = [
     label: "Réponses Enregistrées",
   },
   { to: "/Documentations", icon: BookText, label: "Documentations" },
-  { to: "/documents-indexes", icon: Files, label: "Documents indexés" },
+  { to: "/documents-indexes", icon: File, label: "Documents indexés" },
 ];
 
 const navSettings = [
@@ -110,31 +108,15 @@ export default function Sidebar({ collapsed }: SidebarProps) {
       <div className="relative z-10 flex flex-col flex-1 overflow-hidden">
 
       {/* Logo */}
-      <div className="relative flex items-center justify-center h-20 px-3 overflow-hidden">
-        {/* Full logo — light */}
-        <img
-          src={Logo}
-          alt="TicketAI"
-          className={`absolute w-[80%] h-auto transition-all duration-300 ease-in-out dark:hidden ${
-            collapsed ? "opacity-0 scale-90 pointer-events-none" : "opacity-100 scale-100"
+      <div className="flex items-center gap-[11px] h-20 px-[18px] overflow-hidden">
+        <img src={TicketAIMark} alt="TicketAI" className="h-[52px] w-[52px] shrink-0 [filter:drop-shadow(0_0_6px_rgba(255,255,255,0.8))_drop-shadow(0_1px_3px_rgba(0,0,0,0.15))] dark:[filter:none]" />
+        <span
+          className={`text-[18px] font-semibold tracking-tight text-gray-900 dark:text-gray-100 whitespace-nowrap transition-all duration-300 ease-in-out ${
+            collapsed ? "opacity-0 -translate-x-2 w-0 overflow-hidden" : "opacity-100 translate-x-0"
           }`}
-        />
-        {/* Full logo — dark */}
-        <img
-          src={LogoDark}
-          alt="TicketAI"
-          className={`absolute w-[80%] h-auto transition-all duration-300 ease-in-out hidden dark:block ${
-            collapsed ? "opacity-0 scale-90 pointer-events-none" : "opacity-100 scale-100"
-          }`}
-        />
-        {/* Small logo */}
-        <img
-          src={SmallLogo}
-          alt="TicketAI"
-          className={`h-8 w-auto transition-all duration-300 ease-in-out ${
-            collapsed ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
-          }`}
-        />
+        >
+          Ticket<span className="text-emerald-500">AI</span>
+        </span>
       </div>
 
       {/* Main nav */}
