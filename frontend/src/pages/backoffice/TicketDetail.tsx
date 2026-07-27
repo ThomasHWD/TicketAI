@@ -1,7 +1,18 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil, X, Check, ThumbsUp, Lock } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  Check,
+  Clock,
+  Lock,
+  Pencil,
+  Sparkles,
+  ThumbsUp,
+  User,
+  X,
+} from "lucide-react";
 import {
   getTicket,
   getReponsesByTicket,
@@ -13,16 +24,6 @@ import { getValidatorId } from "../../lib/currentUser";
 import { useTicketLock } from "../../hooks/useTicketLock";
 import type { TicketReponse, StatutTicket, StatutReponse } from "../../types.ts";
 
-const MOCK_AUTHOR = {
-  name: "Sophie Martin",
-  role: "Responsable RH",
-  department: "Ressources Humaines",
-  avatar: "SM",
-  email: "sophie.martin@entreprise.fr",
-  phone: "+33 6 12 34 56 78",
-};
-
-// Job en cours (question initiale OU précision fraîchement soumise) → « en cours ».
 function isProcessing(statutJob: string) {
   return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";
 }
@@ -47,6 +48,15 @@ function ticketStatutClass(statut: StatutTicket, canonique: boolean, closed: boo
   return "bg-gray-100 text-gray-500 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/15";
 }
 
+function StatutBadge({ statut, canonique, closed, processing }: { statut: StatutTicket; canonique: boolean; closed: boolean; processing: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique, closed, processing)}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
+      {ticketStatutLabel(statut, canonique, closed, processing)}
+    </span>
+  );
+}
+
 function reponseStatutLabel(statut: StatutReponse, canonique: boolean) {
   if (statut === "VALIDÉE" || statut === "CORRIGÉE") return canonique ? "Canonique" : "Validée";
   if (statut === "REJETÉE") return "Rejetée";
@@ -63,15 +73,6 @@ function reponseStatutClass(statut: StatutReponse, canonique: boolean) {
   return "bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20";
 }
 
-function StatutBadge({ statut, canonique, closed, processing }: { statut: StatutTicket; canonique: boolean; closed: boolean; processing: boolean }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique, closed, processing)}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
-      {ticketStatutLabel(statut, canonique, closed, processing)}
-    </span>
-  );
-}
-
 function formatDate(iso: string | null) {
   if (!iso) return "—";
   return new Intl.DateTimeFormat("fr-FR", {
@@ -85,20 +86,56 @@ const DOMAINE_LABEL: Record<string, string> = {
   JURIDIQUE: "Juridique",
 };
 
-const SOURCE_LABEL: Record<string, string> = {
-  LLM: "Généré par IA",
-  SUGGESTION: "Suggestion",
-  CANONIQUE: "",
+const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
+  SUGGESTION: { label: "Suggestion", icon: Sparkles },
+  CANONIQUE: { label: "Canonique", icon: Bot },
 };
+
+/** Avatar pour le demandeur (utilisateur) */
+function UserAvatar({ email }: { email: string | null }) {
+  const initial = email ? email[0].toUpperCase() : "U";
+  return (
+    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shrink-0 ring-2 ring-white dark:ring-white/10 text-sm font-semibold">
+      {initial}
+    </span>
+  );
+}
+
+/** Avatar IA (réponse en attente ou canonique) */
+function BotAvatar({ pulse = false }: { pulse?: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-500 dark:bg-emerald-600 text-white shrink-0 ring-2 ring-white dark:ring-black/40 shadow-md shadow-emerald-600/40${pulse ? " animate-pulse" : ""}`}
+      aria-hidden="true"
+    >
+      <Bot size={16} strokeWidth={1.75} />
+    </span>
+  );
+}
+
+/** Avatar pour un validateur humain */
+function ValidatorAvatar({ email }: { email: string | null }) {
+  const initial = email ? email[0].toUpperCase() : "V";
+  return (
+    <span
+      className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 shrink-0 ring-2 ring-white dark:ring-white/10 text-sm font-semibold"
+      aria-hidden="true"
+    >
+      {initial}
+    </span>
+  );
+}
 
 function ReponseItem({
   reponse,
   readOnly,
+  userEmail,
   onChanged,
   onLockConflict,
 }: {
   reponse: TicketReponse;
   readOnly: boolean;
+  userEmail: string | null;
   onChanged: () => void;
   onLockConflict: (message: string) => void;
 }) {
@@ -108,133 +145,144 @@ function ReponseItem({
   const [error, setError] = useState<string | null>(null);
 
   const canAct = reponse.statut === "EN_ATTENTE" && !readOnly;
+  const sourceInfo = SOURCE_LABEL[reponse.source];
+  const isPending = reponse.statut === "EN_ATTENTE";
+  const isCanonique = reponse.canonique;
+  const showBot = isPending || isCanonique;
+  const authorLabel = showBot
+    ? "TicketAI"
+    : (reponse.validator_nom_complet ?? reponse.validator_email ?? "Validateur");
+  const authorClass = showBot
+    ? "text-emerald-700 dark:text-emerald-400"
+    : "text-violet-700 dark:text-violet-300";
 
   function handleError(e: unknown) {
-    if (e instanceof LockConflictError) {
-      onLockConflict(e.message);
-      return;
-    }
+    if (e instanceof LockConflictError) { onLockConflict(e.message); return; }
     setError(e instanceof Error ? e.message : "Erreur");
   }
 
   async function handleValider() {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       await validerReponse(reponse.id, { validator_id: getValidatorId() });
       onChanged();
-    } catch (e: unknown) {
-      handleError(e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { handleError(e); } finally { setLoading(false); }
   }
 
   async function handleCorriger() {
     if (!draft.trim() || draft === reponse.contenu) { setEditing(false); return; }
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       await corrigerReponse(reponse.id, { contenu_corrige: draft, validator_id: getValidatorId() });
-      setEditing(false);
-      onChanged();
-    } catch (e: unknown) {
-      handleError(e);
-    } finally {
-      setLoading(false);
-    }
+      setEditing(false); onChanged();
+    } catch (e) { handleError(e); } finally { setLoading(false); }
   }
 
-  function handleCancel() {
-    setDraft(reponse.contenu);
-    setEditing(false);
-    setError(null);
-  }
+  function handleCancel() { setDraft(reponse.contenu); setEditing(false); setError(null); }
 
   return (
-    <li className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full border font-medium ${reponseStatutClass(reponse.statut, reponse.canonique)}`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
-            {reponseStatutLabel(reponse.statut, reponse.canonique)}
-          </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{SOURCE_LABEL[reponse.source] ?? reponse.source}</span>
-          {reponse.score_similarite != null && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              · similarité {(reponse.score_similarite * 100).toFixed(0)} %
-            </span>
-          )}
-        </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">{formatDate(reponse.created_at)}</span>
-      </div>
-
-      {/* Précision de relance ayant déclenché cette réponse (fil de suivi). */}
+    <li className="px-5 py-4 space-y-3 animate-in fade-in slide-in-from-bottom-1 duration-300">
+      {/* Précision de relance */}
       {reponse.question_suivi && (
-        <div className="rounded-xl border border-blue-200/60 dark:border-blue-500/20 bg-blue-50/60 dark:bg-blue-500/10 p-3">
-          <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
-            Précision de l'utilisateur
-          </p>
-          <p className="text-sm text-blue-900/80 dark:text-blue-100/90 leading-relaxed whitespace-pre-wrap">
-            {reponse.question_suivi}
-          </p>
-        </div>
-      )}
-
-      {editing ? (
-        <div className="space-y-3">
-          <textarea
-            className="w-full text-sm text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y leading-relaxed min-h-[420px]"
-            rows={18}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            disabled={loading}
-            autoFocus
-            aria-label="Contenu corrigé"
-          />
-          {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCorriger}
-              disabled={loading || !draft.trim()}
-              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
-            >
-              <Check size={14} aria-hidden="true" /> Valider la correction
-            </button>
-            <button
-              onClick={handleCancel}
-              disabled={loading}
-              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-            >
-              <X size={14} aria-hidden="true" /> Annuler
-            </button>
+        <div className="flex gap-3 items-start">
+          <UserAvatar email={userEmail} />
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">Précision de l'utilisateur</span>
+            <div className="bg-emerald-50 dark:bg-emerald-500/[0.08] border border-emerald-100 dark:border-emerald-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
+              <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+                {reponse.question_suivi}
+              </p>
+            </div>
           </div>
         </div>
-      ) : (
-        <div className="bg-white/40 dark:bg-white/5 rounded-xl p-4">
-          <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">{reponse.contenu}</p>
-        </div>
       )}
 
-      {canAct && !editing && (
-        <div className="flex items-center gap-2 pt-1 flex-wrap">
-          <button
-            onClick={handleValider}
-            disabled={loading}
-            className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
-          >
-            <ThumbsUp size={14} aria-hidden="true" /> Valider
-          </button>
-          <button
-            onClick={() => setEditing(true)}
-            disabled={loading}
-            className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
-          >
-            <Pencil size={14} aria-hidden="true" /> Corriger
-          </button>
-          {error && <p className="text-xs text-red-600 dark:text-red-400 ml-1" role="alert">{error}</p>}
+      {/* Réponse IA ou validateur humain */}
+      <div className="flex gap-3 items-start">
+        {showBot ? (
+          <BotAvatar pulse={isPending} />
+        ) : (
+          <ValidatorAvatar email={reponse.validator_email ?? null} />
+        )}
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-xs font-semibold ${authorClass}`}>{authorLabel}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(reponse.created_at)}</span>
+            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${reponseStatutClass(reponse.statut, reponse.canonique)}`}>
+              <span className="w-1 h-1 rounded-full bg-current" />
+              {reponseStatutLabel(reponse.statut, reponse.canonique)}
+            </span>
+            {sourceInfo && reponse.source !== "CANONIQUE" && (
+              <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                <sourceInfo.icon size={11} aria-hidden="true" />
+                {sourceInfo.label}
+              </span>
+            )}
+            {reponse.score_similarite != null && (
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                · {(reponse.score_similarite * 100).toFixed(0)} % similarité
+              </span>
+            )}
+          </div>
+
+          {editing ? (
+            <div className="space-y-3">
+              <textarea
+                className="w-full text-sm text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y leading-relaxed min-h-[420px]"
+                rows={18}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                disabled={loading}
+                autoFocus
+                aria-label="Contenu corrigé"
+              />
+              {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCorriger}
+                  disabled={loading || !draft.trim()}
+                  className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
+                >
+                  <Check size={14} aria-hidden="true" /> Valider la correction
+                </button>
+                <button
+                  onClick={handleCancel}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                >
+                  <X size={14} aria-hidden="true" /> Annuler
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white/90 dark:bg-white/[0.07] border border-gray-200/70 dark:border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+              <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+                {reponse.contenu_corrige ?? reponse.contenu}
+              </p>
+            </div>
+          )}
+
+          {canAct && !editing && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleValider}
+                disabled={loading}
+                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
+              >
+                <ThumbsUp size={14} aria-hidden="true" /> Valider
+              </button>
+              <button
+                onClick={() => setEditing(true)}
+                disabled={loading}
+                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
+              >
+                <Pencil size={14} aria-hidden="true" /> Corriger
+              </button>
+              {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </li>
   );
 }
@@ -269,12 +317,16 @@ export default function TicketDetail() {
 
   const readOnly = !isMine;
 
-  if (loading) return <div className="p-6 text-center text-gray-500 dark:text-gray-400" aria-live="polite">Chargement…</div>;
+  if (loading)
+    return <div className="p-6 text-center text-gray-500 dark:text-gray-400" aria-live="polite">Chargement…</div>;
 
   if (error || !ticket) {
     return (
       <div className="p-6">
-        <button onClick={() => navigate(-1)} className="group inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 dark:hover:border-emerald-400/20 shadow-sm transition-all duration-200 mb-4">
+        <button
+          onClick={() => navigate(-1)}
+          className="group inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 dark:hover:border-emerald-400/20 shadow-sm transition-all duration-200 mb-4"
+        >
           <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" /> Retour
         </button>
         <p className="text-red-600 dark:text-red-400" role="alert">
@@ -284,6 +336,9 @@ export default function TicketDetail() {
     );
   }
 
+  const userEmail = ticket.user_email;
+  const userInitial = userEmail ? userEmail[0].toUpperCase() : "U";
+
   return (
     <div className="p-6 space-y-4 max-w-6xl">
       <button
@@ -291,10 +346,11 @@ export default function TicketDetail() {
         className="group inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 dark:hover:border-emerald-400/20 shadow-sm transition-all duration-200"
         aria-label="Retour à la liste des tickets"
       >
-        <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" /> Retour aux tickets
+        <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" />
+        Retour aux tickets
       </button>
 
-      {/* Bandeau : ticket pris en charge par un autre validateur */}
+      {/* Bandeau lecture seule */}
       {!checking && readOnly && (
         <div
           className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-400/10 dark:border-amber-400/20 dark:text-amber-300 text-sm"
@@ -311,43 +367,75 @@ export default function TicketDetail() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-0.5">Objet</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
+            {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
+          </p>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{ticket.objet ?? ticket.question}</h1>
         </div>
-        <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={isProcessing(ticket.statut_job)} />
       </div>
 
       {/* Layout 2 colonnes */}
       <div className="flex gap-5 items-start">
 
-        {/* Colonne principale : question + réponses */}
+        {/* Colonne principale : fil de conversation */}
         <div className="flex-1 min-w-0 space-y-4">
-          {/* Question */}
-          <div className="glass-card rounded-2xl p-6">
-            <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">Question</p>
-            <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">{ticket.question}</p>
-          </div>
-
-          {/* Réponses */}
           <div className="glass-card rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
-              <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Réponses</h2>
+              <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Échange</h2>
             </div>
-            {reponses.length === 0 ? (
-              <p className="px-6 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">Aucune réponse pour ce ticket.</p>
-            ) : (
-              <ul className="divide-y divide-gray-200 dark:divide-white/10" aria-label="Réponses au ticket">
-                {reponses.map((r) => (
+            <ul className="divide-y divide-gray-200 dark:divide-white/10" aria-label="Fil de conversation">
+
+              {/* Question initiale */}
+              <li className="px-5 py-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div className="flex gap-3 items-start">
+                  <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shrink-0 ring-2 ring-white dark:ring-white/10 text-sm font-semibold">
+                    {userInitial}
+                  </span>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                        {userEmail ?? "Utilisateur"}
+                      </span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(ticket.created_at)}</span>
+                    </div>
+                    <div className="bg-emerald-50 dark:bg-emerald-500/[0.08] border border-emerald-100 dark:border-emerald-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
+                      <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+                        {ticket.question}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </li>
+
+              {/* Réponses */}
+              {reponses.length === 0 ? (
+                <li className="px-5 py-4">
+                  <div className="flex gap-3 items-start">
+                    <BotAvatar pulse />
+                    <div className="flex-1 space-y-1.5">
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">TicketAI</span>
+                      <div className="bg-blue-50/60 dark:bg-blue-500/[0.07] border border-blue-100 dark:border-blue-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Clock size={13} className="text-blue-500" aria-hidden="true" />
+                          <p className="text-sm text-blue-700 dark:text-blue-300">Réponse en cours de génération…</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ) : (
+                reponses.map((r) => (
                   <ReponseItem
                     key={r.id}
                     reponse={r}
                     readOnly={readOnly}
+                    userEmail={userEmail}
                     onChanged={refresh}
                     onLockConflict={refresh}
                   />
-                ))}
-              </ul>
-            )}
+                ))
+              )}
+            </ul>
           </div>
         </div>
 
@@ -367,42 +455,39 @@ export default function TicketDetail() {
                 <dd className="text-gray-700 dark:text-gray-200">{formatDate(ticket.created_at)}</dd>
               </div>
               <div>
-                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Référence</dt>
-                <dd className="text-gray-500 dark:text-gray-400 font-mono text-xs break-all">{ticket.id}</dd>
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Statut</dt>
+                <dd><StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={isProcessing(ticket.statut_job)} /></dd>
               </div>
               <div>
-                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Statut traitement</dt>
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Traitement</dt>
                 <dd className="text-gray-700 dark:text-gray-200">{ticket.statut_job}</dd>
+              </div>
+              <div className="pt-1 border-t border-gray-200 dark:border-white/10">
+                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Référence</dt>
+                <dd className="text-gray-500 dark:text-gray-400 font-mono text-xs break-all">{ticket.id}</dd>
               </div>
             </dl>
           </div>
 
           {/* Demandeur */}
-          <div className="glass-card rounded-2xl p-5 space-y-4">
+          <div className="glass-card rounded-2xl p-5 space-y-3">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Demandeur</p>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300 font-semibold text-sm flex items-center justify-center shrink-0" aria-hidden="true">
-                {MOCK_AUTHOR.avatar}
-              </div>
+              <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shrink-0 text-sm font-semibold ring-2 ring-white dark:ring-white/10">
+                {userInitial}
+              </span>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{MOCK_AUTHOR.name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{MOCK_AUTHOR.role}</p>
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                  {userEmail ?? "Utilisateur inconnu"}
+                </p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <User size={11} className="text-gray-400 dark:text-gray-500 shrink-0" aria-hidden="true" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
+                  </p>
+                </div>
               </div>
             </div>
-            <dl className="space-y-2 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-white/10 pt-3">
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400 mb-0.5">Département</dt>
-                <dd className="text-gray-700 dark:text-gray-200">{MOCK_AUTHOR.department}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400 mb-0.5">Email</dt>
-                <dd className="text-gray-700 dark:text-gray-200 break-all">{MOCK_AUTHOR.email}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400 mb-0.5">Téléphone</dt>
-                <dd className="text-gray-700 dark:text-gray-200">{MOCK_AUTHOR.phone}</dd>
-              </div>
-            </dl>
           </div>
 
         </div>

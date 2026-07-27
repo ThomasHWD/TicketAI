@@ -10,6 +10,14 @@
           "frontend/src/pages/user/UserTicketDetail.tsx"
         ],
         "createdAt": "2026-07-24T09:56:04.762Z"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/backoffice/TicketDetail.tsx"
+        ],
+        "createdAt": "2026-07-27T10:35:03.040Z"
       }
     ]
   }

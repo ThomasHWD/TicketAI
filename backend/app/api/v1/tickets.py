@@ -255,6 +255,10 @@ async def reponses_par_ticket(ticket_id: str):
                 "canonique": r.canonique,
                 "score_similarite": r.score_similarite,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
+                "validator_email": r.validator.email if r.validator else None,
+                "validator_nom_complet": (
+                    f"{r.validator.prenom or ''} {r.validator.nom or ''}".strip() or r.validator.email
+                ) if r.validator else None,
             }
             for r in reponses
         ]
