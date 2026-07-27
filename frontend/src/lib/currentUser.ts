@@ -1,27 +1,24 @@
-// Identité validateur — SHIM TEMPORAIRE.
+// Identité de l'utilisateur courant.
 //
-// Il n'y a pas encore d'authentification réelle. On stocke un `validator_id`
-// en localStorage pour pouvoir simuler deux validateurs distincts (deux
-// onglets / navigateurs) et tester le verrouillage collaboratif.
-//
-// À REMPLACER par un vrai AuthContext (JWT/session) quand l'auth arrivera :
-// il suffira de faire pointer `getValidatorId()` vers l'utilisateur connecté.
+// Depuis la mise en place de l'authentification LDAP/JWT, l'id renvoyé est celui
+// de l'utilisateur connecté (lu depuis le profil stocké par l'AuthProvider).
+// Le backend fait de toute façon autorité : il dérive l'identité du token JWT.
+// Cette fonction reste exposée pour les rares endroits qui ont besoin de l'id
+// utilisateur côté client (ex. filtre « mes tickets »).
 
-const STORAGE_KEY = "ticketai.validator_id";
-const DEFAULT_VALIDATOR_ID = "00000000-0000-0000-0000-000000000001";
+import { USER_KEY, type AuthUser } from "./api";
+
+// Fallback UUID quand aucun utilisateur n'est connecté (ne devrait pas arriver
+// derrière une route protégée).
+const FALLBACK_ID = "00000000-0000-0000-0000-000000000001";
 
 export function getValidatorId(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_VALIDATOR_ID;
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return FALLBACK_ID;
+    const user = JSON.parse(raw) as AuthUser;
+    return user.id ?? FALLBACK_ID;
   } catch {
-    return DEFAULT_VALIDATOR_ID;
-  }
-}
-
-export function setValidatorId(id: string): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, id);
-  } catch {
-    /* ignore (mode privé, etc.) */
+    return FALLBACK_ID;
   }
 }
