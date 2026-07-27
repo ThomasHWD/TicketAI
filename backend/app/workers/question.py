@@ -376,6 +376,31 @@ def question_job(
                     True,
                     objet,
                 )
+
+            # En mode suivi, si la précision brute ne matche rien, on retente sur
+            # la requête contextualisée. Un match contextuel sort toujours en
+            # SUGGESTION (autoriser_canonique=False), jamais servi automatiquement.
+            if est_suivi:
+                chunks_ctx = search_hybrid(requete_recherche, domaine, top_k=15)
+                reponse_liee_ctx, score_liee_ctx = _trouver_reponse_reutilisable(db, chunks_ctx)
+                if reponse_liee_ctx is not None:
+                    print(f"[QUESTION] Score contextuel {score_liee_ctx:.4f} → réponse validée {reponse_liee_ctx.id}"
+                          f" (SUGGESTION forcée)")
+                    return _servir_reutilisation(
+                        db,
+                        job_id,
+                        ticket_uuid,
+                        question,
+                        domaine,
+                        user_uuid,
+                        reponse_liee_ctx,
+                        score_liee_ctx,
+                        question_suivi,
+                        est_suivi,
+                        self.request.retries,
+                        False,
+                        objet,
+                    )
         finally:
             db.close()
 
