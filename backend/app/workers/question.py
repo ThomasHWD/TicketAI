@@ -358,12 +358,6 @@ def question_job(
         db = SessionLocal()
         try:
             reponse_liee, score_liee = _trouver_reponse_reutilisable(db, chunks)
-            autoriser_canonique = True
-            if reponse_liee is None and est_suivi:
-                print("[QUESTION] Suivi : recherche hybride contextualisée...")
-                chunks_ctx = search_hybrid(requete_recherche, domaine, top_k=15)
-                reponse_liee, score_liee = _trouver_reponse_reutilisable(db, chunks_ctx)
-                autoriser_canonique = False
 
             if reponse_liee is not None:
                 print(f"[QUESTION] Score {score_liee:.4f} → réponse validée {reponse_liee.id}")
@@ -379,7 +373,7 @@ def question_job(
                     question_suivi,
                     est_suivi,
                     self.request.retries,
-                    autoriser_canonique,
+                    True,
                     objet,
                 )
         finally:
