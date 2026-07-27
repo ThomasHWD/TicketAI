@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  CheckCircle2,
+  Bot,
   CheckCheck,
   Clock,
   Lock,
@@ -105,6 +105,40 @@ function reponseVisible(r: TicketReponse) {
   return r.statut === "VALIDÉE" || r.statut === "CORRIGÉE" || r.canonique;
 }
 
+/** Avatar circulaire pour l'utilisateur */
+function UserAvatar() {
+  return (
+    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shrink-0 ring-2 ring-white dark:ring-white/10">
+      <User size={16} aria-hidden="true" />
+    </span>
+  );
+}
+
+/** Avatar circulaire pour l'IA (réponse canonique) */
+function BotAvatar({ pulse = false }: { pulse?: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-500 dark:bg-emerald-600 text-white shrink-0 ring-2 ring-white dark:ring-black/40 shadow-md shadow-emerald-600/40${pulse ? " animate-pulse" : ""}`}
+      aria-hidden="true"
+    >
+      <Bot size={16} strokeWidth={1.75} />
+    </span>
+  );
+}
+
+/** Avatar pour un validateur humain — affiche l'initiale de son email */
+function ValidatorAvatar({ email }: { email: string | null }) {
+  const initial = email ? email[0].toUpperCase() : "V";
+  return (
+    <span
+      className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 shrink-0 ring-2 ring-white dark:ring-white/10 text-sm font-semibold"
+      aria-hidden="true"
+    >
+      {initial}
+    </span>
+  );
+}
+
 /** Un tour « utilisateur » du fil : la question initiale ou une précision. */
 function QuestionBubble({
   text,
@@ -116,20 +150,22 @@ function QuestionBubble({
   precision?: boolean;
 }) {
   return (
-    <li className="p-6 space-y-3 bg-emerald-50/25 dark:bg-emerald-500/[0.04]">
-      <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-          <User size={13} aria-hidden="true" className="text-emerald-600 dark:text-emerald-400" />
-          {precision ? "Ma précision" : "Ma question"}
-        </span>
-        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
-          {formatDate(date)}
-        </span>
-      </div>
-      <div className="bg-white/80 dark:bg-white/[0.09] rounded-xl p-4 border border-white/60 dark:border-white/10">
-        <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-          {text}
-        </p>
+    <li className="px-5 py-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
+      <div className="flex gap-3 items-start">
+        <UserAvatar />
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+              {precision ? "Ma précision" : "Ma question"}
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(date)}</span>
+          </div>
+          <div className="bg-emerald-50 dark:bg-emerald-500/[0.08] border border-emerald-100 dark:border-emerald-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
+            <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+              {text}
+            </p>
+          </div>
+        </div>
       </div>
     </li>
   );
@@ -139,20 +175,33 @@ function QuestionBubble({
  *  sinon un état « en cours de traitement » est affiché. */
 function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
   if (!reponseVisible(reponse)) return <PendingAnswer date={reponse.created_at} />;
+  const isCanonique = reponse.canonique;
+  const authorLabel = isCanonique
+    ? "TicketAI"
+    : reponse.validator_nom_complet ?? reponse.validator_email ?? "Validateur";
   return (
-    <li className="p-6 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
-          <CheckCircle2 size={13} aria-hidden="true" /> Réponse validée
-        </span>
-        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
-          {formatDate(reponse.created_at)}
-        </span>
-      </div>
-      <div className="bg-white/80 dark:bg-white/[0.09] rounded-xl p-4 border border-white/60 dark:border-white/10">
-        <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-          {reponse.contenu_corrige ?? reponse.contenu}
-        </p>
+    <li className="px-5 py-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
+      <div className="flex gap-3 items-start">
+        {isCanonique ? (
+          <BotAvatar />
+        ) : (
+          <ValidatorAvatar email={reponse.validator_email ?? null} />
+        )}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-semibold ${isCanonique ? "text-emerald-700 dark:text-emerald-400" : "text-violet-700 dark:text-violet-300"}`}>
+              {authorLabel}
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {formatDate(reponse.created_at)}
+            </span>
+          </div>
+          <div className="bg-white/90 dark:bg-white/[0.07] border border-gray-200/70 dark:border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+            <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+              {reponse.contenu_corrige ?? reponse.contenu}
+            </p>
+          </div>
+        </div>
       </div>
     </li>
   );
@@ -160,14 +209,32 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
 
 function PendingAnswer({ date }: { date: string | null }) {
   return (
-    <li className="p-6 space-y-2">
-      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wide">
-        <Clock size={13} aria-hidden="true" /> Réponse en cours de traitement
-      </span>
-      <p className="text-sm text-gray-600 dark:text-gray-300">
-        La réponse s'affichera ici dès qu'elle aura été validée.
-        {date ? ` · ${formatDate(date)}` : ""}
-      </p>
+    <li className="px-5 py-4">
+      <div className="flex gap-3 items-start">
+        <BotAvatar pulse />
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">
+              TicketAI
+            </span>
+            {date && (
+              <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(date)}</span>
+            )}
+          </div>
+          <div className="bg-blue-50/60 dark:bg-blue-500/[0.07] border border-blue-100 dark:border-blue-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="flex gap-1 items-center" aria-label="En cours de traitement">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 animate-pulse [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 animate-pulse [animation-delay:200ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 animate-pulse [animation-delay:400ms]" />
+              </span>
+              <span className="text-sm text-blue-700 dark:text-blue-300">
+                Réponse en cours de traitement…
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
     </li>
   );
 }
