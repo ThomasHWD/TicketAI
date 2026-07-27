@@ -97,6 +97,43 @@ def client(db_schema):
         yield test_client
 
 
+# ── Authentification (JWT réel signé pour les tests d'intégration) ──────
+
+
+@pytest.fixture
+def user_factory(db_session):
+    """Crée un utilisateur en base et le renvoie (FK cible des routes protégées)."""
+    import uuid
+
+    from app.models.user import User
+
+    def _make(role: str = "USER"):
+        user = User(email=f"{uuid.uuid4()}@test.local", role=role)
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+
+    return _make
+
+
+@pytest.fixture
+def auth_header():
+    """Fabrique un header ``Authorization: Bearer <jwt>`` pour un User donné."""
+    from app.core.security import create_access_token
+
+    def _make(user) -> dict:
+        return {"Authorization": f"Bearer {create_access_token(user.id, user.role)}"}
+
+    return _make
+
+
+@pytest.fixture
+def auth_headers(user_factory, auth_header):
+    """Header pour un utilisateur générique authentifié (rôle USER)."""
+    return auth_header(user_factory("USER"))
+
+
 class _SideEffectMocks:
     """Poignées vers les effets de bord mockés, pour les assertions."""
 
