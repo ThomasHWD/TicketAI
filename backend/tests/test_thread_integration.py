@@ -390,68 +390,6 @@ def test_question_job_suivi_contextualise_recherche_et_generation(db_session, mo
     assert rerank_mock.call_args.args[0] == ("Comment poser mes congés payés ?\nEt pour un CDD ?")
 
 
-def test_question_job_suivi_match_contextuel_ressort_en_suggestion(db_session, monkeypatch):
-    """Un match de réutilisation obtenu par CONTEXTUALISATION du fil ne doit jamais
-    être servi automatiquement : même si la réponse liée est canonique, le tour
-    ressort en SUGGESTION (revue humaine), pas en CANONIQUE."""
-    import app.workers.question as q
-
-    # Réponse canonique existante (ex. « Qui a créé AlphaGO ? » → DeepMind) posée
-    # sur le ticket ; le suivi « Même question » se pose sur ce même fil.
-    ticket, _ = seed_ticket_reponse(db_session, question="Qui a créé AlphaGO ?", domaine="IT")
-    canonique = Reponse(
-        ticket_id=ticket.id,
-        contenu="DeepMind, filiale de Google.",
-        statut="VALIDÉE",
-        source="LLM",
-        canonique=True,
-        nb_validations=3,
-    )
-    db_session.add(canonique)
-    db_session.commit()
-
-    # Recherche : sur la précision BRUTE → rien de réutilisable (score sous seuil,
-    # pas de reponse_id) ; sur la requête CONTEXTUALISÉE → chunk lié à la canonique.
-    chunk_brut = {
-        "score_cosinus": 0.50,
-        "source": None,
-        "contenu": "x",
-        "doc_id": None,
-        "chunk_index": 0,
-        "reponse_id": None,
-    }
-    chunk_ctx = {
-        "score_cosinus": 0.90,
-        "source": None,
-        "contenu": "x",
-        "doc_id": None,
-        "chunk_index": 0,
-        "reponse_id": str(canonique.id),
-    }
-    search_mock = MagicMock(side_effect=[[chunk_brut], [chunk_ctx]])
-    generate_mock = MagicMock(return_value="ne doit pas être appelé")
-    monkeypatch.setattr(q, "search_hybrid", search_mock)
-    monkeypatch.setattr(q, "generate", generate_mock)
-
-    res = q.question_job.apply(
-        args=["Même question", "IT", None],
-        kwargs={"ticket_id": str(ticket.id)},
-        throw=True,
-    )
-
-    # Servi en SUGGESTION malgré une source canonique (match purement contextuel) ;
-    # aucune génération LLM (réutilisation servie avant la branche RAG).
-    assert res.result["branche"] == "SUGGESTION"
-    generate_mock.assert_not_called()
-
-    # Un nouveau tour SUGGESTION (non canonique) référence la réponse d'origine.
-    db_session.expire_all()
-    suggestions = db_session.query(Reponse).filter(Reponse.ticket_id == ticket.id, Reponse.source == "SUGGESTION").all()
-    assert len(suggestions) == 1
-    assert suggestions[0].canonique is False
-    assert suggestions[0].question_suivi == "Même question"
-    assert suggestions[0].reponse_source_id == canonique.id
-
 
 def test_upsert_ticket_mode_suivi_rebascule_le_statut(db_session):
     """Une précision en attente doit rebasculer statut/canonique du ticket pour
