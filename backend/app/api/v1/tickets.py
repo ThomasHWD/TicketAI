@@ -223,6 +223,38 @@ async def liste_tickets(
         db.close()
 
 
+@router.get("/tickets/participated")
+async def tickets_avec_participation(
+    current_user: CurrentUser,
+    page: int = 1,
+    limit: int = 10,
+):
+    from app.models.reponse import Reponse as ReponseModel
+    db = SessionLocal()
+    try:
+        base_query = (
+            db.query(Ticket)
+            .join(ReponseModel, ReponseModel.ticket_id == Ticket.id)
+            .filter(ReponseModel.validator_id == current_user.id)
+            .distinct()
+        )
+        total = base_query.count()
+        tickets = (
+            base_query.order_by(Ticket.created_at.desc())
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "items": [_serialize_ticket(t) for t in tickets],
+        }
+    finally:
+        db.close()
+
+
 @router.get("/tickets/{ticket_id}/reponses")
 async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
     from app.models.reponse import Reponse as ReponseModel
