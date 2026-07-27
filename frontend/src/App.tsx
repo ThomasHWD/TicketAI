@@ -24,6 +24,7 @@ import UserTicketHistory from "./pages/user/UserTicketHistory";
 import UserTicketDetail from "./pages/user/UserTicketDetail";
 import Ingestion from "./pages/backoffice/Ingestion";
 import AllDocs from "./pages/backoffice/AllDocs";
+import TicketTracking from "./pages/backoffice/TicketTracking";
 import NotFound from "./pages/user/404";
 
 function Layout() {
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="/nouveau-ticket" element={<NewTicket />} />
             <Route path="/historique" element={<UserTicketHistory />} />
             <Route path="/historique/:id" element={<UserTicketDetail />} />
+            <Route path="/mon-suivi" element={<TicketTracking />} />
           </Route>
         </Route>
       </Routes>
