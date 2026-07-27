@@ -22,11 +22,90 @@ import type {
 
 const BASE_URL = "/api/v1";
 
+// ── Authentification ─────────────────────────────────────────────────
+export const TOKEN_KEY = "ticketai.token";
+export const USER_KEY = "ticketai.user";
+
+function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** fetch enrichi du header Authorization + gestion centralisée du 401 (purge + /login). */
+async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const res = await fetch(input, {
+    ...init,
+    headers: { ...(init.headers as Record<string, string>), ...authHeaders() },
+  });
+  if (res.status === 401) {
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (!window.location.pathname.startsWith("/login")) {
+      window.location.assign("/login");
+    }
+  }
+  return res;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  prenom: string | null;
+  nom: string | null;
+  role: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
+/** Authentifie l'utilisateur via LDAP/AD (form OAuth2). Renvoie le token + profil. */
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  const body = new URLSearchParams({ username, password });
+  const res = await fetch(`${BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) {
+    let detail = "Identifiant ou mot de passe incorrect.";
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string") detail = data.detail;
+    } catch {
+      /* corps non JSON */
+    }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+/** Renvoie le profil de l'utilisateur connecté (vérifie la validité du token). */
+export async function getMe(): Promise<AuthUser> {
+  const res = await apiFetch(`${BASE_URL}/auth/me`);
+  if (!res.ok) throw new Error("Session invalide");
+  return res.json();
+}
+
 /** Soumet une nouvelle question. Renvoie l'identifiant du job Celery à suivre. */
 export async function soumettreQuestion(
   payload: SoumettreQuestionPayload,
 ): Promise<SoumettreQuestionResponse> {
-  const res = await fetch(`${BASE_URL}/tickets`, {
+  const res = await apiFetch(`${BASE_URL}/tickets`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -61,7 +140,7 @@ export async function poserSuivi(
   ticketId: string,
   payload: PoserSuiviPayload,
 ): Promise<SoumettreQuestionResponse> {
-  const res = await fetch(`${BASE_URL}/tickets/${ticketId}/suivi`, {
+  const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}/suivi`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -84,7 +163,7 @@ export async function cloturerTicket(
   ticketId: string,
   payload: CloturerPayload,
 ): Promise<Ticket> {
-  const res = await fetch(`${BASE_URL}/tickets/${ticketId}/cloturer`, {
+  const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}/cloturer`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -117,19 +196,19 @@ export async function getTickets(params?: {
   if (params?.statut) query.set("statut", params.statut);
   if (params?.userId) query.set("user_id", params.userId);
   if (params?.closed !== undefined) query.set("closed", String(params.closed));
-  const res = await fetch(`${BASE_URL}/tickets?${query}`);
+  const res = await apiFetch(`${BASE_URL}/tickets?${query}`);
   if (!res.ok) throw new Error("Erreur chargement tickets");
   return res.json();
 }
 
 export async function getTicket(ticketId: string): Promise<Ticket> {
-  const res = await fetch(`${BASE_URL}/tickets/${ticketId}`);
+  const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}`);
   if (!res.ok) throw new Error("Ticket introuvable");
   return res.json();
 }
 
 export async function getReponsesByTicket(ticketId: string): Promise<TicketReponse[]> {
-  const res = await fetch(`${BASE_URL}/tickets/${ticketId}/reponses`);
+  const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}/reponses`);
   if (!res.ok) throw new Error("Erreur chargement réponses");
   return res.json();
 }
@@ -138,7 +217,7 @@ export async function getReponsesEnAttente(
   domaine?: Domaine,
 ): Promise<ReponseEnAttente[]> {
   const params = domaine ? `?domaine=${domaine}` : "";
-  const res = await fetch(`${BASE_URL}/reponses/en-attente${params}`);
+  const res = await apiFetch(`${BASE_URL}/reponses/en-attente${params}`);
   if (!res.ok) throw new Error("Erreur chargement réponses");
   return res.json();
 }
@@ -152,7 +231,7 @@ export async function getReponsesCanoniques(params?: {
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.domaine) query.set("domaine", params.domaine);
-  const res = await fetch(`${BASE_URL}/reponses/canoniques?${query}`);
+  const res = await apiFetch(`${BASE_URL}/reponses/canoniques?${query}`);
   if (!res.ok) throw new Error("Erreur chargement réponses canoniques");
   return res.json();
 }
@@ -161,7 +240,7 @@ export async function editerReponseCanonique(
   reponseId: string,
   payload: EditerCanoniquePayload,
 ) {
-  const res = await fetch(`${BASE_URL}/reponses/${reponseId}/editer`, {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/editer`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -171,7 +250,7 @@ export async function editerReponseCanonique(
 }
 
 export async function supprimerReponseCanonique(reponseId: string) {
-  const res = await fetch(`${BASE_URL}/reponses/${reponseId}`, {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error("Erreur suppression réponse canonique");
@@ -182,7 +261,7 @@ export async function validerReponse(
   reponseId: string,
   payload: ValiderPayload,
 ) {
-  const res = await fetch(`${BASE_URL}/reponses/${reponseId}/valider`, {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/valider`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -196,7 +275,7 @@ export async function rejeterReponse(
   reponseId: string,
   payload: RejeterPayload,
 ) {
-  const res = await fetch(`${BASE_URL}/reponses/${reponseId}/rejeter`, {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/rejeter`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -210,7 +289,7 @@ export async function corrigerReponse(
   reponseId: string,
   payload: CorrigerPayload,
 ) {
-  const res = await fetch(`${BASE_URL}/reponses/${reponseId}/corriger`, {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/corriger`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -244,7 +323,7 @@ export async function lockTicket(
   ticketId: string,
   validatorId: string,
 ): Promise<LockState> {
-  const res = await fetch(`${BASE_URL}/tickets/${ticketId}/lock`, {
+  const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}/lock`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ validator_id: validatorId }),
@@ -258,7 +337,7 @@ export async function heartbeatTicket(
   ticketId: string,
   validatorId: string,
 ): Promise<LockState> {
-  const res = await fetch(`${BASE_URL}/tickets/${ticketId}/heartbeat`, {
+  const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}/heartbeat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ validator_id: validatorId }),
@@ -273,7 +352,7 @@ export async function unlockTicket(
   validatorId: string,
 ): Promise<void> {
   // keepalive : permet à la requête d'aboutir même si l'onglet se ferme.
-  await fetch(`${BASE_URL}/tickets/${ticketId}/unlock`, {
+  await apiFetch(`${BASE_URL}/tickets/${ticketId}/unlock`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ validator_id: validatorId }),
@@ -292,7 +371,7 @@ export async function uploadDocument(
   form.append("file", file);
   const params = new URLSearchParams({ domaine });
   if (description) params.set("description", description);
-  const res = await fetch(`${BASE_URL}/documents?${params}`, {
+  const res = await apiFetch(`${BASE_URL}/documents?${params}`, {
     method: "POST",
     body: form,
   });
@@ -310,25 +389,25 @@ export async function uploadDocument(
 }
 
 export async function getDocumentStatus(jobId: string): Promise<DocumentStatus> {
-  const res = await fetch(`${BASE_URL}/documents/${jobId}/status`);
+  const res = await apiFetch(`${BASE_URL}/documents/${jobId}/status`);
   if (!res.ok) throw new Error("Erreur récupération statut");
   return res.json();
 }
 
 export async function listDocuments(domaine?: Domaine): Promise<IndexedDocumentsResponse> {
   const params = domaine ? `?domaine=${domaine}` : "";
-  const res = await fetch(`${BASE_URL}/documents${params}`);
+  const res = await apiFetch(`${BASE_URL}/documents${params}`);
   if (!res.ok) throw new Error("Erreur chargement documents");
   return res.json();
 }
 
 export async function getDocumentChunks(docId: string): Promise<DocumentChunksResponse> {
-  const res = await fetch(`${BASE_URL}/documents/${docId}/chunks`);
+  const res = await apiFetch(`${BASE_URL}/documents/${docId}/chunks`);
   if (!res.ok) throw new Error("Erreur chargement chunks");
   return res.json();
 }
 
 export async function deleteDocument(docId: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/documents/${docId}`, { method: "DELETE" });
+  const res = await apiFetch(`${BASE_URL}/documents/${docId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Erreur suppression document");
 }

@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Outlet,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
+import { useAuth } from "./lib/auth";
+import Login from "./pages/auth/Login";
 import Sidebar from "./components/layout/Sidebar";
 import Navbar from "./components/layout/Navbar";
 import Aurora from "./components/ui/Aurora";
@@ -50,25 +59,38 @@ function Layout() {
   );
 }
 
+/** Barrière d'authentification : redirige vers /login si non connecté. */
+function ProtectedRoute() {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+  return <Outlet />;
+}
+
 export default function App() {
   return (
     <JobsProvider>
     <BrowserRouter>
       <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-        </Route>
-        <Route element={<Layout />}>
-          <Route path="*" element={<NotFound />} />
-          <Route path="/tickets" element={<TicketsList />} />
-          <Route path="/tickets/:id" element={<TicketDetail />} />
-          <Route path="/tickets-clotures" element={<ClosedTicketsList />} />
-          <Route path="/reponses-enregistrees" element={<SavedAnswers />} />
-          <Route path="/Documentations" element={<Ingestion />} />
-          <Route path="/documents-indexes" element={<AllDocs />} />
-          <Route path="/nouveau-ticket" element={<NewTicket />} />
-          <Route path="/historique" element={<UserTicketHistory />} />
-          <Route path="/historique/:id" element={<UserTicketDetail />} />
+        <Route path="/login" element={<Login />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Dashboard />} />
+          </Route>
+          <Route element={<Layout />}>
+            <Route path="*" element={<NotFound />} />
+            <Route path="/tickets" element={<TicketsList />} />
+            <Route path="/tickets/:id" element={<TicketDetail />} />
+            <Route path="/tickets-clotures" element={<ClosedTicketsList />} />
+            <Route path="/reponses-enregistrees" element={<SavedAnswers />} />
+            <Route path="/Documentations" element={<Ingestion />} />
+            <Route path="/documents-indexes" element={<AllDocs />} />
+            <Route path="/nouveau-ticket" element={<NewTicket />} />
+            <Route path="/historique" element={<UserTicketHistory />} />
+            <Route path="/historique/:id" element={<UserTicketDetail />} />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>
