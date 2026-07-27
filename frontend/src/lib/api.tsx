@@ -201,6 +201,12 @@ export async function getTickets(params?: {
   return res.json();
 }
 
+export async function getParticipatedTickets(page = 1): Promise<TicketsResponse> {
+  const res = await apiFetch(`${BASE_URL}/tickets/participated?page=${page}&limit=10`);
+  if (!res.ok) throw new Error("Erreur chargement tickets");
+  return res.json();
+}
+
 export async function getTicket(ticketId: string): Promise<Ticket> {
   const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}`);
   if (!res.ok) throw new Error("Ticket introuvable");
