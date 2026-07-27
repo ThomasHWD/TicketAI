@@ -41,6 +41,24 @@ class Settings(BaseSettings):
     # Documents storage
     documents_storage_path: str
 
+    # ── Authentification ─────────────────────────────────────────────
+    # auth_mode == "mock"  → annuaire LDAP simulé en mémoire (dev, aucune conf requise)
+    # auth_mode == "ldap"  → vrai serveur LDAP / Active Directory (conf ci-dessous)
+    auth_mode: str = "mock"
+    jwt_secret_key: str = "dev-secret-change-me"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 480
+
+    # LDAP / Active Directory (utilisés uniquement quand auth_mode == "ldap")
+    ldap_server_url: str = "ldap://localhost:389"
+    ldap_bind_dn: str = ""            # compte de service pour la recherche
+    ldap_bind_password: str = ""
+    ldap_user_search_base: str = "ou=users,dc=ticketai,dc=local"
+    ldap_user_search_filter: str = "(sAMAccountName={username})"
+    ldap_attr_email: str = "mail"
+    ldap_attr_firstname: str = "givenName"
+    ldap_attr_lastname: str = "sn"
+
     @cached_property
     def database_url(self) -> str:
         return (

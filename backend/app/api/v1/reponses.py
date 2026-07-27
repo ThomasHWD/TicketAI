@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 
 from app.config import settings
+from app.core.security import AdminUser, CurrentUser
 from app.database import SessionLocal
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
@@ -12,7 +13,6 @@ from app.schemas.reponse import (
     CorrigerRequest,
     EditerCanoniqueRequest,
     RejeterRequest,
-    ValiderRequest,
 )
 from app.services.qdrant import delete_response_point
 from app.workers.feedback import feedback_job
@@ -69,19 +69,19 @@ def liberer_verrou(ticket: Ticket):
 
 
 @router.post("/reponses/{reponse_id}/valider")
-async def valider_reponse(reponse_id: str, payload: ValiderRequest):
+async def valider_reponse(reponse_id: str, current_user: CurrentUser):
     db = SessionLocal()
     try:
         reponse = get_reponse_or_404(db, reponse_id)
         verifier_etat_initial(reponse)
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
-        verifier_auto_validation(reponse, payload.validator_id, ticket)
-        verifier_verrou(ticket, payload.validator_id)
+        verifier_auto_validation(reponse, current_user.id, ticket)
+        verifier_verrou(ticket, current_user.id)
 
         # Transition EN_ATTENTE → VALIDÉE
         reponse.statut = "VALIDÉE"
-        reponse.validator_id = payload.validator_id
+        reponse.validator_id = current_user.id
         reponse.validated_at = datetime.now(timezone.utc)
 
         if ticket:
@@ -134,19 +134,23 @@ async def valider_reponse(reponse_id: str, payload: ValiderRequest):
 
 
 @router.post("/reponses/{reponse_id}/rejeter")
-async def rejeter_reponse(reponse_id: str, payload: RejeterRequest):
+async def rejeter_reponse(
+    reponse_id: str,
+    payload: RejeterRequest,
+    current_user: CurrentUser,
+):
     db = SessionLocal()
     try:
         reponse = get_reponse_or_404(db, reponse_id)
         verifier_etat_initial(reponse)
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
-        verifier_auto_validation(reponse, payload.validator_id, ticket)
-        verifier_verrou(ticket, payload.validator_id)
+        verifier_auto_validation(reponse, current_user.id, ticket)
+        verifier_verrou(ticket, current_user.id)
 
         # Transition EN_ATTENTE → REJETÉE
         reponse.statut = "REJETÉE"
-        reponse.validator_id = payload.validator_id
+        reponse.validator_id = current_user.id
         reponse.validated_at = datetime.now(timezone.utc)
 
         if ticket:
@@ -156,7 +160,7 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest):
         db.commit()
 
         print(
-            f"[VALIDATION] ❌ Réponse {reponse_id} rejetée par {payload.validator_id}"
+            f"[VALIDATION] ❌ Réponse {reponse_id} rejetée par {current_user.id}"
         )
 
         return {
@@ -170,7 +174,11 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest):
 
 
 @router.put("/reponses/{reponse_id}/corriger")
-async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
+async def corriger_reponse(
+    reponse_id: str,
+    payload: CorrigerRequest,
+    current_user: CurrentUser,
+):
     db = SessionLocal()
     try:
         reponse = get_reponse_or_404(db, reponse_id)
@@ -180,13 +188,13 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
             raise HTTPException(400, "Le contenu corrigé ne peut pas être vide.")
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
-        verifier_auto_validation(reponse, payload.validator_id, ticket)
-        verifier_verrou(ticket, payload.validator_id)
+        verifier_auto_validation(reponse, current_user.id, ticket)
+        verifier_verrou(ticket, current_user.id)
 
         # Transition EN_ATTENTE → CORRIGÉE
         reponse.statut = "CORRIGÉE"
         reponse.contenu_corrige = payload.contenu_corrige
-        reponse.validator_id = payload.validator_id
+        reponse.validator_id = current_user.id
         reponse.validated_at = datetime.now(timezone.utc)
 
         if ticket:
@@ -212,7 +220,11 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest):
 
 
 @router.get("/reponses/en-attente")
-async def lister_reponses_en_attente(domaine: str | None = None, limit: int = 20):
+async def lister_reponses_en_attente(
+    current_user: CurrentUser,
+    domaine: str | None = None,
+    limit: int = 20,
+):
     """Liste les réponses en attente de validation — utile pour l'interface back-office."""
     db = SessionLocal()
     try:
@@ -246,7 +258,10 @@ async def lister_reponses_en_attente(domaine: str | None = None, limit: int = 20
 
 @router.get("/reponses/canoniques")
 async def lister_reponses_canoniques(
-    domaine: str | None = None, page: int = 1, limit: int = 20
+    current_user: CurrentUser,
+    domaine: str | None = None,
+    page: int = 1,
+    limit: int = 20,
 ):
     """Liste paginée des réponses canoniques — une entrée par réponse canonique.
 
@@ -305,7 +320,11 @@ async def lister_reponses_canoniques(
 
 
 @router.put("/reponses/{reponse_id}/editer")
-async def editer_reponse_canonique(reponse_id: str, payload: EditerCanoniqueRequest):
+async def editer_reponse_canonique(
+    reponse_id: str,
+    payload: EditerCanoniqueRequest,
+    current_user: AdminUser,
+):
     """Édite le contenu servi d'une réponse canonique puis la réindexe dans Qdrant,
     afin que les futures questions renvoient le nouveau texte. Le nouveau contenu est
     stocké dans `contenu_corrige` (champ privilégié par le feedback_job)."""
@@ -337,7 +356,7 @@ async def editer_reponse_canonique(reponse_id: str, payload: EditerCanoniqueRequ
 
 
 @router.delete("/reponses/{reponse_id}")
-async def supprimer_reponse_canonique(reponse_id: str):
+async def supprimer_reponse_canonique(reponse_id: str, current_user: AdminUser):
     """Supprime définitivement une réponse canonique : retrait du point Qdrant et de
     la ligne en base. Les futures questions similaires repassent par le pipeline RAG
     normal. Aucune cascade n'étant déclarée sur les FK, on nettoie manuellement les
