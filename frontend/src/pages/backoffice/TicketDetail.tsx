@@ -87,7 +87,6 @@ const DOMAINE_LABEL: Record<string, string> = {
 };
 
 const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
-  LLM: { label: "Généré par IA", icon: Bot },
   SUGGESTION: { label: "Suggestion", icon: Sparkles },
   CANONIQUE: { label: "Canonique", icon: Bot },
 };
@@ -373,7 +372,6 @@ export default function TicketDetail() {
           </p>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{ticket.objet ?? ticket.question}</h1>
         </div>
-        <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={isProcessing(ticket.statut_job)} />
       </div>
 
       {/* Layout 2 colonnes */}
