@@ -46,6 +46,24 @@ def _upload(client, *, domaine="IT", filename="doc.md", content=_MD_CONTENT,
 # Fixture : mock du client Qdrant dans le module documents
 # ──────────────────────────────────────────────────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def _auth_override():
+    """Neutralise l'authentification pour ces tests : ``get_current_user`` renvoie un
+    ADMIN factice (sans base). L'auth elle-même est testée dans ``test_auth.py`` ;
+    ici on ne veut valider que la logique des endpoints documents.
+
+    Surcharger ``get_current_user`` suffit : ``require_admin`` en dépend et voit donc
+    l'ADMIN → toutes les routes (dont DELETE réservé ADMIN) passent."""
+    from app.core.security import get_current_user
+    from app.main import app
+    from app.models.user import User
+
+    fake_admin = User(id=uuid.uuid4(), email="tester@test.local", role="ADMIN")
+    app.dependency_overrides[get_current_user] = lambda: fake_admin
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
+
+
 @pytest.fixture
 def mock_qdrant(monkeypatch):
     """Remplace le client Qdrant dans app.api.v1.documents par un MagicMock."""

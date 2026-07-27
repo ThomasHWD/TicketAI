@@ -43,6 +43,7 @@ huggingface_hub==1.21.0
 hyperframe==6.1.0
 idna==3.18
 iniconfig==2.3.0
+ldap3==2.9.1
 ir_datasets==0.6.1
 Jinja2==3.1.6
 joblib==1.5.3
@@ -103,6 +104,7 @@ pytest==9.1.1
 pytest-cov==7.1.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
+python-jose[cryptography]==3.3.0
 python-multipart==0.0.32
 PyYAML==6.0.3
 qdrant-client==1.18.0
