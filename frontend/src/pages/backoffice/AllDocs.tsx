@@ -18,7 +18,8 @@ import type { Domaine, IndexedDocument } from "../../types.ts";
 
 async function fetchDomaines(): Promise<string[]> {
   const res = await apiFetch("/api/v1/admin/domaines");
-  return res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
 }
 
 
@@ -200,17 +201,14 @@ export default function AllDocs() {
   const [viewing, setViewing] = useState<IndexedDocument | null>(null);
   const [confirming, setConfirming] = useState<IndexedDocument | null>(null);
 
-  const { data: allDomaines = [] } = useQuery({
+  const { data: adminDomaines = [] } = useQuery({
     queryKey: ["admin", "domaines"],
     queryFn: fetchDomaines,
     staleTime: 5 * 60 * 1000,
+    enabled: isAdmin,
   });
 
-  const availableDomaines = isAdmin
-    ? allDomaines
-    : userDomaines.length
-    ? allDomaines.filter((d) => userDomaines.includes(d))
-    : allDomaines;
+  const availableDomaines = isAdmin ? adminDomaines : userDomaines;
 
   // Admin voit tout ; sinon on restreint aux domaines du user
   const domainesFiltres = isAdmin ? [] : domaine ? [domaine] : userDomaines;
@@ -256,30 +254,34 @@ export default function AllDocs() {
 
           <hr className="border-black/[0.06] dark:border-white/10" />
 
-          {/* Domain filter */}
-          <div className="px-7 py-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
-              Filtrer par domaine
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {([undefined, ...availableDomaines] as Array<Domaine | undefined>).map((d) => (
-                <button
-                  key={d ?? "tous"}
-                  onClick={() => setDomaine(d)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors
-                    ${
-                      domaine === d
-                        ? "bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300 border-green-300 dark:border-emerald-500/40"
-                        : "bg-gray-50 dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
-                    }`}
-                >
-                  {d ?? "Tous"}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Domain filter — always visible for admin, hidden for users with only one domain */}
+          {(isAdmin || availableDomaines.length > 1) && (
+            <>
+              <div className="px-7 py-5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                  Filtrer par domaine
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {([undefined, ...availableDomaines] as Array<Domaine | undefined>).map((d) => (
+                    <button
+                      key={d ?? "tous"}
+                      onClick={() => setDomaine(d)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors
+                        ${
+                          domaine === d
+                            ? "bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300 border-green-300 dark:border-emerald-500/40"
+                            : "bg-gray-50 dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
+                        }`}
+                    >
+                      {d ?? "Tous"}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <hr className="border-black/[0.06] dark:border-white/10" />
+              <hr className="border-black/[0.06] dark:border-white/10" />
+            </>
+          )}
 
           {/* Search */}
           <div className="px-7 py-4">

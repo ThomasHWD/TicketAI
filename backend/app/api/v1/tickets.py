@@ -55,6 +55,8 @@ def _serialize_ticket(ticket: Ticket) -> dict:
         "statut_job": ticket.statut_job,
         "user_id": str(ticket.user_id) if ticket.user_id else None,
         "user_email": ticket.user.email if ticket.user else None,
+        "user_nom_complet": " ".join(filter(None, [ticket.user.prenom, ticket.user.nom])) if ticket.user else None,
+        "user_departement": ticket.user.departement if ticket.user else None,
         "canonique": ticket.canonique,
         "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
         "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
