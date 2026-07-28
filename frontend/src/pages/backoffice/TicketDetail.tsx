@@ -332,7 +332,8 @@ export default function TicketDetail() {
   }
 
   const userEmail = ticket.user_email;
-  const userInitial = userEmail ? userEmail[0].toUpperCase() : "U";
+  const userName = ticket.user_nom_complet || userEmail;
+  const userInitial = userName ? userName[0].toUpperCase() : "U";
 
   return (
     <div className="p-6 space-y-4 max-w-6xl">
@@ -389,7 +390,7 @@ export default function TicketDetail() {
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
-                        {userEmail ?? "Utilisateur"}
+                        {userName ?? "Utilisateur"}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(ticket.created_at)}</span>
                     </div>
@@ -424,7 +425,7 @@ export default function TicketDetail() {
                     key={r.id}
                     reponse={r}
                     readOnly={readOnly}
-                    userEmail={userEmail}
+                    userEmail={userName}
                     onChanged={refresh}
                     onLockConflict={refresh}
                   />
@@ -473,16 +474,24 @@ export default function TicketDetail() {
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
-                  {userEmail ?? "Utilisateur inconnu"}
+                  {userName ?? "Utilisateur inconnu"}
                 </p>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <User size={11} className="text-gray-400 dark:text-gray-500 shrink-0" aria-hidden="true" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {ticket.domaine}
+                {ticket.user_departement && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                    {ticket.user_departement}
                   </p>
-                </div>
+                )}
               </div>
             </div>
+            {ticket.user_email && (
+              <a
+                href={`mailto:${ticket.user_email}`}
+                className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate"
+              >
+                <User size={11} className="shrink-0" aria-hidden="true" />
+                {ticket.user_email}
+              </a>
+            )}
           </div>
 
         </div>

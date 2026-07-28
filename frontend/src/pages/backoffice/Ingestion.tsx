@@ -17,7 +17,8 @@ import type { Domaine } from "../../types.ts";
 
 async function fetchDomaines(): Promise<string[]> {
   const res = await apiFetch("/api/v1/admin/domaines");
-  return res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
 }
 const ACCEPTED_EXTS = [".pdf", ".docx", ".txt", ".md"];
 const MAX_SIZE_MB = 50;
@@ -43,17 +44,17 @@ type SourceMode = "upload" | "write";
 
 export default function Ingestion() {
   const { addJob } = useJobs();
-  const { userDomaines } = useAuth();
+  const { userDomaines, user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
 
-  const { data: allDomaines = [] } = useQuery({
+  const { data: adminDomaines = [] } = useQuery({
     queryKey: ["admin", "domaines"],
     queryFn: fetchDomaines,
     staleTime: 5 * 60 * 1000,
+    enabled: isAdmin,
   });
 
-  const availableDomaines: Domaine[] = userDomaines.length
-    ? allDomaines.filter((d) => userDomaines.includes(d))
-    : allDomaines;
+  const availableDomaines: Domaine[] = isAdmin ? adminDomaines : userDomaines;
 
   const [domaine, setDomaine] = useState<Domaine>("");
   // Initialise au premier domaine disponible une fois chargé
