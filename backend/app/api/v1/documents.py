@@ -8,7 +8,7 @@ from typing import Annotated
 from celery.result import AsyncResult
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
+from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchAny, MatchValue
 
 from app.config import settings
 from app.core.security import AdminUser, CurrentUser
@@ -116,10 +116,13 @@ async def upload_document(
 
 
 @router.get("/documents")
-async def list_documents(current_user: CurrentUser, domaine: str | None = None):
+async def list_documents(current_user: CurrentUser, domaine: str | None = None, domaines: str | None = None):
     """Retourne la liste des documents indexés dans Qdrant, groupés par doc_id."""
     filter_: Filter | None = None
-    if domaine:
+    if domaines:
+        domaine_list = [d.strip().upper() for d in domaines.split(",") if d.strip()]
+        filter_ = Filter(must=[FieldCondition(key="domaine", match=MatchAny(any=domaine_list))])
+    elif domaine:
         domaine = domaine.upper()
         if domaine not in DOMAINES_VALIDES:
             raise HTTPException(400, f"Domaine invalide : {domaine}")

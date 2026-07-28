@@ -20,6 +20,8 @@ MOCK_USERS = [
         "mail": "thomas.henwood@ticketai.local",
         "givenName": "Thomas",
         "sn": "Henwood",
+        "department": "IT",
+        "groups": ["Gestionnaire", "Admin"],
     },
     {
         "username": "alice",
@@ -27,6 +29,8 @@ MOCK_USERS = [
         "mail": "alice.martin@ticketai.local",
         "givenName": "Alice",
         "sn": "Martin",
+        "department": "RH",
+        "groups": ["Gestionnaire"],
     },
     {
         "username": "bob",
@@ -34,5 +38,7 @@ MOCK_USERS = [
         "mail": "bob.durand@ticketai.local",
         "givenName": "Bob",
         "sn": "Durand",
+        "department": "JURIDIQUE",
+        "groups": ["tlm"],
     },
 ]

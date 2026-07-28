@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { uploadDocument } from "../../lib/api";
 import { useJobs } from "../../context/JobsContext";
+import { useAuth } from "../../lib/auth";
 import type { Domaine } from "../../types.ts";
 
 const DOMAINES: Domaine[] = ["IT", "RH", "JURIDIQUE"];
@@ -43,7 +44,11 @@ type SourceMode = "upload" | "write";
 
 export default function Ingestion() {
   const { addJob } = useJobs();
-  const [domaine, setDomaine] = useState<Domaine>("IT");
+  const { userDomaines } = useAuth();
+  const availableDomaines = userDomaines.length
+    ? (DOMAINES.filter((d) => userDomaines.includes(d)) as Domaine[])
+    : DOMAINES;
+  const [domaine, setDomaine] = useState<Domaine>(() => availableDomaines[0] ?? "IT");
   const [sourceMode, setSourceMode] = useState<SourceMode>("upload");
 
   // Upload mode state
@@ -164,7 +169,7 @@ export default function Ingestion() {
             Domaine
           </p>
           <div className="flex gap-2">
-            {DOMAINES.map((d) => (
+            {availableDomaines.map((d) => (
               <button
                 key={d}
                 onClick={() => !isBusy && setDomaine(d)}

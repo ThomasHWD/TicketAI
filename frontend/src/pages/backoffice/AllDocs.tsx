@@ -13,9 +13,10 @@ import {
   Download,
 } from "lucide-react";
 import { listDocuments, getDocumentChunks, deleteDocument } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import type { Domaine, IndexedDocument } from "../../types.ts";
 
-const DOMAINES: Array<Domaine | undefined> = [undefined, "IT", "RH", "JURIDIQUE"];
+const ALL_DOMAINES: Domaine[] = ["IT", "RH", "JURIDIQUE"];
 const DOMAINE_LABELS: Record<string, string> = {
   IT: "IT",
   RH: "RH",
@@ -194,14 +195,18 @@ function DeleteConfirm({
 
 export default function AllDocs() {
   const queryClient = useQueryClient();
+  const { userDomaines } = useAuth();
   const [domaine, setDomaine] = useState<Domaine | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState<IndexedDocument | null>(null);
   const [confirming, setConfirming] = useState<IndexedDocument | null>(null);
 
+  // Filtre par domaine sélectionné dans l'UI, restreint aux domaines du user
+  const domainesFiltres = domaine ? [domaine] : userDomaines;
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", domaine],
-    queryFn: () => listDocuments(domaine),
+    queryKey: ["documents", domaine, userDomaines],
+    queryFn: () => listDocuments(domaine, domainesFiltres.length ? domainesFiltres : undefined),
   });
 
   const { mutate: doDelete, isPending: isDeleting } = useMutation({
@@ -247,7 +252,7 @@ export default function AllDocs() {
               Filtrer par domaine
             </p>
             <div className="flex flex-wrap gap-2">
-              {DOMAINES.map((d) => (
+              {([undefined, ...ALL_DOMAINES.filter((d) => !userDomaines.length || userDomaines.includes(d))] as Array<Domaine | undefined>).map((d) => (
                 <button
                   key={d ?? "tous"}
                   onClick={() => setDomaine(d)}

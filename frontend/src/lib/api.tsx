@@ -40,7 +40,7 @@ function authHeaders(): Record<string, string> {
 }
 
 /** fetch enrichi du header Authorization + gestion centralisée du 401 (purge + /login). */
-async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
+export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const res = await fetch(input, {
     ...init,
     headers: { ...(init.headers as Record<string, string>), ...authHeaders() },
@@ -65,6 +65,7 @@ export interface AuthUser {
   prenom: string | null;
   nom: string | null;
   role: string;
+  groupes: { id: string; nom: string; domaine: string }[];
 }
 
 export interface LoginResponse {
@@ -185,6 +186,7 @@ export async function getTickets(params?: {
   page?: number;
   limit?: number;
   domaine?: Domaine;
+  domaines?: string[];
   statut?: string;
   userId?: string;
   closed?: boolean;
@@ -192,7 +194,8 @@ export async function getTickets(params?: {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
-  if (params?.domaine) query.set("domaine", params.domaine);
+  if (params?.domaines?.length) query.set("domaines", params.domaines.join(","));
+  else if (params?.domaine) query.set("domaine", params.domaine);
   if (params?.statut) query.set("statut", params.statut);
   if (params?.userId) query.set("user_id", params.userId);
   if (params?.closed !== undefined) query.set("closed", String(params.closed));
@@ -400,8 +403,11 @@ export async function getDocumentStatus(jobId: string): Promise<DocumentStatus> 
   return res.json();
 }
 
-export async function listDocuments(domaine?: Domaine): Promise<IndexedDocumentsResponse> {
-  const params = domaine ? `?domaine=${domaine}` : "";
+export async function listDocuments(domaine?: Domaine, domaines?: string[]): Promise<IndexedDocumentsResponse> {
+  const q = new URLSearchParams();
+  if (domaines?.length) q.set("domaines", domaines.join(","));
+  else if (domaine) q.set("domaine", domaine);
+  const params = q.toString() ? `?${q}` : "";
   const res = await apiFetch(`${BASE_URL}/documents${params}`);
   if (!res.ok) throw new Error("Erreur chargement documents");
   return res.json();
@@ -416,4 +422,13 @@ export async function getDocumentChunks(docId: string): Promise<DocumentChunksRe
 export async function deleteDocument(docId: string): Promise<void> {
   const res = await apiFetch(`${BASE_URL}/documents/${docId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Erreur suppression document");
+}
+
+export async function setChefGroupe(groupeId: string, userId: string, isChef: boolean): Promise<void> {
+  const res = await apiFetch(`${BASE_URL}/admin/groupes/${groupeId}/membres/${userId}/chef`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ is_chef: isChef }),
+  });
+  if (!res.ok) throw new Error("Erreur lors de la mise à jour du rôle.");
 }

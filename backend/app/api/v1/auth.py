@@ -28,13 +28,17 @@ def get_or_create_user(db: Session, identity: LdapIdentity) -> User:
             email=identity.email,
             prenom=identity.prenom,
             nom=identity.nom,
+            departement=identity.departement,
+            is_gestionnaire=identity.is_gestionnaire,
             role="USER",
         )
         db.add(user)
     else:
-        # Rafraîchit prénom/nom depuis l'annuaire à chaque connexion.
+        # Rafraîchit les attributs depuis l'annuaire à chaque connexion.
         user.prenom = identity.prenom
         user.nom = identity.nom
+        user.departement = identity.departement
+        user.is_gestionnaire = identity.is_gestionnaire
     db.commit()
     db.refresh(user)
     return user
@@ -47,6 +51,11 @@ def _serialize_user(user: User) -> dict:
         "prenom": user.prenom,
         "nom": user.nom,
         "role": user.role,
+        "departement": user.departement,
+        "groupes": [
+            {"id": str(g.id), "nom": g.nom, "domaine": g.domaine}
+            for g in user.groupes
+        ],
     }
 
 

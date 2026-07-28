@@ -13,6 +13,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from sqlalchemy.orm import joinedload
 
 from app.config import settings
 from app.database import SessionLocal
@@ -56,7 +57,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> User:
 
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.id == uid).first()
+        user = db.query(User).options(joinedload(User.groupes)).filter(User.id == uid).first()
         if user is None:
             raise _CREDENTIALS_EXC
         return user
