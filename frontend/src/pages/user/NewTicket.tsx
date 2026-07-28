@@ -1,21 +1,30 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Send, Loader2, CheckCircle2, AlertCircle, Plus } from "lucide-react";
-import { soumettreQuestion } from "../../lib/api";
+import { apiFetch, soumettreQuestion } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
 import type { Domaine } from "../../types.ts";
 
-const DOMAINES: { value: Domaine; label: string }[] = [
-  { value: "IT", label: "Informatique" },
-  { value: "RH", label: "Ressources humaines" },
-  { value: "JURIDIQUE", label: "Juridique" },
-];
+async function fetchDomaines(): Promise<string[]> {
+  const res = await apiFetch("/api/v1/tickets/domaines");
+  return res.json();
+}
 
 export default function NewTicket() {
   const queryClient = useQueryClient();
   const [objet, setObjet] = useState("");
   const [question, setQuestion] = useState("");
-  const [domaine, setDomaine] = useState<Domaine>("IT");
+  const [domaine, setDomaine] = useState<Domaine>("");
+
+  const { data: domaines = [] } = useQuery({
+    queryKey: ["admin", "domaines"],
+    queryFn: fetchDomaines,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (domaines.length > 0 && !domaine) setDomaine(domaines[0] as Domaine);
+  }, [domaines]);
 
   const submit = useMutation({
     mutationFn: () =>
@@ -38,7 +47,7 @@ export default function NewTicket() {
   function reset() {
     setObjet("");
     setQuestion("");
-    setDomaine("IT");
+    setDomaine(domaines[0] ?? "");
     submit.reset();
   }
 
@@ -100,9 +109,9 @@ export default function NewTicket() {
               onChange={(e) => setDomaine(e.target.value as Domaine)}
               className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-white/5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
-              {DOMAINES.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {d.label}
+              {domaines.map((d) => (
+                <option key={d} value={d}>
+                  {d}
                 </option>
               ))}
             </select>

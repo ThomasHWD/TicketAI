@@ -8,6 +8,7 @@ from sqlalchemy import engine_from_config, pool
 # Charge le .env du backend
 load_dotenv()
 
+import app.models  # noqa: F401, E402 — enregistre tous les modèles dans Base.metadata
 from app.database import Base  # noqa: E402
 
 # -------------------------

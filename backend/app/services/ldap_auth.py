@@ -28,6 +28,9 @@ class LdapIdentity:
     email: str
     prenom: str | None
     nom: str | None
+    departement: str | None
+    is_gestionnaire: bool
+    role: str = "USER"
 
 
 def authenticate(username: str, password: str) -> LdapIdentity | None:
@@ -50,11 +53,28 @@ def _identity_from_entry(username: str, entry) -> LdapIdentity:
         value = entry[name].value if name in entry else None
         return str(value) if value else None
 
+    def multi_attr(name: str) -> list[str]:
+        if name not in entry:
+            return []
+        v = entry[name].value
+        return v if isinstance(v, list) else ([str(v)] if v else [])
+
+    member_of = [s.lower() for s in multi_attr("memberOf")]
+    is_gestionnaire = any(
+        settings.ldap_group_gestionnaire.lower() in dn for dn in member_of
+    )
+    is_admin = any(
+        settings.ldap_group_admin.lower() in dn for dn in member_of
+    )
+
     return LdapIdentity(
         username=username,
         email=attr(settings.ldap_attr_email) or f"{username}@ticketai.local",
         prenom=attr(settings.ldap_attr_firstname),
         nom=attr(settings.ldap_attr_lastname),
+        departement=attr(settings.ldap_attr_department),
+        is_gestionnaire=is_gestionnaire,
+        role="ADMIN" if is_admin else "USER",
     )
 
 
@@ -67,6 +87,8 @@ def _search_attributes() -> list[str]:
         settings.ldap_attr_email,
         settings.ldap_attr_firstname,
         settings.ldap_attr_lastname,
+        settings.ldap_attr_department,
+        "memberOf",
     ]
 
 
@@ -125,6 +147,11 @@ def _build_mock_connection() -> Connection:
                 settings.ldap_attr_email: user["mail"],
                 settings.ldap_attr_firstname: user["givenName"],
                 settings.ldap_attr_lastname: user["sn"],
+                settings.ldap_attr_department: user.get("department"),
+                "memberOf": [
+                    f"CN={g},{settings.ldap_user_search_base}"
+                    for g in user.get("groups", [])
+                ],
             },
         )
     conn.bind()

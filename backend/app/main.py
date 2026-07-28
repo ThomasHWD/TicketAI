@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.v1 import auth, documents, reponses, tickets
+from app.api.v1 import admin, auth, documents, reponses, tickets
 from app.services.qdrant import init_collection
 
 
@@ -20,6 +20,7 @@ app = FastAPI(
 )
 
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 app.include_router(documents.router, prefix="/api/v1")
 app.include_router(tickets.router, prefix="/api/v1")
 app.include_router(reponses.router, prefix="/api/v1")

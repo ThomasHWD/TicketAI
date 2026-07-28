@@ -1,4 +1,30 @@
-export type Domaine = "IT" | "RH" | "JURIDIQUE";
+export type Domaine = string;
+
+export interface GroupeSummary {
+  id: string;
+  nom: string;
+  domaine: string;
+}
+
+export interface UserSummary {
+  id: string;
+  email: string;
+  prenom: string | null;
+  nom: string | null;
+  role: string;
+  departement: string | null;
+  groupes: GroupeSummary[];
+}
+
+export interface MembreSummary extends UserSummary {
+  is_chef: boolean;
+}
+
+export interface Groupe extends GroupeSummary {
+  created_at: string | null;
+  nb_membres: number;
+  membres: MembreSummary[];
+}
 
 export type StatutTicket = "NOUVEAU" | "RÉPONDU" | "VALIDÉ" | "REJETÉ";
 

@@ -14,6 +14,7 @@ import {
   MessagesSquare,
   ArchiveX,
   File,
+  Users,
 } from "lucide-react";
 
 const navMain = [
@@ -34,6 +35,11 @@ const navSettings = [
   { to: "/nouveau-ticket", icon: TicketPlus, label: "Nouvelle question" },
   { to: "/historique", icon: History, label: "Mon historique" },
   { to: "/parametres", icon: Settings, label: "Paramètres" },
+];
+
+const navAdmin = [
+  { to: "/admin", icon: Users, label: "Groupes" },
+  { to: "/admin/documents", icon: File, label: "Tous les documents" },
 ];
 
 function NavItem({
@@ -81,7 +87,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed }: SidebarProps) {
-  const { user } = useAuth();
+  const { user, userDomaines } = useAuth();
   const greetingName = user?.prenom || user?.email || "";
   return (
     <aside
@@ -119,17 +125,41 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         </span>
       </div>
 
-      {/* Main nav */}
-      <nav className="flex flex-col gap-1 px-2 pt-12 pb-4">
-        {navMain.map((item) => (
-          <NavItem key={item.to} {...item} collapsed={collapsed} />
-        ))}
-      </nav>
+      {/* Main nav — visible uniquement si l'utilisateur a au moins un groupe avec un domaine */}
+      {userDomaines.length > 0 && (
+        <nav className="flex flex-col gap-1 px-2 pt-12 pb-4">
+          <p className={`px-3 pb-1 text-xs font-semibold tracking-[0.05em] uppercase text-gray-500 dark:text-gray-400 [text-shadow:0_1px_2px_rgba(255,255,255,0.6)] dark:[text-shadow:none] transition-all duration-300 ease-in-out ${collapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-100"}`}>
+            Principal
+          </p>
+          {navMain.map((item) => (
+            <NavItem key={item.to} {...item} collapsed={collapsed} />
+          ))}
+        </nav>
+      )}
 
-      <hr className="mx-3 border-gray-200 dark:border-white/10" />
+      {user?.role === "ADMIN" && (
+        <>
+          {userDomaines.length > 0 && <hr className="mx-3 border-gray-200 dark:border-white/10" />}
+          <nav className="flex flex-col gap-1 px-2 py-4">
+            <p className={`px-3 pb-1 text-xs font-semibold tracking-[0.05em] uppercase text-gray-500 dark:text-gray-400 [text-shadow:0_1px_2px_rgba(255,255,255,0.6)] dark:[text-shadow:none] transition-all duration-300 ease-in-out ${collapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-100"}`}>
+              Administration
+            </p>
+            {navAdmin.map((item) => (
+              <NavItem key={item.to} {...item} collapsed={collapsed} />
+            ))}
+          </nav>
+        </>
+      )}
+
+      {(userDomaines.length > 0 || user?.role === "ADMIN") && (
+        <hr className="mx-3 border-gray-200 dark:border-white/10" />
+      )}
 
       {/* Settings nav */}
       <nav className="flex flex-col gap-1 px-2 py-4 flex-1">
+        <p className={`px-3 pb-1 text-xs font-semibold tracking-[0.05em] uppercase text-gray-500 dark:text-gray-400 [text-shadow:0_1px_2px_rgba(255,255,255,0.6)] dark:[text-shadow:none] transition-all duration-300 ease-in-out ${collapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-100"}`}>
+          Espace personnel
+        </p>
         {navSettings.map((item) => (
           <NavItem key={item.to} {...item} collapsed={collapsed} />
         ))}

@@ -75,6 +75,8 @@ def test_get_or_create_user_cree_puis_idempotent(db_session):
         email="alice.martin@ticketai.local",
         prenom="Alice",
         nom="Martin",
+        departement=None,
+        is_gestionnaire=False,
     )
 
     user = get_or_create_user(db_session, identity)

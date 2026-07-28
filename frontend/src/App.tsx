@@ -25,7 +25,8 @@ import UserTicketDetail from "./pages/user/UserTicketDetail";
 import Ingestion from "./pages/backoffice/Ingestion";
 import AllDocs from "./pages/backoffice/AllDocs";
 import TicketTracking from "./pages/backoffice/TicketTracking";
-import NotFound from "./pages/user/404";
+import AdminPage from "./pages/admin/Groups";
+import NotFound from "./pages/404";
 
 function Layout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -70,6 +71,24 @@ function ProtectedRoute() {
   return <Outlet />;
 }
 
+/** Barrière admin : redirige vers / si l'utilisateur n'est pas ADMIN. */
+function AdminRoute() {
+  const { user } = useAuth();
+  if (user?.role !== "ADMIN") {
+    return <Navigate to="/" replace />;
+  }
+  return <Outlet />;
+}
+
+/** Barrière backoffice : accessible uniquement si l'utilisateur est dans au moins un groupe. */
+function BackofficeRoute() {
+  const { userDomaines, user } = useAuth();
+  if (userDomaines.length === 0 && user?.role !== "ADMIN") {
+    return <Navigate to="/" replace />;
+  }
+  return <Outlet />;
+}
+
 export default function App() {
   return (
     <JobsProvider>
@@ -80,18 +99,29 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
           </Route>
+          <Route element={<BackofficeRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/tickets" element={<TicketsList />} />
+              <Route path="/tickets/:id" element={<TicketDetail />} />
+              <Route path="/tickets-clotures" element={<ClosedTicketsList />} />
+              <Route path="/reponses-enregistrees" element={<SavedAnswers />} />
+              <Route path="/Documentations" element={<Ingestion />} />
+              <Route path="/documents-indexes" element={<AllDocs />} />
+            </Route>
+          </Route>
           <Route element={<Layout />}>
             <Route path="*" element={<NotFound />} />
-            <Route path="/tickets" element={<TicketsList />} />
-            <Route path="/tickets/:id" element={<TicketDetail />} />
-            <Route path="/tickets-clotures" element={<ClosedTicketsList />} />
-            <Route path="/reponses-enregistrees" element={<SavedAnswers />} />
-            <Route path="/Documentations" element={<Ingestion />} />
-            <Route path="/documents-indexes" element={<AllDocs />} />
             <Route path="/nouveau-ticket" element={<NewTicket />} />
             <Route path="/historique" element={<UserTicketHistory />} />
             <Route path="/historique/:id" element={<UserTicketDetail />} />
             <Route path="/mon-suivi" element={<TicketTracking />} />
+          </Route>
+          <Route element={<AdminRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/documents" element={<AllDocs />} />
+
+            </Route>
           </Route>
         </Route>
       </Routes>

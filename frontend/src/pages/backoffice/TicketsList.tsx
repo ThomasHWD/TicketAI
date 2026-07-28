@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { getTickets } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import type { Ticket, StatutTicket } from "../../types.ts";
 
 function isLocked(t: Ticket): boolean {
@@ -60,10 +61,11 @@ const LIMIT = 10;
 export default function TicketsList() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const { userDomaines } = useAuth();
 
   const { data, isLoading: loading, error } = useQuery({
-    queryKey: ["tickets", "open", page],
-    queryFn: () => getTickets({ page, limit: LIMIT, closed: false }),
+    queryKey: ["tickets", "open", page, userDomaines],
+    queryFn: () => getTickets({ page, limit: LIMIT, closed: false, domaines: userDomaines }),
     placeholderData: (prev) => prev,
   });
 

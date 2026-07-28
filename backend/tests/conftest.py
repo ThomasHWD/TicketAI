@@ -26,7 +26,7 @@ from sqlalchemy import text
 
 # Ordre FK-safe pour le nettoyage inter-tests : on supprime d'abord les tables
 # qui référencent les autres.
-_CLEANUP_ORDER = ("reponse_chunks", "reponses", "tickets", "users")
+_CLEANUP_ORDER = ("reponse_chunks", "reponses", "tickets", "user_groups", "groupes", "users")
 
 
 def _db_available() -> bool:
@@ -70,7 +70,14 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture(scope="session")
 def db_schema():
-    """Crée le schéma sur la base de test une fois pour toute la session."""
+    """Crée le schéma sur la base de test une fois pour toute la session.
+
+    No-op si DB_AVAILABLE est faux — ce garde-fou empêche tout drop_all
+    accidentel sur une base de dev (le nom doit contenir "test").
+    """
+    if not DB_AVAILABLE:
+        yield
+        return
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
@@ -91,8 +98,13 @@ def db_session(db_schema):
 
 
 @pytest.fixture
-def client(db_schema):
-    """Client HTTP FastAPI (les routes ouvrent leur propre SessionLocal)."""
+def client():
+    """Client HTTP FastAPI pour les tests unitaires (sans schéma requis).
+
+    Les tests d'intégration qui ont besoin du schéma doivent aussi demander
+    db_session ou db_schema explicitement — ce qui active create_all/drop_all
+    uniquement sur une base dont le nom contient "test".
+    """
     with TestClient(app) as test_client:
         yield test_client
 
