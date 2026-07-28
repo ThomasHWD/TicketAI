@@ -12,15 +12,15 @@ import {
   Search,
   Download,
 } from "lucide-react";
-import { listDocuments, getDocumentChunks, deleteDocument } from "../../lib/api";
+import { apiFetch, listDocuments, getDocumentChunks, deleteDocument } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import type { Domaine, IndexedDocument } from "../../types.ts";
 
-const DOMAINES: Array<Domaine | undefined> = [undefined, "IT", "RH", "JURIDIQUE"];
-const DOMAINE_LABELS: Record<string, string> = {
-  IT: "IT",
-  RH: "RH",
-  JURIDIQUE: "Juridique",
-};
+async function fetchDomaines(): Promise<string[]> {
+  const res = await apiFetch("/api/v1/admin/domaines");
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
 
 
 function ChunksModal({
@@ -194,14 +194,28 @@ function DeleteConfirm({
 
 export default function AllDocs() {
   const queryClient = useQueryClient();
+  const { userDomaines, user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [domaine, setDomaine] = useState<Domaine | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState<IndexedDocument | null>(null);
   const [confirming, setConfirming] = useState<IndexedDocument | null>(null);
 
+  const { data: adminDomaines = [] } = useQuery({
+    queryKey: ["admin", "domaines"],
+    queryFn: fetchDomaines,
+    staleTime: 5 * 60 * 1000,
+    enabled: isAdmin,
+  });
+
+  const availableDomaines = isAdmin ? adminDomaines : userDomaines;
+
+  // Admin voit tout ; sinon on restreint aux domaines du user
+  const domainesFiltres = isAdmin ? [] : domaine ? [domaine] : userDomaines;
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", domaine],
-    queryFn: () => listDocuments(domaine),
+    queryKey: ["documents", domaine, isAdmin ? "admin" : userDomaines],
+    queryFn: () => listDocuments(domaine, domainesFiltres.length ? domainesFiltres : undefined),
   });
 
   const { mutate: doDelete, isPending: isDeleting } = useMutation({
@@ -212,13 +226,12 @@ export default function AllDocs() {
     },
   });
 
-  const q = search.trim().toLowerCase();
-  const docs = (data?.items ?? []).filter(
-    (d) =>
-      !q ||
-      d.filename?.toLowerCase().includes(q) ||
-      d.description?.toLowerCase().includes(q),
-  );
+  const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const docs = (data?.items ?? []).filter((d) => {
+    if (terms.length === 0) return true;
+    const haystack = `${d.filename ?? ""} ${d.description ?? ""}`.toLowerCase();
+    return terms.every((t) => haystack.includes(t));
+  });
 
   return (
     <>
@@ -241,30 +254,34 @@ export default function AllDocs() {
 
           <hr className="border-black/[0.06] dark:border-white/10" />
 
-          {/* Domain filter */}
-          <div className="px-7 py-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
-              Filtrer par domaine
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {DOMAINES.map((d) => (
-                <button
-                  key={d ?? "tous"}
-                  onClick={() => setDomaine(d)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors
-                    ${
-                      domaine === d
-                        ? "bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300 border-green-300 dark:border-emerald-500/40"
-                        : "bg-gray-50 dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
-                    }`}
-                >
-                  {d ? DOMAINE_LABELS[d] : "Tous"}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Domain filter — always visible for admin, hidden for users with only one domain */}
+          {(isAdmin || availableDomaines.length > 1) && (
+            <>
+              <div className="px-7 py-5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                  Filtrer par domaine
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {([undefined, ...availableDomaines] as Array<Domaine | undefined>).map((d) => (
+                    <button
+                      key={d ?? "tous"}
+                      onClick={() => setDomaine(d)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors
+                        ${
+                          domaine === d
+                            ? "bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300 border-green-300 dark:border-emerald-500/40"
+                            : "bg-gray-50 dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
+                        }`}
+                    >
+                      {d ?? "Tous"}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <hr className="border-black/[0.06] dark:border-white/10" />
+              <hr className="border-black/[0.06] dark:border-white/10" />
+            </>
+          )}
 
           {/* Search */}
           <div className="px-7 py-4">
@@ -294,15 +311,15 @@ export default function AllDocs() {
               </p>
             ) : docs.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12">
-                {q
+                {terms.length
                   ? "Aucun document ne correspond à la recherche."
-                  : `Aucun document indexé${domaine ? ` en ${DOMAINE_LABELS[domaine]}` : ""}.`}
+                  : `Aucun document indexé${domaine ? ` en ${domaine}` : ""}.`}
               </p>
             ) : (
               <div className="space-y-2">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                   {docs.length} document{docs.length > 1 ? "s" : ""}
-                  {q && data && docs.length !== data.total ? ` sur ${data.total}` : ""}
+                  {terms.length && data && docs.length !== data.total ? ` sur ${data.total}` : ""}
                 </p>
                 {docs.map((doc) => (
                   <div

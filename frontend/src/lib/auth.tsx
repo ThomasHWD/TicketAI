@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   login as apiLogin,
+  apiFetch,
   TOKEN_KEY,
   USER_KEY,
   type AuthUser,
@@ -11,8 +13,10 @@ interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   isAuthenticated: boolean;
+  userDomaines: string[];
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -38,6 +42,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(readStoredUser);
   const [token, setToken] = useState<string | null>(readStoredToken);
 
+  const refreshUser = useCallback(async () => {
+    const res = await apiFetch("/api/v1/auth/me");
+    if (!res.ok) return;
+    const fresh: AuthUser = await res.json();
+    try { localStorage.setItem(USER_KEY, JSON.stringify(fresh)); } catch { /* ignore */ }
+    setUser(fresh);
+  }, []);
+
+  const { data: freshUser } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/v1/auth/me");
+      if (!res.ok) return null;
+      return res.json() as Promise<AuthUser>;
+    },
+    enabled: !!token,
+  });
+
+  useEffect(() => {
+    if (!freshUser) return;
+    try { localStorage.setItem(USER_KEY, JSON.stringify(freshUser)); } catch { /* ignore */ }
+    setUser(freshUser);
+  }, [freshUser]);
+
   const login = useCallback(async (username: string, password: string) => {
     const res = await apiLogin(username, password);
     try {
@@ -61,9 +89,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const userDomaines = (user?.groupes ?? [])
+    .map((g) => g.domaine)
+    .filter((d): d is string => !!d);
+
   return (
     <AuthContext.Provider
-      value={{ user, token, isAuthenticated: !!token, login, logout }}
+      value={{ user, token, isAuthenticated: !!token, userDomaines, login, logout, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

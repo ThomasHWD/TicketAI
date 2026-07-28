@@ -13,7 +13,7 @@ class Ticket(Base):
     id               = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     question         = Column(Text, nullable=False)
     objet            = Column(String(255), nullable=True)  # Titre court d'affichage (hors pipeline RAG)
-    domaine          = Column(String(20), nullable=False)  # IT / RH / JURIDIQUE
+    domaine          = Column(String(50), nullable=False)  # valeur libre, définie par les groupes admin
     user_id          = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     job_id           = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
     statut_job       = Column(String(20), nullable=False, default="EN_ATTENTE")

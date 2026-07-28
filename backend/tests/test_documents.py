@@ -48,20 +48,33 @@ def _upload(client, *, domaine="IT", filename="doc.md", content=_MD_CONTENT,
 
 @pytest.fixture(autouse=True)
 def _auth_override():
-    """Neutralise l'authentification pour ces tests : ``get_current_user`` renvoie un
-    ADMIN factice (sans base). L'auth elle-même est testée dans ``test_auth.py`` ;
-    ici on ne veut valider que la logique des endpoints documents.
+    """Neutralise l'authentification et la DB pour ces tests.
 
-    Surcharger ``get_current_user`` suffit : ``require_admin`` en dépend et voit donc
-    l'ADMIN → toutes les routes (dont DELETE réservé ADMIN) passent."""
+    - ``get_current_user`` → ADMIN factice (sans base)
+    - ``get_db`` (module documents) → session mock avec domaines {"IT", "RH", "LEGAL"}
+      préconfigurés pour que la validation de domaine passe sans Postgres réel.
+    """
+    from unittest.mock import MagicMock
+
+    from app.api.v1.documents import get_db
     from app.core.security import get_current_user
     from app.main import app
     from app.models.user import User
 
     fake_admin = User(id=uuid.uuid4(), email="tester@test.local", role="ADMIN")
     app.dependency_overrides[get_current_user] = lambda: fake_admin
+
+    # Session DB fictive : query(Groupe.domaine).distinct().all() → [("IT",), ("RH",), ("LEGAL",)]
+    mock_db = MagicMock()
+    mock_db.query.return_value.distinct.return_value.all.return_value = [
+        ("IT",), ("RH",), ("LEGAL",)
+    ]
+    app.dependency_overrides[get_db] = lambda: mock_db
+
     yield
+
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.fixture
@@ -345,9 +358,11 @@ class TestListDocuments:
         r = client.get(f"{API}/documents")
         assert r.json()["items"][0]["description"] == "Note RH 2025"
 
-    def test_filtre_domaine_invalide(self, client, mock_qdrant):
+    def test_filtre_domaine_inconnu_retourne_liste_vide(self, client, mock_qdrant):
+        mock_qdrant.scroll.return_value = ([], None)
         r = client.get(f"{API}/documents?domaine=INCONNU")
-        assert r.status_code == 400
+        assert r.status_code == 200
+        assert r.json()["items"] == []
 
     def test_filtre_domaine_valide_passe_au_scroll(self, client, mock_qdrant):
         mock_qdrant.scroll.return_value = ([], None)

@@ -1,4 +1,4 @@
-export type Domaine = "IT" | "RH" | "JURIDIQUE";
+export type Domaine = string;
 
 export interface IndexedDocument {
   doc_id: string;
@@ -60,6 +60,8 @@ export interface Ticket {
   statut_job: string;
   user_id: string | null;
   user_email: string | null;
+  user_nom_complet: string | null;
+  user_departement: string | null;
   canonique: boolean;
   created_at: string | null;
   // Clôture par l'utilisateur (null = ouvert).

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getTickets } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import type { Ticket } from "../../types.ts";
 
 function StatutBadge() {
@@ -30,10 +31,11 @@ const LIMIT = 10;
 export default function ClosedTicketsList() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const { userDomaines } = useAuth();
 
   const { data, isLoading: loading, error } = useQuery({
-    queryKey: ["tickets", "closed", page],
-    queryFn: () => getTickets({ page, limit: LIMIT, closed: true }),
+    queryKey: ["tickets", "closed", page, userDomaines],
+    queryFn: () => getTickets({ page, limit: LIMIT, closed: true, domaines: userDomaines }),
     placeholderData: (prev) => prev,
   });
 
