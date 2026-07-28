@@ -39,7 +39,7 @@ const navSettings = [
 
 const navAdmin = [
   { to: "/admin", icon: Users, label: "Groupes" },
-  { to: "/admin/documents", icon: File, label: "Documents indexés" },
+  { to: "/admin/documents", icon: File, label: "Tous les documents" },
 ];
 
 function NavItem({
@@ -139,7 +139,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
 
       {user?.role === "ADMIN" && (
         <>
-          <hr className="mx-3 border-gray-200 dark:border-white/10" />
+          {userDomaines.length > 0 && <hr className="mx-3 border-gray-200 dark:border-white/10" />}
           <nav className="flex flex-col gap-1 px-2 py-4">
             <p className={`px-3 pb-1 text-xs font-semibold tracking-[0.05em] uppercase text-gray-500 dark:text-gray-400 [text-shadow:0_1px_2px_rgba(255,255,255,0.6)] dark:[text-shadow:none] transition-all duration-300 ease-in-out ${collapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-100"}`}>
               Administration
@@ -151,7 +151,9 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         </>
       )}
 
-      <hr className="mx-3 border-gray-200 dark:border-white/10" />
+      {(userDomaines.length > 0 || user?.role === "ADMIN") && (
+        <hr className="mx-3 border-gray-200 dark:border-white/10" />
+      )}
 
       {/* Settings nav */}
       <nav className="flex flex-col gap-1 px-2 py-4 flex-1">

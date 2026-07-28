@@ -26,7 +26,7 @@ from sqlalchemy import text
 
 # Ordre FK-safe pour le nettoyage inter-tests : on supprime d'abord les tables
 # qui référencent les autres.
-_CLEANUP_ORDER = ("reponse_chunks", "reponses", "tickets", "users")
+_CLEANUP_ORDER = ("reponse_chunks", "reponses", "tickets", "user_groups", "groupes", "users")
 
 
 def _db_available() -> bool:

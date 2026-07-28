@@ -193,7 +193,8 @@ function DeleteConfirm({
 
 export default function AllDocs() {
   const queryClient = useQueryClient();
-  const { userDomaines } = useAuth();
+  const { userDomaines, user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [domaine, setDomaine] = useState<Domaine | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState<IndexedDocument | null>(null);
@@ -205,15 +206,17 @@ export default function AllDocs() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const availableDomaines = userDomaines.length
+  const availableDomaines = isAdmin
+    ? allDomaines
+    : userDomaines.length
     ? allDomaines.filter((d) => userDomaines.includes(d))
     : allDomaines;
 
-  // Filtre par domaine sélectionné dans l'UI, restreint aux domaines du user
-  const domainesFiltres = domaine ? [domaine] : userDomaines;
+  // Admin voit tout ; sinon on restreint aux domaines du user
+  const domainesFiltres = isAdmin ? [] : domaine ? [domaine] : userDomaines;
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", domaine, userDomaines],
+    queryKey: ["documents", domaine, isAdmin ? "admin" : userDomaines],
     queryFn: () => listDocuments(domaine, domainesFiltres.length ? domainesFiltres : undefined),
   });
 
