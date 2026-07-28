@@ -190,6 +190,7 @@ export async function getTickets(params?: {
   statut?: string;
   userId?: string;
   closed?: boolean;
+  search?: string;
 }): Promise<TicketsResponse> {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
@@ -199,6 +200,7 @@ export async function getTickets(params?: {
   if (params?.statut) query.set("statut", params.statut);
   if (params?.userId) query.set("user_id", params.userId);
   if (params?.closed !== undefined) query.set("closed", String(params.closed));
+  if (params?.search) query.set("search", params.search);
   const res = await apiFetch(`${BASE_URL}/tickets?${query}`);
   if (!res.ok) throw new Error("Erreur chargement tickets");
   return res.json();

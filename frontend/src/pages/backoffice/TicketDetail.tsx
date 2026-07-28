@@ -80,11 +80,6 @@ function formatDate(iso: string | null) {
   }).format(new Date(iso));
 }
 
-const DOMAINE_LABEL: Record<string, string> = {
-  IT: "Informatique",
-  RH: "Ressources humaines",
-  JURIDIQUE: "Juridique",
-};
 
 const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
   SUGGESTION: { label: "Suggestion", icon: Sparkles },
@@ -368,7 +363,7 @@ export default function TicketDetail() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
-            {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
+            {ticket.domaine}
           </p>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{ticket.objet ?? ticket.question}</h1>
         </div>
@@ -448,7 +443,7 @@ export default function TicketDetail() {
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Domaine</dt>
-                <dd className="text-gray-700 dark:text-gray-200 font-medium">{DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}</dd>
+                <dd className="text-gray-700 dark:text-gray-200 font-medium">{ticket.domaine}</dd>
               </div>
               <div>
                 <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Créé le</dt>
@@ -483,7 +478,7 @@ export default function TicketDetail() {
                 <div className="flex items-center gap-1 mt-0.5">
                   <User size={11} className="text-gray-400 dark:text-gray-500 shrink-0" aria-hidden="true" />
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
+                    {ticket.domaine}
                   </p>
                 </div>
               </div>

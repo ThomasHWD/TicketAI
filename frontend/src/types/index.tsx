@@ -1,4 +1,4 @@
-export type Domaine = "IT" | "RH" | "JURIDIQUE";
+export type Domaine = string;
 
 export interface GroupeSummary {
   id: string;

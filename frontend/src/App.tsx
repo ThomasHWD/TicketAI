@@ -119,6 +119,8 @@ export default function App() {
           <Route element={<AdminRoute />}>
             <Route element={<Layout />}>
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/documents" element={<AllDocs />} />
+
             </Route>
           </Route>
         </Route>

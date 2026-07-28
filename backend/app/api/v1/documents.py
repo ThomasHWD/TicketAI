@@ -6,19 +6,31 @@ import uuid
 from typing import Annotated
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchAny, MatchValue
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.security import AdminUser, CurrentUser
+from app.database import SessionLocal
+from app.models.groupe import Groupe
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
 from app.workers.ingestion import ingestion_job
 
 router = APIRouter()
 
-DOMAINES_VALIDES = {"IT", "RH", "JURIDIQUE"}
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+DB = Annotated[Session, Depends(get_db)]
 
 # Signatures binaires attendues par extension (None = fichier texte → validation UTF-8)
 MAGIC_BYTES: dict[str, bytes | None] = {
@@ -47,11 +59,15 @@ async def upload_document(
     current_user: CurrentUser,
     domaine: str,
     file: Annotated[UploadFile, File(...)],
+    db: DB,
     description: str = "",
 ):
     # Validation domaine
     domaine = domaine.upper()
-    if domaine not in DOMAINES_VALIDES:
+    domaines_valides = {r[0] for r in db.query(Groupe.domaine).distinct().all()}
+    if not domaines_valides:
+        raise HTTPException(400, "Aucun domaine configuré. Créez d'abord un groupe.")
+    if domaine not in domaines_valides:
         raise HTTPException(400, f"Domaine invalide : {domaine}")
 
     # Validation nom + extension (le Content-Type client est déclaratif, donc spoofable)
@@ -124,8 +140,6 @@ async def list_documents(current_user: CurrentUser, domaine: str | None = None, 
         filter_ = Filter(must=[FieldCondition(key="domaine", match=MatchAny(any=domaine_list))])
     elif domaine:
         domaine = domaine.upper()
-        if domaine not in DOMAINES_VALIDES:
-            raise HTTPException(400, f"Domaine invalide : {domaine}")
         filter_ = Filter(must=[FieldCondition(key="domaine", match=MatchValue(value=domaine))])
 
     docs: dict[str, dict] = {}

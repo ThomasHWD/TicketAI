@@ -12,16 +12,14 @@ import {
   Search,
   Download,
 } from "lucide-react";
-import { listDocuments, getDocumentChunks, deleteDocument } from "../../lib/api";
+import { apiFetch, listDocuments, getDocumentChunks, deleteDocument } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import type { Domaine, IndexedDocument } from "../../types.ts";
 
-const ALL_DOMAINES: Domaine[] = ["IT", "RH", "JURIDIQUE"];
-const DOMAINE_LABELS: Record<string, string> = {
-  IT: "IT",
-  RH: "RH",
-  JURIDIQUE: "Juridique",
-};
+async function fetchDomaines(): Promise<string[]> {
+  const res = await apiFetch("/api/v1/admin/domaines");
+  return res.json();
+}
 
 
 function ChunksModal({
@@ -201,6 +199,16 @@ export default function AllDocs() {
   const [viewing, setViewing] = useState<IndexedDocument | null>(null);
   const [confirming, setConfirming] = useState<IndexedDocument | null>(null);
 
+  const { data: allDomaines = [] } = useQuery({
+    queryKey: ["admin", "domaines"],
+    queryFn: fetchDomaines,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const availableDomaines = userDomaines.length
+    ? allDomaines.filter((d) => userDomaines.includes(d))
+    : allDomaines;
+
   // Filtre par domaine sélectionné dans l'UI, restreint aux domaines du user
   const domainesFiltres = domaine ? [domaine] : userDomaines;
 
@@ -217,13 +225,12 @@ export default function AllDocs() {
     },
   });
 
-  const q = search.trim().toLowerCase();
-  const docs = (data?.items ?? []).filter(
-    (d) =>
-      !q ||
-      d.filename?.toLowerCase().includes(q) ||
-      d.description?.toLowerCase().includes(q),
-  );
+  const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const docs = (data?.items ?? []).filter((d) => {
+    if (terms.length === 0) return true;
+    const haystack = `${d.filename ?? ""} ${d.description ?? ""}`.toLowerCase();
+    return terms.every((t) => haystack.includes(t));
+  });
 
   return (
     <>
@@ -252,7 +259,7 @@ export default function AllDocs() {
               Filtrer par domaine
             </p>
             <div className="flex flex-wrap gap-2">
-              {([undefined, ...ALL_DOMAINES.filter((d) => !userDomaines.length || userDomaines.includes(d))] as Array<Domaine | undefined>).map((d) => (
+              {([undefined, ...availableDomaines] as Array<Domaine | undefined>).map((d) => (
                 <button
                   key={d ?? "tous"}
                   onClick={() => setDomaine(d)}
@@ -263,7 +270,7 @@ export default function AllDocs() {
                         : "bg-gray-50 dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
                     }`}
                 >
-                  {d ? DOMAINE_LABELS[d] : "Tous"}
+                  {d ?? "Tous"}
                 </button>
               ))}
             </div>
@@ -299,15 +306,15 @@ export default function AllDocs() {
               </p>
             ) : docs.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12">
-                {q
+                {terms.length
                   ? "Aucun document ne correspond à la recherche."
-                  : `Aucun document indexé${domaine ? ` en ${DOMAINE_LABELS[domaine]}` : ""}.`}
+                  : `Aucun document indexé${domaine ? ` en ${domaine}` : ""}.`}
               </p>
             ) : (
               <div className="space-y-2">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                   {docs.length} document{docs.length > 1 ? "s" : ""}
-                  {q && data && docs.length !== data.total ? ` sur ${data.total}` : ""}
+                  {terms.length && data && docs.length !== data.total ? ` sur ${data.total}` : ""}
                 </p>
                 {docs.map((doc) => (
                   <div
