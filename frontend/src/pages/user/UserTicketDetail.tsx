@@ -93,11 +93,6 @@ function formatDate(iso: string | null) {
   }).format(new Date(iso));
 }
 
-const DOMAINE_LABEL: Record<string, string> = {
-  IT: "Informatique",
-  RH: "Ressources humaines",
-  JURIDIQUE: "Juridique",
-};
 
 /** Une réponse est visible par l'utilisateur seulement si elle est fiable
  *  (validée / corrigée / canonique). Les réponses provisoires restent masquées. */
@@ -351,7 +346,7 @@ export default function UserTicketDetail() {
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
+            {ticket.domaine}
           </p>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white leading-snug">
             {ticket.objet ?? ticket.question}
@@ -506,7 +501,7 @@ export default function UserTicketDetail() {
                   Domaine
                 </dt>
                 <dd className="text-gray-800 dark:text-gray-100 font-medium">
-                  {DOMAINE_LABEL[ticket.domaine] ?? ticket.domaine}
+                  {ticket.domaine}
                 </dd>
               </div>
               <div>

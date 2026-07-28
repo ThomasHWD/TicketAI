@@ -9,17 +9,16 @@ import {
   PenLine,
   Copy,
 } from "lucide-react";
-import { uploadDocument } from "../../lib/api";
+import { apiFetch, uploadDocument } from "../../lib/api";
 import { useJobs } from "../../context/JobsContext";
 import { useAuth } from "../../lib/auth";
+import { useQuery } from "@tanstack/react-query";
 import type { Domaine } from "../../types.ts";
 
-const DOMAINES: Domaine[] = ["IT", "RH", "JURIDIQUE"];
-const DOMAINE_LABELS: Record<Domaine, string> = {
-  IT: "IT",
-  RH: "RH",
-  JURIDIQUE: "Juridique",
-};
+async function fetchDomaines(): Promise<string[]> {
+  const res = await apiFetch("/api/v1/admin/domaines");
+  return res.json();
+}
 const ACCEPTED_EXTS = [".pdf", ".docx", ".txt", ".md"];
 const MAX_SIZE_MB = 50;
 
@@ -45,10 +44,20 @@ type SourceMode = "upload" | "write";
 export default function Ingestion() {
   const { addJob } = useJobs();
   const { userDomaines } = useAuth();
-  const availableDomaines = userDomaines.length
-    ? (DOMAINES.filter((d) => userDomaines.includes(d)) as Domaine[])
-    : DOMAINES;
-  const [domaine, setDomaine] = useState<Domaine>(() => availableDomaines[0] ?? "IT");
+
+  const { data: allDomaines = [] } = useQuery({
+    queryKey: ["admin", "domaines"],
+    queryFn: fetchDomaines,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const availableDomaines: Domaine[] = userDomaines.length
+    ? allDomaines.filter((d) => userDomaines.includes(d))
+    : allDomaines;
+
+  const [domaine, setDomaine] = useState<Domaine>("");
+  // Initialise au premier domaine disponible une fois chargé
+  if (!domaine && availableDomaines.length > 0) setDomaine(availableDomaines[0]);
   const [sourceMode, setSourceMode] = useState<SourceMode>("upload");
 
   // Upload mode state
@@ -163,32 +172,35 @@ export default function Ingestion() {
 
         <hr className="border-black/[0.06] dark:border-white/10" />
 
-        {/* Domain selector */}
-        <div className="px-7 py-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
-            Domaine
-          </p>
-          <div className="flex gap-2">
-            {availableDomaines.map((d) => (
-              <button
-                key={d}
-                onClick={() => !isBusy && setDomaine(d)}
-                disabled={isBusy}
-                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors
-                  ${
-                    domaine === d
-                      ? "bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300 border-green-300 dark:border-emerald-500/40"
-                      : "bg-gray-50 dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
-                  }
-                  disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {DOMAINE_LABELS[d]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <hr className="border-black/[0.06] dark:border-white/10" />
+        {/* Domain selector — masqué si un seul domaine disponible */}
+        {availableDomaines.length > 1 && (
+          <>
+            <div className="px-7 py-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                Domaine
+              </p>
+              <div className="flex gap-2">
+                {availableDomaines.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => !isBusy && setDomaine(d)}
+                    disabled={isBusy}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors
+                      ${
+                        domaine === d
+                          ? "bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300 border-green-300 dark:border-emerald-500/40"
+                          : "bg-gray-50 dark:bg-white/5 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
+                      }
+                      disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <hr className="border-black/[0.06] dark:border-white/10" />
+          </>
+        )}
 
         {/* Source mode tabs */}
         {!isTerminal && (

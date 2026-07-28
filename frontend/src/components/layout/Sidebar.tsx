@@ -39,6 +39,7 @@ const navSettings = [
 
 const navAdmin = [
   { to: "/admin", icon: Users, label: "Groupes" },
+  { to: "/admin/documents", icon: File, label: "Documents indexés" },
 ];
 
 function NavItem({

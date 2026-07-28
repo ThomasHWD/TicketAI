@@ -82,11 +82,6 @@ export default function SavedAnswers() {
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
           Réponses Enregistrées
         </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Réponses canoniques servies automatiquement aux questions similaires.
-          Modifiez le texte servi ou supprimez une réponse pour changer le
-          comportement des futures questions.
-        </p>
       </div>
 
       {/* Card */}

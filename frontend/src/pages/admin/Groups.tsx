@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Loader2,
   Crown,
+  ChevronRight,
 } from "lucide-react";
 
 // ── API ──────────────────────────────────────────────────────────────
@@ -271,18 +272,17 @@ export default function GroupsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-5">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Groupes & gestionnaires</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Créez des groupes, associez-leur un domaine et affectez-y des gestionnaires.
-          </p>
+          <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+            Groupes &amp; gestionnaires
+          </h1>
         </div>
         <button
           onClick={() => { setShowCreate((v) => !v); setCreateError(null); }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-medium transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-medium transition-colors shadow-sm shrink-0"
         >
           <Plus size={15} />
           Nouveau groupe
@@ -292,7 +292,7 @@ export default function GroupsPage() {
       {/* Formulaire création */}
       {showCreate && (
         <div className="glass-card rounded-2xl overflow-hidden">
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 dark:border-white/10 bg-emerald-50/60 dark:bg-emerald-400/5">
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 dark:border-white/10">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-400/15 shrink-0">
               <FolderOpen size={15} className="text-emerald-700 dark:text-emerald-400" />
             </div>
@@ -321,7 +321,7 @@ export default function GroupsPage() {
                   disabled={createMut.isPending}
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium transition-colors"
                 >
-                  Créer
+                  {createMut.isPending ? <Loader2 size={14} className="animate-spin" /> : "Créer"}
                 </button>
                 <button
                   type="button"
@@ -337,69 +337,84 @@ export default function GroupsPage() {
       )}
 
       {/* Contenu principal : liste groupes + panel membres */}
-      <div className="flex gap-5 items-start">
+      <div className="flex gap-4 items-start">
 
         {/* Colonne gauche : liste des groupes */}
-        <div className="glass-card rounded-2xl overflow-hidden w-72 shrink-0">
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200 dark:border-white/10 bg-green-50 dark:bg-emerald-400/10">
-            <ShieldCheck size={15} className="text-green-700 dark:text-emerald-400 shrink-0" />
-            <h2 className="text-sm font-semibold text-green-800 dark:text-emerald-300">
-              Groupes
+        <div className="glass-card rounded-2xl overflow-hidden w-68 shrink-0" style={{ width: "17rem" }}>
+          <div className="px-4 py-3.5 border-b border-gray-200 dark:border-white/10">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Groupes</span>
               {groupes.length > 0 && (
-                <span className="ml-2 text-xs font-normal text-green-600 dark:text-emerald-400/70">({groupes.length})</span>
+                <span className="text-xs font-medium text-gray-400 dark:text-gray-500 tabular-nums">
+                  {groupes.length}
+                </span>
               )}
-            </h2>
+            </div>
           </div>
 
           {isLoading ? (
-            <div className="px-5 py-10 text-center text-sm text-gray-400 dark:text-gray-600">Chargement…</div>
+            <div className="px-5 py-10 text-center">
+              <Loader2 size={18} className="animate-spin mx-auto text-gray-300 dark:text-gray-600" />
+            </div>
           ) : groupes.length === 0 ? (
             <div className="px-5 py-10 text-center">
-              <p className="text-sm text-gray-400 dark:text-gray-600">Aucun groupe créé.</p>
-              <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">Cliquez sur « Nouveau groupe » pour commencer.</p>
+              <Users size={24} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">Aucun groupe créé.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">Cliquez sur « Nouveau groupe ».</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-white/5">
-              {groupes.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => { setSelectedGroupeId(g.id); setSearch(""); }}
-                  className={`w-full text-left px-5 py-3.5 transition-colors ${
-                    selectedGroupeId === g.id
-                      ? "bg-emerald-50 dark:bg-emerald-400/10 border-l-2 border-emerald-500"
-                      : "hover:bg-gray-50 dark:hover:bg-white/5 border-l-2 border-transparent"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 min-w-0">
-                    <p className={`text-sm font-medium truncate ${selectedGroupeId === g.id ? "text-emerald-800 dark:text-emerald-300" : "text-gray-800 dark:text-gray-100"}`}>
-                      {g.nom}
-                    </p>
-                    <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 text-xs font-mono">
-                      {g.domaine}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    <Users size={11} />
-                    <span>{g.nb_membres} membre{g.nb_membres !== 1 ? "s" : ""}</span>
-                  </div>
-                </button>
-              ))}
+              {groupes.map((g) => {
+                const isSelected = selectedGroupeId === g.id;
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => { setSelectedGroupeId(g.id); setSearch(""); }}
+                    className={`w-full text-left px-4 py-3 transition-colors flex items-center gap-3 group ${
+                      isSelected
+                        ? "bg-emerald-50 dark:bg-emerald-400/10"
+                        : "hover:bg-gray-50 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold font-mono transition-colors ${
+                      isSelected
+                        ? "bg-emerald-600 text-white"
+                        : "bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400"
+                    }`}>
+                      {g.domaine.slice(0, 2)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-sm font-medium truncate transition-colors ${
+                        isSelected ? "text-emerald-800 dark:text-emerald-300" : "text-gray-800 dark:text-gray-100"
+                      }`}>
+                        {g.nom}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        {g.nb_membres} membre{g.nb_membres !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <ChevronRight size={14} className={`shrink-0 transition-all ${
+                      isSelected ? "text-emerald-500 opacity-100" : "text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100"
+                    }`} />
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Colonne droite : panel membres */}
         {selectedGroupe ? (
-          <div className="glass-card rounded-2xl overflow-hidden flex-1 min-h-[460px] flex flex-col">
+          <div className="glass-card rounded-2xl overflow-hidden flex-1 flex flex-col" style={{ minHeight: "480px" }}>
             {/* En-tête panel */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-white/10 bg-green-50 dark:bg-emerald-400/10">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-white/10">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 dark:bg-emerald-400/15 shrink-0">
-                  <Users size={14} className="text-green-700 dark:text-emerald-400" />
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-600 shrink-0">
+                  <span className="text-xs font-bold text-white font-mono">{selectedGroupe.domaine.slice(0, 2)}</span>
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-green-800 dark:text-emerald-300 truncate">{selectedGroupe.nom}</h3>
-                  <p className="text-xs text-green-600/70 dark:text-emerald-400/60 font-mono">{selectedGroupe.domaine}</p>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{selectedGroupe.nom}</h3>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{selectedGroupe.domaine}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -422,30 +437,34 @@ export default function GroupsPage() {
             <div className="flex flex-1 min-h-0 divide-x divide-gray-100 dark:divide-white/5">
               {/* Membres actuels */}
               <div className="flex flex-col w-1/2 min-h-0">
-                <div className="px-5 py-3 border-b border-gray-100 dark:border-white/5">
+                <div className="px-5 py-3 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.02]">
                   <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    Membres · {selectedGroupe.membres.length}
+                    Membres
+                    <span className="ml-2 font-normal text-gray-400 dark:text-gray-500 normal-case tracking-normal">
+                      {selectedGroupe.membres.length}
+                    </span>
                   </p>
                 </div>
                 <div className="overflow-y-auto flex-1">
                   {selectedGroupe.membres.length === 0 ? (
-                    <div className="px-5 py-10 text-center">
-                      <p className="text-sm text-gray-400 dark:text-gray-600">Aucun membre.</p>
+                    <div className="px-5 py-12 text-center">
+                      <Users size={22} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Aucun membre.</p>
                       <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">Ajoutez des gestionnaires depuis le panneau de droite.</p>
                     </div>
                   ) : (
                     selectedGroupe.membres.map((m: MembreSummary) => (
                       <div key={m.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${m.is_chef ? "bg-amber-100 dark:bg-amber-400/15" : "bg-emerald-100 dark:bg-emerald-400/15"}`}>
-                            <span className={`text-xs font-semibold ${m.is_chef ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}>{initials(m)}</span>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${m.is_chef ? "bg-amber-100 dark:bg-amber-400/15" : "bg-gray-100 dark:bg-white/10"}`}>
+                            <span className={`text-xs font-semibold ${m.is_chef ? "text-amber-700 dark:text-amber-400" : "text-gray-600 dark:text-gray-300"}`}>{initials(m)}</span>
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{displayName(m)}</p>
                               {m.is_chef && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-400/15 text-amber-700 dark:text-amber-400 text-xs font-medium shrink-0">
-                                  <Crown size={10} />
+                                  <Crown size={9} />
                                   Chef
                                 </span>
                               )}
@@ -453,20 +472,20 @@ export default function GroupsPage() {
                             <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{m.departement ?? m.email}</p>
                           </div>
                         </div>
-                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
+                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all shrink-0">
                           <button
                             onClick={() => chefMut.mutate({ gId: selectedGroupe.id, uId: m.id, isChef: !m.is_chef })}
                             title={m.is_chef ? "Retirer le rôle de chef" : "Désigner comme chef"}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs ${m.is_chef ? "text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-400/10" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"}`}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${m.is_chef ? "text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-400/10" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"}`}
                           >
-                            <Crown size={12} />
+                            <Crown size={11} />
                             {m.is_chef ? "Rétrograder" : "Chef"}
                           </button>
                           <button
                             onClick={() => setConfirmRetireMembre(m)}
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 text-xs"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 text-xs transition-colors"
                           >
-                            <UserMinus size={12} />
+                            <UserMinus size={11} />
                             Retirer
                           </button>
                         </div>
@@ -478,7 +497,7 @@ export default function GroupsPage() {
 
               {/* Ajouter des gestionnaires */}
               <div className="flex flex-col w-1/2 min-h-0">
-                <div className="px-5 py-3 border-b border-gray-100 dark:border-white/5">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.02]">
                   <div className="relative">
                     <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
                     <input
@@ -492,8 +511,9 @@ export default function GroupsPage() {
                 </div>
                 <div className="overflow-y-auto flex-1">
                   {filteredCandidates.length === 0 ? (
-                    <div className="px-5 py-10 text-center">
-                      <p className="text-sm text-gray-400 dark:text-gray-600">
+                    <div className="px-5 py-12 text-center">
+                      <UserPlus size={22} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         {search ? "Aucun résultat." : "Tous les gestionnaires sont déjà membres."}
                       </p>
                     </div>
@@ -501,7 +521,7 @@ export default function GroupsPage() {
                     filteredCandidates.map((u) => (
                       <div key={u.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0">
                             <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{initials(u)}</span>
                           </div>
                           <div className="min-w-0">
@@ -511,9 +531,9 @@ export default function GroupsPage() {
                         </div>
                         <button
                           onClick={() => addMut.mutate({ gId: selectedGroupe.id, uId: u.id })}
-                          className="opacity-0 group-hover:opacity-100 flex items-center gap-1 px-2 py-1 rounded-lg text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-400/10 text-xs transition-all"
+                          className="opacity-0 group-hover:opacity-100 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-400/20 text-xs font-medium transition-all shrink-0"
                         >
-                          <UserPlus size={12} />
+                          <UserPlus size={11} />
                           Ajouter
                         </button>
                       </div>
@@ -524,7 +544,7 @@ export default function GroupsPage() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-[460px] flex items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 dark:border-white/10">
+          <div className="flex-1 flex items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 dark:border-white/10" style={{ minHeight: "480px" }}>
             <div className="text-center">
               <Users size={28} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Sélectionnez un groupe</p>

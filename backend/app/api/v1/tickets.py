@@ -9,13 +9,12 @@ from sqlalchemy import or_
 from app.config import settings
 from app.core.security import CurrentUser
 from app.database import SessionLocal
+from app.models.groupe import Groupe
 from app.models.ticket import Ticket
 from app.workers.celery_app import celery_app
 from app.workers.question import question_job
 
 router = APIRouter()
-
-DOMAINES_VALIDES = {"IT", "RH", "JURIDIQUE"}
 
 # L'identité (user_id / validator_id) est désormais dérivée du JWT via
 # get_current_user, et non plus transmise dans le corps des requêtes.
@@ -98,13 +97,21 @@ def _acquire_lock(db, tid: uuid.UUID, validator_id: uuid.UUID) -> Ticket | None:
 
 @router.post("/tickets")
 async def soumettre_question(payload: QuestionRequest, current_user: CurrentUser):
-    if payload.domaine.upper() not in DOMAINES_VALIDES:
-        raise HTTPException(400, f"Domaine invalide : {payload.domaine}")
+    domaine = payload.domaine.upper()
+    db = SessionLocal()
+    try:
+        domaines_valides = {r[0] for r in db.query(Groupe.domaine).distinct().all()}
+    finally:
+        db.close()
+    if not domaines_valides:
+        raise HTTPException(400, "Aucun domaine configuré. Contactez un administrateur.")
+    if domaine not in domaines_valides:
+        raise HTTPException(400, f"Domaine invalide : {domaine}")
     if not payload.question.strip():
         raise HTTPException(400, "La question ne peut pas être vide")
 
     job = question_job.apply_async(
-        args=[payload.question, payload.domaine.upper(), str(current_user.id)],
+        args=[payload.question, domaine, str(current_user.id)],
         kwargs={"objet": payload.objet},
         queue="queue_questions",
     )
@@ -112,7 +119,7 @@ async def soumettre_question(payload: QuestionRequest, current_user: CurrentUser
     return {
         "job_id": job.id,
         "question": payload.question,
-        "domaine": payload.domaine.upper(),
+        "domaine": domaine,
         "statut": "EN_ATTENTE",
     }
 
@@ -190,6 +197,7 @@ async def liste_tickets(
     statut: str | None = None,
     user_id: str | None = None,
     closed: bool | None = None,
+    search: str | None = None,
 ):
     db = SessionLocal()
     try:
@@ -210,6 +218,18 @@ async def liste_tickets(
                 query = query.filter(Ticket.user_id == uuid.UUID(user_id))
             except ValueError as e:
                 raise HTTPException(400, "user_id invalide") from e
+        if search:
+            try:
+                tid = uuid.UUID(search)
+                query = query.filter(Ticket.id == tid)
+            except ValueError:
+                pattern = f"%{search}%"
+                query = query.filter(
+                    or_(
+                        Ticket.objet.ilike(pattern),
+                        Ticket.question.ilike(pattern),
+                    )
+                )
         total = query.count()
         tickets = (
             query.order_by(Ticket.created_at.desc())
