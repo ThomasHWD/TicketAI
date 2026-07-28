@@ -186,6 +186,7 @@ async def liste_tickets(
     page: int = 1,
     limit: int = 10,
     domaine: str | None = None,
+    domaines: str | None = None,
     statut: str | None = None,
     user_id: str | None = None,
     closed: bool | None = None,
@@ -193,7 +194,10 @@ async def liste_tickets(
     db = SessionLocal()
     try:
         query = db.query(Ticket)
-        if domaine:
+        if domaines:
+            domaine_list = [d.strip().upper() for d in domaines.split(",") if d.strip()]
+            query = query.filter(Ticket.domaine.in_(domaine_list))
+        elif domaine:
             query = query.filter(Ticket.domaine == domaine.upper())
         if statut:
             query = query.filter(Ticket.statut_ticket == statut.upper())

@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     ldap_attr_email: str = "mail"
     ldap_attr_firstname: str = "givenName"
     ldap_attr_lastname: str = "sn"
+    ldap_attr_department: str = "department"
+    ldap_group_gestionnaire: str = "Gestionnaire"
 
     @cached_property
     def database_url(self) -> str:
