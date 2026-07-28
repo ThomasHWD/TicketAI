@@ -30,6 +30,7 @@ class LdapIdentity:
     nom: str | None
     departement: str | None
     is_gestionnaire: bool
+    role: str = "USER"
 
 
 def authenticate(username: str, password: str) -> LdapIdentity | None:
@@ -62,6 +63,9 @@ def _identity_from_entry(username: str, entry) -> LdapIdentity:
     is_gestionnaire = any(
         settings.ldap_group_gestionnaire.lower() in dn for dn in member_of
     )
+    is_admin = any(
+        settings.ldap_group_admin.lower() in dn for dn in member_of
+    )
 
     return LdapIdentity(
         username=username,
@@ -70,6 +74,7 @@ def _identity_from_entry(username: str, entry) -> LdapIdentity:
         nom=attr(settings.ldap_attr_lastname),
         departement=attr(settings.ldap_attr_department),
         is_gestionnaire=is_gestionnaire,
+        role="ADMIN" if is_admin else "USER",
     )
 
 

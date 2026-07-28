@@ -30,7 +30,7 @@ def get_or_create_user(db: Session, identity: LdapIdentity) -> User:
             nom=identity.nom,
             departement=identity.departement,
             is_gestionnaire=identity.is_gestionnaire,
-            role="USER",
+            role=identity.role,
         )
         db.add(user)
     else:
@@ -39,6 +39,7 @@ def get_or_create_user(db: Session, identity: LdapIdentity) -> User:
         user.nom = identity.nom
         user.departement = identity.departement
         user.is_gestionnaire = identity.is_gestionnaire
+        user.role = identity.role
     db.commit()
     db.refresh(user)
     return user

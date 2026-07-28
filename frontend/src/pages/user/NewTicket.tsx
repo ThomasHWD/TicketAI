@@ -6,7 +6,7 @@ import { getValidatorId } from "../../lib/currentUser";
 import type { Domaine } from "../../types.ts";
 
 async function fetchDomaines(): Promise<string[]> {
-  const res = await apiFetch("/api/v1/admin/domaines");
+  const res = await apiFetch("/api/v1/tickets/domaines");
   return res.json();
 }
 

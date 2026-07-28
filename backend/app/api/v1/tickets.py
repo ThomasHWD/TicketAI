@@ -95,6 +95,17 @@ def _acquire_lock(db, tid: uuid.UUID, validator_id: uuid.UUID) -> Ticket | None:
     return db.query(Ticket).filter(Ticket.id == tid).first()
 
 
+@router.get("/tickets/domaines")
+async def list_domaines(_: CurrentUser):
+    """Liste les domaines disponibles (tout utilisateur authentifié)."""
+    db = SessionLocal()
+    try:
+        rows = db.query(Groupe.domaine).distinct().order_by(Groupe.domaine).all()
+        return [r[0] for r in rows]
+    finally:
+        db.close()
+
+
 @router.post("/tickets")
 async def soumettre_question(payload: QuestionRequest, current_user: CurrentUser):
     domaine = payload.domaine.upper()
