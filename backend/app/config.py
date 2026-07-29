@@ -42,16 +42,17 @@ class Settings(BaseSettings):
     documents_storage_path: str
 
     # ── Authentification ─────────────────────────────────────────────
-    # auth_mode == "mock"  → annuaire LDAP simulé en mémoire (dev, aucune conf requise)
-    # auth_mode == "ldap"  → vrai serveur LDAP / Active Directory (conf ci-dessous)
-    auth_mode: str = "mock"
+    # auth_mode == "ldap" → vrai serveur LDAP / Active Directory (conf ci-dessous).
+    # Toute autre valeur → aucun appel annuaire (base de données seule ; utile en
+    # test/offline, ex. le fallback de /admin/gestionnaires).
+    auth_mode: str = "ldap"
     jwt_secret_key: str = "dev-secret-change-me"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 480
 
     # LDAP / Active Directory (utilisés uniquement quand auth_mode == "ldap")
     ldap_server_url: str = "ldap://localhost:389"
-    ldap_bind_dn: str = ""            # compte de service pour la recherche
+    ldap_bind_dn: str = ""  # compte de service pour la recherche
     ldap_bind_password: str = ""
     ldap_user_search_base: str = "ou=users,dc=ticketai,dc=local"
     ldap_user_search_filter: str = "(sAMAccountName={username})"
@@ -61,6 +62,9 @@ class Settings(BaseSettings):
     ldap_attr_department: str = "department"
     ldap_group_gestionnaire: str = "Gestionnaire"
     ldap_group_admin: str = "Admin"
+    ldap_server_url_secondary: str = ""  # fallback si le primaire est injoignable
+    ldap_tls_validate: bool = True  # False = accepte les certs auto-signés
+    ldap_timeout: int = 10  # secondes
 
     @cached_property
     def database_url(self) -> str:
@@ -75,7 +79,8 @@ class Settings(BaseSettings):
 
     model_config = {
         "env_file": ".env",
-        "extra": "ignore"    # ← ignore les variables du .env non déclarées
+        "extra": "ignore",  # ← ignore les variables du .env non déclarées
     }
+
 
 settings = Settings()

@@ -80,9 +80,7 @@ async def upload_document(
     contents = await file.read()
     size_mb = len(contents) / (1024 * 1024)
     if size_mb > MAX_SIZE_MB:
-        raise HTTPException(
-            400, f"Fichier trop volumineux : {size_mb:.1f} Mo (max {MAX_SIZE_MB} Mo)"
-        )
+        raise HTTPException(400, f"Fichier trop volumineux : {size_mb:.1f} Mo (max {MAX_SIZE_MB} Mo)")
 
     # Validation du contenu réel via magic bytes
     magic = MAGIC_BYTES[ext]
@@ -99,9 +97,7 @@ async def upload_document(
     content_hash = hashlib.sha256(contents).hexdigest()
     existing, _ = client.scroll(
         collection_name=COLLECTION_NAME,
-        scroll_filter=Filter(
-            must=[FieldCondition(key="content_hash", match=MatchValue(value=content_hash))]
-        ),
+        scroll_filter=Filter(must=[FieldCondition(key="content_hash", match=MatchValue(value=content_hash))]),
         with_payload=["doc_id", "source"],
         with_vectors=False,
         limit=1,

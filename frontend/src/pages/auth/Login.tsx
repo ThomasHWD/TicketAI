@@ -295,7 +295,7 @@ export default function Login() {
                   autoComplete="username"
                   autoFocus
                   required
-                  placeholder="prénom.nom@onacvg.fr"
+                  placeholder="prénom.nom"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className={theme.inputCls}

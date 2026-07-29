@@ -71,9 +71,7 @@ def mock_question_job(monkeypatch):
 # --------------------------------------------------------------------------- #
 # POST /tickets/{id}/suivi
 # --------------------------------------------------------------------------- #
-def test_suivi_enqueue_le_job_sur_le_ticket_existant(
-    client, db_session, mock_question_job, auth_headers
-):
+def test_suivi_enqueue_le_job_sur_le_ticket_existant(client, db_session, mock_question_job, auth_headers):
     ticket, _ = seed_ticket_reponse(db_session, domaine="RH")
 
     resp = client.post(
@@ -101,9 +99,7 @@ def test_suivi_enqueue_le_job_sur_le_ticket_existant(
     assert db_session.get(Ticket, ticket.id).statut_job == "EN_ATTENTE"
 
 
-def test_suivi_ticket_cloture_renvoie_409(
-    client, db_session, mock_question_job, auth_headers
-):
+def test_suivi_ticket_cloture_renvoie_409(client, db_session, mock_question_job, auth_headers):
     from datetime import datetime, timezone
 
     ticket, _ = seed_ticket_reponse(db_session, closed_at=datetime.now(timezone.utc))
@@ -118,9 +114,7 @@ def test_suivi_ticket_cloture_renvoie_409(
     mock_question_job.assert_not_called()
 
 
-def test_suivi_question_vide_renvoie_400(
-    client, db_session, mock_question_job, auth_headers
-):
+def test_suivi_question_vide_renvoie_400(client, db_session, mock_question_job, auth_headers):
     ticket, _ = seed_ticket_reponse(db_session)
 
     resp = client.post(
@@ -133,9 +127,7 @@ def test_suivi_question_vide_renvoie_400(
     mock_question_job.assert_not_called()
 
 
-def test_suivi_ticket_introuvable_renvoie_404(
-    client, db_session, mock_question_job, auth_headers
-):
+def test_suivi_ticket_introuvable_renvoie_404(client, db_session, mock_question_job, auth_headers):
     resp = client.post(
         f"{API}/tickets/{uuid.uuid4()}/suivi",
         json={"question": "Une précision"},
@@ -388,7 +380,6 @@ def test_question_job_suivi_contextualise_recherche_et_generation(db_session, mo
     assert "Comment poser mes congés payés ?\nEt pour un CDD ?" in requetes
     # Le rerank utilise également la requête contextualisée.
     assert rerank_mock.call_args.args[0] == ("Comment poser mes congés payés ?\nEt pour un CDD ?")
-
 
 
 def test_upsert_ticket_mode_suivi_rebascule_le_statut(db_session):

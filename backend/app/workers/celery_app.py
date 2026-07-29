@@ -10,7 +10,7 @@ celery_app = Celery(
         "app.workers.ingestion",
         "app.workers.question",
         "app.workers.feedback",
-    ]
+    ],
 )
 
 celery_app.conf.update(

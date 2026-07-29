@@ -3,22 +3,15 @@
 Point d'entrée unique : ``authenticate(username, password)``. Il renvoie une
 ``LdapIdentity`` si les identifiants sont valides, ``None`` sinon.
 
-Deux implémentations derrière la même signature, choisies par ``settings.auth_mode`` :
-
-- ``"mock"`` : annuaire simulé en mémoire via la stratégie ``MOCK_SYNC`` de ldap3.
-  Se comporte comme un vrai annuaire (recherche + bind vérifiant le mot de passe),
-  mais ne nécessite aucun serveur. Idéal en dev.
-- ``"ldap"`` : vrai serveur. On bind avec un compte de service, on cherche l'utilisateur,
-  puis on **re-bind avec son DN et son mot de passe** pour valider les identifiants.
-
-Le passage mock → réel se fait uniquement via le ``.env`` (aucun changement de code).
+On bind avec un compte de service, on cherche l'utilisateur, puis on **re-bind
+avec son DN et son mot de passe** pour valider réellement les identifiants.
 """
 
+import ssl
 from dataclasses import dataclass
 
 from app.config import settings
-from app.services.mock_ldap_seed import MOCK_USERS
-from ldap3 import ALL, MOCK_SYNC, OFFLINE_AD_2012_R2, Connection, Server
+from ldap3 import ALL, Connection, Server, Tls
 from ldap3.core.exceptions import LDAPException
 
 
@@ -34,13 +27,11 @@ class LdapIdentity:
 
 
 def authenticate(username: str, password: str) -> LdapIdentity | None:
-    """Valide les identifiants contre l'annuaire (mock ou réel)."""
+    """Valide les identifiants contre l'annuaire LDAP / Active Directory."""
     if not username or not password:
         return None
     try:
-        if settings.auth_mode == "ldap":
-            return _authenticate_ldap(username, password)
-        return _authenticate_mock(username, password)
+        return _authenticate_ldap(username, password)
     except LDAPException:
         # Serveur injoignable, filtre invalide, etc. → échec d'auth silencieux.
         return None
@@ -60,12 +51,8 @@ def _identity_from_entry(username: str, entry) -> LdapIdentity:
         return v if isinstance(v, list) else ([str(v)] if v else [])
 
     member_of = [s.lower() for s in multi_attr("memberOf")]
-    is_gestionnaire = any(
-        settings.ldap_group_gestionnaire.lower() in dn for dn in member_of
-    )
-    is_admin = any(
-        settings.ldap_group_admin.lower() in dn for dn in member_of
-    )
+    is_gestionnaire = any(settings.ldap_group_gestionnaire.lower() in dn for dn in member_of)
+    is_admin = any(settings.ldap_group_admin.lower() in dn for dn in member_of)
 
     return LdapIdentity(
         username=username,
@@ -95,8 +82,26 @@ def _search_attributes() -> list[str]:
 # ── Mode réel (Active Directory / LDAP) ──────────────────────────────
 
 
+def _make_server(url: str) -> Server:
+    tls = Tls(validate=ssl.CERT_REQUIRED if settings.ldap_tls_validate else ssl.CERT_NONE)
+    return Server(url, tls=tls, get_info=ALL, connect_timeout=settings.ldap_timeout)
+
+
+def _get_server() -> Server:
+    """Retourne le serveur primaire ; bascule sur le secondaire si configuré et injoignable."""
+    primary = _make_server(settings.ldap_server_url)
+    if not settings.ldap_server_url_secondary:
+        return primary
+    try:
+        conn = Connection(primary, auto_bind=True, receive_timeout=settings.ldap_timeout)
+        conn.unbind()
+        return primary
+    except LDAPException:
+        return _make_server(settings.ldap_server_url_secondary)
+
+
 def _authenticate_ldap(username: str, password: str) -> LdapIdentity | None:
-    server = Server(settings.ldap_server_url, get_info=ALL)
+    server = _get_server()
 
     # 1. Bind du compte de service pour rechercher l'utilisateur.
     svc = Connection(
@@ -104,6 +109,7 @@ def _authenticate_ldap(username: str, password: str) -> LdapIdentity | None:
         user=settings.ldap_bind_dn or None,
         password=settings.ldap_bind_password or None,
         auto_bind=True,
+        receive_timeout=settings.ldap_timeout,
     )
     found = svc.search(
         settings.ldap_user_search_base,
@@ -123,55 +129,4 @@ def _authenticate_ldap(username: str, password: str) -> LdapIdentity | None:
     if not user_conn.bind():
         return None
     user_conn.unbind()
-    return identity
-
-
-# ── Mode simulé (dev) ────────────────────────────────────────────────
-
-
-def _build_mock_connection() -> Connection:
-    """Crée une connexion ldap3 MOCK_SYNC alimentée par l'annuaire fictif."""
-    server = Server("mock_ldap", get_info=OFFLINE_AD_2012_R2)
-    conn = Connection(server, client_strategy=MOCK_SYNC)
-    for user in MOCK_USERS:
-        # DN construit sous la base configurée pour que la recherche (qui utilise
-        # settings.ldap_user_search_base) retrouve toujours l'entrée, même si le
-        # .env pointe déjà vers la base du futur AD réel.
-        dn = f"cn={user['username']},{settings.ldap_user_search_base}"
-        conn.strategy.add_entry(
-            dn,
-            {
-                "objectClass": ["top", "person", "organizationalPerson", "user"],
-                "sAMAccountName": user["username"],
-                "userPassword": user["password"],
-                settings.ldap_attr_email: user["mail"],
-                settings.ldap_attr_firstname: user["givenName"],
-                settings.ldap_attr_lastname: user["sn"],
-                settings.ldap_attr_department: user.get("department"),
-                "memberOf": [
-                    f"CN={g},{settings.ldap_user_search_base}"
-                    for g in user.get("groups", [])
-                ],
-            },
-        )
-    conn.bind()
-    return conn
-
-
-def _authenticate_mock(username: str, password: str) -> LdapIdentity | None:
-    conn = _build_mock_connection()
-    found = conn.search(
-        settings.ldap_user_search_base,
-        _search_filter(username),
-        attributes=_search_attributes(),
-    )
-    if not found or not conn.entries:
-        return None
-    entry = conn.entries[0]
-    dn = entry.entry_dn
-    identity = _identity_from_entry(username, entry)
-
-    # Vérifie le mot de passe via un re-bind (MOCK_SYNC contrôle userPassword).
-    if not conn.rebind(user=dn, password=password):
-        return None
     return identity
