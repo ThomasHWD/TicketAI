@@ -238,7 +238,7 @@ class TestUploadValidation:
         assert r.status_code == 400
         assert "volumineux" in r.json()["detail"]
 
-    def test_upload_md_valide(self, client, mock_ingestion_job):
+    def test_upload_md_valide(self, client, mock_qdrant, mock_ingestion_job):
         r = _upload(client, description="Document de test")
         assert r.status_code == 200
         body = r.json()
@@ -246,22 +246,22 @@ class TestUploadValidation:
         assert body["filename"] == "doc.md"
         assert "job_id" in body
 
-    def test_upload_pdf_valide(self, client, mock_ingestion_job):
+    def test_upload_pdf_valide(self, client, mock_qdrant, mock_ingestion_job):
         r = _upload(client, filename="rapport.pdf", content=_PDF_MAGIC)
         assert r.status_code == 200
 
-    def test_description_transmise_au_job(self, client, mock_ingestion_job):
+    def test_description_transmise_au_job(self, client, mock_qdrant, mock_ingestion_job):
         _upload(client, description="Charte informatique 2025")
         # apply_async est appelé avec args=[file_path, filename, domaine, description]
         args_list = mock_ingestion_job.apply_async.call_args.kwargs["args"]
         assert args_list[3] == "Charte informatique 2025"
 
-    def test_description_vide_par_defaut(self, client, mock_ingestion_job):
+    def test_description_vide_par_defaut(self, client, mock_qdrant, mock_ingestion_job):
         _upload(client)
         args_list = mock_ingestion_job.apply_async.call_args.kwargs["args"]
         assert args_list[3] == ""
 
-    def test_hash_transmis_au_job(self, client, mock_ingestion_job):
+    def test_hash_transmis_au_job(self, client, mock_qdrant, mock_ingestion_job):
         _upload(client)
         args_list = mock_ingestion_job.apply_async.call_args.kwargs["args"]
         # args[4] = content_hash : doit être un SHA-256 hexadécimal (64 chars)
@@ -573,7 +573,15 @@ def qdrant_doc(monkeypatch):
     """Insère des points dans Qdrant et les nettoie après le test."""
     from app.services.qdrant import COLLECTION_NAME
     from app.services.qdrant import client as real_client
+    from qdrant_client import models as qdrant_models
     from qdrant_client.models import PointStruct, SparseVector
+
+    if not real_client.collection_exists(COLLECTION_NAME):
+        real_client.create_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config={"dense": qdrant_models.VectorParams(size=1024, distance=qdrant_models.Distance.COSINE)},
+            sparse_vectors_config={"sparse": qdrant_models.SparseVectorParams()},
+        )
 
     doc_id = str(uuid.uuid4())
     points = [
