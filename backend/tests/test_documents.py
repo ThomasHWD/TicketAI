@@ -30,8 +30,7 @@ _DOCX_MAGIC = b"PK\x03\x04" + b"\x00" * 100  # archive ZIP minimale
 _MD_CONTENT = b"# Titre\n\nContenu de test."
 
 
-def _upload(client, *, domaine="IT", filename="doc.md", content=_MD_CONTENT,
-            content_type="text/plain", description=""):
+def _upload(client, *, domaine="IT", filename="doc.md", content=_MD_CONTENT, content_type="text/plain", description=""):
     """Helper qui poste un fichier vers POST /documents."""
     params = f"domaine={domaine}"
     if description:
@@ -45,6 +44,7 @@ def _upload(client, *, domaine="IT", filename="doc.md", content=_MD_CONTENT,
 # ──────────────────────────────────────────────────────────────────────────────
 # Fixture : mock du client Qdrant dans le module documents
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def _auth_override():
@@ -66,9 +66,7 @@ def _auth_override():
 
     # Session DB fictive : query(Groupe.domaine).distinct().all() → [("IT",), ("RH",), ("LEGAL",)]
     mock_db = MagicMock()
-    mock_db.query.return_value.distinct.return_value.all.return_value = [
-        ("IT",), ("RH",), ("LEGAL",)
-    ]
+    mock_db.query.return_value.distinct.return_value.all.return_value = [("IT",), ("RH",), ("LEGAL",)]
     app.dependency_overrides[get_db] = lambda: mock_db
 
     yield
@@ -106,21 +104,26 @@ def mock_ingestion_job(monkeypatch):
 # Helpers ingestion : extract_text, clean_text, sanitize_filename
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestSanitizeFilename:
     def test_normal(self):
         from app.api.v1.documents import sanitize_filename
+
         assert sanitize_filename("rapport_2025.pdf") == "rapport_2025.pdf"
 
     def test_path_traversal(self):
         from app.api.v1.documents import sanitize_filename
+
         assert sanitize_filename("../../etc/passwd") == "passwd"
 
     def test_null_bytes(self):
         from app.api.v1.documents import sanitize_filename
+
         assert "\x00" not in sanitize_filename("fichier\x00.pdf")
 
     def test_special_chars_replaced(self):
         from app.api.v1.documents import sanitize_filename
+
         # Pas de "/" dans le nom pour éviter que basename le tronque
         result = sanitize_filename("doc (1); injection$.pdf")
         assert ";" not in result
@@ -129,6 +132,7 @@ class TestSanitizeFilename:
     def test_empty_raises(self):
         from app.api.v1.documents import sanitize_filename
         from fastapi import HTTPException
+
         with pytest.raises(HTTPException) as exc:
             sanitize_filename("")
         assert exc.value.status_code == 400
@@ -136,6 +140,7 @@ class TestSanitizeFilename:
     def test_dot_only_raises(self):
         from app.api.v1.documents import sanitize_filename
         from fastapi import HTTPException
+
         with pytest.raises(HTTPException):
             sanitize_filename(".hidden")
 
@@ -143,6 +148,7 @@ class TestSanitizeFilename:
 class TestExtractText:
     def test_md_file(self, tmp_path):
         from app.workers.ingestion import extract_text
+
         f = tmp_path / "test.md"
         f.write_text("# Titre\n\nContenu de test.", encoding="utf-8")
         pages = extract_text(str(f))
@@ -151,6 +157,7 @@ class TestExtractText:
 
     def test_txt_file(self, tmp_path):
         from app.workers.ingestion import extract_text
+
         f = tmp_path / "test.txt"
         f.write_text("Texte simple.", encoding="utf-8")
         pages = extract_text(str(f))
@@ -158,11 +165,13 @@ class TestExtractText:
 
     def test_missing_file_raises(self, tmp_path):
         from app.workers.ingestion import extract_text
+
         with pytest.raises(FileNotFoundError):
             extract_text(str(tmp_path / "inexistant.md"))
 
     def test_unsupported_extension_raises(self, tmp_path):
         from app.workers.ingestion import extract_text
+
         f = tmp_path / "archive.zip"
         f.write_bytes(b"PK\x03\x04")
         with pytest.raises(ValueError):
@@ -170,6 +179,7 @@ class TestExtractText:
 
     def test_real_md_file(self):
         from app.workers.ingestion import extract_text
+
         fixture = Path(__file__).parent / "Accord_Teletravail_Reglementation.md"
         pages = extract_text(str(fixture))
         assert len(pages) >= 1
@@ -183,8 +193,7 @@ class TestStoreFile:
         src = tmp_path / "source.md"
         src.write_text("contenu")
         dest_root = tmp_path / "storage"
-        monkeypatch.setattr("app.workers.ingestion.settings",
-                            MagicMock(documents_storage_path=str(dest_root)))
+        monkeypatch.setattr("app.workers.ingestion.settings", MagicMock(documents_storage_path=str(dest_root)))
 
         doc_id = str(uuid.uuid4())
         dest = store_file(str(src), doc_id, "source.md")
@@ -196,6 +205,7 @@ class TestStoreFile:
 # ──────────────────────────────────────────────────────────────────────────────
 # POST /documents — validation
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestUploadValidation:
     def test_domaine_invalide(self, client, mock_ingestion_job):
@@ -279,6 +289,7 @@ class TestDuplicateDetection:
     def test_doublon_meme_contenu_hash_identique(self, client, mock_qdrant, mock_ingestion_job):
         """Deux uploads du même contenu produisent le même hash."""
         import hashlib
+
         contenu = _MD_CONTENT
         hash1 = hashlib.sha256(contenu).hexdigest()
 
@@ -299,6 +310,7 @@ class TestDuplicateDetection:
 # ──────────────────────────────────────────────────────────────────────────────
 # GET /documents — listing (Qdrant mocké)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _make_point(doc_id, filename, domaine, chunk_index=0, description=""):
     p = MagicMock()
@@ -388,6 +400,7 @@ class TestListDocuments:
 # GET /documents/{doc_id}/chunks
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestGetChunks:
     def test_chunks_tries_par_index(self, client, mock_qdrant):
         doc_id = str(uuid.uuid4())
@@ -419,6 +432,7 @@ class TestGetChunks:
 # ──────────────────────────────────────────────────────────────────────────────
 # DELETE /documents/{doc_id}
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestDeleteDocument:
     def test_delete_doc_inexistant_renvoie_404(self, client, mock_qdrant):
@@ -479,6 +493,7 @@ class TestDeleteDocument:
 # GET /documents/{doc_id}/download
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestDownloadDocument:
     def test_download_doc_inexistant_renvoie_404(self, client, mock_qdrant):
         mock_qdrant.scroll.return_value = ([], None)
@@ -512,6 +527,7 @@ class TestDownloadDocument:
 # ──────────────────────────────────────────────────────────────────────────────
 # GET /documents/{job_id}/status
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestDocumentStatus:
     def test_statut_pending(self, client):
@@ -584,6 +600,7 @@ def qdrant_doc(monkeypatch):
     yield doc_id
 
     from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
+
     real_client.delete(
         collection_name=COLLECTION_NAME,
         points_selector=FilterSelector(

@@ -12,7 +12,7 @@ from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
 
-CHUNK_SIZE = 384     # en tokens BGE-M3 (conforme spec Phase 2)
+CHUNK_SIZE = 384  # en tokens BGE-M3 (conforme spec Phase 2)
 CHUNK_OVERLAP = 128  # en tokens BGE-M3
 
 _splitter = None

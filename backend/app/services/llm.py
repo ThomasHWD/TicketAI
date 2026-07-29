@@ -48,9 +48,7 @@ Règles de format :
 
     historique_block = ""
     if historique:
-        lines = "\n".join(
-            f"{m['role'].capitalize()} : {m['content']}" for m in historique
-        )
+        lines = "\n".join(f"{m['role'].capitalize()} : {m['content']}" for m in historique)
         historique_block = f"Historique :\n{lines}\n\n"
 
     prompt_user = f"""Contexte :

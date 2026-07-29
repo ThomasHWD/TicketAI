@@ -1,10 +1,12 @@
 import { useNavigate, useMatch } from "react-router-dom";
 import { Sun, Moon, Plus, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../hooks/useTheme";
-import { unlockTicket } from "../../lib/api";
+import { unlockTicket, getSiteConfig } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
 import GlassSurface from "@@/components/GlassSurface";
+import MarqueeBanner from "../ui/MarqueeBanner";
 
 interface NavbarProps {
   collapsed: boolean;
@@ -23,6 +25,13 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
   const { user, logout } = useAuth();
   const ticketMatch = useMatch("/tickets/:id");
   const ticketId = ticketMatch?.params.id;
+
+  const { data: siteConfig } = useQuery({
+    queryKey: ["site-config"],
+    queryFn: getSiteConfig,
+    staleTime: 60_000,
+  });
+  const banner = siteConfig?.banner;
 
   async function handleLogout() {
     if (ticketId) {
@@ -57,7 +66,11 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
         {collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
       </button>
 
-      <div className="flex-1" />
+      {banner?.active && banner.message ? (
+        <MarqueeBanner message={banner.message} url={banner.url || undefined} />
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {/* Theme toggle */}
       <button

@@ -124,9 +124,7 @@ def test_upsert_reponse_suggestion_avec_source():
     ticket = make_ticket()
     source_id = uuid.uuid4()
 
-    _upsert_reponse(
-        db, ticket, "contenu", 0.7, source="SUGGESTION", reponse_source_id=source_id
-    )
+    _upsert_reponse(db, ticket, "contenu", 0.7, source="SUGGESTION", reponse_source_id=source_id)
 
     ajout = db.add.call_args[0][0]
     assert ajout.source == "SUGGESTION"

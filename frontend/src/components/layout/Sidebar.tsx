@@ -15,6 +15,7 @@ import {
   ArchiveX,
   File,
   Users,
+  SlidersHorizontal,
 } from "lucide-react";
 
 const navMain = [
@@ -40,6 +41,7 @@ const navSettings = [
 const navAdmin = [
   { to: "/admin", icon: Users, label: "Groupes" },
   { to: "/admin/documents", icon: File, label: "Tous les documents" },
+  { to: "/admin/config", icon: SlidersHorizontal, label: "Configuration" },
 ];
 
 function NavItem({

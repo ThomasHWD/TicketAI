@@ -221,9 +221,7 @@ def test_list_domaines(client, admin_headers, groupe_factory):
 def test_add_membre(client, admin_headers, groupe_factory, user_factory):
     g = groupe_factory()
     u = user_factory("USER")
-    r = client.post(
-        f"{API}/admin/groupes/{g.id}/membres/{u.id}", headers=admin_headers
-    )
+    r = client.post(f"{API}/admin/groupes/{g.id}/membres/{u.id}", headers=admin_headers)
     assert r.status_code == 201
     membres = r.json()["membres"]
     assert any(m["id"] == str(u.id) for m in membres)
@@ -242,18 +240,14 @@ def test_add_membre_idempotent(client, admin_headers, groupe_factory, user_facto
 @pytest.mark.integration
 def test_add_membre_groupe_inexistant_404(client, admin_headers, user_factory):
     u = user_factory("USER")
-    r = client.post(
-        f"{API}/admin/groupes/{uuid.uuid4()}/membres/{u.id}", headers=admin_headers
-    )
+    r = client.post(f"{API}/admin/groupes/{uuid.uuid4()}/membres/{u.id}", headers=admin_headers)
     assert r.status_code == 404
 
 
 @pytest.mark.integration
 def test_add_membre_user_inexistant_404(client, admin_headers, groupe_factory):
     g = groupe_factory()
-    r = client.post(
-        f"{API}/admin/groupes/{g.id}/membres/{uuid.uuid4()}", headers=admin_headers
-    )
+    r = client.post(f"{API}/admin/groupes/{g.id}/membres/{uuid.uuid4()}", headers=admin_headers)
     assert r.status_code == 404
 
 
@@ -262,9 +256,7 @@ def test_remove_membre(client, admin_headers, groupe_factory, user_factory):
     g = groupe_factory()
     u = user_factory("USER")
     client.post(f"{API}/admin/groupes/{g.id}/membres/{u.id}", headers=admin_headers)
-    r = client.delete(
-        f"{API}/admin/groupes/{g.id}/membres/{u.id}", headers=admin_headers
-    )
+    r = client.delete(f"{API}/admin/groupes/{g.id}/membres/{u.id}", headers=admin_headers)
     assert r.status_code == 204
     membres = client.get(f"{API}/admin/groupes", headers=admin_headers).json()
     grp = next(g2 for g2 in membres if g2["id"] == str(g.id))
@@ -274,9 +266,7 @@ def test_remove_membre(client, admin_headers, groupe_factory, user_factory):
 @pytest.mark.integration
 def test_remove_membre_groupe_inexistant_404(client, admin_headers, user_factory):
     u = user_factory("USER")
-    r = client.delete(
-        f"{API}/admin/groupes/{uuid.uuid4()}/membres/{u.id}", headers=admin_headers
-    )
+    r = client.delete(f"{API}/admin/groupes/{uuid.uuid4()}/membres/{u.id}", headers=admin_headers)
     assert r.status_code == 404
 
 
@@ -350,8 +340,12 @@ def test_set_chef_groupe_inexistant_404(client, admin_headers, user_factory):
 
 
 @pytest.mark.integration
-def test_list_gestionnaires(client, admin_factory, auth_header, db_session):
+def test_list_gestionnaires(client, admin_factory, auth_header, db_session, monkeypatch):
+    from app.config import settings
     from app.models.user import User
+
+    # Force le fallback base (indépendant de AUTH_MODE=ldap dans l'environnement)
+    monkeypatch.setattr(settings, "auth_mode", "db")
 
     admin = admin_factory()
     headers = auth_header(admin)
@@ -371,8 +365,12 @@ def test_list_gestionnaires(client, admin_factory, auth_header, db_session):
 
 
 @pytest.mark.integration
-def test_list_gestionnaires_exclut_non_gestionnaires(client, admin_factory, auth_header, db_session):
+def test_list_gestionnaires_exclut_non_gestionnaires(client, admin_factory, auth_header, db_session, monkeypatch):
+    from app.config import settings
     from app.models.user import User
+
+    # Force le fallback base (indépendant de AUTH_MODE=ldap dans l'environnement)
+    monkeypatch.setattr(settings, "auth_mode", "db")
 
     admin = admin_factory()
     headers = auth_header(admin)

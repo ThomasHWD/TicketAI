@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, setChefGroupe } from "../../lib/api";
 import type { Groupe, MembreSummary, UserSummary } from "../../types";
@@ -154,7 +155,8 @@ function DomaineCombobox({ value, onChange, existing }: {
   existing: string[];
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   const q = value.trim().toUpperCase();
   const matches = existing.filter((d) => d.includes(q));
@@ -162,15 +164,18 @@ function DomaineCombobox({ value, onChange, existing }: {
 
   useEffect(() => {
     function onOut(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onOut);
     return () => document.removeEventListener("mousedown", onOut);
   }, []);
 
+  const inputRect = open ? inputRef.current?.getBoundingClientRect() : null;
+
   return (
-    <div ref={ref} className="relative">
+    <div ref={wrapRef}>
       <input
+        ref={inputRef}
         required
         type="text"
         value={value}
@@ -179,8 +184,17 @@ function DomaineCombobox({ value, onChange, existing }: {
         onChange={(e) => { onChange(e.target.value.toUpperCase()); setOpen(true); }}
         className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
       />
-      {open && (matches.length > 0 || canCreate) && (
-        <ul className="absolute z-30 mt-1 w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+      {open && inputRect && (matches.length > 0 || canCreate) && createPortal(
+        <ul
+          style={{
+            position: "fixed",
+            top: inputRect.bottom + 4,
+            left: inputRect.left,
+            width: inputRect.width,
+            zIndex: 9999,
+          }}
+          className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 shadow-xl overflow-hidden"
+        >
           {matches.map((d) => (
             <li key={d} className="flex items-center justify-between px-3 py-2.5 text-sm text-gray-400 dark:text-gray-500 select-none cursor-not-allowed">
               <span className="font-mono">{d}</span>
@@ -199,7 +213,8 @@ function DomaineCombobox({ value, onChange, existing }: {
               </button>
             </li>
           )}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );
@@ -214,6 +229,14 @@ function displayName(u: UserSummary) {
 function initials(u: UserSummary) {
   if (u.prenom && u.nom) return `${u.prenom[0]}${u.nom[0]}`.toUpperCase();
   return u.email.slice(0, 2).toUpperCase();
+}
+
+// Normalise une chaîne pour la recherche : minuscules + suppression des accents.
+function normalize(s: string) {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
 }
 
 // ── Composant principal ──────────────────────────────────────────────
@@ -237,7 +260,7 @@ export default function GroupsPage() {
     onError: (err: unknown) => setCreateError(err instanceof Error ? err.message : "Erreur lors de la création."),
   });
   const deleteMut = useMutation({ mutationFn: deleteGroupe, onSuccess: invalidate });
-  const addMut = useMutation({ mutationFn: ({ gId, uId }: { gId: string; uId: string }) => addMembre(gId, uId), onSuccess: invalidate });
+  const addMut = useMutation({ mutationFn: ({ gId, uId }: { gId: string; uId: string }) => addMembre(gId, uId), onSuccess: () => { invalidate(); setSearch(""); } });
   const removeMut = useMutation({ mutationFn: ({ gId, uId }: { gId: string; uId: string }) => removeMembre(gId, uId), onSuccess: invalidate });
   const chefMut = useMutation({ mutationFn: ({ gId, uId, isChef }: { gId: string; uId: string; isChef: boolean }) => setChefGroupe(gId, uId, isChef), onSuccess: invalidate });
 
@@ -249,13 +272,17 @@ export default function GroupsPage() {
   const [confirmRetireMembre, setConfirmRetireMembre] = useState<UserSummary | null>(null);
 
   const selectedGroupe = groupes.find((g) => g.id === selectedGroupeId) ?? null;
-  const memberIds = new Set(selectedGroupe?.membres.map((m) => m.id) ?? []);
+  const memberEmails = new Set(selectedGroupe?.membres.map((m) => m.email) ?? []);
 
+  const searchTerms = normalize(search).split(/\s+/).filter(Boolean);
   const filteredCandidates = gestionnaires.filter((u) => {
-    if (memberIds.has(u.id)) return false;
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return displayName(u).toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.departement ?? "").toLowerCase().includes(q);
+    if (memberEmails.has(u.email)) return false;
+    if (searchTerms.length === 0) return true;
+    const haystack = normalize(
+      `${u.prenom ?? ""} ${u.nom ?? ""} ${u.email} ${u.departement ?? ""}`,
+    );
+    // chaque mot-clé doit correspondre (recherche AND, tolérante à l'ordre)
+    return searchTerms.every((term) => haystack.includes(term));
   });
 
   function handleCreate(e: React.FormEvent) {
@@ -291,8 +318,8 @@ export default function GroupsPage() {
 
       {/* Formulaire création */}
       {showCreate && (
-        <div className="glass-card rounded-2xl overflow-hidden">
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 dark:border-white/10">
+        <div className="glass-card rounded-2xl">
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 dark:border-white/10 rounded-t-2xl">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-400/15 shrink-0">
               <FolderOpen size={15} className="text-emerald-700 dark:text-emerald-400" />
             </div>
@@ -305,7 +332,7 @@ export default function GroupsPage() {
                 required
                 value={form.nom}
                 onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))}
-                placeholder="ex : Validateurs RH"
+                placeholder="ex : Ressources humaines"
                 className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               />
             </div>
@@ -438,7 +465,7 @@ export default function GroupsPage() {
               {/* Membres actuels */}
               <div className="flex flex-col w-1/2 min-h-0">
                 <div className="px-5 py-3 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.02]">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <p className="text-xs py-[10.8px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Membres
                     <span className="ml-2 font-normal text-gray-400 dark:text-gray-500 normal-case tracking-normal">
                       {selectedGroupe.membres.length}
@@ -454,7 +481,7 @@ export default function GroupsPage() {
                     </div>
                   ) : (
                     selectedGroupe.membres.map((m: MembreSummary) => (
-                      <div key={m.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                      <div key={m.email} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${m.is_chef ? "bg-amber-100 dark:bg-amber-400/15" : "bg-gray-100 dark:bg-white/10"}`}>
                             <span className={`text-xs font-semibold ${m.is_chef ? "text-amber-700 dark:text-amber-400" : "text-gray-600 dark:text-gray-300"}`}>{initials(m)}</span>
@@ -476,7 +503,7 @@ export default function GroupsPage() {
                           <button
                             onClick={() => chefMut.mutate({ gId: selectedGroupe.id, uId: m.id, isChef: !m.is_chef })}
                             title={m.is_chef ? "Retirer le rôle de chef" : "Désigner comme chef"}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${m.is_chef ? "text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-400/10" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"}`}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${m.is_chef ? "text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-400/10" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10"}`}
                           >
                             <Crown size={11} />
                             {m.is_chef ? "Rétrograder" : "Chef"}
@@ -501,25 +528,32 @@ export default function GroupsPage() {
                   <div className="relative">
                     <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
                     <input
-                      type="search"
-                      placeholder="Rechercher un gestionnaire…"
+                      type="text"
+                      placeholder="Nom ou département…"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="w-full pl-8 pr-8 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                     />
+                    {search && (
+                      <button
+                        type="button"
+                        onClick={() => setSearch("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="overflow-y-auto flex-1">
+                <div className="overflow-y-auto flex-1 max-h-80">
                   {filteredCandidates.length === 0 ? (
                     <div className="px-5 py-12 text-center">
                       <UserPlus size={22} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {search ? "Aucun résultat." : "Tous les gestionnaires sont déjà membres."}
-                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Aucun résultat.</p>
                     </div>
                   ) : (
                     filteredCandidates.map((u) => (
-                      <div key={u.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+                      <div key={u.email} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0">
                             <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{initials(u)}</span>
@@ -530,7 +564,7 @@ export default function GroupsPage() {
                           </div>
                         </div>
                         <button
-                          onClick={() => addMut.mutate({ gId: selectedGroupe.id, uId: u.id })}
+                          onClick={() => addMut.mutate({ gId: selectedGroupe.id, uId: u.id ?? u.email })}
                           className="opacity-0 group-hover:opacity-100 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-400/20 text-xs font-medium transition-all shrink-0"
                         >
                           <UserPlus size={11} />

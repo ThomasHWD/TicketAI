@@ -26,6 +26,7 @@ import Ingestion from "./pages/backoffice/Ingestion";
 import AllDocs from "./pages/backoffice/AllDocs";
 import TicketTracking from "./pages/backoffice/TicketTracking";
 import AdminPage from "./pages/admin/Groups";
+import SiteConfigPage from "./pages/admin/SiteConfig";
 import NotFound from "./pages/404";
 
 function Layout() {
@@ -120,6 +121,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/documents" element={<AllDocs />} />
+              <Route path="/admin/config" element={<SiteConfigPage />} />
 
             </Route>
           </Route>
