@@ -28,9 +28,7 @@ def setup_test_qdrant():
     if not client.collection_exists("ticketai"):
         client.create_collection(
             collection_name="ticketai",
-            vectors_config={
-                "dense": models.VectorParams(size=1024, distance=models.Distance.COSINE)
-            },
+            vectors_config={"dense": models.VectorParams(size=1024, distance=models.Distance.COSINE)},
             sparse_vectors_config={"sparse": models.SparseVectorParams()},
         )
     yield
@@ -65,9 +63,10 @@ def test_search_filtre_par_domaine():
     """Le filtre domaine doit être transmis à Qdrant (aucune fuite inter-domaines)."""
     from app.services import search as search_module
 
-    with patch(
-        "app.services.search.embed_texts", return_value=fake_embeddings(1)
-    ), patch.object(search_module, "client") as mock_client:
+    with (
+        patch("app.services.search.embed_texts", return_value=fake_embeddings(1)),
+        patch.object(search_module, "client") as mock_client,
+    ):
         mock_client.query_points.return_value.points = []
         search_module.search_hybrid("test", "RH", top_k=3)
 
@@ -91,15 +90,13 @@ def test_rag_precision_golden_set(case):
     # Détection dynamique du domaine requis par ta fonction search_hybrid
     # Si le fichier attendu contient "Teletravail" ou "RGPD", on cherche en RH, sinon en IT
     domaine = "IT"
-    if expected_file and any(
-        k in expected_file for k in ["Teletravail", "RGPD", "Salarie"]
-    ):
+    if expected_file and any(k in expected_file for k in ["Teletravail", "RGPD", "Salarie"]):
         domaine = "RH"
 
-    with patch(
-        "app.services.search.embed_texts", return_value=fake_embeddings(1)
-    ), patch.object(search_module, "client") as mock_client:
-
+    with (
+        patch("app.services.search.embed_texts", return_value=fake_embeddings(1)),
+        patch.object(search_module, "client") as mock_client,
+    ):
         # On prépare la fausse réponse de Qdrant (query_points)
         mock_response = MagicMock()
         if expected_file:
@@ -123,14 +120,8 @@ def test_rag_precision_golden_set(case):
 
         # Assertions
         if expected_file:
-            assert (
-                len(results) > 0
-            ), f"Le moteur n'a rien renvoyé pour la requête : '{query}'"
-            assert (
-                results[0]["source"] == expected_file
-            ), f"Mauvais document trouvé pour '{query}'"
+            assert len(results) > 0, f"Le moteur n'a rien renvoyé pour la requête : '{query}'"
+            assert results[0]["source"] == expected_file, f"Mauvais document trouvé pour '{query}'"
         else:
             # Si c'est hors-sujet, la liste doit être vide (ou filtrée par ton seuil/threshold)
-            assert (
-                len(results) == 0
-            ), f"Le moteur aurait dû ignorer la requête hors-sujet : '{query}'"
+            assert len(results) == 0, f"Le moteur aurait dû ignorer la requête hors-sujet : '{query}'"

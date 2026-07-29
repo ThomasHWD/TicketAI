@@ -16,9 +16,7 @@ def test_rerank_top_k_respecte():
     with patch("app.services.reranker.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "results": [{"index": 0, "relevance_score": 0.95}]
-        }
+        mock_response.json.return_value = {"results": [{"index": 0, "relevance_score": 0.95}]}
         mock_post.return_value = mock_response
 
         res = rerank("ma question", chunks, top_k=1)
@@ -56,9 +54,7 @@ def test_rerank_contient_rerank_score():
     with patch("app.services.reranker.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "results": [{"index": 0, "relevance_score": 0.88}]
-        }
+        mock_response.json.return_value = {"results": [{"index": 0, "relevance_score": 0.88}]}
         mock_post.return_value = mock_response
 
         res = rerank("ma question", chunks)

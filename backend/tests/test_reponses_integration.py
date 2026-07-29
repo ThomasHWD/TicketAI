@@ -129,9 +129,7 @@ def test_valider_transition_et_increment(client, db_session, validator, auth_hea
 
 def test_valider_atteint_seuil_canonique(client, db_session, validator, auth_header):
     # Une validation de plus doit atteindre le seuil et promouvoir en canonique.
-    _, reponse = seed_ticket_reponse(
-        db_session, nb_validations=settings.seuil_canonique - 1
-    )
+    _, reponse = seed_ticket_reponse(db_session, nb_validations=settings.seuil_canonique - 1)
 
     resp = client.post(
         f"{API}/reponses/{reponse.id}/valider",
@@ -147,9 +145,7 @@ def test_valider_atteint_seuil_canonique(client, db_session, validator, auth_hea
     assert db_session.get(Reponse, reponse.id).canonique is True
 
 
-def test_valider_incremente_la_source_pas_la_copie(
-    client, db_session, validator, auth_header
-):
+def test_valider_incremente_la_source_pas_la_copie(client, db_session, validator, auth_header):
     """Branche SUGGESTION : le compteur monte sur la source, pas sur la copie."""
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", nb_validations=1)
     _, copie = seed_ticket_reponse(db_session, reponse_source_id=source.id)
@@ -165,9 +161,7 @@ def test_valider_incremente_la_source_pas_la_copie(
     assert db_session.get(Reponse, copie.id).nb_validations == 0
 
 
-def test_valider_reponse_source_declenche_reindexation(
-    client, db_session, validator, auth_header, mock_side_effects
-):
+def test_valider_reponse_source_declenche_reindexation(client, db_session, validator, auth_header, mock_side_effects):
     _, reponse = seed_ticket_reponse(db_session)
 
     client.post(
@@ -204,9 +198,7 @@ def test_valider_auto_validation_renvoie_403(client, db_session, auth_header):
     assert resp.status_code == 403
 
 
-def test_valider_ticket_verrouille_par_autre_renvoie_409(
-    client, db_session, validator, auth_header
-):
+def test_valider_ticket_verrouille_par_autre_renvoie_409(client, db_session, validator, auth_header):
     locker = make_user(db_session)
     db_session.commit()
     _, reponse = seed_ticket_reponse(
@@ -342,31 +334,21 @@ def test_editer_contenu_vide_renvoie_400(client, db_session, user_factory, auth_
 # --------------------------------------------------------------------------- #
 # DELETE /reponses/{id}  (réponses canoniques — réservé ADMIN)
 # --------------------------------------------------------------------------- #
-def test_supprimer_non_canonique_renvoie_409(
-    client, db_session, user_factory, auth_header
-):
+def test_supprimer_non_canonique_renvoie_409(client, db_session, user_factory, auth_header):
     admin = user_factory("ADMIN")
     _, reponse = seed_ticket_reponse(db_session, canonique=False)
 
-    resp = client.delete(
-        f"{API}/reponses/{reponse.id}", headers=auth_header(admin)
-    )
+    resp = client.delete(f"{API}/reponses/{reponse.id}", headers=auth_header(admin))
 
     assert resp.status_code == 409
 
 
-def test_supprimer_canonique_detache_les_copies(
-    client, db_session, user_factory, auth_header, mock_side_effects
-):
+def test_supprimer_canonique_detache_les_copies(client, db_session, user_factory, auth_header, mock_side_effects):
     admin = user_factory("ADMIN")
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
-    _, copie = seed_ticket_reponse(
-        db_session, statut="VALIDÉE", canonique=True, reponse_source_id=source.id
-    )
+    _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, reponse_source_id=source.id)
 
-    resp = client.delete(
-        f"{API}/reponses/{source.id}", headers=auth_header(admin)
-    )
+    resp = client.delete(f"{API}/reponses/{source.id}", headers=auth_header(admin))
 
     assert resp.status_code == 200
     # Le point Qdrant est retiré (mock) et la source disparaît de la base.
@@ -381,28 +363,18 @@ def test_supprimer_canonique_detache_les_copies(
     assert reloaded_copie.canonique is False
 
 
-def test_supprimer_canonique_nettoie_les_chunks(
-    client, db_session, user_factory, auth_header
-):
+def test_supprimer_canonique_nettoie_les_chunks(client, db_session, user_factory, auth_header):
     admin = user_factory("ADMIN")
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
-    db_session.add(
-        ReponseChunk(reponse_id=reponse.id, doc_id="doc-1", chunk_index=0)
-    )
+    db_session.add(ReponseChunk(reponse_id=reponse.id, doc_id="doc-1", chunk_index=0))
     db_session.commit()
 
     reponse_id = reponse.id
-    resp = client.delete(
-        f"{API}/reponses/{reponse_id}", headers=auth_header(admin)
-    )
+    resp = client.delete(f"{API}/reponses/{reponse_id}", headers=auth_header(admin))
 
     assert resp.status_code == 200
     db_session.expunge_all()
-    remaining = (
-        db_session.query(ReponseChunk)
-        .filter(ReponseChunk.reponse_id == reponse_id)
-        .count()
-    )
+    remaining = db_session.query(ReponseChunk).filter(ReponseChunk.reponse_id == reponse_id).count()
     assert remaining == 0
 
 
@@ -413,9 +385,7 @@ def test_lister_en_attente_filtre_domaine(client, db_session, auth_headers):
     seed_ticket_reponse(db_session, domaine="IT")
     seed_ticket_reponse(db_session, domaine="RH")
 
-    resp = client.get(
-        f"{API}/reponses/en-attente", params={"domaine": "IT"}, headers=auth_headers
-    )
+    resp = client.get(f"{API}/reponses/en-attente", params={"domaine": "IT"}, headers=auth_headers)
 
     assert resp.status_code == 200
     items = resp.json()
@@ -427,12 +397,8 @@ def test_lister_en_attente_filtre_domaine(client, db_session, auth_headers):
 def test_lister_canoniques_pagination(client, db_session, auth_headers):
     # Une source canonique visible + une copie (source renseignée) qui ne doit PAS
     # apparaître dans la liste.
-    _, source = seed_ticket_reponse(
-        db_session, statut="VALIDÉE", canonique=True, nb_validations=3
-    )
-    seed_ticket_reponse(
-        db_session, statut="VALIDÉE", canonique=True, reponse_source_id=source.id
-    )
+    _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3)
+    seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, reponse_source_id=source.id)
 
     resp = client.get(
         f"{API}/reponses/canoniques",

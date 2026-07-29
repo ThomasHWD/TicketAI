@@ -33,11 +33,7 @@ class SuiviRequest(BaseModel):
 def lock_info(ticket: Ticket, now: datetime | None = None) -> dict:
     """Sérialise l'état du verrou. Un bail expiré est considéré comme libre."""
     now = now or datetime.now(timezone.utc)
-    actif = bool(
-        ticket.locked_by
-        and ticket.lock_expires_at
-        and ticket.lock_expires_at > now
-    )
+    actif = bool(ticket.locked_by and ticket.lock_expires_at and ticket.lock_expires_at > now)
     return {
         "locked_by": str(ticket.locked_by) if actif else None,
         "locked_by_email": ticket.locker.email if actif and ticket.locker else None,
@@ -244,12 +240,7 @@ async def liste_tickets(
                     )
                 )
         total = query.count()
-        tickets = (
-            query.order_by(Ticket.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
+        tickets = query.order_by(Ticket.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
         return {
             "total": total,
             "page": page,
@@ -267,6 +258,7 @@ async def tickets_avec_participation(
     limit: int = 10,
 ):
     from app.models.reponse import Reponse as ReponseModel
+
     db = SessionLocal()
     try:
         base_query = (
@@ -276,12 +268,7 @@ async def tickets_avec_participation(
             .distinct()
         )
         total = base_query.count()
-        tickets = (
-            base_query.order_by(Ticket.created_at.desc())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
-        )
+        tickets = base_query.order_by(Ticket.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
         return {
             "total": total,
             "page": page,
@@ -295,6 +282,7 @@ async def tickets_avec_participation(
 @router.get("/tickets/{ticket_id}/reponses")
 async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
     from app.models.reponse import Reponse as ReponseModel
+
     db = SessionLocal()
     try:
         try:
@@ -305,10 +293,7 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
         reponses = (
-            db.query(ReponseModel)
-            .filter(ReponseModel.ticket_id == tid)
-            .order_by(ReponseModel.created_at.asc())
-            .all()
+            db.query(ReponseModel).filter(ReponseModel.ticket_id == tid).order_by(ReponseModel.created_at.asc()).all()
         )
         return [
             {
@@ -326,7 +311,9 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
                 "validator_email": r.validator.email if r.validator else None,
                 "validator_nom_complet": (
                     f"{r.validator.prenom or ''} {r.validator.nom or ''}".strip() or r.validator.email
-                ) if r.validator else None,
+                )
+                if r.validator
+                else None,
             }
             for r in reponses
         ]
@@ -451,9 +438,7 @@ async def statut_ticket(job_id: str, current_user: CurrentUser):
         if ticket_id:
             db = SessionLocal()
             try:
-                ticket = (
-                    db.query(Ticket).filter(Ticket.id == uuid.UUID(ticket_id)).first()
-                )
+                ticket = db.query(Ticket).filter(Ticket.id == uuid.UUID(ticket_id)).first()
                 if ticket:
                     reponse["statut_ticket"] = ticket.statut_ticket
                     reponse["ticket_id"] = ticket_id

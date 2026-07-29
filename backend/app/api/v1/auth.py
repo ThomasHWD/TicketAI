@@ -53,10 +53,7 @@ def _serialize_user(user: User) -> dict:
         "nom": user.nom,
         "role": user.role,
         "departement": user.departement,
-        "groupes": [
-            {"id": str(g.id), "nom": g.nom, "domaine": g.domaine}
-            for g in user.groupes
-        ],
+        "groupes": [{"id": str(g.id), "nom": g.nom, "domaine": g.domaine} for g in user.groupes],
     }
 
 

@@ -46,9 +46,7 @@ def search_hybrid(question: str, domaine: str, top_k: int = 10) -> list[dict]:
     emb = embeddings[0]
 
     # Filtre strict par domaine : pas de fuite inter-domaines (IT / RH / JURIDIQUE)
-    domaine_filter = Filter(
-        must=[FieldCondition(key="domaine", match=MatchValue(value=domaine))]
-    )
+    domaine_filter = Filter(must=[FieldCondition(key="domaine", match=MatchValue(value=domaine))])
 
     dense_results = client.query_points(
         collection_name=COLLECTION_NAME,
@@ -61,10 +59,7 @@ def search_hybrid(question: str, domaine: str, top_k: int = 10) -> list[dict]:
 
     sparse_results = client.query_points(
         collection_name=COLLECTION_NAME,
-        query=SparseVector(
-            indices=emb["sparse"]["indices"],
-            values=emb["sparse"]["values"]
-        ),
+        query=SparseVector(indices=emb["sparse"]["indices"], values=emb["sparse"]["values"]),
         using="sparse",
         query_filter=domaine_filter,
         limit=top_k,

@@ -434,3 +434,30 @@ export async function setChefGroupe(groupeId: string, userId: string, isChef: bo
   });
   if (!res.ok) throw new Error("Erreur lors de la mise à jour du rôle.");
 }
+
+// ── Configuration du site ────────────────────────────────────────────
+
+export interface BannerConfig {
+  active: boolean;
+  message: string;
+  url: string;
+}
+
+export interface SiteConfigData {
+  banner: BannerConfig;
+}
+
+export async function getSiteConfig(): Promise<SiteConfigData> {
+  const res = await apiFetch(`${BASE_URL}/admin/config`);
+  if (!res.ok) throw new Error("Erreur chargement configuration");
+  return res.json();
+}
+
+export async function setSiteConfig(key: string, value: unknown): Promise<void> {
+  const res = await apiFetch(`${BASE_URL}/admin/config/${key}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ value }),
+  });
+  if (!res.ok) throw new Error("Erreur mise à jour configuration");
+}
