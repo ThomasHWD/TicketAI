@@ -33,16 +33,13 @@ def verifier_etat_initial(reponse: Reponse):
     if reponse.statut in ETATS_FINAUX:
         raise HTTPException(
             409,
-            f"Réponse déjà traitée (statut={reponse.statut}). "
-            f"Seules les réponses EN_ATTENTE peuvent être traitées.",
+            f"Réponse déjà traitée (statut={reponse.statut}). Seules les réponses EN_ATTENTE peuvent être traitées.",
         )
 
 
 def verifier_auto_validation(reponse: Reponse, validator_id: uuid.UUID, ticket: Ticket):
     if ticket and ticket.user_id and ticket.user_id == validator_id:
-        raise HTTPException(
-            403, "Un validateur ne peut pas traiter ses propres tickets."
-        )
+        raise HTTPException(403, "Un validateur ne peut pas traiter ses propres tickets.")
 
 
 def verifier_verrou(ticket: Ticket, validator_id: uuid.UUID):
@@ -93,9 +90,7 @@ async def valider_reponse(reponse_id: str, current_user: CurrentUser):
         # Increment the number of validations
         if reponse.reponse_source_id:
             # Incrémenter sur la réponse SOURCE, pas sur la réponse courante
-            reponse_source = db.query(Reponse).filter(
-                Reponse.id == reponse.reponse_source_id
-            ).first()
+            reponse_source = db.query(Reponse).filter(Reponse.id == reponse.reponse_source_id).first()
             if reponse_source:
                 reponse_source.nb_validations += 1
                 if reponse_source.nb_validations >= settings.seuil_canonique:
@@ -123,11 +118,7 @@ async def valider_reponse(reponse_id: str, current_user: CurrentUser):
             "nb_validations": reponse.nb_validations,
             "canonique": reponse.canonique,
             "validated_at": reponse.validated_at.isoformat(),
-            "message": (
-                "Réponse validée et indexée comme canonique."
-                if reponse.canonique
-                else "Réponse validée."
-            ),
+            "message": ("Réponse validée et indexée comme canonique." if reponse.canonique else "Réponse validée."),
         }
     finally:
         db.close()
@@ -159,9 +150,7 @@ async def rejeter_reponse(
 
         db.commit()
 
-        print(
-            f"[VALIDATION] ❌ Réponse {reponse_id} rejetée par {current_user.id}"
-        )
+        print(f"[VALIDATION] ❌ Réponse {reponse_id} rejetée par {current_user.id}")
 
         return {
             "reponse_id": reponse_id,
@@ -204,9 +193,7 @@ async def corriger_reponse(
         db.commit()
 
         # Feedback job to reindex the validated response in Qdrant
-        print(
-            f"[CORRECTION] ✏️  Réponse {reponse_id} corrigée et en cours d'indexation dans Qdrant."
-        )
+        print(f"[CORRECTION] ✏️  Réponse {reponse_id} corrigée et en cours d'indexation dans Qdrant.")
         feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
 
         return {
@@ -284,10 +271,7 @@ async def lister_reponses_canoniques(
 
         total = query.count()
         resultats = (
-            query.order_by(Reponse.validated_at.desc().nullslast())
-            .offset((page - 1) * limit)
-            .limit(limit)
-            .all()
+            query.order_by(Reponse.validated_at.desc().nullslast()).offset((page - 1) * limit).limit(limit).all()
         )
 
         return {
@@ -307,9 +291,7 @@ async def lister_reponses_canoniques(
                     "contenu_corrige": r.contenu_corrige,
                     "nb_validations": r.nb_validations,
                     "occurence": t.occurence,
-                    "validated_at": r.validated_at.isoformat()
-                    if r.validated_at
-                    else None,
+                    "validated_at": r.validated_at.isoformat() if r.validated_at else None,
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                 }
                 for r, t in resultats
@@ -333,9 +315,7 @@ async def editer_reponse_canonique(
         reponse = get_reponse_or_404(db, reponse_id)
 
         if not reponse.canonique:
-            raise HTTPException(
-                409, "Seules les réponses canoniques peuvent être éditées ici."
-            )
+            raise HTTPException(409, "Seules les réponses canoniques peuvent être éditées ici.")
 
         if not payload.contenu.strip():
             raise HTTPException(400, "Le contenu ne peut pas être vide.")
@@ -366,25 +346,19 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: AdminUser):
         reponse = get_reponse_or_404(db, reponse_id)
 
         if not reponse.canonique:
-            raise HTTPException(
-                409, "Seules les réponses canoniques peuvent être supprimées ici."
-            )
+            raise HTTPException(409, "Seules les réponses canoniques peuvent être supprimées ici.")
 
         # 1. Retrait du point Qdrant (plus de match CANONIQUE/SUGGESTION).
         delete_response_point(reponse_id)
 
         # 2. Chunks liés (pas de cascade en base).
-        db.query(ReponseChunk).filter(
-            ReponseChunk.reponse_id == reponse.id
-        ).delete(synchronize_session=False)
+        db.query(ReponseChunk).filter(ReponseChunk.reponse_id == reponse.id).delete(synchronize_session=False)
 
         # 3. Détacher les copies (réutilisations) qui pointent sur cette source.
         #    On retire aussi leur flag `canonique` : sinon, une fois orphelines
         #    (reponse_source_id NULL), elles réapparaîtraient comme des sources
         #    dans la liste des réponses canoniques.
-        db.query(Reponse).filter(
-            Reponse.reponse_source_id == reponse.id
-        ).update(
+        db.query(Reponse).filter(Reponse.reponse_source_id == reponse.id).update(
             {"reponse_source_id": None, "canonique": False},
             synchronize_session=False,
         )

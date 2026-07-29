@@ -30,18 +30,14 @@ _CREDENTIALS_EXC = HTTPException(
 
 def create_access_token(user_id: uuid.UUID | str, role: str) -> str:
     """Émet un JWT signé pour l'utilisateur donné."""
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.access_token_expire_minutes
-    )
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {"sub": str(user_id), "role": role, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
 def decode_token(token: str) -> dict:
     """Décode et vérifie la signature/expiration d'un JWT. Lève ``JWTError`` sinon."""
-    return jwt.decode(
-        token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
-    )
+    return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
 
 
 def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> User:

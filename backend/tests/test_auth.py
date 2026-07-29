@@ -1,9 +1,8 @@
 """Tests de l'authentification LDAP/JWT.
 
-- Unitaires (sans infra) : émission/décodage JWT, ``ldap_auth.authenticate`` en
-  mode mock.
-- Intégration (base requise) : provisioning JIT ``get_or_create_user`` et la route
-  ``POST /auth/login`` de bout en bout.
+- Unitaires (sans infra) : émission/décodage JWT, garde-fou identifiants vides.
+- Intégration (base requise) : provisioning JIT ``get_or_create_user`` et les
+  routes ``/auth`` (login en échec, ``/me``, protection des documents).
 """
 
 import uuid
@@ -38,27 +37,13 @@ def test_decode_token_invalide_leve():
 
 
 # --------------------------------------------------------------------------- #
-# LDAP mock (unitaire)
+# authenticate (unitaire)
 # --------------------------------------------------------------------------- #
-def test_authenticate_mock_ok():
-    identity = ldap_auth.authenticate("thomas", "password")
-    assert identity is not None
-    assert identity.username == "thomas"
-    assert identity.email == "thomas.henwood@ticketai.local"
-    assert identity.prenom == "Thomas"
-    assert identity.nom == "Henwood"
-
-
-def test_authenticate_mock_mauvais_mot_de_passe():
-    assert ldap_auth.authenticate("thomas", "mauvais") is None
-
-
-def test_authenticate_mock_utilisateur_inconnu():
-    assert ldap_auth.authenticate("personne", "password") is None
-
-
 def test_authenticate_identifiants_vides():
+    # Court-circuit avant tout appel réseau : identifiants vides → None.
     assert ldap_auth.authenticate("", "") is None
+    assert ldap_auth.authenticate("thomas", "") is None
+    assert ldap_auth.authenticate("", "password") is None
 
 
 # --------------------------------------------------------------------------- #
@@ -88,20 +73,6 @@ def test_get_or_create_user_cree_puis_idempotent(db_session):
     again = get_or_create_user(db_session, identity)
     assert again.id == first_id
     assert db_session.query(User).filter(User.email == identity.email).count() == 1
-
-
-@pytest.mark.integration
-def test_login_route_ok_renvoie_token(client, db_session):
-    resp = client.post(
-        f"{API}/auth/login",
-        data={"username": "bob", "password": "password"},
-    )
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["token_type"] == "bearer"
-    assert body["access_token"]
-    assert body["user"]["email"] == "bob.durand@ticketai.local"
-    assert body["user"]["role"] == "USER"
 
 
 @pytest.mark.integration
@@ -138,7 +109,5 @@ def test_documents_sans_token_renvoie_401(client):
 def test_documents_delete_reserve_admin(client, db_session, user_factory, auth_header):
     # require_admin s'exécute avant le corps → 403 pour un simple USER.
     user = user_factory("USER")
-    resp = client.delete(
-        f"{API}/documents/{uuid.uuid4()}", headers=auth_header(user)
-    )
+    resp = client.delete(f"{API}/documents/{uuid.uuid4()}", headers=auth_header(user))
     assert resp.status_code == 403

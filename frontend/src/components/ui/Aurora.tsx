@@ -251,7 +251,6 @@ export default function Aurora({
       cancelAnimationFrame(animateId);
       window.removeEventListener("resize", resize);
       if (canvas.parentNode === ctn) ctn.removeChild(canvas);
-      gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
