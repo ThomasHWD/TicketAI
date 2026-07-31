@@ -392,10 +392,12 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
 
     # ── Stats fonctionnelles ─────────────────────────────────────────
     from datetime import datetime, timedelta, timezone
+
     from sqlalchemy import distinct
-    from app.models.ticket import Ticket
+
     from app.models.reponse import Reponse
     from app.models.reponse_chunk import ReponseChunk
+    from app.models.ticket import Ticket
 
     # Nombre de documents (doc_id distincts dans reponse_chunks)
     nb_documents = db.query(distinct(ReponseChunk.doc_id)).count()
@@ -518,6 +520,7 @@ def _scan_document_incidents() -> list[DocumentIncident]:
 @router.get("/incidents", response_model=IncidentsResponse)
 def get_incidents(_: AdminUser, db: DB) -> IncidentsResponse:
     from datetime import datetime, timedelta, timezone
+
     from app.models.ticket import Ticket
 
     echoues = (
