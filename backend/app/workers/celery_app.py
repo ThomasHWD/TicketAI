@@ -21,6 +21,7 @@ celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     worker_max_tasks_per_child=1000,
+    result_extended=True,
     task_queues={
         "queue_questions": {"exchange": "queue_questions"},
         "queue_ingestion": {"exchange": "queue_ingestion"},
