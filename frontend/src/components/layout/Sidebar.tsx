@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../lib/auth";
 import GlassSurface from "@@/components/GlassSurface";
 import TicketAIMark from "../../assets/ticketai_mark.svg";
@@ -17,6 +18,7 @@ import {
   Users,
   SlidersHorizontal,
 } from "lucide-react";
+import { getIncidents } from "../../lib/api";
 
 const navMain = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
@@ -49,11 +51,13 @@ function NavItem({
   icon: Icon,
   label,
   collapsed,
+  badge,
 }: {
   to: string;
   icon: React.ElementType;
   label: string;
   collapsed: boolean;
+  badge?: boolean;
 }) {
   return (
     <NavLink
@@ -70,7 +74,12 @@ function NavItem({
         }`
       }
     >
-      <Icon size={18} className="shrink-0" />
+      <span className="relative shrink-0">
+        <Icon size={18} />
+        {badge && (
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
+        )}
+      </span>
       <span
         className={`whitespace-nowrap transition-all duration-300 ease-in-out ${
           collapsed
@@ -91,6 +100,19 @@ interface SidebarProps {
 export default function Sidebar({ collapsed }: SidebarProps) {
   const { user, userDomaines } = useAuth();
   const greetingName = user?.prenom || user?.email || "";
+
+  const { data: incidents } = useQuery({
+    queryKey: ["admin-incidents"],
+    queryFn: getIncidents,
+    enabled: user?.role === "ADMIN",
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  const hasIncidents =
+    (incidents?.tickets_echoues.length ?? 0) +
+    (incidents?.tickets_bloques.length ?? 0) +
+    (incidents?.documents_echoues.length ?? 0) > 0;
   return (
     <aside
       className={`relative flex flex-col shrink-0 overflow-hidden
@@ -147,7 +169,12 @@ export default function Sidebar({ collapsed }: SidebarProps) {
               Administration
             </p>
             {navAdmin.map((item) => (
-              <NavItem key={item.to} {...item} collapsed={collapsed} />
+              <NavItem
+                key={item.to}
+                {...item}
+                collapsed={collapsed}
+                badge={item.to === "/admin/config" && hasIncidents}
+              />
             ))}
           </nav>
         </>
