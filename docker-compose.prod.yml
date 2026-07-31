@@ -1,0 +1,62 @@
+services:
+  backend:
+    build: ./backend
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
+    volumes:
+      - documents_storage:/app/storage
+    env_file: ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      QDRANT_HOST: qdrant
+      VALKEY_HOST: valkey
+      DOCUMENTS_STORAGE_PATH: /app/storage
+    depends_on:
+      - postgres
+      - qdrant
+      - valkey
+    restart: unless-stopped
+
+  worker_ingestion:
+    build: ./backend
+    command: celery -A app.workers.celery_app worker -Q queue_ingestion -c 2 -l info
+    volumes:
+      - documents_storage:/app/storage
+    env_file: ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      QDRANT_HOST: qdrant
+      VALKEY_HOST: valkey
+      DOCUMENTS_STORAGE_PATH: /app/storage
+    depends_on:
+      - postgres
+      - qdrant
+      - valkey
+    restart: unless-stopped
+
+  worker_questions:
+    build: ./backend
+    command: celery -A app.workers.celery_app worker -Q queue_questions -c 4 -l info
+    env_file: ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      QDRANT_HOST: qdrant
+      VALKEY_HOST: valkey
+    depends_on:
+      - postgres
+      - qdrant
+      - valkey
+    restart: unless-stopped
+
+  # Nginx embarqué dans l'image frontend (multi-stage build)
+  # Sert le build React ET proxie /api vers backend
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
