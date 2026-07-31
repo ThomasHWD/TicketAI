@@ -346,7 +346,6 @@ def test_incidents_champs_ticket(client, admin_headers, ticket_factory):
 
 @pytest.mark.integration
 def test_retry_ticket_echoue(client, admin_headers, ticket_factory, db_session):
-    from app.models.ticket import Ticket
 
     t = ticket_factory(statut_job="ÉCHOUÉ")
 
