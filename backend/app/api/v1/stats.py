@@ -1,7 +1,7 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Query
-from sqlalchemy import cast, Date, exists, extract, func, or_
+from sqlalchemy import Date, cast, exists, extract, func, or_
 
 from app.core.security import CurrentUser
 from app.database import SessionLocal
@@ -288,7 +288,8 @@ def get_dashboard_stats(
             )
             traitement_dict = {str(d): c for d, c in traitement_rows}
             traitement_par_jour = [
-                {"date": str(today - timedelta(days=i)), "count": traitement_dict.get(str(today - timedelta(days=i)), 0)}
+                {"date": str(today - timedelta(days=i)),\
+                    "count": traitement_dict.get(str(today - timedelta(days=i)), 0)}
                 for i in range(nb_days - 1, -1, -1)
             ]
 
