@@ -8,10 +8,9 @@ import { AuthProvider } from './lib/auth'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Rafraîchissement « temps réel » pour refléter l'état des verrous.
       refetchInterval: 4000,
-      refetchOnWindowFocus: true,
-      staleTime: 2000,
+      refetchOnWindowFocus: false,
+      staleTime: 4000,
     },
   },
 })

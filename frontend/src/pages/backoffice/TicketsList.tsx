@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, UserCheck } from "lucide-react";
 import { getTickets } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import type { Ticket, StatutTicket } from "../../types.ts";
@@ -65,7 +65,7 @@ export default function TicketsList() {
 
   const { data, isLoading: loading, error } = useQuery({
     queryKey: ["tickets", "open", page, userDomaines],
-    queryFn: () => getTickets({ page, limit: LIMIT, closed: false, domaines: userDomaines }),
+    queryFn: () => getTickets({ page, limit: LIMIT, closed: false, domaines: userDomaines, disponibles: true }),
     placeholderData: (prev) => prev,
   });
 
@@ -158,7 +158,18 @@ export default function TicketsList() {
                     {formatDate(t.created_at)}
                   </td>
                   <td className="px-6 py-4">
-                    <StatutBadge statut={t.statut_ticket as StatutTicket} canonique={t.canonique} closed={!!t.closed_at} processing={isProcessing(t.statut_job)} />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <StatutBadge statut={t.statut_ticket as StatutTicket} canonique={t.canonique} closed={!!t.closed_at} processing={isProcessing(t.statut_job)} />
+                      {t.assigned_to && (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/20"
+                          title={`Assigné à ${t.assigned_to_nom_complet ?? t.assigned_to_email ?? "un validateur"}`}
+                        >
+                          <UserCheck size={10} aria-hidden="true" />
+                          {t.assigned_to_nom_complet ?? t.assigned_to_email ?? "Assigné"}
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
                 );

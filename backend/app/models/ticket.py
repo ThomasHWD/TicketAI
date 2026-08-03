@@ -36,6 +36,9 @@ class Ticket(Base):
     locked_at = Column(DateTime(timezone=True), nullable=True)
     lock_expires_at = Column(DateTime(timezone=True), nullable=True)
 
+    assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
     reponses = relationship("Reponse", back_populates="ticket")
     user = relationship("User", foreign_keys=[user_id])
     locker = relationship("User", foreign_keys=[locked_by])
+    assignee = relationship("User", foreign_keys=[assigned_to])
