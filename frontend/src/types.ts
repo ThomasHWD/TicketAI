@@ -43,6 +43,17 @@ export interface DocumentStatus {
   erreur?: string;
 }
 
+export interface Notification {
+  id: string;
+  ticket_id: string;
+  reponse_id: string | null;
+  type: "REPONSE_VALIDEE";
+  read_at: string | null;
+  created_at: string | null;
+  ticket_objet: string | null;
+  ticket_question: string | null;
+}
+
 export type StatutTicket = "NOUVEAU" | "RÉPONDU" | "VALIDÉ" | "REJETÉ";
 
 export type StatutReponse = "EN_ATTENTE" | "VALIDÉE" | "REJETÉE" | "CORRIGÉE";
@@ -70,6 +81,10 @@ export interface Ticket {
   locked_by: string | null;
   locked_by_email: string | null;
   lock_expires_at: string | null;
+  // Assignation à un validateur spécifique
+  assigned_to: string | null;
+  assigned_to_email: string | null;
+  assigned_to_nom_complet: string | null;
 }
 
 export interface LockState {

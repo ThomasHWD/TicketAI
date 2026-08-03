@@ -11,6 +11,7 @@ import {
   Sparkles,
   ThumbsUp,
   User,
+  UserPlus,
   X,
 } from "lucide-react";
 import {
@@ -19,8 +20,13 @@ import {
   corrigerReponse,
   validerReponse,
   LockConflictError,
+  getValidateursByDomaine,
+  assignTicket,
+  unassignTicket,
 } from "../../lib/api";
+import type { MembreGroupe } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
+import { useAuth } from "../../lib/auth";
 import { useTicketLock } from "../../hooks/useTicketLock";
 import type { TicketReponse, StatutTicket, StatutReponse } from "../../types.ts";
 
@@ -288,6 +294,10 @@ export default function TicketDetail() {
   const queryClient = useQueryClient();
 
   const { isMine, lockedByEmail, checking } = useTicketLock(id);
+  const { user: currentUser } = useAuth();
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [selectedAssignee, setSelectedAssignee] = useState("");
 
   const ticketQuery = useQuery({
     queryKey: ["ticket", id],
@@ -306,8 +316,29 @@ export default function TicketDetail() {
   const loading = ticketQuery.isLoading || reponsesQuery.isLoading;
   const error = ticketQuery.error || reponsesQuery.error;
 
+  const validateursQuery = useQuery<MembreGroupe[]>({
+    queryKey: ["validateurs", ticket?.domaine],
+    queryFn: () => getValidateursByDomaine(ticket!.domaine),
+    enabled: !!ticket && isMine,
+    staleTime: 60_000,
+  });
+
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["ticket", id] });
+    queryClient.invalidateQueries({ queryKey: ["mes-assignations"] });
+  }
+
+  async function handleAssignAction(action: () => Promise<unknown>) {
+    setAssignLoading(true); setAssignError(null);
+    try {
+      await action();
+      setSelectedAssignee("");
+      refresh();
+    } catch (e) {
+      setAssignError(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setAssignLoading(false);
+    }
   }
 
   const readOnly = !isMine;
@@ -334,6 +365,7 @@ export default function TicketDetail() {
   const userEmail = ticket.user_email;
   const userName = ticket.user_nom_complet || userEmail;
   const userInitial = userName ? userName[0].toUpperCase() : "U";
+  const assigneeInitial = (ticket.assigned_to_nom_complet ?? ticket.assigned_to_email ?? "V")[0].toUpperCase();
 
   return (
     <div className="p-6 space-y-4 max-w-6xl">
@@ -493,6 +525,81 @@ export default function TicketDetail() {
               </a>
             )}
           </div>
+
+          {/* Assignation */}
+          {!ticket.closed_at && (
+            <div className="glass-card rounded-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <UserPlus size={13} className="text-gray-400 dark:text-gray-500" aria-hidden="true" />
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Assignation</p>
+              </div>
+
+              {isMine ? (
+                ticket.assigned_to ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 shrink-0 text-sm font-semibold ring-2 ring-white dark:ring-white/10">
+                        {assigneeInitial}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                          {ticket.assigned_to_nom_complet ?? ticket.assigned_to_email ?? "Validateur"}
+                        </p>
+                        {ticket.assigned_to_email && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{ticket.assigned_to_email}</p>
+                        )}
+                      </div>
+                    </div>
+                    {assignError && <p className="text-xs text-red-600 dark:text-red-400">{assignError}</p>}
+                    <button
+                      onClick={() => handleAssignAction(() => unassignTicket(ticket.id))}
+                      disabled={assignLoading}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
+                    >
+                      <X size={12} aria-hidden="true" /> Remettre dans le pot commun
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <select
+                      value={selectedAssignee}
+                      onChange={(e) => setSelectedAssignee(e.target.value)}
+                      disabled={assignLoading}
+                      className="w-full text-sm text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-40"
+                    >
+                      <option value="">Assigner à…</option>
+                      {(validateursQuery.data ?? [])
+                        .filter((v) => v.id !== currentUser?.id)
+                        .map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {[v.prenom, v.nom].filter(Boolean).join(" ") || v.email}
+                          </option>
+                        ))}
+                    </select>
+                    {assignError && <p className="text-xs text-red-600 dark:text-red-400">{assignError}</p>}
+                    <button
+                      onClick={() => handleAssignAction(() => assignTicket(ticket.id, selectedAssignee))}
+                      disabled={assignLoading || !selectedAssignee}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
+                    >
+                      <UserPlus size={12} aria-hidden="true" /> Assigner
+                    </button>
+                  </div>
+                )
+              ) : ticket.assigned_to ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 shrink-0 text-xs font-semibold">
+                    {assigneeInitial}
+                  </span>
+                  <p className="text-sm text-gray-700 dark:text-gray-200 truncate">
+                    {ticket.assigned_to_nom_complet ?? ticket.assigned_to_email ?? "Validateur"}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 dark:text-gray-500">Non assigné</p>
+              )}
+            </div>
+          )}
 
         </div>
       </div>

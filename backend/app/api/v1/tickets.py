@@ -4,12 +4,14 @@ from datetime import datetime, timedelta, timezone
 from celery.result import AsyncResult
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import or_
+from sqlalchemy import exists, or_
+from sqlalchemy.orm import joinedload
 
 from app.config import settings
 from app.core.security import CurrentUser
 from app.database import SessionLocal
 from app.models.groupe import Groupe
+from app.models.groupe import user_groups as ug_table
 from app.models.ticket import Ticket
 from app.workers.celery_app import celery_app
 from app.workers.question import question_job
@@ -28,6 +30,10 @@ class QuestionRequest(BaseModel):
 
 class SuiviRequest(BaseModel):
     question: str
+
+
+def _full_name(user) -> str | None:
+    return " ".join(filter(None, [user.prenom, user.nom])) or None if user else None
 
 
 def lock_info(ticket: Ticket, now: datetime | None = None) -> dict:
@@ -51,12 +57,15 @@ def _serialize_ticket(ticket: Ticket) -> dict:
         "statut_job": ticket.statut_job,
         "user_id": str(ticket.user_id) if ticket.user_id else None,
         "user_email": ticket.user.email if ticket.user else None,
-        "user_nom_complet": " ".join(filter(None, [ticket.user.prenom, ticket.user.nom])) if ticket.user else None,
+        "user_nom_complet": _full_name(ticket.user),
         "user_departement": ticket.user.departement if ticket.user else None,
         "canonique": ticket.canonique,
         "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
         "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
         **lock_info(ticket),
+        "assigned_to": str(ticket.assigned_to) if ticket.assigned_to else None,
+        "assigned_to_email": ticket.assignee.email if ticket.assignee else None,
+        "assigned_to_nom_complet": _full_name(ticket.assignee),
     }
 
 
@@ -207,6 +216,7 @@ async def liste_tickets(
     user_id: str | None = None,
     closed: bool | None = None,
     search: str | None = None,
+    disponibles: bool | None = None,
 ):
     db = SessionLocal()
     try:
@@ -216,6 +226,14 @@ async def liste_tickets(
             query = query.filter(Ticket.domaine.in_(domaine_list))
         elif domaine:
             query = query.filter(Ticket.domaine == domaine.upper())
+        if disponibles:
+            # Exclut les tickets assignés à quelqu'un d'autre que l'utilisateur courant
+            query = query.filter(
+                or_(
+                    Ticket.assigned_to.is_(None),
+                    Ticket.assigned_to == current_user.id,
+                )
+            )
         if statut:
             query = query.filter(Ticket.statut_ticket == statut.upper())
         if closed is True:
@@ -247,6 +265,87 @@ async def liste_tickets(
             "limit": limit,
             "items": [_serialize_ticket(t) for t in tickets],
         }
+    finally:
+        db.close()
+
+
+@router.get("/tickets/mes-assignations")
+async def mes_assignations(current_user: CurrentUser):
+    """Tickets ouverts assignés à l'utilisateur courant (pour la cloche de notifications)."""
+    db = SessionLocal()
+    try:
+        tickets = (
+            db.query(Ticket)
+            .filter(Ticket.assigned_to == current_user.id, Ticket.closed_at.is_(None))
+            .order_by(Ticket.created_at.desc())
+            .all()
+        )
+        return [_serialize_ticket(t) for t in tickets]
+    finally:
+        db.close()
+
+
+@router.get("/tickets/domaines/{domaine}/validateurs")
+async def validateurs_par_domaine(domaine: str, _: CurrentUser):
+    """Liste les membres du groupe pour un domaine donné (tout utilisateur authentifié)."""
+    db = SessionLocal()
+    try:
+        groupe = (
+            db.query(Groupe)
+            .options(joinedload(Groupe.membres))
+            .filter(Groupe.domaine == domaine.upper())
+            .first()
+        )
+        if not groupe:
+            return []
+        return [
+            {"id": str(u.id), "email": u.email, "prenom": u.prenom, "nom": u.nom}
+            for u in groupe.membres
+        ]
+    finally:
+        db.close()
+
+
+class AssignerRequest(BaseModel):
+    assignee_id: uuid.UUID
+
+
+@router.post("/tickets/{ticket_id}/assigner")
+async def assigner_ticket(ticket_id: str, payload: AssignerRequest, _: CurrentUser):
+    """Assigne le ticket à un validateur du même domaine."""
+    tid = _parse_ticket_id(ticket_id)
+    db = SessionLocal()
+    try:
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            raise HTTPException(404, "Ticket introuvable")
+        is_member = db.query(
+            exists()
+            .where(Groupe.domaine == ticket.domaine)
+            .where(ug_table.c.groupe_id == Groupe.id)
+            .where(ug_table.c.user_id == payload.assignee_id)
+        ).scalar()
+        if not is_member:
+            raise HTTPException(422, "L'assigné n'appartient pas au domaine du ticket")
+        ticket.assigned_to = payload.assignee_id
+        db.commit()
+        return _serialize_ticket(ticket)
+    finally:
+        db.close()
+
+
+@router.post("/tickets/{ticket_id}/desassigner")
+async def desassigner_ticket(ticket_id: str, _: CurrentUser):
+    """Remet le ticket dans le pot commun (supprime l'assignation)."""
+    tid = _parse_ticket_id(ticket_id)
+    db = SessionLocal()
+    try:
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            raise HTTPException(404, "Ticket introuvable")
+        ticket.assigned_to = None
+        db.commit()
+        return _serialize_ticket(ticket)
     finally:
         db.close()
 
@@ -309,11 +408,7 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
                 "score_similarite": r.score_similarite,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
                 "validator_email": r.validator.email if r.validator else None,
-                "validator_nom_complet": (
-                    f"{r.validator.prenom or ''} {r.validator.nom or ''}".strip() or r.validator.email
-                )
-                if r.validator
-                else None,
+                "validator_nom_complet": _full_name(r.validator) or (r.validator.email if r.validator else None),
             }
             for r in reponses
         ]
