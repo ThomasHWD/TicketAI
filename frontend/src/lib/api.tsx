@@ -1,4 +1,5 @@
 import type {
+  Notification,
   Ticket,
   TicketsResponse,
   TicketReponse,
@@ -19,6 +20,7 @@ import type {
   IndexedDocumentsResponse,
   DocumentChunksResponse,
 } from "../types.ts";
+import type { UserSummary } from "../types/index.tsx";
 
 const BASE_URL = "/api/v1";
 
@@ -191,6 +193,7 @@ export async function getTickets(params?: {
   userId?: string;
   closed?: boolean;
   search?: string;
+  disponibles?: boolean;
 }): Promise<TicketsResponse> {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
@@ -201,6 +204,7 @@ export async function getTickets(params?: {
   if (params?.userId) query.set("user_id", params.userId);
   if (params?.closed !== undefined) query.set("closed", String(params.closed));
   if (params?.search) query.set("search", params.search);
+  if (params?.disponibles) query.set("disponibles", "true");
   const res = await apiFetch(`${BASE_URL}/tickets?${query}`);
   if (!res.ok) throw new Error("Erreur chargement tickets");
   return res.json();
@@ -560,4 +564,55 @@ export function downloadDocumentUrl(taskId: string): string {
 export async function deleteDocumentIncident(taskId: string): Promise<void> {
   const res = await apiFetch(`${BASE_URL}/admin/documents/${taskId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Erreur lors de la suppression");
+}
+
+// ── Assignation ────────────────────────────────────────────────────────────────
+
+export type MembreGroupe = Pick<UserSummary, "id" | "email" | "prenom" | "nom">;
+
+export async function getValidateursByDomaine(domaine: string): Promise<MembreGroupe[]> {
+  const res = await apiFetch(`${BASE_URL}/tickets/domaines/${domaine}/validateurs`);
+  if (!res.ok) throw new Error("Erreur chargement validateurs");
+  return res.json();
+}
+
+export async function assignTicket(ticketId: string, assigneeId: string): Promise<Ticket> {
+  const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}/assigner`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ assignee_id: assigneeId }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { detail?: string }).detail ?? "Erreur lors de l'assignation");
+  }
+  return res.json();
+}
+
+export async function unassignTicket(ticketId: string): Promise<Ticket> {
+  const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}/desassigner`, { method: "POST" });
+  if (!res.ok) throw new Error("Erreur lors de la désassignation");
+  return res.json();
+}
+
+export async function getMyAssignedTickets(): Promise<Ticket[]> {
+  const res = await apiFetch(`${BASE_URL}/tickets/mes-assignations`);
+  if (!res.ok) throw new Error("Erreur chargement assignations");
+  return res.json();
+}
+
+// ── Notifications ──────────────────────────────────────────────────────────────
+
+export async function getNotifications(): Promise<Notification[]> {
+  const res = await apiFetch(`${BASE_URL}/notifications`);
+  if (!res.ok) throw new Error("Erreur chargement notifications");
+  return res.json();
+}
+
+export async function marquerNotificationLue(id: string): Promise<void> {
+  await apiFetch(`${BASE_URL}/notifications/${id}/lire`, { method: "POST" });
+}
+
+export async function toutMarquerLu(): Promise<void> {
+  await apiFetch(`${BASE_URL}/notifications/tout-lire`, { method: "POST" });
 }

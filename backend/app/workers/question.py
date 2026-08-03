@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import SessionLocal
+from app.models.notification import Notification
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
@@ -231,6 +232,14 @@ def _servir_reutilisation(
         ticket_source = db.query(Ticket).filter(Ticket.id == reponse_liee.ticket_id).first()
         if ticket_source:
             ticket_source.occurence += 1
+
+        if ticket.user_id:
+            db.add(Notification(
+                user_id=ticket.user_id,
+                ticket_id=ticket.id,
+                reponse_id=reponse.id,
+                type="REPONSE_VALIDEE",
+            ))
         db.commit()
 
         return {

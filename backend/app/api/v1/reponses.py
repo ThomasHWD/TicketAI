@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from app.config import settings
 from app.core.security import AdminUser, CurrentUser
 from app.database import SessionLocal
+from app.models.notification import Notification
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
@@ -18,6 +19,20 @@ from app.services.qdrant import delete_response_point
 from app.workers.feedback import feedback_job
 
 router = APIRouter()
+
+
+def _notifier_employe(db, ticket: Ticket, reponse_id: str, validator_id: uuid.UUID) -> None:
+    """Crée une notification pour l'employé propriétaire du ticket, sauf auto-validation."""
+    if not ticket or not ticket.user_id:
+        return
+    if ticket.user_id == validator_id:
+        return
+    db.add(Notification(
+        user_id=ticket.user_id,
+        ticket_id=ticket.id,
+        reponse_id=uuid.UUID(reponse_id),
+        type="REPONSE_VALIDEE",
+    ))
 
 ETATS_FINAUX = {"REJETÉE", "CORRIGÉE", "CANONIQUE"}
 
@@ -101,6 +116,7 @@ async def valider_reponse(reponse_id: str, current_user: CurrentUser):
             if reponse.nb_validations >= settings.seuil_canonique:
                 reponse.canonique = True
 
+        _notifier_employe(db, ticket, reponse_id, current_user.id)
         db.commit()
 
         # Feedback job : réindexe la réponse validée dans Qdrant dès la 1re validation
@@ -190,6 +206,7 @@ async def corriger_reponse(
             ticket.statut_ticket = "VALIDÉ"
             liberer_verrou(ticket)
 
+        _notifier_employe(db, ticket, reponse_id, current_user.id)
         db.commit()
 
         # Feedback job to reindex the validated response in Qdrant
