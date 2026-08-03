@@ -121,6 +121,7 @@ async def upload_document(
     # Push job Celery
     job = ingestion_job.apply_async(
         args=[file_path, filename, domaine, description.strip(), content_hash],
+        kwargs={"uploaded_by": str(current_user.id)},
         queue="queue_ingestion",
     )
 

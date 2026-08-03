@@ -8,6 +8,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct, SparseVector
 
 from app.config import settings
+from app.database import SessionLocal
+from app.models.document_upload import DocumentUpload
 from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
@@ -92,7 +94,15 @@ def store_file(tmp_path: str, doc_id: str, filename: str) -> str:
     default_retry_delay=60,
     queue="queue_ingestion",
 )
-def ingestion_job(self, file_path: str, filename: str, domaine: str, description: str = "", content_hash: str = ""):
+def ingestion_job(  # noqa: PLR0912
+    self,
+    file_path: str,
+    filename: str,
+    domaine: str,
+    description: str = "",
+    content_hash: str = "",
+    uploaded_by: str | None = None,
+):
     doc_id = str(uuid.uuid4())
     stored_path = None
 
@@ -135,6 +145,7 @@ def ingestion_job(self, file_path: str, filename: str, domaine: str, description
                         "stored_path": stored_path,
                         "description": description,
                         "content_hash": content_hash,
+                        "uploaded_by": uploaded_by,
                     },
                 )
             )
@@ -153,6 +164,20 @@ def ingestion_job(self, file_path: str, filename: str, domaine: str, description
             points=Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]),
         )
         print("[INGESTION] stored_path mis à jour dans Qdrant")
+
+        # Étape 7 — Traçabilité de l'upload en base
+        import uuid as _uuid
+        db = SessionLocal()
+        try:
+            db.add(DocumentUpload(
+                doc_id=doc_id,
+                user_id=_uuid.UUID(uploaded_by) if uploaded_by else None,
+                domaine=domaine,
+                filename=filename,
+            ))
+            db.commit()
+        finally:
+            db.close()
 
         return {
             "statut": "OK",

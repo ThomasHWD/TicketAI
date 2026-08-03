@@ -17,6 +17,7 @@ import {
   File,
   Users,
   SlidersHorizontal,
+  UsersRound,
 } from "lucide-react";
 import { getIncidents } from "../../lib/api";
 
@@ -99,7 +100,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed }: SidebarProps) {
-  const { user, userDomaines } = useAuth();
+  const { user, userDomaines, isChef } = useAuth();
   const greetingName = user?.prenom || user?.email || "";
 
   const { data: incidents } = useQuery({
@@ -159,6 +160,14 @@ export default function Sidebar({ collapsed }: SidebarProps) {
           {navMain.map((item) => (
             <NavItem key={item.to} {...item} collapsed={collapsed} />
           ))}
+          {isChef && (
+            <NavItem
+              to="/equipe"
+              icon={UsersRound}
+              label="Mon équipe"
+              collapsed={collapsed}
+            />
+          )}
         </nav>
       )}
 

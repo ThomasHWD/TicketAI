@@ -9,10 +9,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import CurrentUser, create_access_token
 from app.database import SessionLocal
+from app.models.groupe import user_groups
 from app.models.user import User
 from app.services import ldap_auth
 from app.services.ldap_auth import LdapIdentity
@@ -45,7 +47,20 @@ def get_or_create_user(db: Session, identity: LdapIdentity) -> User:
     return user
 
 
-def _serialize_user(user: User) -> dict:
+def _serialize_user(user: User, db: Session | None = None) -> dict:
+    groupes = []
+    for g in user.groupes:
+        is_chef = False
+        if db is not None:
+            row = db.execute(
+                select(user_groups.c.is_chef).where(
+                    user_groups.c.user_id == user.id,
+                    user_groups.c.groupe_id == g.id,
+                )
+            ).first()
+            is_chef = bool(row and row[0])
+        groupes.append({"id": str(g.id), "nom": g.nom, "domaine": g.domaine, "is_chef": is_chef})
+
     return {
         "id": str(user.id),
         "email": user.email,
@@ -53,7 +68,7 @@ def _serialize_user(user: User) -> dict:
         "nom": user.nom,
         "role": user.role,
         "departement": user.departement,
-        "groupes": [{"id": str(g.id), "nom": g.nom, "domaine": g.domaine} for g in user.groupes],
+        "groupes": groupes,
     }
 
 
@@ -75,7 +90,7 @@ async def login(form: Annotated[OAuth2PasswordRequestForm, Depends()]):
         return {
             "access_token": token,
             "token_type": "bearer",
-            "user": _serialize_user(user),
+            "user": _serialize_user(user, db),
         }
     finally:
         db.close()
@@ -84,4 +99,8 @@ async def login(form: Annotated[OAuth2PasswordRequestForm, Depends()]):
 @router.get("/auth/me")
 async def me(current_user: CurrentUser):
     """Renvoie le profil de l'utilisateur connecté."""
-    return _serialize_user(current_user)
+    db = SessionLocal()
+    try:
+        return _serialize_user(current_user, db)
+    finally:
+        db.close()
