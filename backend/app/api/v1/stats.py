@@ -334,7 +334,11 @@ def get_dashboard_stats(
 
 
 @router.get("/groupe/{groupe_id}/membres")
-def get_groupe_membres_stats(groupe_id: UUID, current_user: CurrentUser):
+def get_groupe_membres_stats(
+    groupe_id: UUID,
+    current_user: CurrentUser,
+    periode: str = Query(default="semaine", pattern="^(semaine|mois|annee)$"),
+):
     """Statistiques par membre d'un groupe — accessible au chef du groupe ou à un admin."""
     db = SessionLocal()
     try:
@@ -354,6 +358,9 @@ def get_groupe_membres_stats(groupe_id: UUID, current_user: CurrentUser):
             if not is_chef:
                 raise HTTPException(403, "Accès réservé au chef du groupe")
 
+        now = datetime.now(timezone.utc)
+        curr_start, curr_end, _, _ = _get_period_bounds(periode, now)
+
         # Récupérer les membres avec leur statut is_chef
         rows = db.execute(
             select(User, user_groups.c.is_chef)
@@ -371,6 +378,8 @@ def get_groupe_membres_stats(groupe_id: UUID, current_user: CurrentUser):
                     Reponse.validator_id == user.id,
                     Reponse.statut.in_(["VALIDÉE", "CORRIGÉE"]),
                     Ticket.domaine == groupe.domaine,
+                    Reponse.validated_at >= curr_start,
+                    Reponse.validated_at < curr_end,
                 )
                 .scalar() or 0
             )
@@ -380,6 +389,8 @@ def get_groupe_membres_stats(groupe_id: UUID, current_user: CurrentUser):
                 .filter(
                     DocumentUpload.user_id == user.id,
                     DocumentUpload.domaine == groupe.domaine,
+                    DocumentUpload.created_at >= curr_start,
+                    DocumentUpload.created_at < curr_end,
                 )
                 .scalar() or 0
             )
