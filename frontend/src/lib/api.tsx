@@ -687,8 +687,8 @@ export interface GroupeMembresStats {
   membres: MembreStats[];
 }
 
-export async function getGroupeMembresStats(groupeId: string): Promise<GroupeMembresStats> {
-  const res = await apiFetch(`${BASE_URL}/stats/groupe/${groupeId}/membres`);
+export async function getGroupeMembresStats(groupeId: string, periode = "semaine"): Promise<GroupeMembresStats> {
+  const res = await apiFetch(`${BASE_URL}/stats/groupe/${groupeId}/membres?periode=${periode}`);
   if (!res.ok) throw new Error("Erreur chargement statistiques équipe");
   return res.json();
 }

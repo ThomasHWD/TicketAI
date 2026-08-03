@@ -10,49 +10,36 @@ function displayName(m: MembreStats): string {
   return m.email;
 }
 
-export default function TeamStats() {
+interface Props {
+  periode: string;
+}
+
+export default function TeamStatsPanel({ periode }: Props) {
   const { groupesChef } = useAuth();
   const [groupeId, setGroupeId] = useState<string>(groupesChef[0]?.id ?? "");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["team-stats", groupeId],
-    queryFn: () => getGroupeMembresStats(groupeId),
+    queryKey: ["team-stats", groupeId, periode],
+    queryFn: () => getGroupeMembresStats(groupeId, periode),
     enabled: !!groupeId,
     staleTime: 60_000,
   });
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-            Mon équipe
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Activité des membres de votre groupe
-          </p>
+    <div className="space-y-4">
+      {groupesChef.length > 1 && (
+        <div className="relative w-fit">
+          <select
+            value={groupeId}
+            onChange={(e) => setGroupeId(e.target.value)}
+            className="appearance-none pl-3 pr-8 py-2 text-sm rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
+          >
+            {groupesChef.map((g) => (
+              <option key={g.id} value={g.id}>{g.nom} — {g.domaine}</option>
+            ))}
+          </select>
+          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
-
-        {groupesChef.length > 1 && (
-          <div className="relative">
-            <select
-              value={groupeId}
-              onChange={(e) => setGroupeId(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 text-sm rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
-            >
-              {groupesChef.map((g) => (
-                <option key={g.id} value={g.id}>{g.nom} — {g.domaine}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          </div>
-        )}
-      </div>
-
-      {data && (
-        <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide font-medium">
-          Domaine : {data.groupe.domaine}
-        </p>
       )}
 
       <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
@@ -61,13 +48,13 @@ export default function TeamStats() {
             <tr className="border-b border-gray-100 dark:border-white/10 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
               <th className="text-left px-5 py-3 font-medium">Membre</th>
               <th className="text-right px-5 py-3 font-medium">
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center justify-end gap-1">
                   <CheckCircle size={12} />
                   Tickets traités
                 </span>
               </th>
               <th className="text-right px-5 py-3 font-medium">
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center justify-end gap-1">
                   <FileText size={12} />
                   Documents envoyés
                 </span>

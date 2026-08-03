@@ -160,14 +160,6 @@ export default function Sidebar({ collapsed }: SidebarProps) {
           {navMain.map((item) => (
             <NavItem key={item.to} {...item} collapsed={collapsed} />
           ))}
-          {isChef && (
-            <NavItem
-              to="/equipe"
-              icon={UsersRound}
-              label="Mon équipe"
-              collapsed={collapsed}
-            />
-          )}
         </nav>
       )}
 
