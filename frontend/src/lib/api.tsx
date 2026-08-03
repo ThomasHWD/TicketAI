@@ -616,3 +616,56 @@ export async function marquerNotificationLue(id: string): Promise<void> {
 export async function toutMarquerLu(): Promise<void> {
   await apiFetch(`${BASE_URL}/notifications/tout-lire`, { method: "POST" });
 }
+
+// ── Stats dashboard ────────────────────────────────────────────────────────────
+
+export interface StatCarte {
+  valeur: number;
+  variation: number;
+  hausse: boolean;
+}
+
+export interface RepartitionStatut {
+  statut: string;
+  count: number;
+  pct: number;
+}
+
+export interface DayCount {
+  date: string;
+  count: number;
+}
+
+export interface TicketSummaryDashboard {
+  id: string;
+  objet: string;
+  domaine: string;
+  statut_ticket: string;
+  statut_job: string;
+  created_at: string | null;
+}
+
+export interface DashboardStats {
+  periode: string;
+  stats_cartes: {
+    en_suggestion: StatCarte;
+    en_cours: StatCarte;
+    tickets_clotures: StatCarte;
+    reponses_canoniques: StatCarte;
+  };
+  repartition_statuts: RepartitionStatut[];
+  tickets_par_jour: DayCount[];
+  traitement_par_jour: DayCount[];
+  derniers_tickets: TicketSummaryDashboard[];
+}
+
+export async function getDashboardStats(
+  domaine?: string,
+  periode = "semaine",
+): Promise<DashboardStats> {
+  const params = new URLSearchParams({ periode });
+  if (domaine) params.set("domaine", domaine);
+  const res = await apiFetch(`${BASE_URL}/stats/dashboard?${params}`);
+  if (!res.ok) throw new Error("Erreur chargement statistiques");
+  return res.json();
+}

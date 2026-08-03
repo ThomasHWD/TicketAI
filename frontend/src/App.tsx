@@ -27,6 +27,7 @@ import AllDocs from "./pages/backoffice/AllDocs";
 import TicketTracking from "./pages/backoffice/TicketTracking";
 import AdminPage from "./pages/admin/Groups";
 import SiteConfigPage from "./pages/admin/SiteConfig";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import NotFound from "./pages/404";
 
 function Layout() {
@@ -122,6 +123,7 @@ export default function App() {
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/documents" element={<AllDocs />} />
               <Route path="/admin/config" element={<SiteConfigPage />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
             </Route>
           </Route>
