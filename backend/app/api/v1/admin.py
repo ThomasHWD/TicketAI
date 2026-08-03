@@ -198,6 +198,11 @@ def list_gestionnaires(_: AdminUser, db: DB):
                     }
                 )
             svc.unbind()
+            # Complète avec les gestionnaires DB absents de l'AD (ex. comptes de test)
+            db_gestionnaires = db.query(User).filter(User.is_gestionnaire.is_(True)).all()
+            for u in db_gestionnaires:
+                if u.email and u.email not in emails_vus:
+                    result.append(_serialize_user_summary(u))
             return sorted(result, key=lambda u: (u["nom"] or "", u["prenom"] or ""))
         except Exception:
             pass  # fallback base si l'AD est injoignable

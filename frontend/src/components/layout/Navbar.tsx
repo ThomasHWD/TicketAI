@@ -7,6 +7,7 @@ import { unlockTicket, getSiteConfig } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
 import GlassSurface from "@@/components/GlassSurface";
 import MarqueeBanner from "../ui/MarqueeBanner";
+import NotificationBell from "../ui/NotificationBell";
 
 interface NavbarProps {
   collapsed: boolean;
@@ -81,6 +82,8 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
       >
         {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
       </button>
+
+      <NotificationBell />
 
       {/* Divider */}
       <div className="w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" />
