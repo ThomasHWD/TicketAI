@@ -5,6 +5,7 @@ services:
     volumes:
       - ./backend:/app
       - documents_storage:/app/storage
+      - uploads_tmp:/app/uploads_tmp
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
@@ -12,6 +13,7 @@ services:
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
+      UPLOAD_DIR: /app/uploads_tmp
     ports:
       - "8000:8000"
     depends_on:
@@ -25,6 +27,7 @@ services:
     volumes:
       - ./backend:/app
       - documents_storage:/app/storage
+      - uploads_tmp:/app/uploads_tmp
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
@@ -32,6 +35,7 @@ services:
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
+      UPLOAD_DIR: /app/uploads_tmp
     depends_on:
       - postgres
       - qdrant
@@ -66,3 +70,7 @@ services:
       - "5173:5173"
     depends_on:
       - backend
+
+volumes:
+  documents_storage:
+  uploads_tmp:

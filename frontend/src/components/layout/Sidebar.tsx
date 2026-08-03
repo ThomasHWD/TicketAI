@@ -41,6 +41,7 @@ const navSettings = [
 ];
 
 const navAdmin = [
+  { to: "/admin/dashboard", icon: LayoutDashboard, label: "Vue globale" },
   { to: "/admin", icon: Users, label: "Groupes" },
   { to: "/admin/documents", icon: File, label: "Tous les documents" },
   { to: "/admin/config", icon: SlidersHorizontal, label: "Configuration" },
