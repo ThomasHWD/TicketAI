@@ -42,7 +42,7 @@ MAGIC_BYTES: dict[str, bytes | None] = {
 
 MAX_SIZE_MB = 50
 
-UPLOAD_DIR = "/tmp/ticketai"
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/tmp/ticketai")
 
 
 def sanitize_filename(filename: str | None) -> str:
