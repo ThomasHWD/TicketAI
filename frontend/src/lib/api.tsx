@@ -67,7 +67,7 @@ export interface AuthUser {
   prenom: string | null;
   nom: string | null;
   role: string;
-  groupes: { id: string; nom: string; domaine: string }[];
+  groupes: { id: string; nom: string; domaine: string; is_chef: boolean }[];
 }
 
 export interface LoginResponse {
@@ -667,5 +667,28 @@ export async function getDashboardStats(
   if (domaine) params.set("domaine", domaine);
   const res = await apiFetch(`${BASE_URL}/stats/dashboard?${params}`);
   if (!res.ok) throw new Error("Erreur chargement statistiques");
+  return res.json();
+}
+
+// ── Stats équipe (chef de groupe) ─────────────────────────────────────────────
+
+export interface MembreStats {
+  id: string;
+  email: string;
+  prenom: string | null;
+  nom: string | null;
+  is_chef: boolean;
+  nb_reponses_validees: number;
+  nb_documents: number;
+}
+
+export interface GroupeMembresStats {
+  groupe: { id: string; nom: string; domaine: string };
+  membres: MembreStats[];
+}
+
+export async function getGroupeMembresStats(groupeId: string): Promise<GroupeMembresStats> {
+  const res = await apiFetch(`${BASE_URL}/stats/groupe/${groupeId}/membres`);
+  if (!res.ok) throw new Error("Erreur chargement statistiques équipe");
   return res.json();
 }

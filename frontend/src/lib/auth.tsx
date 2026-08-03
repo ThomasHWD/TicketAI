@@ -14,6 +14,8 @@ interface AuthContextValue {
   token: string | null;
   isAuthenticated: boolean;
   userDomaines: string[];
+  isChef: boolean;
+  groupesChef: { id: string; nom: string; domaine: string }[];
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -93,9 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     .map((g) => g.domaine)
     .filter((d): d is string => !!d);
 
+  const groupesChef = (user?.groupes ?? []).filter((g) => g.is_chef);
+  const isChef = groupesChef.length > 0;
+
   return (
     <AuthContext.Provider
-      value={{ user, token, isAuthenticated: !!token, userDomaines, login, logout, refreshUser }}
+      value={{ user, token, isAuthenticated: !!token, userDomaines, isChef, groupesChef, login, logout, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

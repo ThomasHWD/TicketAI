@@ -28,6 +28,7 @@ import TicketTracking from "./pages/backoffice/TicketTracking";
 import AdminPage from "./pages/admin/Groups";
 import SiteConfigPage from "./pages/admin/SiteConfig";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import TeamStats from "./pages/backoffice/TeamStats";
 import NotFound from "./pages/404";
 
 function Layout() {
@@ -117,6 +118,7 @@ export default function App() {
             <Route path="/historique" element={<UserTicketHistory />} />
             <Route path="/historique/:id" element={<UserTicketDetail />} />
             <Route path="/mon-suivi" element={<TicketTracking />} />
+            <Route path="/equipe" element={<TeamStats />} />
           </Route>
           <Route element={<AdminRoute />}>
             <Route element={<Layout />}>
