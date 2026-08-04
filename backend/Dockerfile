@@ -2,8 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# curl sert au healthcheck Docker (cf. docker-compose.{dev,prod}.yml) : lancer
+# un interpréteur CPython complet toutes les 5 s coûte ~111 ms contre ~5 ms ici.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev \
+    gcc libpq-dev curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

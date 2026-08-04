@@ -1,3 +1,14 @@
+# Dépendances d'infra communes aux services applicatifs.
+# Les ancres YAML ne traversent pas la frontière `-f base -f prod`, d'où une
+# définition par fichier.
+x-infra-deps: &infra-deps
+  postgres:
+    condition: service_healthy
+  qdrant:
+    condition: service_healthy
+  valkey:
+    condition: service_healthy
+
 services:
   backend:
     build: ./backend
@@ -12,17 +23,14 @@ services:
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
-    depends_on:
-      postgres:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
+    depends_on: *infra-deps
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      # curl (installé dans backend/Dockerfile) plutôt qu'un `python -c` : ~5 ms
+      # contre ~111 ms par sonde, et plus de triple niveau d'échappement.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 10s
+      start_interval: 1s
       timeout: 5s
       retries: 12
       start_period: 30s
@@ -38,13 +46,7 @@ services:
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
-    depends_on:
-      postgres:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
+    depends_on: *infra-deps
     restart: unless-stopped
 
   worker_questions:
@@ -55,13 +57,7 @@ services:
       POSTGRES_HOST: postgres
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
-    depends_on:
-      postgres:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
+    depends_on: *infra-deps
     restart: unless-stopped
 
   # Nginx embarqué dans l'image frontend (multi-stage build)
@@ -72,7 +68,19 @@ services:
       target: prod
     ports:
       - "80:80"
+    # service_started et non service_healthy : nginx n'a besoin que de résoudre
+    # le nom `backend` au chargement de sa conf. Gater sur la santé transformait
+    # toute panne backend en panne totale — le port 80 n'était jamais ouvert,
+    # donc même le shell statique devenait injoignable au lieu de servir la SPA
+    # avec des 502 sur /api.
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/"]
+      interval: 30s
+      start_interval: 1s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
