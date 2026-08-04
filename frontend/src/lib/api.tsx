@@ -28,7 +28,7 @@ const BASE_URL = "/api/v1";
 export const TOKEN_KEY = "ticketai.token";
 export const USER_KEY = "ticketai.user";
 
-function getToken(): string | null {
+export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
   } catch {
@@ -130,11 +130,13 @@ export async function soumettreQuestion(
 export class LockConflictError extends Error {
   lockedByEmail: string | null;
   lockExpiresAt: string | null;
-  constructor(message: string, lockedByEmail: string | null, lockExpiresAt: string | null) {
+  isAssigned: boolean;
+  constructor(message: string, lockedByEmail: string | null, lockExpiresAt: string | null, isAssigned = false) {
     super(message);
     this.name = "LockConflictError";
     this.lockedByEmail = lockedByEmail;
     this.lockExpiresAt = lockExpiresAt;
+    this.isAssigned = isAssigned;
   }
 }
 
@@ -326,6 +328,7 @@ async function toLockConflict(res: Response, fallback: string): Promise<Error> {
         detail.message ?? fallback,
         detail.locked_by_email ?? null,
         detail.lock_expires_at ?? null,
+        detail.is_assigned ?? false,
       );
     }
     return new LockConflictError(typeof detail === "string" ? detail : fallback, null, null);

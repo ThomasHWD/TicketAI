@@ -10,6 +10,7 @@ from app.models.notification import Notification
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
+from app.services.broadcast import broadcast_sync
 from app.services.llm import generate
 from app.services.reranker import rerank
 from app.services.search import search_hybrid
@@ -242,6 +243,11 @@ def _servir_reutilisation(
             ))
         db.commit()
 
+        event = "ticket_followup" if est_suivi else "ticket_answered"
+        broadcast_sync(f"sse:domain:{domaine}", event, {"ticket_id": ticket_id_str, "domaine": domaine})
+        if ticket.user_id:
+            broadcast_sync(f"sse:user:{ticket.user_id}", "notification_created", {"ticket_id": ticket_id_str})
+
         return {
             "statut": "OK",
             "branche": "CANONIQUE",
@@ -283,7 +289,13 @@ def _servir_reutilisation(
         question_suivi=question_suivi,
         nouveau=est_suivi,
     )
+    ticket_id_str_sug = str(ticket.id)
     db.commit()
+
+    event = "ticket_followup" if est_suivi else "ticket_answered"
+    broadcast_sync(f"sse:domain:{domaine}", event, {"ticket_id": ticket_id_str_sug, "domaine": domaine})
+    if user_uuid:
+        broadcast_sync(f"sse:user:{user_uuid}", event, {"ticket_id": ticket_id_str_sug, "domaine": domaine})
 
     return {
         "statut": "OK",
@@ -291,7 +303,7 @@ def _servir_reutilisation(
         "question": question,
         "domaine": domaine,
         "reponse": contenu,
-        "ticket_id": str(ticket.id),
+        "ticket_id": ticket_id_str_sug,
         "reponse_id": str(reponse.id),
         "reponse_source_id": str(reponse_liee.id),
         "top_score_cosinus": score_liee,
@@ -472,6 +484,12 @@ def question_job(
 
         if statut_job == "ÉCHOUÉ":
             raise self.retry(exc=Exception(erreur), countdown=60)
+
+        if statut_job == "TERMINÉ":
+            event = "ticket_followup" if est_suivi else "ticket_answered"
+            broadcast_sync(f"sse:domain:{domaine}", event, {"ticket_id": ticket_id_str, "domaine": domaine})
+            if user_uuid:
+                broadcast_sync(f"sse:user:{user_uuid}", event, {"ticket_id": ticket_id_str, "domaine": domaine})
 
         return {
             "statut": "OK",

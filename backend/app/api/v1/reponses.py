@@ -15,6 +15,7 @@ from app.schemas.reponse import (
     EditerCanoniqueRequest,
     RejeterRequest,
 )
+from app.services.broadcast import broadcast_async
 from app.services.qdrant import delete_response_point
 from app.workers.feedback import feedback_job
 
@@ -58,10 +59,12 @@ def verifier_auto_validation(reponse: Reponse, validator_id: uuid.UUID, ticket: 
 
 
 def verifier_verrou(ticket: Ticket, validator_id: uuid.UUID):
-    """Refuse l'écriture si le ticket est verrouillé par un autre validateur
-    (bail encore actif). Un bail expiré ou absent n'empêche rien."""
+    """Refuse l'écriture si le ticket est assigné à quelqu'un d'autre,
+    ou verrouillé par un autre validateur (bail encore actif)."""
     if not ticket:
         return
+    if ticket.assigned_to and ticket.assigned_to != validator_id:
+        raise HTTPException(403, "Ce ticket est assigné à un autre validateur.")
     now = datetime.now(timezone.utc)
     if (
         ticket.locked_by
@@ -128,7 +131,10 @@ async def valider_reponse(reponse_id: str, current_user: CurrentUser):
         elif not reponse.reponse_source_id:
             feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
 
-        return {
+        domaine = ticket.domaine if ticket else None
+        ticket_id_str = str(reponse.ticket_id)
+        user_id = str(ticket.user_id) if ticket and ticket.user_id else None
+        result = {
             "reponse_id": reponse_id,
             "statut": "VALIDÉE",
             "nb_validations": reponse.nb_validations,
@@ -138,6 +144,14 @@ async def valider_reponse(reponse_id: str, current_user: CurrentUser):
         }
     finally:
         db.close()
+
+    if domaine:
+        await broadcast_async(
+            f"sse:domain:{domaine}", "reponse_validated", {"ticket_id": ticket_id_str, "domaine": domaine}
+        )
+    if user_id:
+        await broadcast_async(f"sse:user:{user_id}", "notification_created", {"ticket_id": ticket_id_str})
+    return result
 
 
 @router.post("/reponses/{reponse_id}/rejeter")
@@ -164,18 +178,23 @@ async def rejeter_reponse(
             ticket.statut_ticket = "REJETÉ"
             liberer_verrou(ticket)
 
+        domaine = ticket.domaine if ticket else None
+        ticket_id_str = str(reponse.ticket_id)
         db.commit()
-
-        print(f"[VALIDATION] ❌ Réponse {reponse_id} rejetée par {current_user.id}")
-
-        return {
-            "reponse_id": reponse_id,
-            "statut": "REJETÉE",
-            "raison": payload.raison,
-            "message": "Réponse rejetée.",
-        }
     finally:
         db.close()
+
+    print(f"[VALIDATION] ❌ Réponse {reponse_id} rejetée par {current_user.id}")
+    if domaine:
+        await broadcast_async(
+            f"sse:domain:{domaine}", "reponse_rejected", {"ticket_id": ticket_id_str, "domaine": domaine}
+        )
+    return {
+        "reponse_id": reponse_id,
+        "statut": "REJETÉE",
+        "raison": payload.raison,
+        "message": "Réponse rejetée.",
+    }
 
 
 @router.put("/reponses/{reponse_id}/corriger")
@@ -207,20 +226,27 @@ async def corriger_reponse(
             liberer_verrou(ticket)
 
         _notifier_employe(db, ticket, reponse_id, current_user.id)
+        domaine = ticket.domaine if ticket else None
+        ticket_id_str = str(reponse.ticket_id)
+        user_id = str(ticket.user_id) if ticket and ticket.user_id else None
         db.commit()
-
-        # Feedback job to reindex the validated response in Qdrant
-        print(f"[CORRECTION] ✏️  Réponse {reponse_id} corrigée et en cours d'indexation dans Qdrant.")
-        feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
-
-        return {
-            "reponse_id": reponse_id,
-            "statut": "CORRIGÉE",
-            "contenu_corrige": payload.contenu_corrige,
-            "message": "Réponse corrigée.",
-        }
     finally:
         db.close()
+
+    print(f"[CORRECTION] ✏️  Réponse {reponse_id} corrigée et en cours d'indexation dans Qdrant.")
+    feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
+    if domaine:
+        await broadcast_async(
+            f"sse:domain:{domaine}", "reponse_corrected", {"ticket_id": ticket_id_str, "domaine": domaine}
+        )
+    if user_id:
+        await broadcast_async(f"sse:user:{user_id}", "notification_created", {"ticket_id": ticket_id_str})
+    return {
+        "reponse_id": reponse_id,
+        "statut": "CORRIGÉE",
+        "contenu_corrige": payload.contenu_corrige,
+        "message": "Réponse corrigée.",
+    }
 
 
 @router.get("/reponses/en-attente")
@@ -339,17 +365,16 @@ async def editer_reponse_canonique(
 
         reponse.contenu_corrige = payload.contenu
         db.commit()
-
-        # Réindexe le point Qdrant avec le nouveau contenu en payload.
-        feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
-
-        return {
-            "reponse_id": reponse_id,
-            "contenu_corrige": payload.contenu,
-            "message": "Réponse canonique éditée et en cours de réindexation.",
-        }
     finally:
         db.close()
+
+    feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
+    await broadcast_async("sse:admin", "saved_answers_updated", {"reponse_id": reponse_id})
+    return {
+        "reponse_id": reponse_id,
+        "contenu_corrige": payload.contenu,
+        "message": "Réponse canonique éditée et en cours de réindexation.",
+    }
 
 
 @router.delete("/reponses/{reponse_id}")
@@ -383,10 +408,11 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: AdminUser):
         # 4. Suppression de la réponse elle-même.
         db.delete(reponse)
         db.commit()
-
-        return {
-            "reponse_id": reponse_id,
-            "message": "Réponse canonique supprimée.",
-        }
     finally:
         db.close()
+
+    await broadcast_async("sse:admin", "saved_answers_updated", {"reponse_id": reponse_id})
+    return {
+        "reponse_id": reponse_id,
+        "message": "Réponse canonique supprimée.",
+    }
