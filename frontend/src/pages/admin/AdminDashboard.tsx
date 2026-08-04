@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle,
   Archive,
   Clock,
   Lightbulb,
   ChevronDown,
-  Globe,
+  RefreshCw,
 } from "lucide-react";
 import { getDashboardStats, listDocuments, apiFetch } from "../../lib/api";
 import StatCard from "../../components/dashboard/StatCard";
@@ -25,8 +25,10 @@ const PERIODES: { value: Periode; label: string }[] = [
 ];
 
 export default function AdminDashboard() {
+  const queryClient = useQueryClient();
   const [periode, setPeriode] = useState<Periode>("semaine");
   const [domaine, setDomaine] = useState<string>("");
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data: allDomaines } = useQuery({
     queryKey: ["admin-domaines"],
@@ -59,13 +61,19 @@ export default function AdminDashboard() {
     <div className="p-6 space-y-6 max-w-screen-xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Globe size={20} className="text-emerald-500" />
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-              Vue globale
-            </h1>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              setRefreshing(true);
+              await queryClient.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
+              await queryClient.invalidateQueries({ queryKey: ["admin-dashboard-docs"] });
+              setRefreshing(false);
+            }}
+            className="p-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
+            title="Rafraîchir"
+          >
+            <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+          </button>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -109,9 +117,9 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           title="Nouveaux tickets"
-          value={stats?.stats_cartes.en_suggestion.valeur ?? 0}
-          variation={stats?.stats_cartes.en_suggestion.variation ?? 0}
-          hausse={stats?.stats_cartes.en_suggestion.hausse ?? true}
+          value={stats?.stats_cartes.nouveaux.valeur ?? 0}
+          variation={stats?.stats_cartes.nouveaux.variation ?? 0}
+          hausse={stats?.stats_cartes.nouveaux.hausse ?? true}
           icon={Lightbulb}
           iconColor="text-blue-500"
           loading={statsLoading}
@@ -126,10 +134,10 @@ export default function AdminDashboard() {
           loading={statsLoading}
         />
         <StatCard
-          title="Réponses canoniques"
-          value={stats?.stats_cartes.reponses_canoniques.valeur ?? 0}
-          variation={stats?.stats_cartes.reponses_canoniques.variation ?? 0}
-          hausse={stats?.stats_cartes.reponses_canoniques.hausse ?? true}
+          title="Nombre de réponses canonique"
+          value={stats?.stats_cartes.repondu_canonique.valeur ?? 0}
+          variation={stats?.stats_cartes.repondu_canonique.variation ?? 0}
+          hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true}
           icon={CheckCircle}
           iconColor="text-emerald-500"
           loading={statsLoading}

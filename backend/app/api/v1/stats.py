@@ -94,13 +94,11 @@ def get_dashboard_stats(
         )
 
         # ── Stat cartes ─────────────────────────────────────────────────────────
-        # Cycle de vie :
-        #   NOUVEAU   → ticket sans aucune réponse validée/canonique (humain n'a pas agi)
-        #   EN COURS  → ticket avec au moins une réponse validée/canonique, non clôturé
-        #   CLÔTURÉ   → closed_at IS NOT NULL
-        #   RÉPONSE CANONIQUE → total courant de tickets avec réponse canonique
+        # nouveaux         → créés dans la période, sans réponse validée/canonique, non clôturés
+        # en_cours         → créés dans la période, avec au moins une réponse validée/canonique, non clôturés
+        # tickets_clotures → clôturés dans la période
+        # repondu_canonique → ayant eu au moins une réponse canonique dans la période
 
-        # — Nouveaux tickets : créés dans la période, sans réponse validée/canonique —
         def count_nouveaux(start: datetime, end: datetime) -> int:
             return (
                 db.query(func.count(Ticket.id))
@@ -114,7 +112,6 @@ def get_dashboard_stats(
                 .scalar() or 0
             )
 
-        # — En cours : créés dans la période, avec réponse validée/canonique, non clôturé —
         def count_en_cours(start: datetime, end: datetime) -> int:
             return (
                 db.query(func.count(Ticket.id))
@@ -128,7 +125,6 @@ def get_dashboard_stats(
                 .scalar() or 0
             )
 
-        # — Clôturés : tickets clôturés dans la période —
         def count_tickets_closed(start: datetime, end: datetime) -> int:
             return (
                 db.query(func.count(Ticket.id))
@@ -136,27 +132,21 @@ def get_dashboard_stats(
                 .scalar() or 0
             )
 
-        # — Réponses canoniques : total courant tickets avec réponse canonique —
-        reponse_canonique_exists = exists().where(
-            Reponse.ticket_id == Ticket.id,
-            Reponse.canonique.is_(True),
-        )
-
-        def count_canoniques_at(before: datetime | None = None) -> int:
-            q = (
-                db.query(func.count(Ticket.id))
+        def count_repondu_canonique(start: datetime, end: datetime) -> int:
+            return (
+                db.query(func.count(func.distinct(Reponse.ticket_id)))
+                .join(Ticket, Reponse.ticket_id == Ticket.id)
                 .filter(
-                    Ticket.closed_at.is_(None),
-                    reponse_canonique_exists,
+                    Reponse.canonique.is_(True),
+                    Reponse.created_at >= start,
+                    Reponse.created_at < end,
                     *domain_filters,
                 )
+                .scalar() or 0
             )
-            if before is not None:
-                q = q.filter(Ticket.created_at < before)
-            return q.scalar() or 0
 
         stats_cartes = {
-            "en_suggestion": _variation(
+            "nouveaux": _variation(
                 count_nouveaux(curr_start, curr_end),
                 count_nouveaux(prev_start, prev_end),
             ),
@@ -168,9 +158,9 @@ def get_dashboard_stats(
                 count_tickets_closed(curr_start, curr_end),
                 count_tickets_closed(prev_start, prev_end),
             ),
-            "reponses_canoniques": _variation(
-                count_canoniques_at(),
-                count_canoniques_at(before=curr_start),
+            "repondu_canonique": _variation(
+                count_repondu_canonique(curr_start, curr_end),
+                count_repondu_canonique(prev_start, prev_end),
             ),
         }
 
@@ -240,14 +230,14 @@ def get_dashboard_stats(
 
             traitement_rows = (
                 db.query(
-                    extract("year", Reponse.validated_at).label("yr"),
-                    extract("month", Reponse.validated_at).label("mo"),
-                    func.count(Reponse.id),
+                    extract("year", Reponse.created_at).label("yr"),
+                    extract("month", Reponse.created_at).label("mo"),
+                    func.count(func.distinct(Reponse.ticket_id)),
                 )
                 .filter(
-                    Reponse.validated_at >= curr_start,
-                    Reponse.validated_at < curr_end,
-                    Reponse.validated_at.is_not(None),
+                    Reponse.created_at >= curr_start,
+                    Reponse.created_at < curr_end,
+                    or_(Reponse.statut.in_(["VALIDÉE", "CORRIGÉE"]), Reponse.canonique.is_(True)),
                     *reponse_domain_joins,
                 )
                 .group_by("yr", "mo")
@@ -265,36 +255,35 @@ def get_dashboard_stats(
                 for m in range(1, 13)
             ]
         else:
-            nb_days = 7 if periode == "semaine" else 30
-            chart_start = now - timedelta(days=nb_days)
-
             daily_rows = (
                 db.query(cast(Ticket.created_at, Date), func.count(Ticket.id))
-                .filter(Ticket.created_at >= chart_start, *domain_filters)
+                .filter(Ticket.created_at >= curr_start, Ticket.created_at < curr_end, *domain_filters)
                 .group_by(cast(Ticket.created_at, Date))
                 .all()
             )
             daily_dict = {str(d): c for d, c in daily_rows}
-            tickets_par_jour = [
-                {"date": str(today - timedelta(days=i)), "count": daily_dict.get(str(today - timedelta(days=i)), 0)}
-                for i in range(nb_days - 1, -1, -1)
-            ]
 
             traitement_rows = (
-                db.query(cast(Reponse.validated_at, Date), func.count(Reponse.id))
+                db.query(cast(Reponse.created_at, Date), func.count(func.distinct(Reponse.ticket_id)))
                 .filter(
-                    Reponse.validated_at >= chart_start,
-                    Reponse.validated_at.is_not(None),
+                    Reponse.created_at >= curr_start,
+                    Reponse.created_at < curr_end,
+                    or_(Reponse.statut.in_(["VALIDÉE", "CORRIGÉE"]), Reponse.canonique.is_(True)),
                     *reponse_domain_joins,
                 )
-                .group_by(cast(Reponse.validated_at, Date))
+                .group_by(cast(Reponse.created_at, Date))
                 .all()
             )
             traitement_dict = {str(d): c for d, c in traitement_rows}
+
+            nb_days = (curr_end.date() - curr_start.date()).days
+            tickets_par_jour = [
+                {"date": str(curr_start.date() + timedelta(days=i)), "count": daily_dict.get(str(curr_start.date() + timedelta(days=i)), 0)}
+                for i in range(nb_days)
+            ]
             traitement_par_jour = [
-                {"date": str(today - timedelta(days=i)),\
-                    "count": traitement_dict.get(str(today - timedelta(days=i)), 0)}
-                for i in range(nb_days - 1, -1, -1)
+                {"date": str(curr_start.date() + timedelta(days=i)), "count": traitement_dict.get(str(curr_start.date() + timedelta(days=i)), 0)}
+                for i in range(nb_days)
             ]
 
         # ── Derniers tickets — filtrés par la période ────────────────────────────
