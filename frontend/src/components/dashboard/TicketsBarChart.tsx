@@ -97,13 +97,13 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formatter={(value: any, name: any) => [
                 value,
-                name === "nouveaux" ? "Nouveaux tickets" : "Réponses traitées",
+                name === "nouveaux" ? "Nouveaux tickets" : "Tickets en traitement",
               ]}
               labelStyle={{ fontWeight: 600, marginBottom: 4 }}
             />
             <Legend
               formatter={(value) =>
-                value === "nouveaux" ? "Nouveaux tickets" : "Réponses traitées"
+                value === "nouveaux" ? "Nouveaux tickets" : "Tickets en traitement"
               }
               wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
             />
