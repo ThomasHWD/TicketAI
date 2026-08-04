@@ -17,6 +17,7 @@ from app.database import SessionLocal
 from app.models.groupe import Groupe, user_groups
 from app.models.site_config import SiteConfig
 from app.models.user import User
+from app.services.broadcast import broadcast_sync
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -246,6 +247,7 @@ def create_groupe(body: GroupeCreate, _: AdminUser, db: DB):
             detail=f"Un groupe existe déjà pour le domaine {domaine}.",
         ) from err
     db.refresh(groupe)
+    broadcast_sync("sse:admin", "group_updated", {})
     return _serialize_groupe(groupe, include_membres=True, db_session=db)
 
 
@@ -257,6 +259,7 @@ def delete_groupe(groupe_id: UUID, _: AdminUser, db: DB):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Groupe introuvable.")
     db.delete(groupe)
     db.commit()
+    broadcast_sync("sse:admin", "group_updated", {})
 
 
 # ── Membres ──────────────────────────────────────────────────────────
@@ -321,6 +324,7 @@ def add_membre(groupe_id: UUID, user_id: str, _: AdminUser, db: DB):
         groupe.membres.append(user)
         db.commit()
     db.refresh(groupe)
+    broadcast_sync("sse:admin", "group_updated", {})
     return _serialize_groupe(groupe, include_membres=True, db_session=db)
 
 
@@ -334,6 +338,7 @@ def remove_membre(groupe_id: UUID, user_id: UUID, _: AdminUser, db: DB):
     if user and user in groupe.membres:
         groupe.membres.remove(user)
         db.commit()
+    broadcast_sync("sse:admin", "group_updated", {})
 
 
 # ── Santé des services ───────────────────────────────────────────────
@@ -724,6 +729,8 @@ def set_config(key: str, body: ConfigPayload, _: AdminUser, db: DB):
         row.value = body.value
     db.commit()
     db.refresh(row)
+    if key == "banner":
+        broadcast_sync("sse:global", "banner_updated", {})
     return {"key": row.key, "value": row.value}
 
 
@@ -747,4 +754,5 @@ def set_chef(groupe_id: UUID, user_id: UUID, body: ChefPayload, _: AdminUser, db
     )
     db.commit()
     db.refresh(groupe)
+    broadcast_sync("sse:admin", "group_updated", {})
     return _serialize_groupe(groupe, include_membres=True, db_session=db)
