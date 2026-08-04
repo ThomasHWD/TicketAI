@@ -20,6 +20,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { getIncidents } from "../../lib/api";
+import UserAvatar from "../ui/UserAvatar";
 
 const navMain = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
@@ -102,6 +103,7 @@ interface SidebarProps {
 export default function Sidebar({ collapsed }: SidebarProps) {
   const { user, userDomaines, isChef } = useAuth();
   const greetingName = user?.prenom || user?.email || "";
+  const avatarName = [user?.prenom, user?.nom].filter(Boolean).join(" ") || user?.email || "?";
 
   const { data: incidents } = useQuery({
     queryKey: ["admin-incidents"],
@@ -202,13 +204,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
           collapsed ? "justify-center" : ""
         }`}
       >
-        <div className="w-9 h-9 rounded-full bg-gray-300 overflow-hidden shrink-0">
-          <img
-            src="https://i.pravatar.cc/36"
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <UserAvatar name={avatarName} size={36} />
         <div
           className={`flex items-center gap-2 flex-1 min-w-0 transition-all duration-300 ease-in-out ${
             collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
