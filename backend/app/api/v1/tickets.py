@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +14,7 @@ from app.database import SessionLocal
 from app.models.groupe import Groupe
 from app.models.groupe import user_groups as ug_table
 from app.models.ticket import Ticket
+from app.services.broadcast import broadcast_async
 from app.workers.celery_app import celery_app
 from app.workers.question import question_job
 
@@ -162,10 +164,6 @@ async def soumettre_suivi(
             raise HTTPException(409, "Ticket clôturé : impossible d'ajouter une précision")
         domaine = ticket.domaine
         user_id = str(current_user.id)
-        # Marque le ticket « en cours » DÈS la soumission (avant même que le worker
-        # ne tourne) pour que les badges des listes se mettent à jour au prochain
-        # poll, sans attendre la fin du traitement. Le worker repassera statut_job
-        # à TERMINÉ/ÉCHOUÉ et fixera le statut métier final.
         ticket.statut_job = "EN_ATTENTE"
         db.commit()
     finally:
@@ -176,6 +174,7 @@ async def soumettre_suivi(
         kwargs={"ticket_id": ticket_id},
         queue="queue_questions",
     )
+    await broadcast_async(f"sse:domain:{domaine}", "ticket_followup", {"ticket_id": ticket_id, "domaine": domaine})
     return {
         "job_id": job.id,
         "ticket_id": ticket_id,
@@ -197,12 +196,15 @@ async def cloturer_ticket(ticket_id: str, current_user: CurrentUser):
             raise HTTPException(404, "Ticket introuvable")
         if ticket.closed_at is not None:
             raise HTTPException(409, "Ticket déjà clôturé")
+        domaine = ticket.domaine
         ticket.closed_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(ticket)
-        return _serialize_ticket(ticket)
+        result = _serialize_ticket(ticket)
     finally:
         db.close()
+    await broadcast_async(f"sse:domain:{domaine}", "ticket_closed", {"ticket_id": ticket_id, "domaine": domaine})
+    return result
 
 
 @router.get("/tickets")
@@ -327,11 +329,24 @@ async def assigner_ticket(ticket_id: str, payload: AssignerRequest, _: CurrentUs
         ).scalar()
         if not is_member:
             raise HTTPException(422, "L'assigné n'appartient pas au domaine du ticket")
+        domaine = ticket.domaine
         ticket.assigned_to = payload.assignee_id
+        # Libère tout verrou existant : seul l'assigné peut maintenant éditer
+        ticket.locked_by = None
+        ticket.locked_at = None
+        ticket.lock_expires_at = None
         db.commit()
-        return _serialize_ticket(ticket)
+        result = _serialize_ticket(ticket)
     finally:
         db.close()
+    await asyncio.gather(
+        broadcast_async(f"sse:domain:{domaine}", "ticket_unlocked", {"ticket_id": ticket_id}),
+        broadcast_async(f"sse:domain:{domaine}", "ticket_assigned", {"ticket_id": ticket_id, "domaine": domaine}),
+        broadcast_async(
+            f"sse:user:{payload.assignee_id}", "ticket_assigned", {"ticket_id": ticket_id, "domaine": domaine}
+        ),
+    )
+    return result
 
 
 @router.post("/tickets/{ticket_id}/desassigner")
@@ -343,11 +358,14 @@ async def desassigner_ticket(ticket_id: str, _: CurrentUser):
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
+        domaine = ticket.domaine
         ticket.assigned_to = None
         db.commit()
-        return _serialize_ticket(ticket)
+        result = _serialize_ticket(ticket)
     finally:
         db.close()
+    await broadcast_async(f"sse:domain:{domaine}", "ticket_unassigned", {"ticket_id": ticket_id, "domaine": domaine})
+    return result
 
 
 @router.get("/tickets/participated")
@@ -445,12 +463,25 @@ async def verrouiller_ticket(ticket_id: str, current_user: CurrentUser):
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
     try:
-        if not db.query(Ticket).filter(Ticket.id == tid).first():
+        existing = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not existing:
             raise HTTPException(404, "Ticket introuvable")
+        domaine = existing.domaine
+
+        # Un ticket assigné à quelqu'un d'autre ne peut pas être verrouillé
+        if existing.assigned_to and existing.assigned_to != current_user.id:
+            raise HTTPException(
+                409,
+                {
+                    "message": "Ce ticket est assigné à un autre validateur.",
+                    "locked_by_email": existing.assignee.email if existing.assignee else None,
+                    "lock_expires_at": None,
+                    "is_assigned": True,
+                },
+            )
 
         ticket = _acquire_lock(db, tid, current_user.id)
         if ticket is None:
-            # Détenu par un autre validateur, bail encore valide → conflit
             ticket = db.query(Ticket).filter(Ticket.id == tid).first()
             raise HTTPException(
                 409,
@@ -459,9 +490,14 @@ async def verrouiller_ticket(ticket_id: str, current_user: CurrentUser):
                     **lock_info(ticket),
                 },
             )
-        return {"ticket_id": ticket_id, "is_mine": True, **lock_info(ticket)}
+        result = {"ticket_id": ticket_id, "is_mine": True, **lock_info(ticket)}
     finally:
         db.close()
+    await broadcast_async(
+        f"sse:domain:{domaine}", "ticket_locked",
+        {"ticket_id": ticket_id, "locked_by_email": current_user.email},
+    )
+    return result
 
 
 @router.post("/tickets/{ticket_id}/heartbeat")
@@ -492,7 +528,11 @@ async def deverrouiller_ticket(ticket_id: str, current_user: CurrentUser):
     """Libère le verrou (uniquement si détenu par ce validateur). Idempotent."""
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
+    domaine = None
     try:
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if ticket:
+            domaine = ticket.domaine
         db.query(Ticket).filter(
             Ticket.id == tid,
             Ticket.locked_by == current_user.id,
@@ -507,6 +547,8 @@ async def deverrouiller_ticket(ticket_id: str, current_user: CurrentUser):
         db.commit()
     finally:
         db.close()
+    if domaine:
+        await broadcast_async(f"sse:domain:{domaine}", "ticket_unlocked", {"ticket_id": ticket_id})
 
 
 @router.get("/tickets/{job_id}/status")

@@ -293,7 +293,7 @@ export default function TicketDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { isMine, lockedByEmail, checking } = useTicketLock(id);
+  const { isMine, lockedByEmail, isAssigned, checking } = useTicketLock(id);
   const { user: currentUser } = useAuth();
   const [assignError, setAssignError] = useState<string | null>(null);
   const [assignLoading, setAssignLoading] = useState(false);
@@ -325,6 +325,7 @@ export default function TicketDetail() {
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["ticket", id] });
+    queryClient.invalidateQueries({ queryKey: ["tickets"] });
     queryClient.invalidateQueries({ queryKey: ["mes-assignations"] });
   }
 
@@ -386,7 +387,7 @@ export default function TicketDetail() {
         >
           <Lock size={16} aria-hidden="true" />
           <span>
-            Ticket en cours de traitement par{" "}
+            {isAssigned ? "Ticket assigné à" : "Ticket en cours de traitement par"}{" "}
             <span className="font-medium">{lockedByEmail ?? "un autre validateur"}</span>. Lecture seule.
           </span>
         </div>

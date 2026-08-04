@@ -8,6 +8,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { useAuth } from "./lib/auth";
+import { useSSE } from "./hooks/useSSE";
 import Login from "./pages/auth/Login";
 import Sidebar from "./components/layout/Sidebar";
 import Navbar from "./components/layout/Navbar";
@@ -67,6 +68,7 @@ function Layout() {
 function ProtectedRoute() {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
+  useSSE();
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }

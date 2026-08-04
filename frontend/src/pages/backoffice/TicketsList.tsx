@@ -63,7 +63,7 @@ export default function TicketsList() {
   const [page, setPage] = useState(1);
   const { userDomaines } = useAuth();
 
-  const { data, isLoading: loading, error } = useQuery({
+  const { data, isLoading: loading, isFetching, error } = useQuery({
     queryKey: ["tickets", "open", page, userDomaines],
     queryFn: () => getTickets({ page, limit: LIMIT, closed: false, domaines: userDomaines, disponibles: true }),
     placeholderData: (prev) => prev,
@@ -87,7 +87,12 @@ export default function TicketsList() {
       <div className="glass-card rounded-2xl overflow-hidden">
         {/* Card header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-white/10">
-          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Dernières questions</h2>
+          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-800 dark:text-gray-100">
+            Dernières questions
+            {isFetching && !loading && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Mise à jour…" />
+            )}
+          </h2>
           <button
             onClick={() => navigate("/nouveau-ticket")}
             className="flex items-center gap-1.5 text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"

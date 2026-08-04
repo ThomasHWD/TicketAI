@@ -10,6 +10,7 @@ from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct
 from app.config import settings
 from app.database import SessionLocal
 from app.models.document_upload import DocumentUpload
+from app.services.broadcast import broadcast_sync
 from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
@@ -179,13 +180,22 @@ def ingestion_job(  # noqa: PLR0912
         finally:
             db.close()
 
-        return {
+        result = {
             "statut": "OK",
             "filename": filename,
             "doc_id": doc_id,
             "stored_path": stored_path,
             "nb_chunks": len(chunks),
         }
+
+        if uploaded_by:
+            broadcast_sync(
+                f"sse:user:{uploaded_by}",
+                "job_completed",
+                {"job_id": self.request.id, "status": "SUCCESS", "nb_chunks": len(chunks)},
+            )
+
+        return result
 
     except Exception as exc:
         print(f"[INGESTION] ❌ Erreur : {exc}")

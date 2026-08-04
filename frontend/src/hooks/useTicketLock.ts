@@ -1,14 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { lockTicket, heartbeatTicket, unlockTicket, LockConflictError } from "../lib/api";
+import { useEffect, useState } from "react";
+import { lockTicket, unlockTicket, LockConflictError } from "../lib/api";
 import { getValidatorId } from "../lib/currentUser";
 
-// Prolonge le bail bien avant son expiration (TTL backend = 300 s par défaut).
-const HEARTBEAT_MS = 120_000;
-
-// File d'attente par ticket : garantit que lock / unlock / heartbeat s'exécutent
-// dans l'ordre d'émission, même sous le double-montage de React StrictMode (dev)
-// ou lors de navigations rapides. Sans ça, un `unlock` peut doubler un `lock`
-// concurrent et laisser un verrou fantôme (ou l'inverse).
+// File d'attente par ticket : garantit que lock / unlock s'exécutent dans l'ordre
+// d'émission, même sous le double-montage de React StrictMode (dev) ou lors de
+// navigations rapides. Sans ça, un `unlock` peut doubler un `lock` concurrent.
 const chains = new Map<string, Promise<unknown>>();
 
 function enqueue<T>(ticketId: string, op: () => Promise<T>): Promise<T> {
@@ -21,6 +17,7 @@ function enqueue<T>(ticketId: string, op: () => Promise<T>): Promise<T> {
 export interface TicketLock {
   isMine: boolean;
   lockedByEmail: string | null;
+  isAssigned: boolean;
   checking: boolean;
 }
 
@@ -32,13 +29,8 @@ export interface TicketLock {
 export function useTicketLock(ticketId: string | undefined): TicketLock {
   const [isMine, setIsMine] = useState(false);
   const [lockedByEmail, setLockedByEmail] = useState<string | null>(null);
+  const [isAssigned, setIsAssigned] = useState(false);
   const [checking, setChecking] = useState(true);
-
-  // Garde la valeur à jour pour le heartbeat sans re-souscrire l'effet.
-  const isMineRef = useRef(false);
-  useEffect(() => {
-    isMineRef.current = isMine;
-  }, [isMine]);
 
   useEffect(() => {
     if (!ticketId) return;
@@ -56,38 +48,26 @@ export function useTicketLock(ticketId: string | undefined): TicketLock {
       .catch((e: unknown) => {
         if (active) {
           setIsMine(false);
-          setLockedByEmail(e instanceof LockConflictError ? e.lockedByEmail : null);
+          if (e instanceof LockConflictError) {
+            setLockedByEmail(e.lockedByEmail);
+            setIsAssigned(e.isAssigned);
+          } else {
+            setLockedByEmail(null);
+            setIsAssigned(false);
+          }
         }
       })
       .finally(() => {
         if (active) setChecking(false);
       });
 
-    const heartbeat = window.setInterval(() => {
-      if (!isMineRef.current) return;
-      enqueue(ticketId, () => heartbeatTicket(ticketId, validatorId))
-        .then(() => setIsMine(true))
-        .catch((e: unknown) => {
-          setIsMine(false);
-          setLockedByEmail(e instanceof LockConflictError ? e.lockedByEmail : null);
-        });
-    }, HEARTBEAT_MS);
-
-    // Libération best-effort si l'utilisateur ferme l'onglet (unlock idempotent).
-    const releaseOnUnload = () => {
-      void unlockTicket(ticketId, validatorId);
-    };
-    window.addEventListener("beforeunload", releaseOnUnload);
-
     return () => {
       active = false;
-      window.clearInterval(heartbeat);
-      window.removeEventListener("beforeunload", releaseOnUnload);
-      // Libère à la suite des opérations en cours (unlock ne touche que les
-      // tickets dont on est réellement le détenteur).
+      // Le serveur libère aussi le verrou à la déconnexion SSE ;
+      // cet appel couvre la navigation volontaire.
       void enqueue(ticketId, () => unlockTicket(ticketId, validatorId));
     };
   }, [ticketId]);
 
-  return { isMine, lockedByEmail, checking };
+  return { isMine, lockedByEmail, isAssigned, checking };
 }
