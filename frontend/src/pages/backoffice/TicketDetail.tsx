@@ -4,10 +4,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Bot,
+  Building2,
   Check,
   Clock,
   Lock,
+  MapPin,
   Pencil,
+  Phone,
   Sparkles,
   ThumbsUp,
   User,
@@ -24,6 +27,7 @@ import {
   assignTicket,
   unassignTicket,
 } from "../../lib/api";
+import UserAvatar from "../../components/ui/UserAvatar";
 import type { MembreGroupe } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
 import { useAuth } from "../../lib/auth";
@@ -92,16 +96,6 @@ const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
   CANONIQUE: { label: "Canonique", icon: Bot },
 };
 
-/** Avatar pour le demandeur (utilisateur) */
-function UserAvatar({ email }: { email: string | null }) {
-  const initial = email ? email[0].toUpperCase() : "U";
-  return (
-    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shrink-0 ring-2 ring-white dark:ring-white/10 text-sm font-semibold">
-      {initial}
-    </span>
-  );
-}
-
 /** Avatar IA (réponse en attente ou canonique) */
 function BotAvatar({ pulse = false }: { pulse?: boolean }) {
   return (
@@ -114,18 +108,6 @@ function BotAvatar({ pulse = false }: { pulse?: boolean }) {
   );
 }
 
-/** Avatar pour un validateur humain */
-function ValidatorAvatar({ email }: { email: string | null }) {
-  const initial = email ? email[0].toUpperCase() : "V";
-  return (
-    <span
-      className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 shrink-0 ring-2 ring-white dark:ring-white/10 text-sm font-semibold"
-      aria-hidden="true"
-    >
-      {initial}
-    </span>
-  );
-}
 
 function ReponseItem({
   reponse,
@@ -186,7 +168,7 @@ function ReponseItem({
       {/* Précision de relance */}
       {reponse.question_suivi && (
         <div className="flex gap-3 items-start">
-          <UserAvatar email={userEmail} />
+          <UserAvatar name={userEmail ?? "?"} size={36} />
           <div className="flex-1 min-w-0 space-y-1.5">
             <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">Précision de l'utilisateur</span>
             <div className="bg-emerald-50 dark:bg-emerald-500/[0.08] border border-emerald-100 dark:border-emerald-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
@@ -203,7 +185,7 @@ function ReponseItem({
         {showBot ? (
           <BotAvatar pulse={isPending} />
         ) : (
-          <ValidatorAvatar email={reponse.validator_email ?? null} />
+          <UserAvatar name={reponse.validator_nom_complet ?? reponse.validator_email ?? "Validateur"} size={36} />
         )}
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
@@ -365,8 +347,6 @@ export default function TicketDetail() {
 
   const userEmail = ticket.user_email;
   const userName = ticket.user_nom_complet || userEmail;
-  const userInitial = userName ? userName[0].toUpperCase() : "U";
-  const assigneeInitial = (ticket.assigned_to_nom_complet ?? ticket.assigned_to_email ?? "V")[0].toUpperCase();
 
   return (
     <div className="p-6 space-y-4 max-w-6xl">
@@ -417,9 +397,7 @@ export default function TicketDetail() {
               {/* Question initiale */}
               <li className="px-5 py-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
                 <div className="flex gap-3 items-start">
-                  <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shrink-0 ring-2 ring-white dark:ring-white/10 text-sm font-semibold">
-                    {userInitial}
-                  </span>
+                  <UserAvatar name={userName ?? "?"} size={36} />
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
@@ -502,29 +480,50 @@ export default function TicketDetail() {
           <div className="glass-card rounded-2xl p-5 space-y-3">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Demandeur</p>
             <div className="flex items-center gap-3">
-              <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shrink-0 text-sm font-semibold ring-2 ring-white dark:ring-white/10">
-                {userInitial}
-              </span>
+              <UserAvatar name={userName ?? "?"} size={40} />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
                   {userName ?? "Utilisateur inconnu"}
                 </p>
-                {ticket.user_departement && (
+                {ticket.user_titre && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                    {ticket.user_departement}
+                    {ticket.user_titre}
                   </p>
                 )}
               </div>
             </div>
-            {ticket.user_email && (
-              <a
-                href={`mailto:${ticket.user_email}`}
-                className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate"
-              >
-                <User size={11} className="shrink-0" aria-hidden="true" />
-                {ticket.user_email}
-              </a>
-            )}
+            <div className="space-y-1.5">
+              {ticket.user_email && (
+                <a
+                  href={`mailto:${ticket.user_email}`}
+                  className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate"
+                >
+                  <User size={11} className="shrink-0" aria-hidden="true" />
+                  {ticket.user_email}
+                </a>
+              )}
+              {ticket.user_telephone && (
+                <a
+                  href={`tel:${ticket.user_telephone}`}
+                  className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  <Phone size={11} className="shrink-0" aria-hidden="true" />
+                  {ticket.user_telephone}
+                </a>
+              )}
+              {ticket.user_departement && (
+                <p className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <Building2 size={11} className="shrink-0" aria-hidden="true" />
+                  {ticket.user_departement}
+                </p>
+              )}
+              {ticket.user_localisation && (
+                <p className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <MapPin size={11} className="shrink-0" aria-hidden="true" />
+                  {ticket.user_localisation}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Assignation */}
@@ -539,9 +538,7 @@ export default function TicketDetail() {
                 ticket.assigned_to ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2.5">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 shrink-0 text-sm font-semibold ring-2 ring-white dark:ring-white/10">
-                        {assigneeInitial}
-                      </span>
+                      <UserAvatar name={ticket.assigned_to_nom_complet ?? ticket.assigned_to_email ?? "Validateur"} size={32} />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
                           {ticket.assigned_to_nom_complet ?? ticket.assigned_to_email ?? "Validateur"}
@@ -589,9 +586,7 @@ export default function TicketDetail() {
                 )
               ) : ticket.assigned_to ? (
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 shrink-0 text-xs font-semibold">
-                    {assigneeInitial}
-                  </span>
+                  <UserAvatar name={ticket.assigned_to_nom_complet ?? ticket.assigned_to_email ?? "Validateur"} size={28} />
                   <p className="text-sm text-gray-700 dark:text-gray-200 truncate">
                     {ticket.assigned_to_nom_complet ?? ticket.assigned_to_email ?? "Validateur"}
                   </p>
