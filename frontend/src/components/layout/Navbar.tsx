@@ -8,6 +8,7 @@ import { getValidatorId } from "../../lib/currentUser";
 import GlassSurface from "@@/components/GlassSurface";
 import MarqueeBanner from "../ui/MarqueeBanner";
 import NotificationBell from "../ui/NotificationBell";
+import UserAvatar from "../ui/UserAvatar";
 
 interface NavbarProps {
   collapsed: boolean;
@@ -99,11 +100,7 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
 
       {/* Utilisateur connecté */}
       <div className="flex items-center gap-2.5 pl-1 shrink-0">
-        <img
-          src="https://i.pravatar.cc/36"
-          alt=""
-          className="w-8 h-8 rounded-full object-cover ring-2 ring-gray-100 dark:ring-white/10"
-        />
+        <UserAvatar name={user ? displayName(user) : "?"} size={32} />
         <p className="hidden md:block text-sm font-medium text-gray-900 dark:text-gray-100 leading-tight whitespace-nowrap">
           {user ? displayName(user) : ""}
         </p>
