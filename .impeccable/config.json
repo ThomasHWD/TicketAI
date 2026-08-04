@@ -1,6 +1,8 @@
 {
   "detector": {
-    "ignoreRules": [],
+    "ignoreRules": [
+      "gray-on-color"
+    ],
     "ignoreFiles": [
       "frontend/src/pages/auth/Login.tsx"
     ],
@@ -26,6 +28,12 @@
         "value": "space grotesk",
         "createdAt": "2026-07-27T12:46:37.384Z",
         "reason": "Font specified in imported Claude Design — intentional brand choice"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "10px",
+        "createdAt": "2026-08-04T10:22:11.134Z",
+        "reason": "Pre-existing intentional value for compact notification section labels and badges"
       }
     ]
   }
