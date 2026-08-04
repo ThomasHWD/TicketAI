@@ -651,10 +651,10 @@ export interface TicketSummaryDashboard {
 export interface DashboardStats {
   periode: string;
   stats_cartes: {
-    en_suggestion: StatCarte;
+    nouveaux: StatCarte;
     en_cours: StatCarte;
     tickets_clotures: StatCarte;
-    reponses_canoniques: StatCarte;
+    repondu_canonique: StatCarte;
   };
   repartition_statuts: RepartitionStatut[];
   tickets_par_jour: DayCount[];
