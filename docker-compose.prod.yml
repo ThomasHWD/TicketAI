@@ -13,10 +13,19 @@ services:
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
     depends_on:
-      - postgres
-      - qdrant
-      - valkey
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   worker_ingestion:
     build: ./backend
@@ -30,9 +39,12 @@ services:
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
     depends_on:
-      - postgres
-      - qdrant
-      - valkey
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
     restart: unless-stopped
 
   worker_questions:
@@ -44,9 +56,12 @@ services:
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
     depends_on:
-      - postgres
-      - qdrant
-      - valkey
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
     restart: unless-stopped
 
   # Nginx embarqué dans l'image frontend (multi-stage build)
@@ -58,5 +73,6 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
