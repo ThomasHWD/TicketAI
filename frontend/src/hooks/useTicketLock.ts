@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { lockTicket, unlockTicket, LockConflictError } from "../lib/api";
 import { getValidatorId } from "../lib/currentUser";
 
@@ -31,16 +31,26 @@ export function useTicketLock(ticketId: string | undefined): TicketLock {
   const [lockedByEmail, setLockedByEmail] = useState<string | null>(null);
   const [isAssigned, setIsAssigned] = useState(false);
   const [checking, setChecking] = useState(true);
+  const cancelUnlockRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!ticketId) return;
+
+    // Annule un unlock différé issu du cleanup précédent (double-mount StrictMode)
+    if (cancelUnlockRef.current) {
+      cancelUnlockRef.current();
+      cancelUnlockRef.current = null;
+    }
+
     const validatorId = getValidatorId();
     let active = true;
+    let acquired = false;
 
     setChecking(true);
     enqueue(ticketId, () => lockTicket(ticketId, validatorId))
       .then(() => {
         if (active) {
+          acquired = true;
           setIsMine(true);
           setLockedByEmail(null);
         }
@@ -63,9 +73,14 @@ export function useTicketLock(ticketId: string | undefined): TicketLock {
 
     return () => {
       active = false;
-      // Le serveur libère aussi le verrou à la déconnexion SSE ;
-      // cet appel couvre la navigation volontaire.
-      void enqueue(ticketId, () => unlockTicket(ticketId, validatorId));
+      if (!acquired) return;
+      // Différé de 50 ms : si le composant se remonte immédiatement (StrictMode),
+      // le prochain effet annule ce timer avant qu'il parte.
+      let cancelled = false;
+      cancelUnlockRef.current = () => { cancelled = true; };
+      setTimeout(() => {
+        if (!cancelled) void enqueue(ticketId, () => unlockTicket(ticketId, validatorId));
+      }, 50);
     };
   }, [ticketId]);
 
