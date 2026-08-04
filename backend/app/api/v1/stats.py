@@ -277,13 +277,14 @@ def get_dashboard_stats(
             traitement_dict = {str(d): c for d, c in traitement_rows}
 
             nb_days = (curr_end.date() - curr_start.date()).days
+            dates = [str(curr_start.date() + timedelta(days=i)) for i in range(nb_days)]
             tickets_par_jour = [
-                {"date": str(curr_start.date() + timedelta(days=i)), "count": daily_dict.get(str(curr_start.date() + timedelta(days=i)), 0)}
-                for i in range(nb_days)
+                {"date": d, "count": daily_dict.get(d, 0)}
+                for d in dates
             ]
             traitement_par_jour = [
-                {"date": str(curr_start.date() + timedelta(days=i)), "count": traitement_dict.get(str(curr_start.date() + timedelta(days=i)), 0)}
-                for i in range(nb_days)
+                {"date": d, "count": traitement_dict.get(d, 0)}
+                for d in dates
             ]
 
         # ── Derniers tickets — filtrés par la période ────────────────────────────
