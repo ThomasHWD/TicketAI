@@ -17,9 +17,18 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
-      - qdrant
-      - valkey
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
 
   worker_ingestion:
     build: ./backend
@@ -37,9 +46,12 @@ services:
       DOCUMENTS_STORAGE_PATH: /app/storage
       UPLOAD_DIR: /app/uploads_tmp
     depends_on:
-      - postgres
-      - qdrant
-      - valkey
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
 
   worker_questions:
     build: ./backend
@@ -53,9 +65,12 @@ services:
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
     depends_on:
-      - postgres
-      - qdrant
-      - valkey
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
 
   frontend:
     image: node:22-alpine
@@ -69,7 +84,8 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   documents_storage:
