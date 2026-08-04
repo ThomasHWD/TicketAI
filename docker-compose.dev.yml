@@ -1,3 +1,14 @@
+# Dépendances d'infra communes aux services applicatifs.
+# Les ancres YAML ne traversent pas la frontière `-f base -f dev`, d'où une
+# définition par fichier.
+x-infra-deps: &infra-deps
+  postgres:
+    condition: service_healthy
+  qdrant:
+    condition: service_healthy
+  valkey:
+    condition: service_healthy
+
 services:
   backend:
     build: ./backend
@@ -16,16 +27,13 @@ services:
       UPLOAD_DIR: /app/uploads_tmp
     ports:
       - "8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
+    depends_on: *infra-deps
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
-      interval: 5s
+      # curl (installé dans backend/Dockerfile) plutôt qu'un `python -c` : ~5 ms
+      # contre ~111 ms par sonde, et plus de triple niveau d'échappement.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      start_interval: 1s
       timeout: 5s
       retries: 12
       start_period: 15s
@@ -45,13 +53,7 @@ services:
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
       UPLOAD_DIR: /app/uploads_tmp
-    depends_on:
-      postgres:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
+    depends_on: *infra-deps
 
   worker_questions:
     build: ./backend
@@ -64,13 +66,7 @@ services:
       DATABASE_URL: postgresql://user:test@postgres:5432/ticketai_db
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
-    depends_on:
-      postgres:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
+    depends_on: *infra-deps
 
   frontend:
     image: node:22-alpine
@@ -83,9 +79,12 @@ services:
       VITE_API_URL: http://backend:8000
     ports:
       - "5173:5173"
+    # Volontairement PAS `condition: service_healthy` : Vite proxifie /api/v1
+    # paresseusement à chaque requête, il n'a aucune dépendance au boot. Gater
+    # dessus empêchait tout travail front dès que le backend ne démarrait pas,
+    # et sérialisait le `npm install` derrière la santé du backend.
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
 
 volumes:
   documents_storage:

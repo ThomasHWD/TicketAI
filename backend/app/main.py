@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 
 from app.api.v1 import admin, auth, documents, notifications, reponses, sse, stats, tickets
 from app.services.qdrant import init_collection
@@ -20,9 +19,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# Sonde de liveness pour Docker. Uvicorn n'ouvre le port qu'après la fin du
+# lifespan : un 200 ici garantit donc déjà que init_collection() est passé.
+# Le diagnostic détaillé des dépendances vit dans GET /api/v1/admin/health.
 @app.get("/health", include_in_schema=False)
 async def health():
-    return JSONResponse({"status": "ok"})
+    return {"status": "ok"}
 
 
 app.include_router(auth.router, prefix="/api/v1")
