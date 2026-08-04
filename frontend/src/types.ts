@@ -73,6 +73,9 @@ export interface Ticket {
   user_email: string | null;
   user_nom_complet: string | null;
   user_departement: string | null;
+  user_titre: string | null;
+  user_telephone: string | null;
+  user_localisation: string | null;
   canonique: boolean;
   created_at: string | null;
   // Clôture par l'utilisateur (null = ouvert).

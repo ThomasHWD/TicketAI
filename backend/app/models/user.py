@@ -16,6 +16,9 @@ class User(Base):
     nom = Column(String(100), nullable=True)
     role = Column(String(20), nullable=False, default="USER")
     departement = Column(String(50), nullable=True)
+    titre = Column(String(100), nullable=True)
+    telephone = Column(String(50), nullable=True)
+    localisation = Column(String(100), nullable=True)
     is_gestionnaire = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
