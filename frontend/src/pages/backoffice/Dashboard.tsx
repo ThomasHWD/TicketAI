@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle,
   Archive,
@@ -7,7 +7,7 @@ import {
   Lightbulb,
   ChevronDown,
   UsersRound,
-  BarChart2,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { getDashboardStats, listDocuments } from "../../lib/api";
@@ -30,7 +30,9 @@ const PERIODES: { value: Periode; label: string }[] = [
 
 export default function Dashboard() {
   const { userDomaines, isChef } = useAuth();
+  const queryClient = useQueryClient();
   const [onglet, setOnglet] = useState<Onglet>("overview");
+  const [refreshing, setRefreshing] = useState(false);
   const [periode, setPeriode] = useState<Periode>("semaine");
   const [domaine, setDomaine] = useState<string>(
     userDomaines.length === 1 ? userDomaines[0] : "",
@@ -62,31 +64,44 @@ export default function Dashboard() {
     <div className="p-6 space-y-6 max-w-screen-xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-1 p-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 w-fit">
-          <button
-            onClick={() => setOnglet("overview")}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
-              onglet === "overview"
-                ? "bg-emerald-500 text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-            }`}
-          >
-            <BarChart2 size={14} />
-            Vue d'ensemble
-          </button>
+        <div className="flex items-center gap-2">
           {isChef && (
-            <button
-              onClick={() => setOnglet("equipe")}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
-                onglet === "equipe"
-                  ? "bg-emerald-500 text-white shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-              }`}
-            >
-              <UsersRound size={14} />
-              Mon équipe
-            </button>
+            <div className="flex items-center gap-1 p-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 w-fit">
+              <button
+                onClick={() => setOnglet("overview")}
+                className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+                  onglet === "overview"
+                    ? "bg-emerald-500 text-white shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                }`}
+              >
+                Vue d'ensemble
+              </button>
+              <button
+                onClick={() => setOnglet("equipe")}
+                className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+                  onglet === "equipe"
+                    ? "bg-emerald-500 text-white shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                }`}
+              >
+                <UsersRound size={14} />
+                Mon équipe
+              </button>
+            </div>
           )}
+          <button
+            onClick={async () => {
+              setRefreshing(true);
+              await queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+              await queryClient.invalidateQueries({ queryKey: ["dashboard-docs"] });
+              setRefreshing(false);
+            }}
+            className="p-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
+            title="Rafraîchir"
+          >
+            <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+          </button>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -132,9 +147,9 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <StatCard
               title="Nouveaux tickets"
-              value={stats?.stats_cartes.en_suggestion.valeur ?? 0}
-              variation={stats?.stats_cartes.en_suggestion.variation ?? 0}
-              hausse={stats?.stats_cartes.en_suggestion.hausse ?? true}
+              value={stats?.stats_cartes.nouveaux.valeur ?? 0}
+              variation={stats?.stats_cartes.nouveaux.variation ?? 0}
+              hausse={stats?.stats_cartes.nouveaux.hausse ?? true}
               icon={Lightbulb}
               iconColor="text-blue-500"
               loading={statsLoading}
@@ -149,10 +164,10 @@ export default function Dashboard() {
               loading={statsLoading}
             />
             <StatCard
-              title="Réponses canoniques"
-              value={stats?.stats_cartes.reponses_canoniques.valeur ?? 0}
-              variation={stats?.stats_cartes.reponses_canoniques.variation ?? 0}
-              hausse={stats?.stats_cartes.reponses_canoniques.hausse ?? true}
+              title="Nombre de réponses canonique"
+              value={stats?.stats_cartes.repondu_canonique.valeur ?? 0}
+              variation={stats?.stats_cartes.repondu_canonique.variation ?? 0}
+              hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true}
               icon={CheckCircle}
               iconColor="text-emerald-500"
               loading={statsLoading}
