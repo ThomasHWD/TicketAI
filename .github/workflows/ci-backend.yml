@@ -1,13 +1,18 @@
-name: TicketAI CI/CD Pipeline
+name: CI Backend
 
 on:
   push:
     branches: [main, "dev"]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci-backend.yml"
   pull_request:
     branches: [main, "dev"]
+    paths:
+      - "backend/**"
+      - ".github/workflows/ci-backend.yml"
 
 jobs:
-  # 1. Analyse statique du code (Linter)
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -17,8 +22,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14.4" # alignée sur le job tests
-          cache: 'pip' # ⚡ Cache pour accélérer les futurs runs
+          python-version: "3.14.4"
+          cache: 'pip'
 
       - name: Install Ruff
         run: pip install ruff
@@ -26,7 +31,7 @@ jobs:
       - name: Run Ruff
         run: ruff check .
 
-  # 2. Exécution des tests (suite complète : unitaires + intégration)
+  # Tests (suite complète : unitaires + intégration)
   # GitHub Actions est l'environnement de référence pour les tests d'intégration :
   # Postgres et Valkey sont provisionnés en services, Qdrant en conteneur. La base
   # `ticketai_test` déclenche l'exécution réelle des tests marqués `integration`
@@ -68,7 +73,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.14.4"
-          cache: 'pip' # ⚡ Cache les dépendances de ton requirements.txt
+          cache: 'pip'
           cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
@@ -90,51 +95,25 @@ jobs:
 
       - name: Run tests
         env:
-            POSTGRES_HOST: localhost
-            POSTGRES_DB: ticketai_test
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: password
-            QDRANT_HOST: localhost
-            QDRANT_PORT: 6333
-            VALKEY_HOST: localhost
-            VALKEY_PORT: 6379
-            VALKEY_URL: redis://localhost:6379/0
-            LLM_URL: http://localhost:8000
-            LLM_MODEL_NAME: mock-model
-            DOCUMENTS_STORAGE_PATH: ./test_storage_dir
-            ALBERT_API_KEY: "mock_key_for_tests"
-            ALBERT_LLM_URL: "https://localhost/v1"
-            ALBERT_LLM_MODEL_NAME: "mock-llm"
-            ALBERT_EMBEDDINGS_URL: "https://localhost/v1"
-            ALBERT_EMBEDDINGS_MODEL_NAME: "mock-embeddings"
-            ALBERT_RERANKER_URL: "https://localhost/v1/rerank"
-            ALBERT_RERANKER_MODEL_NAME: "mock-reranker"
-            PYTHONPATH: .
+          POSTGRES_HOST: localhost
+          POSTGRES_DB: ticketai_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          QDRANT_HOST: localhost
+          QDRANT_PORT: 6333
+          VALKEY_HOST: localhost
+          VALKEY_PORT: 6379
+          VALKEY_URL: redis://localhost:6379/0
+          LLM_URL: http://localhost:8000
+          LLM_MODEL_NAME: mock-model
+          DOCUMENTS_STORAGE_PATH: ./test_storage_dir
+          ALBERT_API_KEY: "mock_key_for_tests"
+          ALBERT_LLM_URL: "https://localhost/v1"
+          ALBERT_LLM_MODEL_NAME: "mock-llm"
+          ALBERT_EMBEDDINGS_URL: "https://localhost/v1"
+          ALBERT_EMBEDDINGS_MODEL_NAME: "mock-embeddings"
+          ALBERT_RERANKER_URL: "https://localhost/v1/rerank"
+          ALBERT_RERANKER_MODEL_NAME: "mock-reranker"
+          PYTHONPATH: .
         working-directory: backend
         run: pytest
-
-  # 3. Frontend : lint + tests unitaires (vitest)
-  frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Lint
-        working-directory: frontend
-        run: npm run lint
-
-      - name: Run tests
-        working-directory: frontend
-        run: npm run test
