@@ -18,9 +18,24 @@ function formatDate(iso: string | null) {
   }).format(new Date(iso));
 }
 
+const DISMISSED_KEY = "assignations_dismissed";
+
+function getDismissed(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissed(ids: Set<string>) {
+  localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
+}
+
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
+  const [dismissed, setDismissed] = useState<Set<string>>(getDismissed);
   const btnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -36,7 +51,33 @@ export default function NotificationBell() {
     queryFn: getNotifications,
   });
 
-  const totalBadge = assigned.length + notifications.length;
+  // Retire du dismissed les tickets qui ne sont plus assignés (désassignés puis réassignés reparaîtront)
+  useEffect(() => {
+    if (assigned.length === 0 && dismissed.size === 0) return;
+    const assignedIds = new Set(assigned.map((t) => String(t.id)));
+    const next = new Set([...dismissed].filter((id) => assignedIds.has(id)));
+    if (next.size !== dismissed.size) {
+      setDismissed(next);
+      saveDismissed(next);
+    }
+  }, [assigned, dismissed]);
+
+  const visibleAssigned = assigned.filter((t) => !dismissed.has(String(t.id)));
+  const totalBadge = visibleAssigned.length + notifications.length;
+
+  function dismissAssignation(id: string) {
+    const next = new Set(dismissed);
+    next.add(id);
+    setDismissed(next);
+    saveDismissed(next);
+  }
+
+  function dismissAllAssignations() {
+    const next = new Set(dismissed);
+    visibleAssigned.forEach((t) => next.add(String(t.id)));
+    setDismissed(next);
+    saveDismissed(next);
+  }
 
   function handleToggle() {
     if (!open && btnRef.current) {
@@ -93,25 +134,32 @@ export default function NotificationBell() {
         )}
       </div>
 
-      {totalBadge === 0 && assigned.length === 0 && notifications.length === 0 && (
+      {visibleAssigned.length === 0 && notifications.length === 0 && (
         <p className="px-4 py-6 text-sm text-center text-gray-400 dark:text-gray-500">
           Aucune notification
         </p>
       )}
 
       {/* Section assignations */}
-      {assigned.length > 0 && (
+      {visibleAssigned.length > 0 && (
         <>
-          <div className="px-4 pt-3 pb-1">
+          <div className="px-4 pt-3 pb-1 flex items-center justify-between">
             <p className="text-[10px] font-semibold text-violet-500 dark:text-violet-400 uppercase tracking-wider flex items-center gap-1">
               <UserPlus size={10} /> Assignations
             </p>
+            <button
+              onClick={dismissAllAssignations}
+              className="flex items-center gap-1 text-xs text-violet-500 dark:text-violet-400 hover:underline"
+            >
+              <CheckCheck size={12} />
+              Tout effacer
+            </button>
           </div>
           <ul role="list">
-            {assigned.map((t) => (
+            {visibleAssigned.map((t) => (
               <li key={t.id}>
                 <button
-                  onClick={() => { navigate(`/tickets/${t.id}`); setOpen(false); }}
+                  onClick={() => { navigate(`/tickets/${t.id}`); setOpen(false); dismissAssignation(String(t.id)); }}
                   className="w-full text-left px-4 py-2.5 hover:bg-white/60 dark:hover:bg-white/10 transition-colors border-b border-white/50 dark:border-white/10 last:border-0"
                 >
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
