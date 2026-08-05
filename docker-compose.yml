@@ -1,7 +1,21 @@
+# Timings partagés par les sondes d'infra.
+# start_interval sonde toutes les 1 s pendant start_period (démarrage réactif),
+# puis on retombe sur interval en régime établi pour ne pas sonder inutilement.
+x-infra-healthcheck: &infra-healthcheck
+  interval: 10s
+  start_interval: 1s
+  timeout: 5s
+  retries: 10
+  start_period: 10s
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: ticketAI-postgres
+    # Sans restart, un reboot de l'hôte relance qdrant/valkey et les services
+    # applicatifs mais pas postgres : depends_on n'est pas réévalué hors d'un
+    # `docker compose up`, donc la stack repart avec une base absente.
+    restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -11,11 +25,17 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
+      # Variables lues dans le conteneur ($$) et non interpolées par Compose :
+      # un POSTGRES_USER vide côté hôte produisait `pg_isready -U  -d db`, que
+      # le shell découpait en `-U -d`, sonde invalide donc jamais healthy.
+      # -h force le TCP : sur socket Unix la sonde répond OK au serveur
+      # temporaire de l'initdb, qui lui n'écoute pas encore en TCP.
+      test:
+        [
+          "CMD-SHELL",
+          'pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER:-postgres}" -d "$${POSTGRES_DB:-postgres}"',
+        ]
+      <<: *infra-healthcheck
 
   qdrant:
     image: qdrant/qdrant:v1.18.0
@@ -27,11 +47,12 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
+      # L'image n'embarque ni curl ni wget, et /bin/sh y est dash (pas de
+      # /dev/tcp) : bash est donc requis. Le bind du port est la dernière étape
+      # du démarrage de Qdrant, après le chargement des collections, donc un
+      # connect TCP suffit ici.
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/6333"]
+      <<: *infra-healthcheck
 
   valkey:
     image: valkey/valkey:7.2-alpine
@@ -41,10 +62,7 @@ services:
       - "${VALKEY_PORT}:6379"
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 5s
+      <<: *infra-healthcheck
 
 volumes:
   postgres_data:
