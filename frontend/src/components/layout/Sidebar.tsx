@@ -101,7 +101,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed }: SidebarProps) {
-  const { user, userDomaines, isChef } = useAuth();
+  const { user, userDomaines, isChef, isBackoffice } = useAuth();
   const greetingName = user?.prenom || user?.email || "";
   const avatarName = [user?.prenom, user?.nom].filter(Boolean).join(" ") || user?.email || "?";
 
@@ -193,6 +193,9 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         <p className={`px-3 pb-1 text-xs font-semibold tracking-[0.05em] uppercase text-gray-500 dark:text-gray-400 [text-shadow:0_1px_2px_rgba(255,255,255,0.6)] dark:[text-shadow:none] transition-all duration-300 ease-in-out ${collapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-100"}`}>
           Espace personnel
         </p>
+        {!isBackoffice && (
+          <NavItem to="/" icon={LayoutDashboard} label="Tableau de bord" collapsed={collapsed} />
+        )}
         {navSettings.map((item) => (
           <NavItem key={item.to} {...item} collapsed={collapsed} />
         ))}

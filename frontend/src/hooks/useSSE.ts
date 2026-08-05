@@ -13,6 +13,7 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
   switch (type) {
     case "ticket_created":
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["user-dash"] });
       break;
 
     case "ticket_followup":
@@ -25,6 +26,7 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
     case "ticket_answered":
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
       queryClient.invalidateQueries({ queryKey: ["mes-tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["user-dash"] });
       if (payload.ticket_id) {
         queryClient.invalidateQueries({ queryKey: ["ticket", payload.ticket_id] });
       }
@@ -50,6 +52,7 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
     case "ticket_closed":
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
       queryClient.invalidateQueries({ queryKey: ["mes-tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["user-dash"] });
       if (payload.ticket_id) {
         queryClient.invalidateQueries({ queryKey: ["ticket", payload.ticket_id] });
       }
@@ -58,6 +61,7 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
     case "reponse_validated":
     case "reponse_rejected":
     case "reponse_corrected":
+      queryClient.invalidateQueries({ queryKey: ["user-dash"] });
       if (payload.ticket_id) {
         queryClient.invalidateQueries({ queryKey: ["ticket", payload.ticket_id] });
       }
@@ -127,7 +131,7 @@ export function useSSE() {
         // Après une reconnexion, invalider toutes les queries potentiellement
         // périmées pendant la coupure (les events manqués sont perdus avec pub/sub)
         if (hasConnectedOnce) {
-          for (const key of ["tickets", "ticket", "mes-tickets", "mes-assignations", "notifications"]) {
+          for (const key of ["tickets", "ticket", "mes-tickets", "mes-assignations", "notifications", "user-dash"]) {
             queryClient.invalidateQueries({ queryKey: [key] });
           }
         }

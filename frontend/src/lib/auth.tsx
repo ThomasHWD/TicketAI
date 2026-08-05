@@ -13,6 +13,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   isAuthenticated: boolean;
+  isBackoffice: boolean;
   userDomaines: string[];
   isChef: boolean;
   groupesChef: { id: string; nom: string; domaine: string }[];
@@ -97,10 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const groupesChef = (user?.groupes ?? []).filter((g) => g.is_chef);
   const isChef = groupesChef.length > 0;
+  const isBackoffice = userDomaines.length > 0 || user?.role === "ADMIN";
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isAuthenticated: !!token, userDomaines, isChef, groupesChef, login, logout, refreshUser }}
+      value={{ user, token, isAuthenticated: !!token, isBackoffice, userDomaines, isChef, groupesChef, login, logout, refreshUser }}
     >
       {children}
     </AuthContext.Provider>
