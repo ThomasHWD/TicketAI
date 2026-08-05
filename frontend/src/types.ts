@@ -181,6 +181,25 @@ export interface EditerCanoniquePayload {
   contenu: string;
 }
 
+export type WorkflowEventType =
+  | "CREE"
+  | "REPONSE_GENEREE"
+  | "SUIVI"
+  | "VALIDE"
+  | "CORRIGE"
+  | "REJETE"
+  | "ASSIGNE"
+  | "DESASSIGNE"
+  | "CLOTURE";
+
+export interface WorkflowEvent {
+  type: WorkflowEventType;
+  at: string | null;
+  actor_email: string | null;
+  actor_nom_complet: string | null;
+  meta: Record<string, string | null>;
+}
+
 export interface ValiderPayload {
   validator_id: string;
 }
