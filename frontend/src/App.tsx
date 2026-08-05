@@ -18,7 +18,7 @@ import { JobsProvider } from "./context/JobsContext";
 import Dashboard from "./pages/backoffice/Dashboard";
 import TicketsList from "./pages/backoffice/TicketsList";
 import ClosedTicketsList from "./pages/backoffice/ClosedTicketsList";
-import TicketDetail from "./pages/backoffice/TicketDetail";
+import TicketDetail from "./pages/backoffice/TicketDetail/TicketDetail";
 import SavedAnswers from "./pages/backoffice/SavedAnswers";
 import NewTicket from "./pages/user/NewTicket";
 import UserTicketHistory from "./pages/user/UserTicketHistory";

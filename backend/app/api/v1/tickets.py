@@ -13,7 +13,10 @@ from app.core.security import CurrentUser
 from app.database import SessionLocal
 from app.models.groupe import Groupe
 from app.models.groupe import user_groups as ug_table
+from app.models.reponse import Reponse as ReponseModel
 from app.models.ticket import Ticket
+from app.models.ticket_event import TicketEvent
+from app.models.user import User
 from app.services.broadcast import broadcast_async
 from app.workers.celery_app import celery_app
 from app.workers.question import question_job
@@ -316,7 +319,7 @@ class AssignerRequest(BaseModel):
 
 
 @router.post("/tickets/{ticket_id}/assigner")
-async def assigner_ticket(ticket_id: str, payload: AssignerRequest, _: CurrentUser):
+async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user: CurrentUser):
     """Assigne le ticket à un validateur du même domaine."""
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
@@ -338,6 +341,19 @@ async def assigner_ticket(ticket_id: str, payload: AssignerRequest, _: CurrentUs
         ticket.locked_by = None
         ticket.locked_at = None
         ticket.lock_expires_at = None
+        assignee = db.query(User).filter(User.id == payload.assignee_id).first()
+        db.add(TicketEvent(
+            ticket_id=tid,
+            type="ASSIGNE",
+            actor_id=current_user.id,
+            actor_email=current_user.email,
+            actor_nom_complet=_full_name(current_user),
+            meta={
+                "assignee_id": str(payload.assignee_id),
+                "assignee_email": assignee.email if assignee else None,
+                "assignee_nom": _full_name(assignee) if assignee else None,
+            },
+        ))
         db.commit()
         result = _serialize_ticket(ticket)
     finally:
@@ -353,7 +369,7 @@ async def assigner_ticket(ticket_id: str, payload: AssignerRequest, _: CurrentUs
 
 
 @router.post("/tickets/{ticket_id}/desassigner")
-async def desassigner_ticket(ticket_id: str, _: CurrentUser):
+async def desassigner_ticket(ticket_id: str, current_user: CurrentUser):
     """Remet le ticket dans le pot commun (supprime l'assignation)."""
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
@@ -363,6 +379,14 @@ async def desassigner_ticket(ticket_id: str, _: CurrentUser):
             raise HTTPException(404, "Ticket introuvable")
         domaine = ticket.domaine
         ticket.assigned_to = None
+        db.add(TicketEvent(
+            ticket_id=tid,
+            type="DESASSIGNE",
+            actor_id=current_user.id,
+            actor_email=current_user.email,
+            actor_nom_complet=_full_name(current_user),
+            meta={},
+        ))
         db.commit()
         result = _serialize_ticket(ticket)
     finally:
@@ -433,6 +457,97 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
             }
             for r in reponses
         ]
+    finally:
+        db.close()
+
+
+@router.get("/tickets/{ticket_id}/workflow")
+async def get_ticket_workflow(ticket_id: str, _: CurrentUser):
+    """Retourne la timeline complète du ticket, triée chronologiquement."""
+    db = SessionLocal()
+    try:
+        tid = _parse_ticket_id(ticket_id)
+        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not ticket:
+            raise HTTPException(404, "Ticket introuvable")
+
+        reponses = (
+            db.query(ReponseModel)
+            .filter(ReponseModel.ticket_id == tid)
+            .order_by(ReponseModel.created_at.asc())
+            .all()
+        )
+        ticket_events = (
+            db.query(TicketEvent)
+            .filter(TicketEvent.ticket_id == tid)
+            .order_by(TicketEvent.created_at.asc())
+            .all()
+        )
+
+        _TYPE_ORDER = {
+            "CREE": 0, "SUIVI": 1, "REPONSE_GENEREE": 2,
+            "ASSIGNE": 3, "DESASSIGNE": 3,
+            "VALIDE": 4, "CORRIGE": 4, "REJETE": 4,
+            "CLOTURE": 5,
+        }
+
+        events: list[dict] = []
+
+        events.append({
+            "type": "CREE",
+            "at": ticket.created_at.isoformat() if ticket.created_at else None,
+            "actor_email": ticket.user.email if ticket.user else None,
+            "actor_nom_complet": _full_name(ticket.user),
+            "meta": {"domaine": ticket.domaine},
+        })
+
+        type_map = {"VALIDÉE": "VALIDE", "CORRIGÉE": "CORRIGE", "REJETÉE": "REJETE"}
+        for reponse in reponses:
+            ts = reponse.created_at.isoformat() if reponse.created_at else None
+            if reponse.question_suivi:
+                events.append({
+                    "type": "SUIVI",
+                    "at": ts,
+                    "actor_email": None,
+                    "actor_nom_complet": None,
+                    "meta": {"texte": reponse.question_suivi},
+                })
+            events.append({
+                "type": "REPONSE_GENEREE",
+                "at": ts,
+                "actor_email": None,
+                "actor_nom_complet": None,
+                "meta": {"source": reponse.source},
+            })
+            if reponse.validated_at and reponse.statut in type_map:
+                events.append({
+                    "type": type_map[reponse.statut],
+                    "at": reponse.validated_at.isoformat(),
+                    "actor_email": reponse.validator.email if reponse.validator else None,
+                    "actor_nom_complet": _full_name(reponse.validator),
+                    "meta": {},
+                })
+
+        for evt in ticket_events:
+            events.append({
+                "type": evt.type,
+                "at": evt.created_at.isoformat() if evt.created_at else None,
+                "actor_email": evt.actor_email,
+                "actor_nom_complet": evt.actor_nom_complet,
+                "meta": evt.meta or {},
+            })
+
+        if ticket.closed_at:
+            events.append({
+                "type": "CLOTURE",
+                "at": ticket.closed_at.isoformat(),
+                "actor_email": None,
+                "actor_nom_complet": None,
+                "meta": {},
+            })
+
+        events.sort(key=lambda e: (e["at"] or "", _TYPE_ORDER.get(e["type"], 6)))
+        return events
     finally:
         db.close()
 

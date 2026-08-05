@@ -1,38 +1,22 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  Bot,
-  Building2,
-  Check,
-  Clock,
-  Lock,
-  MapPin,
-  Pencil,
-  Phone,
-  Sparkles,
-  ThumbsUp,
-  User,
-  UserPlus,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Building2, Clock, History, Lock, MapPin, Phone, User, UserPlus, X } from "lucide-react";
 import {
   getTicket,
   getReponsesByTicket,
-  corrigerReponse,
-  validerReponse,
-  LockConflictError,
   getValidateursByDomaine,
   assignTicket,
   unassignTicket,
-} from "../../lib/api";
-import UserAvatar from "../../components/ui/UserAvatar";
-import type { MembreGroupe } from "../../lib/api";
-import { getValidatorId } from "../../lib/currentUser";
-import { useAuth } from "../../lib/auth";
-import { useTicketLock } from "../../hooks/useTicketLock";
-import type { TicketReponse, StatutTicket, StatutReponse } from "../../types.ts";
+} from "../../../lib/api";
+import type { MembreGroupe } from "../../../lib/api";
+import UserAvatar from "../../../components/ui/UserAvatar";
+import { useAuth } from "../../../lib/auth";
+import { useTicketLock } from "../../../hooks/useTicketLock";
+import type { StatutTicket } from "../../../types.ts";
+import { formatDate, BotAvatar } from "./utils";
+import ReponseItem from "./ReponseItem";
+import WorkflowModal from "./WorkflowModal";
 
 function isProcessing(statutJob: string) {
   return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";
@@ -67,209 +51,6 @@ function StatutBadge({ statut, canonique, closed, processing }: { statut: Statut
   );
 }
 
-function reponseStatutLabel(statut: StatutReponse, canonique: boolean) {
-  if (statut === "VALIDÉE" || statut === "CORRIGÉE") return canonique ? "Canonique" : "Validée";
-  if (statut === "REJETÉE") return "Rejetée";
-  if (statut === "EN_ATTENTE") return "En attente";
-  return statut;
-}
-
-function reponseStatutClass(statut: StatutReponse, canonique: boolean) {
-  if (statut === "REJETÉE") return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
-  if ((statut === "VALIDÉE" || statut === "CORRIGÉE") && canonique)
-    return "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
-  if (statut === "VALIDÉE" || statut === "CORRIGÉE")
-    return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
-  return "bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20";
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-  }).format(new Date(iso));
-}
-
-
-const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
-  SUGGESTION: { label: "Suggestion", icon: Sparkles },
-  CANONIQUE: { label: "Canonique", icon: Bot },
-};
-
-/** Avatar IA (réponse en attente ou canonique) */
-function BotAvatar({ pulse = false }: { pulse?: boolean }) {
-  return (
-    <span
-      className={`inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-500 dark:bg-emerald-600 text-white shrink-0 ring-2 ring-white dark:ring-black/40 shadow-md shadow-emerald-600/40${pulse ? " animate-pulse" : ""}`}
-      aria-hidden="true"
-    >
-      <Bot size={16} strokeWidth={1.75} />
-    </span>
-  );
-}
-
-
-function ReponseItem({
-  reponse,
-  readOnly,
-  userEmail,
-  onChanged,
-  onLockConflict,
-}: {
-  reponse: TicketReponse;
-  readOnly: boolean;
-  userEmail: string | null;
-  onChanged: () => void;
-  onLockConflict: (message: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(reponse.contenu);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const canAct = reponse.statut === "EN_ATTENTE" && !readOnly;
-  const sourceInfo = SOURCE_LABEL[reponse.source];
-  const isPending = reponse.statut === "EN_ATTENTE";
-  const isCanonique = reponse.canonique;
-  const showBot = isPending || isCanonique;
-  const authorLabel = showBot
-    ? "TicketAI"
-    : (reponse.validator_nom_complet ?? reponse.validator_email ?? "Validateur");
-  const authorClass = showBot
-    ? "text-emerald-700 dark:text-emerald-400"
-    : "text-violet-700 dark:text-violet-300";
-
-  function handleError(e: unknown) {
-    if (e instanceof LockConflictError) { onLockConflict(e.message); return; }
-    setError(e instanceof Error ? e.message : "Erreur");
-  }
-
-  async function handleValider() {
-    setLoading(true); setError(null);
-    try {
-      await validerReponse(reponse.id, { validator_id: getValidatorId() });
-      onChanged();
-    } catch (e) { handleError(e); } finally { setLoading(false); }
-  }
-
-  async function handleCorriger() {
-    if (!draft.trim() || draft === reponse.contenu) { setEditing(false); return; }
-    setLoading(true); setError(null);
-    try {
-      await corrigerReponse(reponse.id, { contenu_corrige: draft, validator_id: getValidatorId() });
-      setEditing(false); onChanged();
-    } catch (e) { handleError(e); } finally { setLoading(false); }
-  }
-
-  function handleCancel() { setDraft(reponse.contenu); setEditing(false); setError(null); }
-
-  return (
-    <li className="px-5 py-4 space-y-3 animate-in fade-in slide-in-from-bottom-1 duration-300">
-      {/* Précision de relance */}
-      {reponse.question_suivi && (
-        <div className="flex gap-3 items-start">
-          <UserAvatar name={userEmail ?? "?"} size={36} />
-          <div className="flex-1 min-w-0 space-y-1.5">
-            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">Précision de l'utilisateur</span>
-            <div className="bg-emerald-50 dark:bg-emerald-500/[0.08] border border-emerald-100 dark:border-emerald-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
-              <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-                {reponse.question_suivi}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Réponse IA ou validateur humain */}
-      <div className="flex gap-3 items-start">
-        {showBot ? (
-          <BotAvatar pulse={isPending} />
-        ) : (
-          <UserAvatar name={reponse.validator_nom_complet ?? reponse.validator_email ?? "Validateur"} size={36} />
-        )}
-        <div className="flex-1 min-w-0 space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-semibold ${authorClass}`}>{authorLabel}</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(reponse.created_at)}</span>
-            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${reponseStatutClass(reponse.statut, reponse.canonique)}`}>
-              <span className="w-1 h-1 rounded-full bg-current" />
-              {reponseStatutLabel(reponse.statut, reponse.canonique)}
-            </span>
-            {sourceInfo && reponse.source !== "CANONIQUE" && (
-              <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                <sourceInfo.icon size={11} aria-hidden="true" />
-                {sourceInfo.label}
-              </span>
-            )}
-            {reponse.score_similarite != null && (
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                · {(reponse.score_similarite * 100).toFixed(0)} % similarité
-              </span>
-            )}
-          </div>
-
-          {editing ? (
-            <div className="space-y-3">
-              <textarea
-                className="w-full text-sm text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y leading-relaxed min-h-[420px]"
-                rows={18}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                disabled={loading}
-                autoFocus
-                aria-label="Contenu corrigé"
-              />
-              {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCorriger}
-                  disabled={loading || !draft.trim()}
-                  className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
-                >
-                  <Check size={14} aria-hidden="true" /> Valider la correction
-                </button>
-                <button
-                  onClick={handleCancel}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                >
-                  <X size={14} aria-hidden="true" /> Annuler
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white/90 dark:bg-white/[0.07] border border-gray-200/70 dark:border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-              <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-                {reponse.contenu_corrige ?? reponse.contenu}
-              </p>
-            </div>
-          )}
-
-          {canAct && !editing && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={handleValider}
-                disabled={loading}
-                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
-              >
-                <ThumbsUp size={14} aria-hidden="true" /> Valider
-              </button>
-              <button
-                onClick={() => setEditing(true)}
-                disabled={loading}
-                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
-              >
-                <Pencil size={14} aria-hidden="true" /> Corriger
-              </button>
-              {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
-            </div>
-          )}
-        </div>
-      </div>
-    </li>
-  );
-}
-
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -280,6 +61,7 @@ export default function TicketDetail() {
   const [assignError, setAssignError] = useState<string | null>(null);
   const [assignLoading, setAssignLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState("");
+  const [showWorkflow, setShowWorkflow] = useState(false);
 
   const ticketQuery = useQuery({
     queryKey: ["ticket", id],
@@ -349,6 +131,7 @@ export default function TicketDetail() {
   const userName = ticket.user_nom_complet || userEmail;
 
   return (
+    <>
     <div className="p-6 space-y-4 max-w-6xl">
       <button
         onClick={() => navigate(-1)}
@@ -359,7 +142,6 @@ export default function TicketDetail() {
         Retour aux tickets
       </button>
 
-      {/* Bandeau lecture seule */}
       {!checking && readOnly && (
         <div
           className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-400/10 dark:border-amber-400/20 dark:text-amber-300 text-sm"
@@ -373,7 +155,6 @@ export default function TicketDetail() {
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
@@ -383,10 +164,9 @@ export default function TicketDetail() {
         </div>
       </div>
 
-      {/* Layout 2 colonnes */}
       <div className="flex gap-5 items-start">
 
-        {/* Colonne principale : fil de conversation */}
+        {/* Fil de conversation */}
         <div className="flex-1 min-w-0 space-y-4">
           <div className="glass-card rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
@@ -394,7 +174,6 @@ export default function TicketDetail() {
             </div>
             <ul className="divide-y divide-gray-200 dark:divide-white/10" aria-label="Fil de conversation">
 
-              {/* Question initiale */}
               <li className="px-5 py-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
                 <div className="flex gap-3 items-start">
                   <UserAvatar name={userName ?? "?"} size={36} />
@@ -414,7 +193,6 @@ export default function TicketDetail() {
                 </div>
               </li>
 
-              {/* Réponses */}
               {reponses.length === 0 ? (
                 <li className="px-5 py-4">
                   <div className="flex gap-3 items-start">
@@ -449,7 +227,6 @@ export default function TicketDetail() {
         {/* Colonne latérale */}
         <div className="w-72 shrink-0 space-y-4">
 
-          {/* Infos ticket */}
           <div className="glass-card rounded-2xl p-5 space-y-4">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Informations</p>
             <dl className="space-y-3 text-sm">
@@ -474,9 +251,17 @@ export default function TicketDetail() {
                 <dd className="text-gray-500 dark:text-gray-400 font-mono text-xs break-all">{ticket.id}</dd>
               </div>
             </dl>
+            <div className="pt-3 border-t border-gray-200 dark:border-white/10">
+              <button
+                onClick={() => setShowWorkflow(true)}
+                className="w-full flex items-center justify-center gap-2 text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-400 dark:hover:border-emerald-500/20 transition-colors"
+              >
+                <History size={13} aria-hidden="true" />
+                Voir l'historique
+              </button>
+            </div>
           </div>
 
-          {/* Demandeur */}
           <div className="glass-card rounded-2xl p-5 space-y-3">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Demandeur</p>
             <div className="flex items-center gap-3">
@@ -526,7 +311,6 @@ export default function TicketDetail() {
             </div>
           </div>
 
-          {/* Assignation */}
           {!ticket.closed_at && (
             <div className="glass-card rounded-2xl p-5 space-y-3">
               <div className="flex items-center gap-2">
@@ -600,5 +384,10 @@ export default function TicketDetail() {
         </div>
       </div>
     </div>
+
+    {showWorkflow && id && (
+      <WorkflowModal ticketId={id} onClose={() => setShowWorkflow(false)} />
+    )}
+    </>
   );
 }
