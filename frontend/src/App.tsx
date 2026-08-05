@@ -85,10 +85,10 @@ function AdminRoute() {
   return <Outlet />;
 }
 
-/** Affiche le dashboard adapté au profil de l'utilisateur. */
+/** Redirige les users lambda vers leur espace personnel, affiche le dashboard backoffice pour les autres. */
 function RootPage() {
   const { isBackoffice } = useAuth();
-  return isBackoffice ? <Dashboard /> : <UserDashboard />;
+  return isBackoffice ? <Dashboard /> : <Navigate to="/mon-espace" replace />;
 }
 
 /** Barrière backoffice : accessible uniquement si l'utilisateur est dans au moins un groupe. */
@@ -122,6 +122,7 @@ export default function App() {
           </Route>
           <Route element={<Layout />}>
             <Route path="*" element={<NotFound />} />
+            <Route path="/mon-espace" element={<UserDashboard />} />
             <Route path="/nouveau-ticket" element={<NewTicket />} />
             <Route path="/historique" element={<UserTicketHistory />} />
             <Route path="/historique/:id" element={<UserTicketDetail />} />
