@@ -9,6 +9,7 @@ interface StatCardProps {
   iconColor?: string;
   loading?: boolean;
   suffix?: string;
+  formatter?: (value: number) => string;
 }
 
 export default function StatCard({
@@ -20,6 +21,7 @@ export default function StatCard({
   iconColor = "text-emerald-500",
   loading = false,
   suffix = "",
+  formatter,
 }: StatCardProps) {
   if (loading) {
     return (
@@ -53,8 +55,14 @@ export default function StatCard({
         </span>
       </div>
       <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-        {value.toLocaleString("fr-FR")}
-        {suffix && <span className="text-lg font-normal text-gray-500 ml-1">{suffix}</span>}
+        {formatter ? (
+          formatter(value)
+        ) : (
+          <>
+            {value.toLocaleString("fr-FR")}
+            {suffix && <span className="text-lg font-normal text-gray-500 ml-1">{suffix}</span>}
+          </>
+        )}
       </div>
       <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${trendBg} ${trendColor}`}>
         <TrendIcon size={12} />
