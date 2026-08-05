@@ -16,6 +16,7 @@ import Aurora from "./components/ui/Aurora";
 import JobTracker from "./components/ui/JobTracker";
 import { JobsProvider } from "./context/JobsContext";
 import Dashboard from "./pages/backoffice/Dashboard";
+import UserDashboard from "./pages/user/UserDashboard";
 import TicketsList from "./pages/backoffice/TicketsList";
 import ClosedTicketsList from "./pages/backoffice/ClosedTicketsList";
 import TicketDetail from "./pages/backoffice/TicketDetail/TicketDetail";
@@ -84,6 +85,12 @@ function AdminRoute() {
   return <Outlet />;
 }
 
+/** Redirige les users lambda vers leur espace personnel, affiche le dashboard backoffice pour les autres. */
+function RootPage() {
+  const { isBackoffice } = useAuth();
+  return isBackoffice ? <Dashboard /> : <Navigate to="/mon-espace" replace />;
+}
+
 /** Barrière backoffice : accessible uniquement si l'utilisateur est dans au moins un groupe. */
 function BackofficeRoute() {
   const { userDomaines, user } = useAuth();
@@ -101,7 +108,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<RootPage />} />
           </Route>
           <Route element={<BackofficeRoute />}>
             <Route element={<Layout />}>
@@ -115,6 +122,7 @@ export default function App() {
           </Route>
           <Route element={<Layout />}>
             <Route path="*" element={<NotFound />} />
+            <Route path="/mon-espace" element={<UserDashboard />} />
             <Route path="/nouveau-ticket" element={<NewTicket />} />
             <Route path="/historique" element={<UserTicketHistory />} />
             <Route path="/historique/:id" element={<UserTicketDetail />} />
