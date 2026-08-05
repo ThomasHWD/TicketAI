@@ -7,17 +7,16 @@ import {
   LayoutDashboard,
   TicketMinus,
   MessageSquare,
-  Settings,
+  // Settings,
   BookText,
   ChevronRight,
   History,
-  TicketPlus,
+  // TicketPlus,
   MessagesSquare,
   ArchiveX,
   File,
   Users,
   SlidersHorizontal,
-  UsersRound,
 } from "lucide-react";
 import { getIncidents } from "../../lib/api";
 import UserAvatar from "../ui/UserAvatar";
@@ -37,9 +36,9 @@ const navMain = [
 ];
 
 const navSettings = [
-  { to: "/nouveau-ticket", icon: TicketPlus, label: "Nouvelle question" },
+  // { to: "/nouveau-ticket", icon: TicketPlus, label: "Nouvelle question" },
   { to: "/historique", icon: History, label: "Mon historique" },
-  { to: "/parametres", icon: Settings, label: "Paramètres" },
+  // { to: "/parametres", icon: Settings, label: "Paramètres" },
 ];
 
 const navAdmin = [
@@ -101,7 +100,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed }: SidebarProps) {
-  const { user, userDomaines, isChef } = useAuth();
+  const { user, userDomaines, isChef, isBackoffice } = useAuth();
   const greetingName = user?.prenom || user?.email || "";
   const avatarName = [user?.prenom, user?.nom].filter(Boolean).join(" ") || user?.email || "?";
 
@@ -193,6 +192,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         <p className={`px-3 pb-1 text-xs font-semibold tracking-[0.05em] uppercase text-gray-500 dark:text-gray-400 [text-shadow:0_1px_2px_rgba(255,255,255,0.6)] dark:[text-shadow:none] transition-all duration-300 ease-in-out ${collapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-100"}`}>
           Espace personnel
         </p>
+        <NavItem to="/mon-espace" icon={LayoutDashboard} label="Mon espace" collapsed={collapsed} />
         {navSettings.map((item) => (
           <NavItem key={item.to} {...item} collapsed={collapsed} />
         ))}

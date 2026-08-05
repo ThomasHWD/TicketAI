@@ -22,8 +22,9 @@ function isProcessing(statutJob: string) {
   return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";
 }
 
-function ticketStatutLabel(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean) {
+function ticketStatutLabel(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean, failed: boolean) {
   if (closed) return "Clôturé";
+  if (failed) return "Échec";
   if (processing) return "En cours";
   if (canonique) return "Canonique";
   if (statut === "VALIDÉ") return "Validée";
@@ -32,8 +33,9 @@ function ticketStatutLabel(statut: StatutTicket, canonique: boolean, closed: boo
   return "Nouvelle";
 }
 
-function ticketStatutClass(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean) {
+function ticketStatutClass(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean, failed: boolean) {
   if (closed) return "bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/15";
+  if (failed) return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (processing) return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
   if (statut === "REJETÉ") return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (canonique) return "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
@@ -42,11 +44,11 @@ function ticketStatutClass(statut: StatutTicket, canonique: boolean, closed: boo
   return "bg-gray-100 text-gray-500 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/15";
 }
 
-function StatutBadge({ statut, canonique, closed, processing }: { statut: StatutTicket; canonique: boolean; closed: boolean; processing: boolean }) {
+function StatutBadge({ statut, canonique, closed, processing, failed }: { statut: StatutTicket; canonique: boolean; closed: boolean; processing: boolean; failed: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique, closed, processing)}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique, closed, processing, failed)}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
-      {ticketStatutLabel(statut, canonique, closed, processing)}
+      {ticketStatutLabel(statut, canonique, closed, processing, failed)}
     </span>
   );
 }
@@ -240,11 +242,7 @@ export default function TicketDetail() {
               </div>
               <div>
                 <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Statut</dt>
-                <dd><StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={isProcessing(ticket.statut_job)} /></dd>
-              </div>
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Traitement</dt>
-                <dd className="text-gray-700 dark:text-gray-200">{ticket.statut_job}</dd>
+                <dd><StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={isProcessing(ticket.statut_job)} failed={ticket.statut_job === "ÉCHOUÉ"} /></dd>
               </div>
               <div className="pt-1 border-t border-gray-200 dark:border-white/10">
                 <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Référence</dt>

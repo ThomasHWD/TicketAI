@@ -79,7 +79,7 @@ export default function NewTicket() {
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
             Elle est en cours de traitement. Vous pourrez suivre son avancement
-            et consulter la réponse depuis votre historique.
+            et consulter la réponse depuis votre tableau de bord.
           </p>
           <button
             type="button"
