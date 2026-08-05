@@ -655,6 +655,8 @@ export interface DashboardStats {
     en_cours: StatCarte;
     tickets_clotures: StatCarte;
     repondu_canonique: StatCarte;
+    temps_premiere_reponse: StatCarte;
+    temps_cloture: StatCarte;
   };
   repartition_statuts: RepartitionStatut[];
   tickets_par_jour: DayCount[];

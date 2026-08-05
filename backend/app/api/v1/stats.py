@@ -57,6 +57,15 @@ def _variation(curr: int, prev: int) -> dict:
     return {"valeur": curr, "variation": pct, "hausse": curr >= prev}
 
 
+def _variation_temps(curr: float, prev: float) -> dict:
+    """Variation pour les métriques de temps : hausse = temps augmente = mauvais."""
+    if prev == 0:
+        pct = 0.0
+    else:
+        pct = round((curr - prev) / prev * 100, 1)
+    return {"valeur": curr, "variation": pct, "hausse": curr <= prev}
+
+
 @router.get("/dashboard")
 def get_dashboard_stats(
     current_user: CurrentUser,
@@ -145,6 +154,41 @@ def get_dashboard_stats(
                 .scalar() or 0
             )
 
+        def avg_closure_time(start: datetime, end: datetime) -> int:
+            result = (
+                db.query(func.avg(func.extract("epoch", Ticket.closed_at - Ticket.created_at)))
+                .filter(
+                    Ticket.closed_at >= start,
+                    Ticket.closed_at < end,
+                    Ticket.canonique.is_(False),
+                    *domain_filters,
+                )
+                .scalar()
+            )
+            return round(result) if result else 0
+
+        def avg_first_response_time(start: datetime, end: datetime) -> int:
+            first_rep_sq = (
+                db.query(Reponse.ticket_id, func.min(Reponse.validated_at).label("first_at"))
+                .filter(
+                    Reponse.canonique.is_(False),
+                    Reponse.statut.in_(["VALIDÉE", "CORRIGÉE"]),
+                )
+                .group_by(Reponse.ticket_id)
+                .subquery()
+            )
+            result = (
+                db.query(func.avg(func.extract("epoch", first_rep_sq.c.first_at - Ticket.created_at)))
+                .join(first_rep_sq, Ticket.id == first_rep_sq.c.ticket_id)
+                .filter(
+                    Ticket.created_at >= start,
+                    Ticket.created_at < end,
+                    *domain_filters,
+                )
+                .scalar()
+            )
+            return round(result) if result else 0
+
         stats_cartes = {
             "nouveaux": _variation(
                 count_nouveaux(curr_start, curr_end),
@@ -161,6 +205,14 @@ def get_dashboard_stats(
             "repondu_canonique": _variation(
                 count_repondu_canonique(curr_start, curr_end),
                 count_repondu_canonique(prev_start, prev_end),
+            ),
+            "temps_premiere_reponse": _variation_temps(
+                avg_first_response_time(curr_start, curr_end),
+                avg_first_response_time(prev_start, prev_end),
+            ),
+            "temps_cloture": _variation_temps(
+                avg_closure_time(curr_start, curr_end),
+                avg_closure_time(prev_start, prev_end),
             ),
         }
 
