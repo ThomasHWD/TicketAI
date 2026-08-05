@@ -8,6 +8,7 @@ import {
   ChevronDown,
   UsersRound,
   RefreshCw,
+  Timer,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { getDashboardStats, listDocuments } from "../../lib/api";
@@ -18,6 +19,18 @@ import RecentDocs from "../../components/dashboard/RecentDocs";
 import RecentTickets from "../../components/dashboard/RecentTickets";
 import SatisfactionPlaceholder from "../../components/dashboard/SatisfactionPlaceholder";
 import TeamStatsPanel from "./TeamStats";
+
+function formatDuration(seconds: number): string {
+  if (seconds === 0) return "0s";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}min`);
+  if (s > 0 || parts.length === 0) parts.push(`${s}s`);
+  return parts.join(" ");
+}
 
 type Periode = "semaine" | "mois" | "annee";
 type Onglet = "overview" | "equipe";
@@ -179,6 +192,30 @@ export default function Dashboard() {
               hausse={stats?.stats_cartes.tickets_clotures.hausse ?? true}
               icon={Archive}
               iconColor="text-violet-500"
+              loading={statsLoading}
+            />
+          </div>
+
+          {/* Délais de traitement — hors réponses canoniques */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <StatCard
+              title="Délai moyen avant 1ère réponse"
+              value={stats?.stats_cartes.temps_premiere_reponse.valeur ?? 0}
+              variation={stats?.stats_cartes.temps_premiere_reponse.variation ?? 0}
+              hausse={stats?.stats_cartes.temps_premiere_reponse.hausse ?? true}
+              icon={Clock}
+              iconColor="text-orange-500"
+              formatter={formatDuration}
+              loading={statsLoading}
+            />
+            <StatCard
+              title="Délai moyen avant clôture"
+              value={stats?.stats_cartes.temps_cloture.valeur ?? 0}
+              variation={stats?.stats_cartes.temps_cloture.variation ?? 0}
+              hausse={stats?.stats_cartes.temps_cloture.hausse ?? true}
+              icon={Timer}
+              iconColor="text-rose-500"
+              formatter={formatDuration}
               loading={statsLoading}
             />
           </div>
