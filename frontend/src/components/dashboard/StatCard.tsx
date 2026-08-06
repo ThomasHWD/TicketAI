@@ -9,6 +9,8 @@ interface StatCardProps {
   iconColor?: string;
   loading?: boolean;
   suffix?: string;
+  subtitle?: string;
+  variationUnit?: string;
   formatter?: (value: number) => string;
 }
 
@@ -21,6 +23,8 @@ export default function StatCard({
   iconColor = "text-emerald-500",
   loading = false,
   suffix = "",
+  subtitle,
+  variationUnit = "%",
   formatter,
 }: StatCardProps) {
   if (loading) {
@@ -47,7 +51,7 @@ export default function StatCard({
       : "bg-red-50 dark:bg-red-400/10";
 
   return (
-    <div className="glass-card p-5 rounded-2xl space-y-3 hover:shadow-md transition-shadow">
+    <div className="glass-card p-5 rounded-2xl flex flex-col gap-3 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</span>
         <span className={`p-2 rounded-xl bg-gray-50 dark:bg-white/5 ${iconColor}`}>
@@ -64,10 +68,13 @@ export default function StatCard({
           </>
         )}
       </div>
-      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${trendBg} ${trendColor}`}>
+      {subtitle && (
+        <div className="text-xs text-gray-400 dark:text-gray-500">{subtitle}</div>
+      )}
+      <div className={`mt-auto self-start inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${trendBg} ${trendColor}`}>
         <TrendIcon size={12} />
         <span>
-          {isNeutral ? "Stable" : `${variation > 0 ? "+" : ""}${variation}%`}
+          {isNeutral ? "Stable" : `${variation > 0 ? "+" : ""}${variation}${variationUnit}`}
           {!isNeutral && <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">vs période préc.</span>}
         </span>
       </div>
