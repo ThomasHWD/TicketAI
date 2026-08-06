@@ -59,9 +59,12 @@ def _auth_override():
     from app.api.v1.documents import get_db
     from app.core.security import get_current_user
     from app.main import app
+    from app.models.groupe import Groupe
     from app.models.user import User
 
     fake_admin = User(id=uuid.uuid4(), email="tester@test.local", role="ADMIN")
+    # L'admin doit être membre des domaines pour pouvoir y écrire
+    fake_admin.groupes = [Groupe(domaine="IT"), Groupe(domaine="RH"), Groupe(domaine="LEGAL")]
     app.dependency_overrides[get_current_user] = lambda: fake_admin
 
     # Session DB fictive : query(Groupe.domaine).distinct().all() → [("IT",), ("RH",), ("LEGAL",)]

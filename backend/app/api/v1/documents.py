@@ -12,7 +12,8 @@ from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchAn
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.security import AdminUser, CurrentUser
+from app.core.permissions import check_domain_write, user_domaines
+from app.core.security import AdminUser, BackofficeUser, CurrentUser
 from app.database import SessionLocal
 from app.models.groupe import Groupe
 from app.services.qdrant import COLLECTION_NAME, client
@@ -56,7 +57,7 @@ def sanitize_filename(filename: str | None) -> str:
 
 @router.post("/documents")
 async def upload_document(
-    current_user: CurrentUser,
+    current_user: BackofficeUser,
     domaine: str,
     file: Annotated[UploadFile, File(...)],
     db: DB,
@@ -69,6 +70,7 @@ async def upload_document(
         raise HTTPException(400, "Aucun domaine configuré. Créez d'abord un groupe.")
     if domaine not in domaines_valides:
         raise HTTPException(400, f"Domaine invalide : {domaine}")
+    check_domain_write(domaine, current_user)
 
     # Validation nom + extension (le Content-Type client est déclaratif, donc spoofable)
     filename = sanitize_filename(file.filename)
@@ -129,7 +131,7 @@ async def upload_document(
 
 
 @router.get("/documents")
-async def list_documents(current_user: CurrentUser, domaine: str | None = None, domaines: str | None = None):
+async def list_documents(current_user: BackofficeUser, domaine: str | None = None, domaines: str | None = None):
     """Retourne la liste des documents indexés dans Qdrant, groupés par doc_id."""
     filter_: Filter | None = None
     if domaines:
@@ -138,6 +140,13 @@ async def list_documents(current_user: CurrentUser, domaine: str | None = None, 
     elif domaine:
         domaine = domaine.upper()
         filter_ = Filter(must=[FieldCondition(key="domaine", match=MatchValue(value=domaine))])
+    elif current_user.role != "ADMIN":
+        # Backoffice sans filtre explicite : limité à ses propres domaines
+        allowed = list(user_domaines(current_user))
+        if allowed:
+            filter_ = Filter(must=[FieldCondition(key="domaine", match=MatchAny(any=allowed))])
+        else:
+            return {"total": 0, "items": []}
 
     docs: dict[str, dict] = {}
     offset = None
@@ -174,7 +183,7 @@ async def list_documents(current_user: CurrentUser, domaine: str | None = None, 
 
 
 @router.get("/documents/{doc_id}/chunks")
-async def get_document_chunks(doc_id: str, current_user: CurrentUser):
+async def get_document_chunks(doc_id: str, current_user: BackofficeUser):
     """Retourne les chunks d'un document indexé."""
     results, _ = client.scroll(
         collection_name=COLLECTION_NAME,
@@ -198,7 +207,7 @@ async def get_document_chunks(doc_id: str, current_user: CurrentUser):
 
 
 @router.get("/documents/{doc_id}/download")
-async def download_document(doc_id: str, current_user: CurrentUser):
+async def download_document(doc_id: str, current_user: BackofficeUser):
     """Renvoie le fichier original stocké sur disque."""
     results, _ = client.scroll(
         collection_name=COLLECTION_NAME,

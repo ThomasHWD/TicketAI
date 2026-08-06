@@ -118,6 +118,7 @@ export default function App() {
               <Route path="/reponses-enregistrees" element={<SavedAnswers />} />
               <Route path="/Documentations" element={<Ingestion />} />
               <Route path="/documents-indexes" element={<AllDocs />} />
+              <Route path="/mon-suivi" element={<TicketTracking />} />
             </Route>
           </Route>
           <Route element={<Layout />}>
@@ -126,7 +127,6 @@ export default function App() {
             <Route path="/nouveau-ticket" element={<NewTicket />} />
             <Route path="/historique" element={<UserTicketHistory />} />
             <Route path="/historique/:id" element={<UserTicketDetail />} />
-            <Route path="/mon-suivi" element={<TicketTracking />} />
           </Route>
           <Route element={<AdminRoute />}>
             <Route element={<Layout />}>
