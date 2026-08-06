@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../lib/auth";
 import GlassSurface from "@@/components/GlassSurface";
-import TicketAIMark from "../../assets/ticketai_mark.svg";
+import TicketAIMark from "../../assets/ticketai_mark_v2.svg";
 import {
   LayoutDashboard,
   TicketMinus,
@@ -142,13 +142,13 @@ export default function Sidebar({ collapsed }: SidebarProps) {
 
       {/* Logo */}
       <div className="flex items-center gap-[11px] h-20 px-[18px] overflow-hidden">
-        <img src={TicketAIMark} alt="TicketAI" className="h-[52px] w-[52px] shrink-0 [filter:drop-shadow(0_0_6px_rgba(255,255,255,0.8))_drop-shadow(0_1px_3px_rgba(0,0,0,0.15))] dark:[filter:none]" />
+        <img src={TicketAIMark} alt="TicketAI" className="h-[52px] w-[52px] shrink-0 [filter:drop-shadow(0_0_6px_rgba(255,255,255,0.8))_drop-shadow(0_1px_3px_rgba(0,0,0,0.15))] dark:[filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.15))]" />
         <span
           className={`text-[18px] font-semibold tracking-tight text-gray-900 dark:text-gray-100 whitespace-nowrap transition-all duration-300 ease-in-out ${
             collapsed ? "opacity-0 -translate-x-2 w-0 overflow-hidden" : "opacity-100 translate-x-0"
           }`}
         >
-          Ticket<span className="text-emerald-500">AI</span>
+          Ticket<span className="text-green-700 dark:text-emerald-300">AI</span>
         </span>
       </div>
 
