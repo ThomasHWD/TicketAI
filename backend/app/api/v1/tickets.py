@@ -3,8 +3,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Body, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import exists, or_
 from sqlalchemy.orm import joinedload
 
@@ -71,6 +71,8 @@ def _serialize_ticket(ticket: Ticket) -> dict:
         "canonique": ticket.canonique,
         "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
         "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
+        "note_qualite": ticket.note_qualite,
+        "note_delai": ticket.note_delai,
         **lock_info(ticket),
         "assigned_to": str(ticket.assigned_to) if ticket.assigned_to else None,
         "assigned_to_email": ticket.assignee.email if ticket.assignee else None,
@@ -193,8 +195,20 @@ async def soumettre_suivi(
     }
 
 
+class CloturerRequest(BaseModel):
+    note_qualite: int | None = Field(default=None, ge=1, le=5)
+    note_delai: int | None = Field(default=None, ge=1, le=5)
+
+
+_CLOTURE_BODY = Body(default_factory=CloturerRequest)
+
+
 @router.post("/tickets/{ticket_id}/cloturer")
-async def cloturer_ticket(ticket_id: str, current_user: CurrentUser):
+async def cloturer_ticket(
+    ticket_id: str,
+    current_user: CurrentUser,
+    payload: CloturerRequest = _CLOTURE_BODY,
+):
     """Clôture le ticket (l'utilisateur est satisfait). Idempotence refusée :
     un ticket déjà clôturé renvoie 409."""
     tid = _parse_ticket_id(ticket_id)
@@ -210,6 +224,10 @@ async def cloturer_ticket(ticket_id: str, current_user: CurrentUser):
             raise HTTPException(409, "Ticket déjà clôturé")
         domaine = ticket.domaine
         ticket.closed_at = datetime.now(timezone.utc)
+        if payload.note_qualite is not None:
+            ticket.note_qualite = payload.note_qualite
+        if payload.note_delai is not None:
+            ticket.note_delai = payload.note_delai
         db.commit()
         db.refresh(ticket)
         result = _serialize_ticket(ticket)

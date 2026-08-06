@@ -80,6 +80,9 @@ export interface Ticket {
   created_at: string | null;
   // Clôture par l'utilisateur (null = ouvert).
   closed_at: string | null;
+  // Notes de satisfaction (1–5), collectées à la clôture (null si non renseignées).
+  note_qualite: number | null;
+  note_delai: number | null;
   // Verrou collaboratif : renseigné uniquement si un bail est actif.
   locked_by: string | null;
   locked_by_email: string | null;
@@ -155,6 +158,8 @@ export interface PoserSuiviPayload {
 
 export interface CloturerPayload {
   user_id?: string | null;
+  note_qualite?: number | null;
+  note_delai?: number | null;
 }
 
 export interface ReponseCanonique {
