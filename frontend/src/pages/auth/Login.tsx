@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
+import TicketAIMark from "../../assets/ticketai_mark_v2.svg";
 
 function useDark() {
   const [dark, setDark] = useState(() =>
@@ -168,12 +169,7 @@ export default function Login() {
 
           {/* Logo */}
           <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 9, background: "#168B46",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <div style={{ width: 14, height: 14, borderRadius: 4, background: "#2FE272", boxShadow: "0 0 10px #2FE272" }} />
-            </div>
+            <img src={TicketAIMark} alt="TicketAI" style={{ width: 34, height: 34 }} />
             <span style={{ fontWeight: 700, fontSize: 19, letterSpacing: "-.01em", color: "#eafff2" }}>
               TicketAI
             </span>
@@ -267,12 +263,7 @@ export default function Login() {
 
             {/* Mobile-only logo */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }} className="md:hidden">
-              <div style={{
-                width: 32, height: 32, borderRadius: 8, background: "#168B46",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <div style={{ width: 13, height: 13, borderRadius: 3, background: "#2FE272", boxShadow: "0 0 8px #2FE272" }} />
-              </div>
+              <img src={TicketAIMark} alt="TicketAI" style={{ width: 32, height: 32 }} />
               <span style={{ fontWeight: 700, fontSize: 18, color: theme.text, letterSpacing: "-.01em" }}>TicketAI</span>
             </div>
 
