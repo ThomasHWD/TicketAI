@@ -200,8 +200,15 @@ class CloturerRequest(BaseModel):
     note_delai: int | None = Field(default=None, ge=1, le=5)
 
 
+_CLOTURE_BODY = Body(default_factory=CloturerRequest)
+
+
 @router.post("/tickets/{ticket_id}/cloturer")
-async def cloturer_ticket(ticket_id: str, current_user: CurrentUser, payload: CloturerRequest = Body(default_factory=CloturerRequest)):
+async def cloturer_ticket(
+    ticket_id: str,
+    current_user: CurrentUser,
+    payload: CloturerRequest = _CLOTURE_BODY,
+):
     """Clôture le ticket (l'utilisateur est satisfait). Idempotence refusée :
     un ticket déjà clôturé renvoie 409."""
     tid = _parse_ticket_id(ticket_id)
