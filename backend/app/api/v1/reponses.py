@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 
 from app.config import settings
-from app.core.security import AdminUser, CurrentUser
+from app.core.permissions import check_domain_write, user_domaines
+from app.core.security import AdminUser, BackofficeUser
 from app.database import SessionLocal
 from app.models.notification import Notification
 from app.models.reponse import Reponse
@@ -84,13 +85,15 @@ def liberer_verrou(ticket: Ticket):
 
 
 @router.post("/reponses/{reponse_id}/valider")
-async def valider_reponse(reponse_id: str, current_user: CurrentUser):
+async def valider_reponse(reponse_id: str, current_user: BackofficeUser):
     db = SessionLocal()
     try:
         reponse = get_reponse_or_404(db, reponse_id)
         verifier_etat_initial(reponse)
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
+        if ticket:
+            check_domain_write(ticket.domaine, current_user)
         verifier_auto_validation(reponse, current_user.id, ticket)
         verifier_verrou(ticket, current_user.id)
 
@@ -158,7 +161,7 @@ async def valider_reponse(reponse_id: str, current_user: CurrentUser):
 async def rejeter_reponse(
     reponse_id: str,
     payload: RejeterRequest,
-    current_user: CurrentUser,
+    current_user: BackofficeUser,
 ):
     db = SessionLocal()
     try:
@@ -166,6 +169,8 @@ async def rejeter_reponse(
         verifier_etat_initial(reponse)
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
+        if ticket:
+            check_domain_write(ticket.domaine, current_user)
         verifier_auto_validation(reponse, current_user.id, ticket)
         verifier_verrou(ticket, current_user.id)
 
@@ -201,7 +206,7 @@ async def rejeter_reponse(
 async def corriger_reponse(
     reponse_id: str,
     payload: CorrigerRequest,
-    current_user: CurrentUser,
+    current_user: BackofficeUser,
 ):
     db = SessionLocal()
     try:
@@ -212,6 +217,8 @@ async def corriger_reponse(
             raise HTTPException(400, "Le contenu corrigé ne peut pas être vide.")
 
         ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
+        if ticket:
+            check_domain_write(ticket.domaine, current_user)
         verifier_auto_validation(reponse, current_user.id, ticket)
         verifier_verrou(ticket, current_user.id)
 
@@ -251,7 +258,7 @@ async def corriger_reponse(
 
 @router.get("/reponses/en-attente")
 async def lister_reponses_en_attente(
-    current_user: CurrentUser,
+    current_user: BackofficeUser,
     domaine: str | None = None,
     limit: int = 20,
 ):
@@ -266,6 +273,9 @@ async def lister_reponses_en_attente(
 
         if domaine:
             query = query.filter(Ticket.domaine == domaine.upper())
+        elif current_user.role != "ADMIN":
+            # Backoffice : limité à ses domaines
+            query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
 
         resultats = query.order_by(Reponse.created_at.asc()).limit(limit).all()
 
@@ -288,7 +298,7 @@ async def lister_reponses_en_attente(
 
 @router.get("/reponses/canoniques")
 async def lister_reponses_canoniques(
-    current_user: CurrentUser,
+    current_user: BackofficeUser,
     domaine: str | None = None,
     page: int = 1,
     limit: int = 20,
@@ -311,6 +321,9 @@ async def lister_reponses_canoniques(
 
         if domaine:
             query = query.filter(Ticket.domaine == domaine.upper())
+        elif current_user.role != "ADMIN":
+            # Backoffice : limité à ses domaines
+            query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
 
         total = query.count()
         resultats = (

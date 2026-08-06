@@ -18,6 +18,7 @@ import {
   poserSuivi,
   cloturerTicket,
 } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import { getValidatorId } from "../../lib/currentUser";
 import type { TicketReponse } from "../../types.ts";
 
@@ -238,6 +239,7 @@ export default function UserTicketDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [precision, setPrecision] = useState("");
   // Fenêtre optimiste : entre l'envoi d'une précision et l'apparition du nouveau
   // tour côté serveur, on force l'état « en cours ». On mémorise le nombre de
@@ -291,6 +293,7 @@ export default function UserTicketDetail() {
   }, [reponses.length, awaitingCount]);
 
   const closed = !!ticket?.closed_at;
+  const isOwner = !!ticket && ticket.user_id === user?.id;
   const awaiting = awaitingCount !== null;
   // « en cours » si : envoi optimiste, fenêtre d'attente, ou job serveur en vol
   // (précision soumise ailleurs / traitement encore en cours).
@@ -390,9 +393,10 @@ export default function UserTicketDetail() {
             </ul>
           </div>
 
-          {/* Actions utilisateur : uniquement après une première réponse fiable,
-              tant que le ticket n'est pas clôturé. */}
-          {closed ? (
+          {/* Actions utilisateur : uniquement pour le propriétaire du ticket,
+              après une première réponse fiable, tant qu'il n'est pas clôturé. */}
+          {isOwner && (
+            closed ? (
             <div className="glass-card rounded-2xl p-6 flex items-center gap-3">
               <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400 shrink-0">
                 <CheckCheck size={18} aria-hidden="true" />
@@ -486,7 +490,7 @@ export default function UserTicketDetail() {
                 </div>
               </div>
             )
-          )}
+          ))}
         </div>
 
         {/* Colonne latérale : infos */}
