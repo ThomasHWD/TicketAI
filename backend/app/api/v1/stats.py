@@ -66,6 +66,23 @@ def _variation_temps(curr: float, prev: float) -> dict:
     return {"valeur": curr, "variation": pct, "hausse": curr <= prev}
 
 
+def _avg_satisfaction(db, start: datetime, end: datetime, domain_filters: list) -> dict:
+    row = (
+        db.query(
+            func.avg(Ticket.note_qualite).label("avg_qualite"),
+            func.avg(Ticket.note_delai).label("avg_delai"),
+            func.count(Ticket.id).filter(Ticket.note_qualite.isnot(None)).label("nb"),
+        )
+        .filter(Ticket.closed_at >= start, Ticket.closed_at < end, *domain_filters)
+        .first()
+    )
+    return {
+        "avg_qualite": round(float(row.avg_qualite), 2) if row.avg_qualite else None,
+        "avg_delai": round(float(row.avg_delai), 2) if row.avg_delai else None,
+        "nb_avec_notes": row.nb or 0,
+    }
+
+
 @router.get("/dashboard")
 def get_dashboard_stats(
     current_user: CurrentUser,
@@ -363,6 +380,8 @@ def get_dashboard_stats(
             for t in derniers_tickets_rows
         ]
 
+        satisfaction = _avg_satisfaction(db, curr_start, curr_end, domain_filters)
+
         return {
             "periode": periode,
             "stats_cartes": stats_cartes,
@@ -370,6 +389,7 @@ def get_dashboard_stats(
             "tickets_par_jour": tickets_par_jour,
             "traitement_par_jour": traitement_par_jour,
             "derniers_tickets": derniers_tickets,
+            "satisfaction": satisfaction,
         }
     finally:
         db.close()

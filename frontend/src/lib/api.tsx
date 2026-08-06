@@ -669,6 +669,11 @@ export interface DashboardStats {
   tickets_par_jour: DayCount[];
   traitement_par_jour: DayCount[];
   derniers_tickets: TicketSummaryDashboard[];
+  satisfaction: {
+    avg_qualite: number | null;
+    avg_delai: number | null;
+    nb_avec_notes: number;
+  } | null;
 }
 
 export async function getDashboardStats(
