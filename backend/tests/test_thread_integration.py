@@ -10,8 +10,10 @@ import uuid
 from unittest.mock import MagicMock
 
 import pytest
+from app.models.groupe import Groupe
 from app.models.reponse import Reponse
 from app.models.ticket import Ticket
+from app.models.user import User
 from app.workers.question import (
     _charger_contexte_fil,
     _upsert_reponse,
@@ -34,12 +36,14 @@ def seed_ticket_reponse(
     ticket_statut="VALIDÉ",
     reponse_statut="VALIDÉE",
     closed_at=None,
+    user_id=None,
 ):
     ticket = Ticket(
         question=question,
         domaine=domaine,
         statut_ticket=ticket_statut,
         closed_at=closed_at,
+        user_id=user_id,
     )
     db.add(ticket)
     db.flush()
@@ -57,6 +61,30 @@ def seed_ticket_reponse(
 
 
 @pytest.fixture
+def owner(db_session):
+    """Utilisateur lambda (sans groupe) propriétaire des tickets de test."""
+    user = User(email=f"{uuid.uuid4()}@test.local", role="USER")
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def backoffice_user(db_session):
+    """Utilisateur backoffice membre du groupe IT."""
+    user = User(email=f"{uuid.uuid4()}@test.local", role="VALIDATEUR")
+    db_session.add(user)
+    groupe = Groupe(nom="IT-thread", domaine="IT")
+    db_session.add(groupe)
+    db_session.flush()
+    groupe.membres.append(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
 def mock_question_job(monkeypatch):
     """Neutralise l'enqueue Celery de ``question_job`` déclenché par /suivi."""
     import app.api.v1.tickets as tickets_module
@@ -71,13 +99,13 @@ def mock_question_job(monkeypatch):
 # --------------------------------------------------------------------------- #
 # POST /tickets/{id}/suivi
 # --------------------------------------------------------------------------- #
-def test_suivi_enqueue_le_job_sur_le_ticket_existant(client, db_session, mock_question_job, auth_headers):
-    ticket, _ = seed_ticket_reponse(db_session, domaine="RH")
+def test_suivi_enqueue_le_job_sur_le_ticket_existant(client, db_session, mock_question_job, owner, auth_header):
+    ticket, _ = seed_ticket_reponse(db_session, domaine="RH", user_id=owner.id)
 
     resp = client.post(
         f"{API}/tickets/{ticket.id}/suivi",
         json={"question": "Et pour un CDD ?"},
-        headers=auth_headers,
+        headers=auth_header(owner),
     )
 
     assert resp.status_code == 200
@@ -99,15 +127,15 @@ def test_suivi_enqueue_le_job_sur_le_ticket_existant(client, db_session, mock_qu
     assert db_session.get(Ticket, ticket.id).statut_job == "EN_ATTENTE"
 
 
-def test_suivi_ticket_cloture_renvoie_409(client, db_session, mock_question_job, auth_headers):
+def test_suivi_ticket_cloture_renvoie_409(client, db_session, mock_question_job, owner, auth_header):
     from datetime import datetime, timezone
 
-    ticket, _ = seed_ticket_reponse(db_session, closed_at=datetime.now(timezone.utc))
+    ticket, _ = seed_ticket_reponse(db_session, closed_at=datetime.now(timezone.utc), user_id=owner.id)
 
     resp = client.post(
         f"{API}/tickets/{ticket.id}/suivi",
         json={"question": "Une précision"},
-        headers=auth_headers,
+        headers=auth_header(owner),
     )
 
     assert resp.status_code == 409
@@ -140,10 +168,10 @@ def test_suivi_ticket_introuvable_renvoie_404(client, db_session, mock_question_
 # --------------------------------------------------------------------------- #
 # POST /tickets/{id}/cloturer
 # --------------------------------------------------------------------------- #
-def test_cloturer_pose_closed_at(client, db_session, auth_headers):
-    ticket, _ = seed_ticket_reponse(db_session)
+def test_cloturer_pose_closed_at(client, db_session, owner, auth_header):
+    ticket, _ = seed_ticket_reponse(db_session, user_id=owner.id)
 
-    resp = client.post(f"{API}/tickets/{ticket.id}/cloturer", headers=auth_headers)
+    resp = client.post(f"{API}/tickets/{ticket.id}/cloturer", headers=auth_header(owner))
 
     assert resp.status_code == 200
     assert resp.json()["closed_at"] is not None
@@ -152,12 +180,12 @@ def test_cloturer_pose_closed_at(client, db_session, auth_headers):
     assert db_session.get(Ticket, ticket.id).closed_at is not None
 
 
-def test_cloturer_deja_cloture_renvoie_409(client, db_session, auth_headers):
+def test_cloturer_deja_cloture_renvoie_409(client, db_session, owner, auth_header):
     from datetime import datetime, timezone
 
-    ticket, _ = seed_ticket_reponse(db_session, closed_at=datetime.now(timezone.utc))
+    ticket, _ = seed_ticket_reponse(db_session, closed_at=datetime.now(timezone.utc), user_id=owner.id)
 
-    resp = client.post(f"{API}/tickets/{ticket.id}/cloturer", headers=auth_headers)
+    resp = client.post(f"{API}/tickets/{ticket.id}/cloturer", headers=auth_header(owner))
 
     assert resp.status_code == 409
 
@@ -165,8 +193,8 @@ def test_cloturer_deja_cloture_renvoie_409(client, db_session, auth_headers):
 # --------------------------------------------------------------------------- #
 # GET /tickets/{id}/reponses  expose question_suivi
 # --------------------------------------------------------------------------- #
-def test_reponses_exposent_question_suivi(client, db_session, auth_headers):
-    ticket, _ = seed_ticket_reponse(db_session)
+def test_reponses_exposent_question_suivi(client, db_session, owner, auth_header):
+    ticket, _ = seed_ticket_reponse(db_session, user_id=owner.id)
     db_session.add(
         Reponse(
             ticket_id=ticket.id,
@@ -178,7 +206,7 @@ def test_reponses_exposent_question_suivi(client, db_session, auth_headers):
     )
     db_session.commit()
 
-    resp = client.get(f"{API}/tickets/{ticket.id}/reponses", headers=auth_headers)
+    resp = client.get(f"{API}/tickets/{ticket.id}/reponses", headers=auth_header(owner))
 
     assert resp.status_code == 200
     items = resp.json()
@@ -211,7 +239,7 @@ def test_upsert_reponse_mode_suivi_ajoute_sans_ecraser(db_session):
     assert db_session.get(Reponse, initiale.id).contenu == "Réponse initiale"
 
 
-def test_canoniques_affiche_la_question_de_la_precision(client, db_session, auth_headers):
+def test_canoniques_affiche_la_question_de_la_precision(client, db_session, backoffice_user, auth_header):
     """Une réponse canonique issue d'un suivi doit s'afficher avec le texte de la
     précision (`question_suivi`), pas la question initiale du ticket."""
     ticket, _ = seed_ticket_reponse(db_session, question="Question initiale ?")
@@ -230,7 +258,7 @@ def test_canoniques_affiche_la_question_de_la_precision(client, db_session, auth
     resp = client.get(
         f"{API}/reponses/canoniques",
         params={"page": 1, "limit": 20},
-        headers=auth_headers,
+        headers=auth_header(backoffice_user),
     )
 
     assert resp.status_code == 200

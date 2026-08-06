@@ -19,6 +19,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from app.config import settings
+from app.models.groupe import Groupe
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
@@ -41,10 +42,19 @@ def make_user(db, role="VALIDATEUR") -> User:
 
 @pytest.fixture
 def validator(db_session):
-    """Un validateur réellement présent en base. Son JWT sert d'identité pour les
-    routes de validation (`reponses.validator_id` est une FK vers `users.id`)."""
+    """Un validateur réellement présent en base, membre du groupe "IT".
+
+    Son JWT sert d'identité pour les routes de validation
+    (`reponses.validator_id` est une FK vers `users.id`).
+    Le groupe "IT" correspond au domaine utilisé par défaut dans seed_ticket_reponse.
+    """
     user = make_user(db_session)
+    groupe = Groupe(nom="IT", domaine="IT")
+    db_session.add(groupe)
+    db_session.flush()
+    groupe.membres.append(user)
     db_session.commit()
+    db_session.refresh(user)
     return user
 
 
@@ -173,23 +183,29 @@ def test_valider_reponse_source_declenche_reindexation(client, db_session, valid
     assert mock_side_effects.feedback.called
 
 
-def test_valider_etat_final_renvoie_409(client, db_session, auth_headers):
+def test_valider_etat_final_renvoie_409(client, db_session, validator, auth_header):
     _, reponse = seed_ticket_reponse(db_session, statut="REJETÉE")
 
     resp = client.post(
         f"{API}/reponses/{reponse.id}/valider",
-        headers=auth_headers,
+        headers=auth_header(validator),
     )
 
     assert resp.status_code == 409
 
 
 def test_valider_auto_validation_renvoie_403(client, db_session, auth_header):
+    # L'utilisateur est à la fois membre du domaine IT ET créateur du ticket.
     user = make_user(db_session)
+    groupe = Groupe(nom="IT", domaine="IT")
+    db_session.add(groupe)
+    db_session.flush()
+    groupe.membres.append(user)
     db_session.commit()
+    db_session.refresh(user)
     _, reponse = seed_ticket_reponse(db_session, user_id=user.id)
 
-    # L'utilisateur connecté est le créateur du ticket → interdit de se valider.
+    # Même si l'utilisateur est backoffice, il ne peut pas valider son propre ticket.
     resp = client.post(
         f"{API}/reponses/{reponse.id}/valider",
         headers=auth_header(user),
@@ -216,10 +232,10 @@ def test_valider_ticket_verrouille_par_autre_renvoie_409(client, db_session, val
     assert resp.status_code == 409
 
 
-def test_valider_introuvable_renvoie_404(client, db_session, auth_headers):
+def test_valider_introuvable_renvoie_404(client, db_session, validator, auth_header):
     resp = client.post(
         f"{API}/reponses/{uuid.uuid4()}/valider",
-        headers=auth_headers,
+        headers=auth_header(validator),
     )
     assert resp.status_code == 404
 
@@ -263,13 +279,13 @@ def test_corriger_transition(client, db_session, validator, auth_header):
     assert reloaded.contenu_corrige == "Texte corrigé"
 
 
-def test_corriger_contenu_vide_renvoie_400(client, db_session, auth_headers):
+def test_corriger_contenu_vide_renvoie_400(client, db_session, validator, auth_header):
     _, reponse = seed_ticket_reponse(db_session)
 
     resp = client.put(
         f"{API}/reponses/{reponse.id}/corriger",
         json={"contenu_corrige": "   "},
-        headers=auth_headers,
+        headers=auth_header(validator),
     )
 
     assert resp.status_code == 400
@@ -381,11 +397,11 @@ def test_supprimer_canonique_nettoie_les_chunks(client, db_session, user_factory
 # --------------------------------------------------------------------------- #
 # GET /reponses/en-attente  et  /reponses/canoniques
 # --------------------------------------------------------------------------- #
-def test_lister_en_attente_filtre_domaine(client, db_session, auth_headers):
+def test_lister_en_attente_filtre_domaine(client, db_session, validator, auth_header):
     seed_ticket_reponse(db_session, domaine="IT")
     seed_ticket_reponse(db_session, domaine="RH")
 
-    resp = client.get(f"{API}/reponses/en-attente", params={"domaine": "IT"}, headers=auth_headers)
+    resp = client.get(f"{API}/reponses/en-attente", params={"domaine": "IT"}, headers=auth_header(validator))
 
     assert resp.status_code == 200
     items = resp.json()
@@ -394,7 +410,7 @@ def test_lister_en_attente_filtre_domaine(client, db_session, auth_headers):
     assert {"reponse_id", "ticket_id", "question", "reponse"} <= items[0].keys()
 
 
-def test_lister_canoniques_pagination(client, db_session, auth_headers):
+def test_lister_canoniques_pagination(client, db_session, validator, auth_header):
     # Une source canonique visible + une copie (source renseignée) qui ne doit PAS
     # apparaître dans la liste.
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3)
@@ -403,7 +419,7 @@ def test_lister_canoniques_pagination(client, db_session, auth_headers):
     resp = client.get(
         f"{API}/reponses/canoniques",
         params={"page": 1, "limit": 20},
-        headers=auth_headers,
+        headers=auth_header(validator),
     )
 
     assert resp.status_code == 200

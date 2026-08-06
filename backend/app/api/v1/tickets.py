@@ -9,7 +9,8 @@ from sqlalchemy import exists, or_
 from sqlalchemy.orm import joinedload
 
 from app.config import settings
-from app.core.security import CurrentUser
+from app.core.permissions import check_domain_write, check_ticket_read, user_domaines
+from app.core.security import BackofficeUser, CurrentUser
 from app.database import SessionLocal
 from app.models.groupe import Groupe
 from app.models.groupe import user_groups as ug_table
@@ -166,6 +167,8 @@ async def soumettre_suivi(
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
+        if ticket.user_id != current_user.id:
+            raise HTTPException(403, "Vous ne pouvez ajouter une précision qu'à vos propres tickets.")
         if ticket.closed_at is not None:
             raise HTTPException(409, "Ticket clôturé : impossible d'ajouter une précision")
         domaine = ticket.domaine
@@ -200,6 +203,9 @@ async def cloturer_ticket(ticket_id: str, current_user: CurrentUser):
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
+        # Seul le créateur du ticket peut le clôturer.
+        if ticket.user_id != current_user.id:
+            raise HTTPException(403, "Seul le créateur du ticket peut le clôturer.")
         if ticket.closed_at is not None:
             raise HTTPException(409, "Ticket déjà clôturé")
         domaine = ticket.domaine
@@ -229,11 +235,26 @@ async def liste_tickets(
     db = SessionLocal()
     try:
         query = db.query(Ticket)
-        if domaines:
-            domaine_list = [d.strip().upper() for d in domaines.split(",") if d.strip()]
-            query = query.filter(Ticket.domaine.in_(domaine_list))
-        elif domaine:
-            query = query.filter(Ticket.domaine == domaine.upper())
+
+        # Restreindre le périmètre visible selon le rôle
+        if current_user.role == "ADMIN":
+            pass  # accès lecture global
+        elif current_user.groupes:
+            # Backoffice : limité à ses domaines (le filtre ?domaine peut affiner)
+            allowed = user_domaines(current_user)
+            if domaines:
+                requested = {d.strip().upper() for d in domaines.split(",") if d.strip()}
+                allowed = allowed & requested
+            elif domaine:
+                requested_single = domaine.upper()
+                if requested_single not in allowed:
+                    return {"total": 0, "page": page, "limit": limit, "items": []}
+                allowed = {requested_single}
+            query = query.filter(Ticket.domaine.in_(allowed))
+        else:
+            # Lambda : uniquement ses propres tickets
+            query = query.filter(Ticket.user_id == current_user.id)
+
         if disponibles:
             # Exclut les tickets assignés à quelqu'un d'autre que l'utilisateur courant
             query = query.filter(
@@ -294,7 +315,7 @@ async def mes_assignations(current_user: CurrentUser):
 
 
 @router.get("/tickets/domaines/{domaine}/validateurs")
-async def validateurs_par_domaine(domaine: str, _: CurrentUser):
+async def validateurs_par_domaine(domaine: str, _: BackofficeUser):
     """Liste les membres du groupe pour un domaine donné (tout utilisateur authentifié)."""
     db = SessionLocal()
     try:
@@ -319,7 +340,7 @@ class AssignerRequest(BaseModel):
 
 
 @router.post("/tickets/{ticket_id}/assigner")
-async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user: CurrentUser):
+async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user: BackofficeUser):
     """Assigne le ticket à un validateur du même domaine."""
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
@@ -327,6 +348,7 @@ async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
+        check_domain_write(ticket.domaine, current_user)
         is_member = db.query(
             exists()
             .where(Groupe.domaine == ticket.domaine)
@@ -369,7 +391,7 @@ async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user
 
 
 @router.post("/tickets/{ticket_id}/desassigner")
-async def desassigner_ticket(ticket_id: str, current_user: CurrentUser):
+async def desassigner_ticket(ticket_id: str, current_user: BackofficeUser):
     """Remet le ticket dans le pot commun (supprime l'assignation)."""
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
@@ -377,6 +399,7 @@ async def desassigner_ticket(ticket_id: str, current_user: CurrentUser):
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
+        check_domain_write(ticket.domaine, current_user)
         domaine = ticket.domaine
         ticket.assigned_to = None
         db.add(TicketEvent(
@@ -397,7 +420,7 @@ async def desassigner_ticket(ticket_id: str, current_user: CurrentUser):
 
 @router.get("/tickets/participated")
 async def tickets_avec_participation(
-    current_user: CurrentUser,
+    current_user: BackofficeUser,
     page: int = 1,
     limit: int = 10,
 ):
@@ -436,6 +459,7 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
+        check_ticket_read(ticket, current_user)
         reponses = (
             db.query(ReponseModel).filter(ReponseModel.ticket_id == tid).order_by(ReponseModel.created_at.asc()).all()
         )
@@ -462,7 +486,7 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
 
 
 @router.get("/tickets/{ticket_id}/workflow")
-async def get_ticket_workflow(ticket_id: str, _: CurrentUser):
+async def get_ticket_workflow(ticket_id: str, current_user: CurrentUser):
     """Retourne la timeline complète du ticket, triée chronologiquement."""
     db = SessionLocal()
     try:
@@ -470,6 +494,7 @@ async def get_ticket_workflow(ticket_id: str, _: CurrentUser):
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
+        check_ticket_read(ticket, current_user)
 
         reponses = (
             db.query(ReponseModel)
@@ -563,6 +588,7 @@ async def get_ticket(ticket_id: str, current_user: CurrentUser):
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
+        check_ticket_read(ticket, current_user)
         return _serialize_ticket(ticket)
     finally:
         db.close()
@@ -576,7 +602,7 @@ def _parse_ticket_id(ticket_id: str) -> uuid.UUID:
 
 
 @router.post("/tickets/{ticket_id}/lock")
-async def verrouiller_ticket(ticket_id: str, current_user: CurrentUser):
+async def verrouiller_ticket(ticket_id: str, current_user: BackofficeUser):
     """Prend (ou prolonge) le verrou du ticket pour le validateur courant."""
     tid = _parse_ticket_id(ticket_id)
     db = SessionLocal()
@@ -584,6 +610,7 @@ async def verrouiller_ticket(ticket_id: str, current_user: CurrentUser):
         existing = db.query(Ticket).filter(Ticket.id == tid).first()
         if not existing:
             raise HTTPException(404, "Ticket introuvable")
+        check_domain_write(existing.domaine, current_user)
         domaine = existing.domaine
 
         # Un ticket assigné à quelqu'un d'autre ne peut pas être verrouillé

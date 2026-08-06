@@ -73,6 +73,19 @@ def require_admin(
     return current_user
 
 
+def require_backoffice(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Réserve une route aux membres backoffice (au moins un groupe) ou aux admins."""
+    if current_user.role != "ADMIN" and not current_user.groupes:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Action réservée aux validateurs.",
+        )
+    return current_user
+
+
 # Alias de type réutilisables dans les routeurs (style Annotated, évite B008).
 CurrentUser = Annotated[User, Depends(get_current_user)]
 AdminUser = Annotated[User, Depends(require_admin)]
+BackofficeUser = Annotated[User, Depends(require_backoffice)]
