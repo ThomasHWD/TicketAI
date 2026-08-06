@@ -23,7 +23,7 @@ import TicketDetail from "./pages/backoffice/TicketDetail/TicketDetail";
 import SavedAnswers from "./pages/backoffice/SavedAnswers";
 import NewTicket from "./pages/user/NewTicket";
 import UserTicketHistory from "./pages/user/UserTicketHistory";
-import UserTicketDetail from "./pages/user/UserTicketDetail";
+import UserTicketDetail from "./pages/user/UserTicketDetail/UserTicketDetail";
 import Ingestion from "./pages/backoffice/Ingestion";
 import AllDocs from "./pages/backoffice/AllDocs";
 import TicketTracking from "./pages/backoffice/TicketTracking";
