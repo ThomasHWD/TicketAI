@@ -15,7 +15,7 @@ import DonutChart from "../../components/dashboard/DonutChart";
 import TicketsBarChart from "../../components/dashboard/TicketsBarChart";
 import RecentDocs from "../../components/dashboard/RecentDocs";
 import RecentTickets from "../../components/dashboard/RecentTickets";
-import SatisfactionPlaceholder from "../../components/dashboard/SatisfactionPlaceholder";
+import SatisfactionCard from "../../components/dashboard/SatisfactionCard";
 
 function formatDuration(seconds: number): string {
   if (seconds === 0) return "0s";
@@ -207,7 +207,7 @@ export default function AdminDashboard() {
       {/* Recent tickets + satisfaction */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RecentTickets tickets={stats?.derniers_tickets ?? []} loading={statsLoading} />
-        <SatisfactionPlaceholder />
+        <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} />
       </div>
     </div>
   );

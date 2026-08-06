@@ -40,6 +40,15 @@
         "value": "10px",
         "createdAt": "2026-08-04T10:49:00.059Z",
         "reason": "Recharts Tooltip contentStyle only accepts inline CSS, cannot use Tailwind tokens"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "/home/thomas/Documents/TicketAI/frontend/src/pages/user/UserTicketDetail.tsx"
+        ],
+        "createdAt": "2026-08-05T14:46:21.846Z",
+        "reason": "Glass-morphism button pattern (bg-white/60 text-gray-700) is intentional and consistent throughout the app"
       }
     ]
   }

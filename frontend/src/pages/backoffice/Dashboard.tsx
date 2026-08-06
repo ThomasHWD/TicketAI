@@ -17,7 +17,7 @@ import DonutChart from "../../components/dashboard/DonutChart";
 import TicketsBarChart from "../../components/dashboard/TicketsBarChart";
 import RecentDocs from "../../components/dashboard/RecentDocs";
 import RecentTickets from "../../components/dashboard/RecentTickets";
-import SatisfactionPlaceholder from "../../components/dashboard/SatisfactionPlaceholder";
+import SatisfactionCard from "../../components/dashboard/SatisfactionCard";
 import TeamStatsPanel from "./TeamStats";
 
 function formatDuration(seconds: number): string {
@@ -223,7 +223,7 @@ export default function Dashboard() {
           {/* Donut + Docs */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <DonutChart data={stats?.repartition_statuts ?? []} loading={statsLoading} periode={periode} />
-            <RecentDocs docs={docsData?.items ?? []} loading={docsLoading} />
+            <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} />
           </div>
 
           {/* Bar chart */}
@@ -237,7 +237,7 @@ export default function Dashboard() {
           {/* Recent tickets + satisfaction */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <RecentTickets tickets={stats?.derniers_tickets ?? []} loading={statsLoading} />
-            <SatisfactionPlaceholder />
+            <RecentDocs docs={docsData?.items ?? []} loading={docsLoading} />
           </div>
         </>
       )}
