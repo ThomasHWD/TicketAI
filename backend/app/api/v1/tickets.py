@@ -259,16 +259,26 @@ async def liste_tickets(
             pass  # accès lecture global
         elif current_user.groupes:
             # Backoffice : limité à ses domaines (le filtre ?domaine peut affiner)
-            allowed = user_domaines(current_user)
-            if domaines:
-                requested = {d.strip().upper() for d in domaines.split(",") if d.strip()}
-                allowed = allowed & requested
-            elif domaine:
-                requested_single = domaine.upper()
-                if requested_single not in allowed:
-                    return {"total": 0, "page": page, "limit": limit, "items": []}
-                allowed = {requested_single}
-            query = query.filter(Ticket.domaine.in_(allowed))
+            # Exception : si le gestionnaire demande ses propres tickets (user_id=soi),
+            # pas de restriction de domaine — il doit voir ses tickets hors domaine.
+            own_request = False
+            if user_id:
+                try:
+                    if uuid.UUID(user_id) == current_user.id:
+                        own_request = True
+                except ValueError:
+                    pass
+            if not own_request:
+                allowed = user_domaines(current_user)
+                if domaines:
+                    requested = {d.strip().upper() for d in domaines.split(",") if d.strip()}
+                    allowed = allowed & requested
+                elif domaine:
+                    requested_single = domaine.upper()
+                    if requested_single not in allowed:
+                        return {"total": 0, "page": page, "limit": limit, "items": []}
+                    allowed = {requested_single}
+                query = query.filter(Ticket.domaine.in_(allowed))
         else:
             # Lambda : uniquement ses propres tickets
             query = query.filter(Ticket.user_id == current_user.id)
