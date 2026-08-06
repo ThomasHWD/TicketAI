@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import exists, or_
 from sqlalchemy.orm import joinedload
@@ -201,7 +201,7 @@ class CloturerRequest(BaseModel):
 
 
 @router.post("/tickets/{ticket_id}/cloturer")
-async def cloturer_ticket(ticket_id: str, payload: CloturerRequest, current_user: CurrentUser):
+async def cloturer_ticket(ticket_id: str, current_user: CurrentUser, payload: CloturerRequest = Body(default_factory=CloturerRequest)):
     """Clôture le ticket (l'utilisateur est satisfait). Idempotence refusée :
     un ticket déjà clôturé renvoie 409."""
     tid = _parse_ticket_id(ticket_id)
