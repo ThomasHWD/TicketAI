@@ -57,6 +57,14 @@ def _variation(curr: int, prev: int) -> dict:
     return {"valeur": curr, "variation": pct, "hausse": curr >= prev}
 
 
+def _variation_taux(curr_count: int, curr_total: int, prev_count: int, prev_total: int) -> dict:
+    """Variation exprimée en taux (%). La variation est en points de pourcentage."""
+    curr_taux = round(curr_count / curr_total * 100, 1) if curr_total > 0 else 0.0
+    prev_taux = round(prev_count / prev_total * 100, 1) if prev_total > 0 else 0.0
+    diff = round(curr_taux - prev_taux, 1)
+    return {"valeur": curr_taux, "count": curr_count, "variation": diff, "hausse": curr_taux >= prev_taux}
+
+
 def _variation_temps(curr: float, prev: float) -> dict:
     """Variation pour les métriques de temps : hausse = temps augmente = mauvais."""
     if prev == 0:
@@ -171,6 +179,17 @@ def get_dashboard_stats(
                 .scalar() or 0
             )
 
+        def count_tickets_created(start: datetime, end: datetime) -> int:
+            return (
+                db.query(func.count(Ticket.id))
+                .filter(
+                    Ticket.created_at >= start,
+                    Ticket.created_at < end,
+                    *domain_filters,
+                )
+                .scalar() or 0
+            )
+
         def avg_closure_time(start: datetime, end: datetime) -> int:
             result = (
                 db.query(func.avg(func.extract("epoch", Ticket.closed_at - Ticket.created_at)))
@@ -219,9 +238,11 @@ def get_dashboard_stats(
                 count_tickets_closed(curr_start, curr_end),
                 count_tickets_closed(prev_start, prev_end),
             ),
-            "repondu_canonique": _variation(
+            "repondu_canonique": _variation_taux(
                 count_repondu_canonique(curr_start, curr_end),
+                count_tickets_created(curr_start, curr_end),
                 count_repondu_canonique(prev_start, prev_end),
+                count_tickets_created(prev_start, prev_end),
             ),
             "temps_premiere_reponse": _variation_temps(
                 avg_first_response_time(curr_start, curr_end),

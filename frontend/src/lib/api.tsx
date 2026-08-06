@@ -633,6 +633,7 @@ export interface StatCarte {
   valeur: number;
   variation: number;
   hausse: boolean;
+  count?: number;
 }
 
 export interface RepartitionStatut {
