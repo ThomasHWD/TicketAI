@@ -1,5 +1,5 @@
 import { useNavigate, useMatch } from "react-router-dom";
-import { Sun, Moon, Plus, ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { Sun, Moon, Plus, LogOut } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../hooks/useTheme";
@@ -10,18 +10,13 @@ import MarqueeBanner from "../ui/MarqueeBanner";
 import NotificationBell from "../ui/NotificationBell";
 import UserAvatar from "../ui/UserAvatar";
 
-interface NavbarProps {
-  collapsed: boolean;
-  onToggle: () => void;
-}
-
 /** Nom affichable de l'utilisateur : « Prénom NOM », sinon email. */
 function displayName(user: { prenom: string | null; nom: string | null; email: string }): string {
   const full = [user.prenom, user.nom].filter(Boolean).join(" ").trim();
   return full || user.email;
 }
 
-export default function Navbar({ collapsed, onToggle }: NavbarProps) {
+export default function Navbar() {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -58,16 +53,6 @@ export default function Navbar({ collapsed, onToggle }: NavbarProps) {
       style={{ borderBottom: undefined }}
     >
       <div className="flex items-center w-full px-5 gap-3 h-full">
-      {/* Collapse */}
-      <button
-        onClick={onToggle}
-        className="p-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 transition-colors shrink-0"
-        title={collapsed ? "Déplier le menu" : "Replier le menu"}
-        aria-label={collapsed ? "Déplier le menu latéral" : "Replier le menu latéral"}
-      >
-        {collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
-      </button>
-
       {banner?.active && banner.message ? (
         <MarqueeBanner message={banner.message} url={banner.url || undefined} />
       ) : (

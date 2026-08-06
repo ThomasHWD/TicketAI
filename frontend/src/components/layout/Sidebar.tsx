@@ -9,7 +9,6 @@ import {
   MessageSquare,
   // Settings,
   BookText,
-  ChevronRight,
   History,
   // TicketPlus,
   MessagesSquare,
@@ -100,7 +99,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed }: SidebarProps) {
-  const { user, userDomaines, isChef, isBackoffice } = useAuth();
+  const { user, userDomaines } = useAuth();
   const greetingName = user?.prenom || user?.email || "";
   const avatarName = [user?.prenom, user?.nom].filter(Boolean).join(" ") || user?.email || "?";
 
@@ -141,8 +140,14 @@ export default function Sidebar({ collapsed }: SidebarProps) {
       <div className="relative z-10 flex flex-col flex-1 overflow-hidden">
 
       {/* Logo */}
-      <div className="flex items-center gap-[11px] h-20 px-[18px] overflow-hidden">
-        <img src={TicketAIMark} alt="TicketAI" className="h-[52px] w-[52px] shrink-0 [filter:drop-shadow(0_0_6px_rgba(255,255,255,0.8))_drop-shadow(0_1px_3px_rgba(0,0,0,0.15))] dark:[filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.15))]" />
+      <div className={`flex items-center gap-[11px] h-20 overflow-hidden transition-all duration-300 ${collapsed ? "justify-center px-3" : "px-[18px]"}`}>
+        <img
+          src={TicketAIMark}
+          alt="TicketAI"
+          className={`shrink-0 [filter:drop-shadow(0_0_6px_rgba(255,255,255,0.8))_drop-shadow(0_1px_3px_rgba(0,0,0,0.15))] dark:[filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.15))] transition-all duration-300 ease-in-out ${
+            collapsed ? "h-8 w-8" : "h-[52px] w-[52px]"
+          }`}
+        />
         <span
           className={`text-[18px] font-semibold tracking-tight text-gray-900 dark:text-gray-100 whitespace-nowrap transition-all duration-300 ease-in-out ${
             collapsed ? "opacity-0 -translate-x-2 w-0 overflow-hidden" : "opacity-100 translate-x-0"
@@ -214,7 +219,6 @@ export default function Sidebar({ collapsed }: SidebarProps) {
             <p className="text-xs text-gray-600 dark:text-gray-400">Bonjour 👋</p>
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{greetingName}</p>
           </div>
-          <ChevronRight size={16} className="text-gray-400 shrink-0" />
         </div>
       </div>
 
