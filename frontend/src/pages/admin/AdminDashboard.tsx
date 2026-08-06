@@ -147,13 +147,16 @@ export default function AdminDashboard() {
           loading={statsLoading}
         />
         <StatCard
-          title="Nombre de réponses canonique"
+          title="Taux d'autonomie"
           value={stats?.stats_cartes.repondu_canonique.valeur ?? 0}
           variation={stats?.stats_cartes.repondu_canonique.variation ?? 0}
           hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true}
           icon={CheckCircle}
           iconColor="text-emerald-500"
           loading={statsLoading}
+          suffix="%"
+          subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} tickets servis automatiquement`}
+          variationUnit=" pts"
         />
         <StatCard
           title="Clôturés"
