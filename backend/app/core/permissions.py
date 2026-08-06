@@ -24,6 +24,8 @@ def check_ticket_read(ticket: Ticket, current_user: User) -> None:
     if current_user.role == "ADMIN":
         return
     if current_user.groupes:
+        if ticket.user_id == current_user.id:
+            return
         if ticket.domaine not in user_domaines(current_user):
             raise HTTPException(403, "Vous n'avez pas accès à ce ticket.")
         return
