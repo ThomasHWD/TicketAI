@@ -28,7 +28,10 @@ export {
 } from "./reponses";
 
 export {
+  DocumentHomonymeError,
   uploadDocument,
+  previewDocumentUpdate,
+  confirmDocumentUpdate,
   getDocumentStatus,
   listDocuments,
   getDocumentChunks,

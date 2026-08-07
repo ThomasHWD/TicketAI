@@ -1,45 +1,32 @@
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   UploadCloud,
-  FileText,
   XCircle,
   Loader2,
   RefreshCw,
   Database,
   PenLine,
   Copy,
+  AlertTriangle,
+  ArrowRight,
 } from "lucide-react";
-import { apiFetch, uploadDocument } from "../../lib/api";
+import { apiFetch, uploadDocument, DocumentHomonymeError } from "../../lib/api";
 import { useJobs } from "../../context/JobsContext";
 import { useAuth } from "../../lib/auth";
 import { useQuery } from "@tanstack/react-query";
-import type { Domaine } from "../../types.ts";
+import FileDropzone from "../../components/ui/FileDropzone";
+import { validateFile } from "../../lib/documentUpload";
+import UpdateDocModal from "./UpdateDocModal";
+import type { Domaine, DocumentHomonyme, DocumentUploadResponse } from "../../types.ts";
 
 async function fetchDomaines(): Promise<string[]> {
   const res = await apiFetch("/api/v1/admin/domaines");
   const data = await res.json();
   return Array.isArray(data) ? data : [];
 }
-const ACCEPTED_EXTS = [".pdf", ".docx", ".txt", ".md"];
-const MAX_SIZE_MB = 50;
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
-}
-
-function validateFile(file: File): string | null {
-  const ext = "." + file.name.split(".").pop()?.toLowerCase();
-  if (!ACCEPTED_EXTS.includes(ext)) {
-    return `Extension non supportée : ${ext}. Formats acceptés : PDF, DOCX, TXT, MD.`;
-  }
-  if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-    return `Fichier trop volumineux : ${formatSize(file.size)} (max ${MAX_SIZE_MB} Mo).`;
-  }
-  return null;
-}
-
-type Phase = "idle" | "uploading" | "duplicate" | "error";
+type Phase = "idle" | "uploading" | "duplicate" | "homonyme" | "error";
 type SourceMode = "upload" | "write";
 
 export default function Ingestion() {
@@ -64,8 +51,6 @@ export default function Ingestion() {
   // Upload mode state
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // Write mode state
   const [docTitle, setDocTitle] = useState("");
@@ -77,59 +62,47 @@ export default function Ingestion() {
   // Shared flow state
   const [phase, setPhase] = useState<Phase>("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [duplicateDocId, setDuplicateDocId] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<DocumentUploadResponse | null>(null);
+  const [homonyme, setHomonyme] = useState<DocumentHomonyme | null>(null);
+  // Le fichier envoyé, conservé tel quel : c'est lui que la modale de mise à
+  // jour analyse si l'utilisateur choisit cette issue, sans nouveau dépôt.
+  const [submitted, setSubmitted] = useState<File | null>(null);
+  const [updateOpen, setUpdateOpen] = useState(false);
 
-  const pickFile = (f: File) => {
-    const err = validateFile(f);
-    setFileError(err);
-    setFile(err ? null : f);
+  /** Construit le fichier à envoyer selon le mode (import ou rédaction). */
+  const buildFile = (): File | null => {
+    if (sourceMode !== "write") return file;
+    const blob = new Blob([docContent], { type: "text/plain" });
+    return new File([blob], `${docTitle.trim() || "document"}.md`, { type: "text/plain" });
   };
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const f = e.dataTransfer.files[0];
-    if (f) pickFile(f);
-  }, []);
-
-  const onDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-  const onDragLeave = () => setIsDragging(false);
-
-  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) pickFile(f);
-    e.target.value = "";
-  };
-
-  const handleSubmit = async () => {
+  const submit = async (target: File, forceNouveau = false) => {
     setPhase("uploading");
     setUploadError(null);
+    setSubmitted(target);
     try {
-      let target: File;
-      if (sourceMode === "write") {
-        const blob = new Blob([docContent], { type: "text/plain" });
-        target = new File([blob], `${docTitle.trim() || "document"}.md`, {
-          type: "text/plain",
-        });
-      } else {
-        if (!file) return;
-        target = file;
-      }
-      const res = await uploadDocument(target, domaine, description.trim());
+      const res = await uploadDocument(target, domaine, description.trim(), forceNouveau);
       if (res.statut === "DÉJÀ_INDEXÉ") {
-        setDuplicateDocId(res.doc_id ?? null);
+        setDuplicate(res);
         setPhase("duplicate");
         return;
       }
       if (res.job_id) addJob(res.job_id, res.filename);
       reset();
     } catch (err) {
+      if (err instanceof DocumentHomonymeError) {
+        setHomonyme(err.document);
+        setPhase("homonyme");
+        return;
+      }
       setUploadError(err instanceof Error ? err.message : "Erreur inattendue");
       setPhase("error");
     }
+  };
+
+  const handleSubmit = () => {
+    const target = buildFile();
+    if (target) submit(target);
   };
 
   const reset = () => {
@@ -139,11 +112,15 @@ export default function Ingestion() {
     setDocTitle("");
     setDocContent("");
     setDescription("");
-    setDuplicateDocId(null);
+    setDuplicate(null);
+    setHomonyme(null);
+    setSubmitted(null);
     setPhase("idle");
   };
 
-  const isTerminal = phase === "duplicate" || phase === "error";
+  // Le formulaire cède la place à un écran de résultat — qui, hors erreur, propose
+  // désormais une suite (voir le document, mettre à jour) plutôt qu'un cul-de-sac.
+  const hideForm = phase === "duplicate" || phase === "homonyme" || phase === "error";
   const isBusy = phase === "uploading";
 
   const canSubmit =
@@ -153,6 +130,7 @@ export default function Ingestion() {
       : docTitle.trim().length > 0 && docContent.trim().length >= 50);
 
   return (
+    <>
     <div className="p-6 max-w-2xl mx-auto">
       <div className="glass-card rounded-2xl overflow-hidden">
         {/* Header */}
@@ -204,7 +182,7 @@ export default function Ingestion() {
         )}
 
         {/* Source mode tabs */}
-        {!isTerminal && (
+        {!hideForm && (
           <div className="px-7 py-5 space-y-5">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
@@ -244,67 +222,16 @@ export default function Ingestion() {
 
             {/* Upload mode */}
             {sourceMode === "upload" && (
-              <div className="space-y-2">
-                <div
-                  onDrop={onDrop}
-                  onDragOver={onDragOver}
-                  onDragLeave={onDragLeave}
-                  onClick={() => !isBusy && inputRef.current?.click()}
-                  className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-12 cursor-pointer transition-colors
-                    ${isBusy ? "pointer-events-none opacity-60" : ""}
-                    ${
-                      isDragging
-                        ? "border-green-400 bg-green-50 dark:bg-emerald-400/10"
-                        : "border-gray-200 dark:border-white/10 bg-white/50 dark:bg-white/[0.03] hover:bg-gray-50 dark:hover:bg-white/[0.06]"
-                    }`}
-                >
-                  <input
-                    ref={inputRef}
-                    type="file"
-                    accept={ACCEPTED_EXTS.join(",")}
-                    className="hidden"
-                    onChange={onInputChange}
-                  />
-                  {file ? (
-                    <>
-                      <FileText size={36} className="text-green-600 dark:text-emerald-400" />
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {file.name}
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                          {formatSize(file.size)}
-                        </p>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-500">
-                        Cliquez pour changer de fichier
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <UploadCloud size={36} className="text-gray-400 dark:text-white/20" />
-                      <div className="text-center">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                          Glissez un fichier ici ou{" "}
-                          <span className="text-green-600 dark:text-emerald-400 font-medium">
-                            parcourez
-                          </span>
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-500 mt-1">
-                          PDF, DOCX, TXT, MD — max {MAX_SIZE_MB} Mo
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {fileError && (
-                  <p className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
-                    <XCircle size={13} />
-                    {fileError}
-                  </p>
-                )}
-              </div>
+              <FileDropzone
+                file={file}
+                error={fileError}
+                disabled={isBusy}
+                onPick={(f) => {
+                  const err = validateFile(f);
+                  setFileError(err);
+                  setFile(err ? null : f);
+                }}
+              />
             )}
 
             {/* Write mode */}
@@ -389,32 +316,74 @@ export default function Ingestion() {
           </div>
         )}
 
-        {/* Duplicate result */}
-        {phase === "duplicate" && (
+        {/* Contenu strictement identique : il n'y a rien à mettre à jour, on oriente. */}
+        {phase === "duplicate" && duplicate && (
           <div className="px-7 py-6 space-y-4">
             <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-400 font-medium">
               <Copy size={18} />
-              Document déjà indexé
+              Document déjà indexé à l'identique
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Ce fichier est identique à un document déjà présent dans la base de connaissances.
-              Aucune indexation supplémentaire n'a été effectuée.
+              Ce fichier est déjà indexé sous «&nbsp;{duplicate.filename}&nbsp;»
+              {duplicate.domaine ? ` (${duplicate.domaine}` : ""}
+              {duplicate.domaine && duplicate.version ? `, v${duplicate.version}` : ""}
+              {duplicate.domaine ? ")" : ""}. Son contenu n'a pas changé : il n'y a rien à mettre
+              à jour.
             </p>
-            {duplicateDocId && (
-              <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
-                <dt className="text-gray-600 dark:text-gray-400 whitespace-nowrap">Identifiant existant</dt>
-                <dd className="text-gray-900 dark:text-gray-100 font-mono text-xs truncate">
-                  {duplicateDocId}
-                </dd>
-              </dl>
-            )}
-            <button
-              onClick={reset}
-              className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:underline mt-1"
-            >
-              <RefreshCw size={13} />
-              Indexer un autre document
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                to={`/documents-indexes?q=${encodeURIComponent(duplicate.filename)}`}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white transition-colors"
+              >
+                <ArrowRight size={14} />
+                Voir le document
+              </Link>
+              <button
+                onClick={reset}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-white/15 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              >
+                <RefreshCw size={14} />
+                Choisir un autre fichier
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Même nom, contenu différent : c'est très probablement une nouvelle version. */}
+        {phase === "homonyme" && homonyme && (
+          <div className="px-7 py-6 space-y-4">
+            <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-400 font-medium">
+              <AlertTriangle size={18} />
+              Un document porte déjà ce nom
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              «&nbsp;{homonyme.filename}&nbsp;» existe déjà en {homonyme.domaine} (v
+              {homonyme.version}, {homonyme.nb_chunks} chunk{homonyme.nb_chunks > 1 ? "s" : ""}),
+              avec un contenu différent. L'indexer tel quel créerait un second document : les deux
+              versions répondraient alors aux mêmes questions, en se contredisant.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setUpdateOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white transition-colors"
+              >
+                <RefreshCw size={14} />
+                Mettre à jour ce document
+              </button>
+              <button
+                onClick={() => submitted && submit(submitted, true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-white/15 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              >
+                <Database size={14} />
+                Créer un nouveau document
+              </button>
+              <button
+                onClick={reset}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+              >
+                Annuler
+              </button>
+            </div>
           </div>
         )}
 
@@ -441,5 +410,17 @@ export default function Ingestion() {
         )}
       </div>
     </div>
+
+    {/* Le fichier est déjà choisi : la modale ouvre directement sur l'analyse d'impact. */}
+    {updateOpen && homonyme && submitted && (
+      <UpdateDocModal
+        doc={homonyme}
+        fichierInitial={submitted}
+        // Annulation : on revient à l'alerte, les trois issues restent offertes.
+        onClose={() => setUpdateOpen(false)}
+        onSubmitted={reset}
+      />
+    )}
+    </>
   );
 }

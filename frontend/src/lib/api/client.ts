@@ -30,14 +30,25 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function extractApiErrorDetail(res: Response, fallback: string): Promise<string> {
+/**
+ * `detail` brut du corps d'erreur.
+ *
+ * Une chaîne pour les erreurs à afficher telles quelles, un objet pour les
+ * erreurs *actionnables* dont le front doit exploiter les champs (ex. le 409
+ * `DOCUMENT_HOMONYME`, qui porte le `doc_id` à mettre à jour). `null` si le
+ * corps n'est pas du JSON.
+ */
+export async function readApiErrorDetail(res: Response): Promise<unknown> {
   try {
-    const body = await res.json();
-    if (typeof body?.detail === "string") return body.detail;
+    return (await res.json())?.detail ?? null;
   } catch {
-    /* non-JSON body */
+    return null; // corps non-JSON
   }
-  return fallback;
+}
+
+export async function extractApiErrorDetail(res: Response, fallback: string): Promise<string> {
+  const detail = await readApiErrorDetail(res);
+  return typeof detail === "string" ? detail : fallback;
 }
 
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {

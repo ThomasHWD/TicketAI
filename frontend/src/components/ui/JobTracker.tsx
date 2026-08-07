@@ -4,6 +4,15 @@ import { CheckCircle2, FileText, Loader2, X, XCircle } from "lucide-react";
 import { getDocumentStatus } from "../../lib/api";
 import { type TrackedJob, useJobs } from "../../context/JobsContext";
 
+/** Bilan d'un job réussi. Une mise à jour a deux nouvelles à donner, pas une. */
+function resume(job: TrackedJob): string {
+  const chunks = `${job.nb_chunks} chunk${(job.nb_chunks ?? 0) > 1 ? "s" : ""}`;
+  if (job.kind !== "maj") return `Indexé — ${chunks}`;
+  const n = job.nb_obsoletes ?? 0;
+  if (n === 0) return `Mis à jour — ${chunks}`;
+  return `Mis à jour — ${n} réponse${n > 1 ? "s" : ""} devenue${n > 1 ? "s" : ""} obsolète${n > 1 ? "s" : ""}`;
+}
+
 function JobCard({ job }: { job: TrackedJob }) {
   const { updateJob, dismissJob } = useJobs();
   const isTerminal = job.statut === "SUCCESS" || job.statut === "FAILURE";
@@ -20,6 +29,7 @@ function JobCard({ job }: { job: TrackedJob }) {
       updateJob(job.jobId, {
         statut: "SUCCESS",
         nb_chunks: data.resultat?.nb_chunks,
+        nb_obsoletes: data.resultat?.nb_obsoletes,
       });
     } else if (data.statut === "FAILURE") {
       updateJob(job.jobId, { statut: "FAILURE", erreur: data.erreur });
@@ -57,16 +67,18 @@ function JobCard({ job }: { job: TrackedJob }) {
         </p>
         <p className="text-xs mt-0.5 leading-snug">
           {job.statut === "SUCCESS" ? (
-            <span className="text-emerald-700 dark:text-emerald-400">
-              Indexé — {job.nb_chunks} chunk{(job.nb_chunks ?? 0) > 1 ? "s" : ""}
-            </span>
+            <span className="text-emerald-700 dark:text-emerald-400">{resume(job)}</span>
           ) : job.statut === "FAILURE" ? (
             <span className="text-red-600 dark:text-red-400 line-clamp-2">
-              {job.erreur ?? "Échec de l'indexation"}
+              {job.erreur ?? (job.kind === "maj" ? "Échec de la mise à jour" : "Échec de l'indexation")}
             </span>
           ) : (
             <span className="text-gray-500 dark:text-gray-400">
-              {job.statut === "STARTED" ? "Indexation en cours…" : "En attente…"}
+              {job.statut !== "STARTED"
+                ? "En attente…"
+                : job.kind === "maj"
+                  ? "Mise à jour en cours…"
+                  : "Indexation en cours…"}
             </span>
           )}
         </p>
@@ -99,7 +111,7 @@ export default function JobTracker() {
         <div className="flex items-center gap-2 px-1">
           <FileText size={12} className="text-gray-400" />
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            {active > 0 ? `${active} indexation${active > 1 ? "s" : ""} en cours` : "Indexations terminées"}
+            {active > 0 ? `${active} traitement${active > 1 ? "s" : ""} en cours` : "Traitements terminés"}
           </span>
         </div>
       )}
