@@ -5,11 +5,13 @@ import uuid
 
 from langchain_community.document_loaders import Docx2txtLoader, PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct, SparseVector
+from qdrant_client.models import PointStruct, SparseVector
 
 from app.config import settings
 from app.database import SessionLocal
+from app.models.document import Document
 from app.models.document_upload import DocumentUpload
+from app.models.document_version import DocumentVersion
 from app.services.broadcast import broadcast_sync
 from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
@@ -79,13 +81,28 @@ def chunk_text(pages: list[str]) -> list[str]:
     return get_splitter().split_text("\n\n".join(pages))
 
 
-def store_file(tmp_path: str, doc_id: str, filename: str) -> str:
-    """Déplace le fichier de /tmp vers le stockage permanent."""
-    dest_dir = os.path.join(settings.documents_storage_path, doc_id)
+def version_dir(doc_id: str, version: int) -> str:
+    """Dossier d'archive d'une version : {storage}/{doc_id}/v{n}/."""
+    return os.path.join(settings.documents_storage_path, doc_id, f"v{version}")
+
+
+def store_file(tmp_path: str, doc_id: str, filename: str, version: int = 1) -> str:
+    """Copie le fichier de /tmp vers le stockage permanent de la version.
+
+    Copie et non déplacement : après un ``move`` réussi, un retry Celery échouerait
+    sur ``extract_text`` (fichier disparu) et boucherait jusqu'à ``max_retries``.
+    Le temporaire n'est supprimé qu'une fois le job abouti.
+    """
+    dest_dir = version_dir(doc_id, version)
     os.makedirs(dest_dir, exist_ok=True)
     dest_path = os.path.join(dest_dir, filename)
-    shutil.move(tmp_path, dest_path)
+    shutil.copy2(tmp_path, dest_path)
     return dest_path
+
+
+def point_id(doc_id: str, version: int, index: int) -> str:
+    """Id de point déterministe : un retry réécrit les mêmes points au lieu d'en créer."""
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{doc_id}:{version}:{index}"))
 
 
 @celery_app.task(
@@ -95,7 +112,7 @@ def store_file(tmp_path: str, doc_id: str, filename: str) -> str:
     default_retry_delay=60,
     queue="queue_ingestion",
 )
-def ingestion_job(  # noqa: PLR0912
+def ingestion_job(
     self,
     file_path: str,
     filename: str,
@@ -103,9 +120,12 @@ def ingestion_job(  # noqa: PLR0912
     description: str = "",
     content_hash: str = "",
     uploaded_by: str | None = None,
+    doc_id: str | None = None,
 ):
-    doc_id = str(uuid.uuid4())
-    stored_path = None
+    # doc_id vient de l'appelant : le régénérer ici ferait naître un document
+    # différent à chaque retry, chacun laissant ses chunks derrière lui.
+    doc_id = doc_id or str(uuid.uuid5(uuid.NAMESPACE_DNS, str(self.request.id)))
+    version = 1
 
     try:
         print(f"📄 --- DÉBUT DE L'INGESTION DU FICHIER '{filename}' ---")
@@ -123,13 +143,19 @@ def ingestion_job(  # noqa: PLR0912
         embeddings = embed_texts(chunks, is_query=False)
         print("[INGESTION] Embeddings générés")
 
-        # Étape 4 — Indexation Qdrant (batch unique)
+        # Étape 4 — Stockage permanent, avant l'indexation : le chemin fait partie du
+        # payload, l'écrire après imposerait un set_payload correctif et laisserait une
+        # fenêtre où les points portent stored_path: None.
+        stored_path = store_file(file_path, doc_id, filename, version)
+        print(f"[INGESTION] Fichier stocké : {stored_path}")
+
+        # Étape 5 — Indexation Qdrant (batch unique)
         print("[INGESTION] Indexation dans Qdrant...")
         points = []
         for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=False)):
             points.append(
                 PointStruct(
-                    id=str(uuid.uuid4()),
+                    id=point_id(doc_id, version, i),
                     vector={
                         "dense": emb["dense"],
                         "sparse": SparseVector(
@@ -139,6 +165,7 @@ def ingestion_job(  # noqa: PLR0912
                     },
                     payload={
                         "doc_id": doc_id,
+                        "version": version,
                         "chunk_index": i,
                         "source": filename,
                         "domaine": domaine,
@@ -154,31 +181,35 @@ def ingestion_job(  # noqa: PLR0912
         client.upsert(collection_name=COLLECTION_NAME, points=points)
         print(f"[INGESTION] ✅ {len(points)} points indexés dans Qdrant")
 
-        # Étape 5 — Stockage permanent
-        stored_path = store_file(file_path, doc_id, filename)
-        print(f"[INGESTION] Fichier stocké : {stored_path}")
-
-        # Étape 6 — Mise à jour du stored_path dans Qdrant
-        client.set_payload(
-            collection_name=COLLECTION_NAME,
-            payload={"stored_path": stored_path},
-            points=Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]),
-        )
-        print("[INGESTION] stored_path mis à jour dans Qdrant")
-
-        # Étape 7 — Traçabilité de l'upload en base
-        import uuid as _uuid
+        # Étape 6 — Enregistrement en base
         db = SessionLocal()
         try:
+            user_uuid = uuid.UUID(uploaded_by) if uploaded_by else None
+            _enregistrer_document(
+                db,
+                doc_id=doc_id,
+                version=version,
+                filename=filename,
+                domaine=domaine,
+                description=description,
+                content_hash=content_hash,
+                stored_path=stored_path,
+                nb_chunks=len(chunks),
+                uploaded_by=user_uuid,
+            )
             db.add(DocumentUpload(
                 doc_id=doc_id,
-                user_id=_uuid.UUID(uploaded_by) if uploaded_by else None,
+                user_id=user_uuid,
                 domaine=domaine,
                 filename=filename,
             ))
             db.commit()
         finally:
             db.close()
+
+        # Étape 7 — Le temporaire n'a plus d'utilité : plus aucun retry ne suivra
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
         result = {
             "statut": "OK",
@@ -200,3 +231,36 @@ def ingestion_job(  # noqa: PLR0912
     except Exception as exc:
         print(f"[INGESTION] ❌ Erreur : {exc}")
         raise self.retry(exc=exc) from exc
+
+
+def _enregistrer_document(db, *, doc_id, version, filename, domaine, description,
+                          content_hash, stored_path, nb_chunks, uploaded_by) -> None:
+    """Crée (ou met à jour, si un retry est passé par là) les lignes documents/versions."""
+    doc = db.query(Document).filter(Document.doc_id == doc_id).first()
+    if doc is None:
+        doc = Document(doc_id=doc_id)
+        db.add(doc)
+    doc.version = version
+    doc.filename = filename
+    doc.domaine = domaine
+    doc.description = description
+    doc.content_hash = content_hash or None
+    doc.stored_path = stored_path
+    doc.nb_chunks = nb_chunks
+    doc.statut = "ACTIF"
+    doc.uploaded_by = uploaded_by
+
+    ligne = (
+        db.query(DocumentVersion)
+        .filter(DocumentVersion.doc_id == doc_id, DocumentVersion.version == version)
+        .first()
+    )
+    if ligne is None:
+        ligne = DocumentVersion(doc_id=doc_id, version=version)
+        db.add(ligne)
+    ligne.filename = filename
+    ligne.content_hash = content_hash or None
+    ligne.stored_path = stored_path
+    ligne.nb_chunks = nb_chunks
+    ligne.taille_octets = os.path.getsize(stored_path) if os.path.isfile(stored_path) else None
+    ligne.uploaded_by = uploaded_by

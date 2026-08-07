@@ -41,6 +41,11 @@ def _upload(client, *, domaine="IT", filename="doc.md", content=_MD_CONTENT, con
     )
 
 
+def _job_kwargs(mock_job) -> dict:
+    """Arguments du dernier apply_async — la tâche est appelée en tout-kwargs."""
+    return mock_job.apply_async.call_args.kwargs["kwargs"]
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Fixture : mock du client Qdrant dans le module documents
 # ──────────────────────────────────────────────────────────────────────────────
@@ -190,7 +195,7 @@ class TestExtractText:
 
 
 class TestStoreFile:
-    def test_moves_file_to_dest(self, tmp_path, monkeypatch):
+    def test_copie_dans_le_dossier_de_version(self, tmp_path, monkeypatch):
         from app.workers.ingestion import store_file
 
         src = tmp_path / "source.md"
@@ -201,8 +206,34 @@ class TestStoreFile:
         doc_id = str(uuid.uuid4())
         dest = store_file(str(src), doc_id, "source.md")
 
+        assert dest == str(dest_root / doc_id / "v1" / "source.md")
         assert os.path.exists(dest)
-        assert not src.exists()  # déplacé, plus en place
+        # Copié, pas déplacé : un retry Celery doit pouvoir relire le temporaire
+        assert src.exists()
+
+    def test_version_dans_le_chemin(self, tmp_path, monkeypatch):
+        from app.workers.ingestion import store_file
+
+        src = tmp_path / "source.md"
+        src.write_text("contenu")
+        dest_root = tmp_path / "storage"
+        monkeypatch.setattr("app.workers.ingestion.settings", MagicMock(documents_storage_path=str(dest_root)))
+
+        dest = store_file(str(src), "doc-42", "source.md", version=3)
+        assert dest == str(dest_root / "doc-42" / "v3" / "source.md")
+
+
+class TestPointId:
+    def test_deterministe(self):
+        from app.workers.ingestion import point_id
+
+        assert point_id("doc-1", 1, 0) == point_id("doc-1", 1, 0)
+
+    def test_distinct_par_version_et_index(self):
+        from app.workers.ingestion import point_id
+
+        ids = {point_id("doc-1", 1, 0), point_id("doc-1", 1, 1), point_id("doc-1", 2, 0)}
+        assert len(ids) == 3
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -255,21 +286,32 @@ class TestUploadValidation:
 
     def test_description_transmise_au_job(self, client, mock_qdrant, mock_ingestion_job):
         _upload(client, description="Charte informatique 2025")
-        # apply_async est appelé avec args=[file_path, filename, domaine, description]
-        args_list = mock_ingestion_job.apply_async.call_args.kwargs["args"]
-        assert args_list[3] == "Charte informatique 2025"
+        assert _job_kwargs(mock_ingestion_job)["description"] == "Charte informatique 2025"
 
     def test_description_vide_par_defaut(self, client, mock_qdrant, mock_ingestion_job):
         _upload(client)
-        args_list = mock_ingestion_job.apply_async.call_args.kwargs["args"]
-        assert args_list[3] == ""
+        assert _job_kwargs(mock_ingestion_job)["description"] == ""
 
     def test_hash_transmis_au_job(self, client, mock_qdrant, mock_ingestion_job):
         _upload(client)
-        args_list = mock_ingestion_job.apply_async.call_args.kwargs["args"]
-        # args[4] = content_hash : doit être un SHA-256 hexadécimal (64 chars)
-        assert len(args_list[4]) == 64
-        assert all(c in "0123456789abcdef" for c in args_list[4])
+        content_hash = _job_kwargs(mock_ingestion_job)["content_hash"]
+        assert len(content_hash) == 64
+        assert all(c in "0123456789abcdef" for c in content_hash)
+
+    def test_job_appele_en_kwargs(self, client, mock_qdrant, mock_ingestion_job):
+        """/admin/documents/{id}/retry rejoue la tâche depuis meta["kwargs"] :
+        un argument positionnel y serait perdu."""
+        _upload(client)
+        appel = mock_ingestion_job.apply_async.call_args
+        assert appel.kwargs.get("args") is None
+        assert set(_job_kwargs(mock_ingestion_job)) >= {
+            "file_path", "filename", "domaine", "description", "content_hash", "uploaded_by", "doc_id",
+        }
+
+    def test_doc_id_fixe_par_l_api(self, client, mock_qdrant, mock_ingestion_job):
+        """doc_id doit être stable d'un retry à l'autre, donc décidé avant le job."""
+        r = _upload(client)
+        assert r.json()["doc_id"] == _job_kwargs(mock_ingestion_job)["doc_id"]
 
 
 class TestDuplicateDetection:
@@ -298,8 +340,7 @@ class TestDuplicateDetection:
 
         mock_qdrant.scroll.return_value = ([], None)
         _upload(client, content=contenu)
-        args1 = mock_ingestion_job.apply_async.call_args.kwargs["args"][4]
-        assert args1 == hash1
+        assert _job_kwargs(mock_ingestion_job)["content_hash"] == hash1
 
     def test_contenu_different_n_est_pas_doublon(self, client, mock_qdrant, mock_ingestion_job):
         # Aucun point trouvé → ingestion normale
@@ -460,33 +501,30 @@ class TestDeleteDocument:
         assert r.json()["doc_id"] == doc_id
         mock_qdrant.delete.assert_called_once()
 
-    def test_delete_supprime_fichier_disque(self, client, mock_qdrant, tmp_path):
-        doc_id = str(uuid.uuid4())
-        stored_dir = tmp_path / doc_id
-        stored_dir.mkdir()
-        stored_file = stored_dir / "doc.md"
-        stored_file.write_text("contenu")
+    def test_delete_supprime_le_dossier_du_document(self, client, mock_qdrant, tmp_path, monkeypatch):
+        """Le dossier entier disparaît, archives v{n}/ comprises : supprimer le seul
+        dossier de la version courante laisserait les versions précédentes sur disque."""
+        import app.api.v1.documents as docs_module
 
-        point = MagicMock()
-        point.payload = {"stored_path": str(stored_file)}
-        mock_qdrant.scroll.return_value = ([point], None)
+        monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
+
+        doc_id = str(uuid.uuid4())
+        (tmp_path / doc_id / "v1").mkdir(parents=True)
+        (tmp_path / doc_id / "v1" / "doc.md").write_text("v1")
+        (tmp_path / doc_id / "v2").mkdir()
+        (tmp_path / doc_id / "v2" / "doc.md").write_text("v2")
+
+        mock_qdrant.scroll.return_value = ([MagicMock()], None)
 
         client.delete(f"{API}/documents/{doc_id}")
-        assert not stored_dir.exists()
+        assert not (tmp_path / doc_id).exists()
 
-    def test_delete_sans_fichier_disque_ne_plante_pas(self, client, mock_qdrant):
-        """stored_path absent ou répertoire inexistant ne doit pas lever d'exception."""
-        point = MagicMock()
-        point.payload = {"stored_path": "/tmp/inexistant/doc.md"}
-        mock_qdrant.scroll.return_value = ([point], None)
+    def test_delete_sans_fichier_disque_ne_plante_pas(self, client, mock_qdrant, tmp_path, monkeypatch):
+        """Un dossier inexistant ne doit pas lever d'exception."""
+        import app.api.v1.documents as docs_module
 
-        r = client.delete(f"{API}/documents/{uuid.uuid4()}")
-        assert r.status_code == 200
-
-    def test_delete_stored_path_none_ne_plante_pas(self, client, mock_qdrant):
-        point = MagicMock()
-        point.payload = {}  # stored_path absent du payload
-        mock_qdrant.scroll.return_value = ([point], None)
+        monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
+        mock_qdrant.scroll.return_value = ([MagicMock()], None)
 
         r = client.delete(f"{API}/documents/{uuid.uuid4()}")
         assert r.status_code == 200
@@ -665,3 +703,144 @@ def test_integration_filter_domaine(client, qdrant_doc):
     assert r.status_code == 200
     doc_ids_rh = [item["doc_id"] for item in r.json()["items"]]
     assert qdrant_doc not in doc_ids_rh
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ingestion_job — écriture des lignes documents / document_versions
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestEnregistrerDocument:
+    """Le worker doit pouvoir rejouer son écriture en base : un retry Celery
+    repasse par là avec le même doc_id."""
+
+    @staticmethod
+    def _ecrire(db, doc_id, **overrides):
+        from app.workers.ingestion import _enregistrer_document
+
+        champs = {
+            "doc_id": doc_id,
+            "version": 1,
+            "filename": "charte.md",
+            "domaine": "RH",
+            "description": "Charte 2025",
+            "content_hash": "a" * 64,
+            "stored_path": "/tmp/inexistant/charte.md",
+            "nb_chunks": 12,
+            "uploaded_by": None,
+        }
+        champs.update(overrides)
+        _enregistrer_document(db, **champs)
+        db.commit()
+
+    def test_cree_document_et_version(self, db_session):
+        from app.models.document import Document
+        from app.models.document_version import DocumentVersion
+
+        doc_id = str(uuid.uuid4())
+        self._ecrire(db_session, doc_id)
+
+        doc = db_session.query(Document).filter(Document.doc_id == doc_id).one()
+        assert (doc.version, doc.nb_chunks, doc.statut) == (1, 12, "ACTIF")
+        assert doc.description == "Charte 2025"
+
+        version = db_session.query(DocumentVersion).filter(DocumentVersion.doc_id == doc_id).one()
+        assert version.version == 1
+        assert version.nb_chunks == 12
+
+    def test_rejouable_sans_doublon(self, db_session):
+        from app.models.document import Document
+        from app.models.document_version import DocumentVersion
+
+        doc_id = str(uuid.uuid4())
+        self._ecrire(db_session, doc_id)
+        self._ecrire(db_session, doc_id, nb_chunks=15)
+
+        assert db_session.query(Document).filter(Document.doc_id == doc_id).count() == 1
+        assert db_session.query(DocumentVersion).filter(DocumentVersion.doc_id == doc_id).count() == 1
+        assert db_session.query(Document).filter(Document.doc_id == doc_id).one().nb_chunks == 15
+
+    def test_content_hash_vide_stocke_null(self, db_session):
+        from app.models.document import Document
+
+        doc_id = str(uuid.uuid4())
+        self._ecrire(db_session, doc_id, content_hash="")
+
+        assert db_session.query(Document).filter(Document.doc_id == doc_id).one().content_hash is None
+
+
+@pytest.mark.integration
+def test_integration_ingestion_job_bout_en_bout(db_session, tmp_path, monkeypatch):
+    """Le job complet contre un vrai Qdrant et une vraie base — embeddings mockés.
+
+    Vérifie ce que PR 1 apporte : ids de points déterministes, `version` et
+    `stored_path` présents dès l'upsert, fichier rangé sous v1/, temporaire nettoyé,
+    lignes documents/document_versions écrites.
+    """
+    import app.workers.ingestion as ing
+    from app.models.document import Document
+    from app.models.document_version import DocumentVersion
+    from app.services.qdrant import COLLECTION_NAME
+    from app.services.qdrant import client as real_client
+    from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
+
+    monkeypatch.setattr(ing.settings, "documents_storage_path", str(tmp_path / "storage"))
+    monkeypatch.setattr(ing, "chunk_text", lambda pages: ["chunk A", "chunk B"])
+    monkeypatch.setattr(
+        ing, "embed_texts",
+        lambda textes, is_query=False: [
+            {"dense": [0.1] * 1024, "sparse": {"indices": [0, 1], "values": [0.5, 0.5]}} for _ in textes
+        ],
+    )
+
+    tmp_file = tmp_path / "upload.md"
+    tmp_file.write_text("# Charte\n\nContenu.", encoding="utf-8")
+    doc_id = str(uuid.uuid4())
+
+    try:
+        result = ing.ingestion_job.apply(kwargs={
+            "file_path": str(tmp_file),
+            "filename": "charte.md",
+            "domaine": "RH",
+            "description": "Charte 2025",
+            "content_hash": "b" * 64,
+            "uploaded_by": None,
+            "doc_id": doc_id,
+        }).get()
+
+        assert result["statut"] == "OK"
+        assert result["doc_id"] == doc_id
+        assert result["nb_chunks"] == 2
+
+        # Fichier rangé par version, temporaire nettoyé
+        attendu = tmp_path / "storage" / doc_id / "v1" / "charte.md"
+        assert attendu.is_file()
+        assert not tmp_file.exists()
+
+        # Points Qdrant : ids déterministes, version et stored_path dès l'upsert
+        points, _ = real_client.scroll(
+            collection_name=COLLECTION_NAME,
+            scroll_filter=Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]),
+            with_payload=True,
+            limit=10,
+        )
+        assert len(points) == 2
+        assert {str(p.id) for p in points} == {ing.point_id(doc_id, 1, 0), ing.point_id(doc_id, 1, 1)}
+        for p in points:
+            assert p.payload["version"] == 1
+            assert p.payload["stored_path"] == str(attendu)
+
+        # Lignes en base
+        doc = db_session.query(Document).filter(Document.doc_id == doc_id).one()
+        assert (doc.version, doc.domaine, doc.nb_chunks, doc.statut) == (1, "RH", 2, "ACTIF")
+        version = db_session.query(DocumentVersion).filter(DocumentVersion.doc_id == doc_id).one()
+        assert version.stored_path == str(attendu)
+        assert version.taille_octets == attendu.stat().st_size
+    finally:
+        real_client.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=FilterSelector(
+                filter=Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))])
+            ),
+        )

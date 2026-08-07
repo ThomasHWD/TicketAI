@@ -120,14 +120,24 @@ async def upload_document(
     with open(file_path, "wb") as f:
         f.write(contents)
 
-    # Push job Celery
+    # Push job Celery — tout en kwargs : /admin/documents/{task_id}/retry rejoue la
+    # tâche depuis `meta["kwargs"]`, les arguments positionnels y sont invisibles.
+    # doc_id est fixé ici pour rester stable d'un retry à l'autre.
+    doc_id = str(uuid.uuid4())
     job = ingestion_job.apply_async(
-        args=[file_path, filename, domaine, description.strip(), content_hash],
-        kwargs={"uploaded_by": str(current_user.id)},
+        kwargs={
+            "file_path": file_path,
+            "filename": filename,
+            "domaine": domaine,
+            "description": description.strip(),
+            "content_hash": content_hash,
+            "uploaded_by": str(current_user.id),
+            "doc_id": doc_id,
+        },
         queue="queue_ingestion",
     )
 
-    return {"job_id": job.id, "filename": filename, "statut": "EN_ATTENTE"}
+    return {"job_id": job.id, "filename": filename, "doc_id": doc_id, "statut": "EN_ATTENTE"}
 
 
 @router.get("/documents")
@@ -245,24 +255,23 @@ async def delete_document(doc_id: str, current_user: AdminUser):
     results, _ = client.scroll(
         collection_name=COLLECTION_NAME,
         scroll_filter=doc_filter,
-        with_payload=["stored_path"],
+        with_payload=False,
         with_vectors=False,
         limit=1,
     )
     if not results:
         raise HTTPException(404, "Document introuvable")
 
-    stored_path = (results[0].payload or {}).get("stored_path")
-
     client.delete(
         collection_name=COLLECTION_NAME,
         points_selector=FilterSelector(filter=doc_filter),
     )
 
-    if stored_path:
-        doc_dir = os.path.dirname(stored_path)
-        if os.path.isdir(doc_dir):
-            shutil.rmtree(doc_dir, ignore_errors=True)
+    # Le dossier du document, archives v{n}/ comprises — les fichiers sont désormais
+    # rangés par version, supprimer le seul dossier de la version courante en laisserait.
+    doc_dir = os.path.join(settings.documents_storage_path, doc_id)
+    if os.path.isdir(doc_dir):
+        shutil.rmtree(doc_dir, ignore_errors=True)
 
     return {"statut": "OK", "doc_id": doc_id}
 

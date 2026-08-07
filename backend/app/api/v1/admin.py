@@ -623,6 +623,18 @@ def retry_ticket(ticket_id: UUID, _: AdminUser, db: DB):
     return {"job_id": str(new_job_id)}
 
 
+@router.post("/documents/reconcile")
+def reconcile_documents(_: AdminUser, db: DB):
+    """Recrée depuis Qdrant les lignes `documents` manquantes.
+
+    Même traitement que `scripts/backfill_documents.py`, accessible sans shell.
+    Idempotent : ne touche pas aux documents déjà enregistrés.
+    """
+    from app.services.document_backfill import reconcilier_documents
+
+    return reconcilier_documents(db)
+
+
 @router.get("/documents/{task_id}/download")
 def download_document(task_id: str, _: AdminUser):
     import json as _json
