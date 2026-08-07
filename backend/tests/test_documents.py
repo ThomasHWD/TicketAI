@@ -969,6 +969,103 @@ class TestPreviewMaj:
         ).first() is None
 
 
+_ARTICLE_AJOUTE = (
+    b"Article 7 bis : le teletravail est suspendu pendant les periodes de forte activite."
+)
+
+
+def _doc_avec_fichier(db, tmp_path, contenu=_TEXTE_V1, **overrides):
+    """Document dont le fichier de la version courante existe vraiment sur disque.
+
+    C'est la condition de l'analyse des ajouts : sans ce fichier, il n'y a pas de
+    texte de référence à comparer.
+    """
+    chemin = tmp_path / "courant.md"
+    chemin.write_bytes(contenu)
+    return _doc_en_base(
+        db, domaine="RH", content_hash="hash-v1", stored_path=str(chemin), **overrides
+    )
+
+
+@pytest.mark.integration
+class TestAjoutsSignales:
+    """Le miroir de l'obsolescence : ce que la nouvelle version *ajoute*.
+
+    Rien n'en devient obsolète — l'ajout n'invalide pas mécaniquement une réponse,
+    seule une lecture humaine peut trancher. L'aperçu se contente de le rendre
+    visible, faute de quoi une charte enrichie d'un « article 7 bis » laisserait
+    les réponses existantes continuer d'être servies sans que personne ne le sache.
+    """
+
+    def test_signale_un_ajout_qui_ne_rend_rien_obsolete(self, client, db_reelle, staging_tmp, qdrant_maj):
+        doc = _doc_avec_fichier(db_reelle, staging_tmp)
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")
+
+        body = _preview(client, doc.doc_id, content=_TEXTE_V1 + b"\n\n" + _ARTICLE_AJOUTE).json()
+
+        # Aucun passage cité n'a bougé : la détection d'obsolescence est muette,
+        # et c'est précisément le trou que ce panneau vient combler.
+        assert body["nb_chunks_modifies"] == 0
+        assert body["nb_obsoletes"] == 0
+        assert body["ajouts_analysables"] is True
+        assert body["nb_passages_ajoutes"] == 1
+        assert "Article 7 bis" in body["extraits_ajoutes"][0]
+        assert body["nb_a_relire"] == 1
+
+    def test_aucun_ajout_sur_un_simple_reformatage(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """Le panneau doit rester silencieux quand rien n'a été écrit : sinon il
+        s'affiche à chaque mise à jour et cesse d'être lu."""
+        doc = _doc_avec_fichier(db_reelle, staging_tmp)
+        reformate = _TEXTE_V1.replace(b"\n\n", b"\n\n\n").replace(b" par ", b"  par ")
+
+        body = _preview(client, doc.doc_id, content=reformate).json()
+
+        assert body["ajouts_analysables"] is True
+        assert body["nb_passages_ajoutes"] == 0
+        assert body["extraits_ajoutes"] == []
+
+    def test_ne_compte_pas_les_reponses_qui_vont_disparaitre(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """Une réponse déjà condamnée n'est pas « à relire » : elle ne sera plus
+        servie du tout. La compter deux fois exagérerait la charge annoncée."""
+        doc = _doc_avec_fichier(db_reelle, staging_tmp)
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")  # devient obsolète
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=1, domaine="RH")  # reste servie
+
+        body = _preview(client, doc.doc_id, content=_TEXTE_V2 + b"\n\n" + _ARTICLE_AJOUTE).json()
+
+        assert body["nb_obsoletes"] == 1
+        assert body["nb_passages_ajoutes"] >= 1
+        assert body["nb_a_relire"] == 1
+
+    def test_document_backfille_tait_le_panneau(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """Sans fichier courant sur disque, il n'y a rien à comparer. Renvoyer
+        « 0 passage ajouté » se lirait comme une garantie ; on ne dit rien."""
+        doc = _doc_en_base(db_reelle, domaine="RH", content_hash="hash-v1", stored_path=None)
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")
+
+        body = _preview(client, doc.doc_id, content=_TEXTE_V1 + b"\n\n" + _ARTICLE_AJOUTE).json()
+
+        assert body["ajouts_analysables"] is False
+        assert body["nb_passages_ajoutes"] == 0
+        assert body["nb_a_relire"] == 0
+
+    def test_archive_illisible_ne_fait_pas_echouer_l_apercu(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """L'obsolescence, elle, est déjà calculée : perdre le signal secondaire ne
+        doit pas coûter le signal principal."""
+        corrompu = staging_tmp / "corrompu.pdf"
+        corrompu.write_bytes(b"%PDF-1.4 ceci n'est pas un PDF")
+        doc = _doc_en_base(
+            db_reelle, domaine="RH", content_hash="hash-v1", stored_path=str(corrompu)
+        )
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")
+
+        r = _preview(client, doc.doc_id)
+
+        assert r.status_code == 200
+        assert r.json()["nb_obsoletes"] == 1
+        assert r.json()["ajouts_analysables"] is False
+
+
 @pytest.mark.integration
 class TestConfirmMaj:
     def test_lance_le_job_et_pose_le_verrou(self, client, db_reelle, staging_tmp, qdrant_maj, mock_maj_job):

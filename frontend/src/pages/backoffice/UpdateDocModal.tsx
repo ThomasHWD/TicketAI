@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
+  FilePlus2,
   Loader2,
   RefreshCw,
   X,
@@ -58,7 +59,64 @@ function LigneImpact({ item }: { item: ImpactItem }) {
   );
 }
 
-function EcranImpact({ impact }: { impact: UpdateImpact }) {
+/**
+ * Ce que la nouvelle version *ajoute*, en regard de ce qu'elle périme.
+ *
+ * L'obsolescence ne voit que les passages qui fondaient une réponse. Un article
+ * ajouté ailleurs — le geste le plus courant sur une charte — ne touche aucun
+ * d'eux : rien ne devient obsolète, et la réponse existante, qui l'ignore,
+ * continuerait d'être servie automatiquement sans que personne ne le sache.
+ *
+ * D'où ce panneau : neutre et non bloquant, il ne décide de rien. Décider
+ * demanderait de lire l'ajout, ce qu'aucune règle ne peut faire à la place d'un
+ * humain. Masqué quand il n'y a rien à dire — ou rien de démontrable.
+ */
+function EncadreAjouts({ impact }: { impact: UpdateImpact }) {
+  if (!impact.ajouts_analysables || impact.nb_passages_ajoutes === 0) return null;
+
+  const n = impact.nb_passages_ajoutes;
+  const relire = impact.nb_a_relire;
+
+  return (
+    <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
+      <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
+        <FilePlus2 size={16} />
+        {n} passage{n > 1 ? "s" : ""} ajouté{n > 1 ? "s" : ""} par cette version.
+      </p>
+      <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+        {relire > 0 ? (
+          <>
+            {relire} réponse{relire > 1 ? "s" : ""} enregistrée{relire > 1 ? "s" : ""} de ce
+            document {relire > 1 ? "n'en tiennent" : "n'en tient"} pas compte et{" "}
+            {relire > 1 ? "resteront servies" : "restera servie"} telle{relire > 1 ? "s" : ""}{" "}
+            quelle{relire > 1 ? "s" : ""}. Rien ne devient obsolète : à vous de juger si un de ces
+            ajouts les contredit.
+          </>
+        ) : (
+          <>Aucune réponse enregistrée ne subsiste sur ce document : rien à relire.</>
+        )}
+      </p>
+      <ul className="space-y-1.5 max-h-32 overflow-y-auto">
+        {impact.extraits_ajoutes.map((extrait, i) => (
+          <li
+            key={i}
+            className="text-[11px] text-gray-600 dark:text-gray-400 font-mono leading-relaxed border-l-2 border-amber-300 dark:border-amber-500/40 pl-2"
+          >
+            {extrait}
+          </li>
+        ))}
+      </ul>
+      {n > impact.extraits_ajoutes.length && (
+        <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
+          … et {n - impact.extraits_ajoutes.length} autre
+          {n - impact.extraits_ajoutes.length > 1 ? "s" : ""}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function EcranObsolescence({ impact }: { impact: UpdateImpact }) {
   if (impact.nb_obsoletes === 0) {
     return (
       <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-400/10 px-4 py-3.5 space-y-1.5">
@@ -95,6 +153,15 @@ function EcranImpact({ impact }: { impact: UpdateImpact }) {
           <LigneImpact key={item.reponse_id} item={item} />
         ))}
       </ul>
+    </div>
+  );
+}
+
+function EcranImpact({ impact }: { impact: UpdateImpact }) {
+  return (
+    <div className="space-y-3">
+      <EcranObsolescence impact={impact} />
+      <EncadreAjouts impact={impact} />
     </div>
   );
 }

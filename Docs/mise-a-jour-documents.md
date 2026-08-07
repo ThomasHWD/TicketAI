@@ -83,16 +83,55 @@ Conséquence utile : reformater un document (retours à la ligne, espaces, PDF r
 en changer le fond ne rend **aucune** réponse obsolète. Ce ne sont pas les découpages qui sont
 comparés, ce sont les passages eux-mêmes.
 
-### Et l'information *ajoutée* ailleurs dans le document ?
+### Le trou de cette règle, et ce qu'on en fait
 
-Elle ne déclenche rien, et c'est le comportement voulu. Ajouter un paragraphe sur les frais de
-transport ne rend pas fausse la réponse sur le télétravail : son passage source est intact,
-elle reste exacte sur ce qu'elle couvre.
+La règle ci-dessus ne voit qu'une chose : les passages qui **ont servi**. Elle est donc aveugle
+au cas inverse.
 
-Le contenu ajouté n'est pas perdu pour autant. Il est indexé dès la mise à jour, et **une
-question nouvelle ne retombe pas sur une réponse enregistrée** — elle n'y ressemble pas assez.
-Elle repart donc en génération, sur le document à jour, et exploite l'ajout immédiatement. Une
-réponse enregistrée n'est resservie que pour une question qu'on a déjà traitée.
+> Un « article 7 bis » ajouté **ailleurs** dans le document, qui restreindrait le télétravail,
+> ne touche aucun passage cité. Rien ne devient obsolète. La réponse enregistrée, qui l'ignore,
+> continue d'être servie automatiquement.
+
+C'est le risque le plus sérieux du dispositif, et il faut le nommer : contrairement au faux
+positif de la section 4 — visible dans l'onglet Obsolètes, réversible en un clic — celui-ci est
+**invisible**. Et les mises à jour de charte sont typiquement additives : le cas n'a rien de
+théorique.
+
+On pourrait croire que l'indexation suffit : le passage ajouté est bien indexé, et une question
+*nouvelle* repart en génération sur le document à jour. C'est vrai, mais hors sujet — le
+problème concerne les questions **déjà traitées**, précisément celles qui ont une réponse
+enregistrée à resservir.
+
+Aucune règle automatique ne peut trancher : décider si un ajout invalide une réponse demande de
+le lire. Ce qu'on peut faire, en revanche, c'est **le rendre visible**. La même comparaison est
+donc appliquée dans l'autre sens — quels paragraphes de la nouvelle version sont absents de
+l'ancienne — et l'écran d'impact affiche, à côté du verdict d'obsolescence :
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│ 📄  2 passages ajoutés par cette version.                      │
+│                                                                │
+│     4 réponses enregistrées de ce document n'en tiennent pas   │
+│     compte et resteront servies telles quelles. Rien ne        │
+│     devient obsolète : à vous de juger si un de ces ajouts     │
+│     les contredit.                                             │
+│                                                                │
+│     │ Article 7 bis : le télétravail est suspendu pendant…     │
+│     │ Article 9 : les frais d'équipement sont plafonnés à…     │
+└────────────────────────────────────────────────────────────────┘
+```
+
+C'est un **signal de tri, pas une décision** : aucune réponse n'est retirée du service par ce
+panneau. Il transforme un angle mort en information affichée au bon moment — devant la personne
+qui met le document à jour, et qui est la mieux placée pour savoir ce qu'elle vient d'y écrire.
+
+Deux réserves à connaître :
+
+- une phrase simplement **réécrite** apparaît des deux côtés : passage disparu *et* passage
+  ajouté. Les deux lectures sont vraies, le doublon est assumé ;
+- le panneau reste **masqué** si le fichier de la version courante n'est plus sur le disque
+  (documents antérieurs au versionnage). Afficher « 0 passage ajouté » se lirait comme une
+  garantie ; mieux vaut ne rien dire que rassurer à tort.
 
 ## 4. Ce qui arrive à une réponse obsolète
 
@@ -140,6 +179,10 @@ redeviennent valables.
 - **La reformulation cosmétique déclenche un faux positif.** Changer un synonyme ou une
   ponctuation dans un passage cité marque la réponse obsolète alors que le fond n'a pas bougé.
   Réponse du système : c'est visible, et Restaurer le corrige en un clic.
+- **Une information ajoutée ailleurs ne rend rien obsolète automatiquement.** Elle est signalée
+  sur l'écran d'impact (§3), mais c'est à un humain de juger si elle contredit une réponse
+  existante. C'est la limite la plus sérieuse, et la seule qui repose entièrement sur la
+  vigilance de la personne qui met à jour.
 - **Un fichier renommé échappe au garde-fou homonyme** de la page Ingestion.
 - **Le domaine d'un document n'est pas modifiable** par une mise à jour.
 - **Supprimer un document efface aussi ses archives** — toutes les versions, définitivement.
@@ -169,6 +212,16 @@ complet. `reponses_obsoletes` part de `reponse_chunks`, puis **descend transitiv
 copies SUGGESTION/CANONIQUE via `reponse_source_id` (elles ne citent aucun chunk) ; `racines`
 dédoublonne la famille pour que le comptage annoncé à l'écran soit celui des réponses réellement
 distinctes.
+
+**Détection en miroir** : `decouper_en_passages` + `passages_ajoutes`, même primitive appliquée
+dans l'autre sens. L'unité est le **paragraphe**, pas le chunk : un chunk fait 384 tokens, donc
+un extrait illisible et une granularité telle que la moindre retouche marquerait 1 500
+caractères comme ajoutés. Les blocs de moins de 40 caractères (titres, numérotation, artefacts
+PDF) sont écartés. Coût : un `extract_text` de plus au moment de l'aperçu — sur le fichier de la
+version courante, qui sert de texte de référence. Ni appel API, ni embedding. Si ce fichier est
+absent ou illisible, `analyser_ajouts` renvoie `ajouts_analysables: False` et le front masque le
+panneau : l'obsolescence, elle, est déjà calculée, et perdre le signal secondaire ne doit pas
+coûter le principal.
 
 **Job** : `backend/app/workers/document_update.py`, file `queue_ingestion`.
 Ordre imposé — `scroll` (capture du texte des anciens passages, **avant toute suppression** :

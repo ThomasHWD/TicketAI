@@ -82,6 +82,19 @@ export interface UpdateImpact {
   nb_obsoletes: number;
   nb_canoniques: number;
   items: ImpactItem[];
+  /**
+   * Détection en miroir : les passages que la nouvelle version *ajoute*. Aucun
+   * n'entraîne d'obsolescence — seule une lecture humaine peut dire si un ajout
+   * contredit une réponse existante. `false` quand le fichier de la version
+   * courante est introuvable (documents backfillés) : rien n'est alors
+   * démontrable, et le panneau reste masqué plutôt que d'annoncer « 0 ajout ».
+   */
+  ajouts_analysables: boolean;
+  nb_passages_ajoutes: number;
+  /** Trois extraits au plus. */
+  extraits_ajoutes: string[];
+  /** Réponses enregistrées du document qui survivent, et ignorent donc l'ajout. */
+  nb_a_relire: number;
 }
 
 /** `detail` du 409 de `POST /documents` quand un document porte déjà ce nom dans le domaine. */
