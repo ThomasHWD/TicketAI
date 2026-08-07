@@ -1523,3 +1523,167 @@ def test_integration_ingestion_job_bout_en_bout(db_session, tmp_path, monkeypatc
                 filter=Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))])
             ),
         )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# La chaîne complète : preview → confirm → job
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def job_maj_reel(monkeypatch, tmp_path, qdrant_maj):
+    """Le vrai `document_update_job`, branché sur la base réelle.
+
+    Qdrant, l'embedding et le chunking sont mockés ; Postgres, le disque et la
+    détection d'obsolescence sont réels. `qdrant_maj` fournit déjà le mock du
+    module — le job et l'aperçu partagent ainsi la même vue de la version
+    sortante, comme en production.
+    """
+    import app.api.v1.documents as docs_module
+    import app.workers.document_update as maj_module
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "documents_storage_path", str(tmp_path / "storage"))
+    monkeypatch.setattr(maj_module, "chunk_text", lambda pages: "\n\n".join(pages).split("\n\n"))
+    monkeypatch.setattr(
+        maj_module,
+        "embed_texts",
+        lambda chunks, is_query=False: [
+            {"dense": [0.1] * 1024, "sparse": {"indices": [1], "values": [0.5]}} for _ in chunks
+        ],
+    )
+    monkeypatch.setattr(maj_module, "broadcast_sync", MagicMock())
+
+    lance = MagicMock()
+    lance.apply_async.return_value = SimpleNamespace(id=str(uuid.uuid4()))
+    monkeypatch.setattr(docs_module, "document_update_job", lance)
+
+    def executer():
+        """Rejoue le job avec **exactement** les kwargs produits par `confirm`."""
+        kwargs = lance.apply_async.call_args.kwargs["kwargs"]
+        maj_module.document_update_job(**kwargs)
+        return kwargs
+
+    return SimpleNamespace(executer=executer, mock=lance)
+
+
+@pytest.mark.integration
+class TestChaineComplete:
+    """API et worker sont testés séparément partout ailleurs — donc jamais l'un
+    contre l'autre. Un kwarg renommé d'un côté passerait les deux suites et ne
+    casserait qu'en production. Ces tests ferment la couture."""
+
+    def test_maj_de_bout_en_bout(self, client, db_reelle, staging_tmp, job_maj_reel):
+        doc = _doc_en_base(db_reelle, version=1, content_hash="hash-v1")
+        reponse = _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0)
+
+        apercu = _preview(client, doc.doc_id).json()
+        assert apercu["nb_obsoletes"] == 1, "le passage « 2 jours » a disparu en v2"
+
+        r = client.post(
+            f"{API}/documents/{doc.doc_id}/versions/confirm",
+            json={"staging_id": apercu["staging_id"]},
+        )
+        assert r.status_code == 200
+        db_reelle.refresh(doc)
+        assert doc.statut == "EN_MAJ", "le verrou doit tenir entre confirm et la fin du job"
+
+        job_maj_reel.executer()
+
+        db_reelle.expire_all()
+        assert doc.version == 2
+        assert doc.statut == "ACTIF"
+        assert doc.update_job_id is None
+        # L'aperçu annonçait 1 réponse obsolète : le job doit en produire exactement 1.
+        assert reponse.obsolete is True
+        assert reponse.obsolete_raison == "DOC_MIS_A_JOUR"
+        assert reponse.obsolete_version == 2
+        assert reponse.nb_validations == 3, "les validations acquises sont conservées"
+
+    def test_reformatage_ne_rend_rien_obsolete(self, client, db_reelle, staging_tmp, job_maj_reel):
+        """Non-régression décisive : même fond, autre mise en forme → 0 obsolète.
+
+        C'est ce qui distingue « on cherche un passage » de « on compare des
+        découpages ». Si ce test tombe, la détection produit des faux positifs en
+        masse et le système devient inutilisable.
+        """
+        doc = _doc_en_base(db_reelle, version=1, content_hash="hash-v1")
+        reponse = _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0)
+        reformate = _TEXTE_V1.replace(b" ", b"  ").replace(b"\n\n", b"\n\n\n")
+
+        apercu = _preview(client, doc.doc_id, content=reformate).json()
+        assert apercu["nb_obsoletes"] == 0
+
+        client.post(
+            f"{API}/documents/{doc.doc_id}/versions/confirm",
+            json={"staging_id": apercu["staging_id"]},
+        )
+        job_maj_reel.executer()
+
+        db_reelle.expire_all()
+        assert doc.version == 2
+        assert reponse.obsolete is False
+
+    def test_restauration_cree_une_nouvelle_version(
+        self, client, db_reelle, tmp_path, staging_tmp, job_maj_reel
+    ):
+        """Restaurer la v1 depuis la v2 crée une **v3**, jamais une v1 rembobinée."""
+        from app.models.document_version import DocumentVersion
+
+        doc = _doc_en_base(db_reelle, version=2, content_hash="hash-v2")
+        _version_en_base(db_reelle, doc, 1, contenu=_TEXTE_V1, racine=tmp_path, content_hash="hash-v1")
+        _version_en_base(db_reelle, doc, 2, contenu=_TEXTE_V2, racine=tmp_path, content_hash="hash-v2")
+
+        apercu = client.post(f"{API}/documents/{doc.doc_id}/versions/1/restaurer").json()
+        assert apercu["version_cible"] == 3
+
+        client.post(
+            f"{API}/documents/{doc.doc_id}/versions/confirm",
+            json={"staging_id": apercu["staging_id"]},
+        )
+        kwargs = job_maj_reel.executer()
+        assert kwargs["restauree_depuis"] == 1
+
+        db_reelle.expire_all()
+        assert doc.version == 3
+        lignes = {
+            v.version: v
+            for v in db_reelle.query(DocumentVersion).filter(DocumentVersion.doc_id == doc.doc_id)
+        }
+        assert set(lignes) == {1, 2, 3}, "aucune version n'est réécrite ni supprimée"
+        assert lignes[3].restauree_depuis == 1
+        assert lignes[3].remplacee_at is None, "la v3 est la version courante"
+        assert lignes[2].remplacee_at is not None, "la v2 est archivée"
+
+    def test_le_verrou_est_libere_si_le_job_echoue(
+        self, client, db_reelle, staging_tmp, job_maj_reel, monkeypatch
+    ):
+        """Sans `on_failure`, un échec laisserait le document en `EN_MAJ` à vie —
+        plus aucune mise à jour ni suppression possible, sans voie de sortie."""
+        import app.workers.document_update as maj_module
+
+        doc = _doc_en_base(db_reelle, version=1, content_hash="hash-v1")
+        apercu = _preview(client, doc.doc_id).json()
+        client.post(
+            f"{API}/documents/{doc.doc_id}/versions/confirm",
+            json={"staging_id": apercu["staging_id"]},
+        )
+        monkeypatch.setattr(
+            maj_module, "embed_texts", MagicMock(side_effect=RuntimeError("Albert indisponible"))
+        )
+
+        kwargs = job_maj_reel.mock.apply_async.call_args.kwargs["kwargs"]
+        # Hors worker (`called_directly`), `self.retry()` ré-émet l'exception
+        # d'origine au lieu de lever `Retry` : on assiste donc au dernier essai.
+        # `on_failure` est ce que Celery appellerait ensuite, une fois les
+        # tentatives épuisées — c'est lui qui doit rendre la main.
+        with pytest.raises(RuntimeError, match="Albert indisponible"):
+            maj_module.document_update_job(**kwargs)
+        maj_module.document_update_job.on_failure(
+            RuntimeError("Albert indisponible"), "task-1", (), kwargs, None
+        )
+
+        db_reelle.expire_all()
+        assert doc.statut == "ACTIF"
+        assert doc.version == 1, "la version ne bascule pas sur un échec"
+        assert doc.update_job_id is None
