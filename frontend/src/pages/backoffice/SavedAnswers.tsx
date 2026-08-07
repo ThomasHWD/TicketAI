@@ -156,9 +156,9 @@ export default function SavedAnswers() {
                       <td className="px-6 py-4 text-center whitespace-nowrap">
                         <span
                           className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-medium tabular-nums bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-                          title={`Question posée ${r.occurence + 1} fois`}
+                          title={`Réponse auto-servie ${r.occurence} fois`}
                         >
-                          {r.occurence + 1}
+                          {r.occurence}
                         </span>
                       </td>
                       <td className="px-6 py-4">
