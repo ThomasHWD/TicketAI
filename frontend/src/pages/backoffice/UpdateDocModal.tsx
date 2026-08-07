@@ -102,12 +102,19 @@ function EcranImpact({ impact }: { impact: UpdateImpact }) {
 export default function UpdateDocModal({
   doc,
   fichierInitial,
+  impactInitial,
   onClose,
   onSubmitted,
 }: {
   doc: DocCible;
   /** Fichier déjà choisi ailleurs (alerte homonyme) : l'analyse démarre seule. */
   fichierInitial?: File;
+  /**
+   * Aperçu déjà calculé (restauration d'une version) : le fichier est côté serveur,
+   * la modale s'ouvre directement sur l'écran d'impact et il n'y a pas de retour
+   * possible vers le choix d'un fichier.
+   */
+  impactInitial?: UpdateImpact;
   onClose: () => void;
   /** Job lancé — distingue une confirmation d'une simple fermeture. */
   onSubmitted?: () => void;
@@ -115,14 +122,16 @@ export default function UpdateDocModal({
   const queryClient = useQueryClient();
   const { addJob } = useJobs();
 
-  const [etape, setEtape] = useState<Etape>(fichierInitial ? "analyse" : "pick");
+  const [etape, setEtape] = useState<Etape>(
+    impactInitial ? "impact" : fichierInitial ? "analyse" : "pick",
+  );
   const [file, setFile] = useState<File | null>(fichierInitial ?? null);
   const [fileError, setFileError] = useState<string | null>(null);
   // `undefined` = ne pas envoyer le champ, donc conserver la description en base.
   // C'est le cas de l'alerte homonyme, qui ouvre la modale sans la connaître :
   // envoyer une chaîne vide l'effacerait.
   const [description, setDescription] = useState<string | undefined>(doc.description);
-  const [impact, setImpact] = useState<UpdateImpact | null>(null);
+  const [impact, setImpact] = useState<UpdateImpact | null>(impactInitial ?? null);
   const [erreur, setErreur] = useState<string | null>(null);
 
   const echouer = (e: unknown) => {
@@ -175,6 +184,9 @@ export default function UpdateDocModal({
   };
 
   const enCours = etape === "analyse" || etape === "submitting";
+  // Restauration : il n'y a pas de fichier local à reprendre, le seul retour est la sortie.
+  const restauration = impactInitial !== undefined;
+  const depuis = impact?.restauree_depuis;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -187,7 +199,8 @@ export default function UpdateDocModal({
         <div className="flex items-start justify-between px-6 py-5 border-b border-black/[0.06] dark:border-white/10">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">
-              Mettre à jour — v{doc.version} → v{impact?.version_cible ?? doc.version + 1}
+              {depuis != null ? `Restaurer la v${depuis}` : "Mettre à jour"} — v{doc.version} → v
+              {impact?.version_cible ?? doc.version + 1}
             </p>
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
               {doc.filename ?? doc.doc_id}
@@ -257,7 +270,7 @@ export default function UpdateDocModal({
             <div className="space-y-3">
               <p className="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-400">
                 <XCircle size={16} />
-                Mise à jour impossible
+                {restauration ? "Restauration impossible" : "Mise à jour impossible"}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">{erreur}</p>
             </div>
@@ -288,11 +301,11 @@ export default function UpdateDocModal({
           {(etape === "impact" || etape === "submitting") && impact && (
             <>
               <button
-                onClick={revenirAuChoix}
+                onClick={restauration ? onClose : revenirAuChoix}
                 disabled={enCours}
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-white/15 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-50 transition-colors"
               >
-                Retour
+                {restauration ? "Annuler" : "Retour"}
               </button>
               <button
                 onClick={() => confirmer.mutate(impact.staging_id)}
@@ -309,7 +322,7 @@ export default function UpdateDocModal({
                 ) : (
                   <RefreshCw size={14} />
                 )}
-                Confirmer la mise à jour
+                {restauration ? "Confirmer la restauration" : "Confirmer la mise à jour"}
               </button>
             </>
           )}
@@ -327,12 +340,14 @@ export default function UpdateDocModal({
               >
                 Fermer
               </button>
-              <button
-                onClick={revenirAuChoix}
-                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-white/15 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-              >
-                Choisir un autre fichier
-              </button>
+              {!restauration && (
+                <button
+                  onClick={revenirAuChoix}
+                  className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-white/15 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                >
+                  Choisir un autre fichier
+                </button>
+              )}
             </>
           )}
         </div>

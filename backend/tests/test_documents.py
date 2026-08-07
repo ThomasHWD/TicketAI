@@ -1088,6 +1088,172 @@ def _reponse_sur_chunk(db, doc_id, *, chunk_index, domaine="IT"):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Historique des versions
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def _version_en_base(db, doc, version, *, contenu=_TEXTE_V1, racine=None, **overrides):
+    """Insère une ligne `document_versions`, avec son fichier archivé sur disque."""
+    from app.models.document_version import DocumentVersion
+
+    chemin = None
+    if racine is not None:
+        dossier = os.path.join(str(racine), doc.doc_id, f"v{version}")
+        os.makedirs(dossier, exist_ok=True)
+        chemin = os.path.join(dossier, doc.filename)
+        with open(chemin, "wb") as f:
+            f.write(contenu)
+
+    champs = {
+        "doc_id": doc.doc_id,
+        "version": version,
+        "filename": doc.filename,
+        "stored_path": chemin,
+        "nb_chunks": 2,
+        "taille_octets": len(contenu),
+    }
+    champs.update(overrides)
+    v = DocumentVersion(**champs)
+    db.add(v)
+    db.commit()
+    db.refresh(v)
+    return v
+
+
+@pytest.mark.integration
+class TestListerVersions:
+    def test_liste_decroissante_avec_la_courante_marquee(self, client, db_reelle, tmp_path):
+        doc = _doc_en_base(db_reelle, version=2)
+        _version_en_base(db_reelle, doc, 1, racine=tmp_path)
+        _version_en_base(db_reelle, doc, 2, racine=tmp_path, restauree_depuis=1)
+
+        body = client.get(f"{API}/documents/{doc.doc_id}/versions").json()
+
+        assert body["version_courante"] == 2
+        assert [v["version"] for v in body["items"]] == [2, 1]
+        assert [v["courante"] for v in body["items"]] == [True, False]
+        assert body["items"][0]["restauree_depuis"] == 1
+
+    def test_signale_un_fichier_archive_manquant(self, client, db_reelle, tmp_path, monkeypatch):
+        """Sans ce drapeau, l'UI proposerait un téléchargement voué au 404."""
+        import app.api.v1.documents as docs_module
+
+        monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
+        doc = _doc_en_base(db_reelle)
+        _version_en_base(db_reelle, doc, 1, stored_path="/introuvable/charte.md")
+
+        body = client.get(f"{API}/documents/{doc.doc_id}/versions").json()
+
+        assert body["items"][0]["fichier_disponible"] is False
+
+    def test_403_hors_domaine(self, client, db_reelle, backoffice_it):
+        doc = _doc_en_base(db_reelle, domaine="RH")
+
+        assert client.get(f"{API}/documents/{doc.doc_id}/versions").status_code == 403
+
+
+@pytest.mark.integration
+class TestTelechargerVersion:
+    def test_renvoie_le_fichier_archive(self, client, db_reelle, tmp_path):
+        doc = _doc_en_base(db_reelle, version=2)
+        _version_en_base(db_reelle, doc, 1, contenu=_TEXTE_V1, racine=tmp_path)
+        _version_en_base(db_reelle, doc, 2, contenu=_TEXTE_V2, racine=tmp_path)
+
+        r = client.get(f"{API}/documents/{doc.doc_id}/versions/1/download")
+
+        assert r.status_code == 200
+        assert r.content == _TEXTE_V1
+
+    def test_404_version_inconnue(self, client, db_reelle):
+        doc = _doc_en_base(db_reelle)
+
+        assert client.get(f"{API}/documents/{doc.doc_id}/versions/9/download").status_code == 404
+
+
+@pytest.mark.integration
+class TestRestaurerVersion:
+    """Restaurer emprunte le flux de mise à jour : aperçu d'impact, puis `confirm`."""
+
+    def test_apercu_avec_restauree_depuis(self, client, db_reelle, tmp_path, staging_tmp, qdrant_maj):
+        # La v1 (texte de référence de `qdrant_maj`) est restaurée par-dessus une v2
+        # dont le contenu diffère : rien ne doit avoir disparu du document.
+        doc = _doc_en_base(db_reelle, version=2, content_hash="hash-v2")
+        _version_en_base(db_reelle, doc, 1, contenu=_TEXTE_V1, racine=tmp_path, content_hash="hash-v1")
+        _version_en_base(db_reelle, doc, 2, contenu=_TEXTE_V2, racine=tmp_path, content_hash="hash-v2")
+
+        body = client.post(f"{API}/documents/{doc.doc_id}/versions/1/restaurer").json()
+
+        assert body["restauree_depuis"] == 1
+        # Restaurer ne rembobine pas : la version restaurée se pose au-dessus.
+        assert body["version_cible"] == 3
+        assert body["nb_chunks_modifies"] == 0
+        assert body["nb_obsoletes"] == 0
+
+    def test_impact_calcule_comme_une_maj(self, client, db_reelle, tmp_path, staging_tmp, qdrant_maj):
+        """Restaurer peut à son tour rendre des réponses obsolètes — c'est le point."""
+        doc = _doc_en_base(db_reelle, version=2, content_hash="hash-v2")
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0)
+        # Le fichier archivé ne contient plus le passage qui fondait la réponse.
+        _version_en_base(db_reelle, doc, 1, contenu=b"Texte totalement different.",
+                         racine=tmp_path, content_hash="hash-v1")
+
+        body = client.post(f"{API}/documents/{doc.doc_id}/versions/1/restaurer").json()
+
+        assert body["nb_obsoletes"] == 1
+        assert body["items"][0]["chunks_modifies"] == [0]
+
+    def test_la_confirmation_transmet_restauree_depuis(
+        self, client, db_reelle, tmp_path, staging_tmp, qdrant_maj, mock_maj_job
+    ):
+        doc = _doc_en_base(db_reelle, version=2, content_hash="hash-v2")
+        _version_en_base(db_reelle, doc, 1, racine=tmp_path, content_hash="hash-v1")
+        staging_id = client.post(
+            f"{API}/documents/{doc.doc_id}/versions/1/restaurer"
+        ).json()["staging_id"]
+
+        client.post(f"{API}/documents/{doc.doc_id}/versions/confirm", json={"staging_id": staging_id})
+
+        assert mock_maj_job.apply_async.call_args.kwargs["kwargs"]["restauree_depuis"] == 1
+
+    def test_409_version_courante(self, client, db_reelle, tmp_path, staging_tmp, qdrant_maj):
+        doc = _doc_en_base(db_reelle, version=2)
+        _version_en_base(db_reelle, doc, 2, racine=tmp_path)
+
+        r = client.post(f"{API}/documents/{doc.doc_id}/versions/2/restaurer")
+
+        assert r.status_code == 409
+        assert "déjà la version actuelle" in r.json()["detail"]
+
+    def test_409_contenu_identique_a_la_courante(self, client, db_reelle, tmp_path, staging_tmp, qdrant_maj):
+        """Numéro différent, contenu identique : la restauration n'apporterait rien."""
+        doc = _doc_en_base(db_reelle, version=2, content_hash="hash-commun")
+        _version_en_base(db_reelle, doc, 1, racine=tmp_path, content_hash="hash-commun")
+
+        r = client.post(f"{API}/documents/{doc.doc_id}/versions/1/restaurer")
+
+        assert r.status_code == 409
+        assert "même contenu" in r.json()["detail"]
+
+    def test_409_fichier_archive_absent(self, client, db_reelle, tmp_path, staging_tmp, qdrant_maj, monkeypatch):
+        import app.api.v1.documents as docs_module
+
+        monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
+        doc = _doc_en_base(db_reelle, version=2, content_hash="hash-v2")
+        _version_en_base(db_reelle, doc, 1, stored_path="/introuvable/charte.md", content_hash="hash-v1")
+
+        r = client.post(f"{API}/documents/{doc.doc_id}/versions/1/restaurer")
+
+        assert r.status_code == 409
+        assert "n'est plus disponible" in r.json()["detail"]
+
+    def test_403_hors_domaine(self, client, db_reelle, backoffice_it, tmp_path, staging_tmp, qdrant_maj):
+        doc = _doc_en_base(db_reelle, domaine="RH", version=2)
+        _version_en_base(db_reelle, doc, 1, racine=tmp_path)
+
+        assert client.post(f"{API}/documents/{doc.doc_id}/versions/1/restaurer").status_code == 403
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # GET /documents/{job_id}/status
 # ──────────────────────────────────────────────────────────────────────────────
 

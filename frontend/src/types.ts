@@ -49,11 +49,34 @@ export interface ImpactItem {
   extraits: string[];
 }
 
+export interface DocumentVersion {
+  version: number;
+  filename: string;
+  taille_octets: number | null;
+  nb_chunks: number;
+  /** Version d'origine si celle-ci est née d'une restauration. */
+  restauree_depuis: number | null;
+  courante: boolean;
+  auteur: string | null;
+  /** `false` si l'archive a disparu du disque : ni téléchargement ni restauration. */
+  fichier_disponible: boolean;
+  created_at: string | null;
+  remplacee_at: string | null;
+}
+
+export interface DocumentVersionsResponse {
+  doc_id: string;
+  version_courante: number;
+  items: DocumentVersion[];
+}
+
 /** Résultat de l'aperçu : impact **exact**, calculé sans rien modifier. */
 export interface UpdateImpact {
   staging_id: string;
   filename: string;
   version_cible: number;
+  /** Renseigné quand l'aperçu vient d'une restauration. */
+  restauree_depuis: number | null;
   nb_chunks_modifies: number;
   nb_total_chunks: number;
   nb_obsoletes: number;

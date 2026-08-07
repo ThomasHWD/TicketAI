@@ -24,6 +24,7 @@ from app.models.document_version import DocumentVersion
 from app.models.groupe import Groupe
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
+from app.models.user import User
 from app.services.obsolescence import (
     RAISON_SUPPRESSION,
     indices_modifies,
@@ -418,6 +419,34 @@ def previsualiser_maj(
     if autre:
         raise HTTPException(409, f"Ce contenu est déjà indexé sous « {autre.filename} » ({doc.domaine}).")
 
+    return stager_et_analyser(
+        db,
+        doc,
+        contents=contents,
+        filename=filename,
+        content_hash=content_hash,
+        description=description if description is not None else doc.description,
+        user_id=current_user.id,
+    )
+
+
+def stager_et_analyser(
+    db: Session,
+    doc: Document,
+    *,
+    contents: bytes,
+    filename: str,
+    content_hash: str,
+    description: str | None,
+    user_id,
+    restauree_depuis: int | None = None,
+) -> dict:
+    """Met le fichier en staging et calcule l'impact **exact** sur les réponses.
+
+    Partagé par la mise à jour et la restauration : restaurer une version, c'est
+    mettre à jour avec un fichier venu des archives. Même écran d'impact, mêmes
+    garanties, un seul chemin de code.
+    """
     purger_staging(db)
 
     os.makedirs(STAGING_DIR, exist_ok=True)
@@ -427,20 +456,21 @@ def previsualiser_maj(
         f.write(contents)
 
     version_cible = prochaine_version(db, doc)
-    anciens = capturer_chunks(doc_id, version_cible)
+    anciens = capturer_chunks(doc.doc_id, version_cible)
     indices = indices_modifies(anciens, texte_complet(extract_text(chemin)))
-    impactees = racines(reponses_obsoletes(db, doc_id, indices))
+    impactees = racines(reponses_obsoletes(db, doc.doc_id, indices))
 
     db.add(
         DocumentStaging(
             id=staging_id,
-            doc_id=doc_id,
-            user_id=current_user.id,
+            doc_id=doc.doc_id,
+            user_id=user_id,
             stored_path=chemin,
             filename=filename,
             content_hash=content_hash,
-            description=(description if description is not None else doc.description) or "",
+            description=description or "",
             nb_obsoletes=len(impactees),
+            restauree_depuis=restauree_depuis,
             expires_at=datetime.now(timezone.utc) + STAGING_TTL,
         )
     )
@@ -450,11 +480,12 @@ def previsualiser_maj(
         "staging_id": str(staging_id),
         "filename": filename,
         "version_cible": version_cible,
+        "restauree_depuis": restauree_depuis,
         "nb_chunks_modifies": len(indices),
         "nb_total_chunks": len(anciens),
         "nb_obsoletes": len(impactees),
         "nb_canoniques": sum(1 for r in impactees if r.canonique),
-        "items": [_item_impact(db, r, doc_id, indices, anciens) for r in impactees],
+        "items": [_item_impact(db, r, doc.doc_id, indices, anciens) for r in impactees],
     }
 
 
@@ -568,6 +599,129 @@ async def confirmer_maj(
         "version": version_cible,
         "statut": "EN_ATTENTE",
     }
+
+
+# ── Historique des versions ───────────────────────────────────────────────────
+
+
+def chemin_de_version(doc: Document, v: DocumentVersion) -> str | None:
+    """Fichier archivé d'une version, ou None s'il a disparu du disque.
+
+    Les replis couvrent les documents backfillés, dont le fichier est resté à la
+    racine du dossier ``{doc_id}`` au lieu d'un sous-dossier ``v{n}/``.
+    """
+    candidats = [
+        v.stored_path,
+        os.path.join(settings.documents_storage_path, doc.doc_id, f"v{v.version}", v.filename),
+        os.path.join(settings.documents_storage_path, doc.doc_id, v.filename),
+    ]
+    return next((c for c in candidats if c and os.path.isfile(c)), None)
+
+
+def get_version(db: Session, doc: Document, version: int) -> DocumentVersion:
+    v = (
+        db.query(DocumentVersion)
+        .filter(DocumentVersion.doc_id == doc.doc_id, DocumentVersion.version == version)
+        .first()
+    )
+    if v is None:
+        raise HTTPException(404, f"Version v{version} introuvable")
+    return v
+
+
+@router.get("/documents/{doc_id}/versions")
+async def lister_versions(doc_id: str, current_user: BackofficeUser, db: DB):
+    """Historique complet, la plus récente en tête."""
+    doc = get_document_vivant(db, doc_id)
+    check_domain_read(doc.domaine, current_user)
+
+    versions = (
+        db.query(DocumentVersion)
+        .filter(DocumentVersion.doc_id == doc_id)
+        .order_by(DocumentVersion.version.desc())
+        .all()
+    )
+
+    auteurs = {
+        u.id: (f"{u.prenom or ''} {u.nom or ''}".strip() or u.email)
+        for u in db.query(User).filter(User.id.in_([v.uploaded_by for v in versions if v.uploaded_by])).all()
+    } if versions else {}
+
+    return {
+        "doc_id": doc_id,
+        "version_courante": doc.version,
+        "items": [
+            {
+                "version": v.version,
+                "filename": v.filename,
+                "taille_octets": v.taille_octets,
+                "nb_chunks": v.nb_chunks,
+                "restauree_depuis": v.restauree_depuis,
+                "courante": v.version == doc.version,
+                "auteur": auteurs.get(v.uploaded_by),
+                # Le fichier peut manquer (backfill sans archive) : le dire ici évite
+                # de proposer un téléchargement ou une restauration vouée au 409.
+                "fichier_disponible": chemin_de_version(doc, v) is not None,
+                "created_at": v.created_at.isoformat() if v.created_at else None,
+                "remplacee_at": v.remplacee_at.isoformat() if v.remplacee_at else None,
+            }
+            for v in versions
+        ],
+    }
+
+
+@router.get("/documents/{doc_id}/versions/{version}/download")
+async def telecharger_version(doc_id: str, version: int, current_user: BackofficeUser, db: DB):
+    doc = get_document_vivant(db, doc_id)
+    check_domain_read(doc.domaine, current_user)
+    v = get_version(db, doc, version)
+
+    chemin = chemin_de_version(doc, v)
+    if chemin is None:
+        raise HTTPException(404, "Fichier non disponible sur disque")
+
+    return FileResponse(path=chemin, filename=v.filename, media_type="application/octet-stream")
+
+
+@router.post("/documents/{doc_id}/versions/{version}/restaurer")
+def restaurer_version(doc_id: str, version: int, current_user: BackofficeUser, db: DB):
+    """Aperçu d'impact d'une restauration — la confirmation passe par `confirm`.
+
+    Restaurer ne rembobine pas : la v{n} restaurée devient la version suivante
+    (restaurer v1 depuis v3 crée une v4). L'historique reste donc linéaire, et
+    la restauration **peut à son tour rendre des réponses obsolètes** — d'où le
+    même écran d'impact que pour une mise à jour ordinaire.
+
+    ``def`` et non ``async def`` : l'extraction de texte est bloquante, Starlette
+    l'exécute alors dans son threadpool.
+    """
+    doc = preparer_maj(db, doc_id, current_user)
+    v = get_version(db, doc, version)
+
+    if v.version == doc.version:
+        raise HTTPException(409, f"La v{version} est déjà la version actuelle.")
+    if v.content_hash and doc.content_hash and v.content_hash == doc.content_hash:
+        raise HTTPException(409, f"La v{version} a le même contenu que la version actuelle (v{doc.version}).")
+
+    chemin = chemin_de_version(doc, v)
+    if chemin is None:
+        raise HTTPException(409, f"Le fichier archivé de la v{version} n'est plus disponible.")
+
+    with open(chemin, "rb") as f:
+        contents = f.read()
+
+    return stager_et_analyser(
+        db,
+        doc,
+        contents=contents,
+        filename=v.filename,
+        content_hash=v.content_hash or hashlib.sha256(contents).hexdigest(),
+        # La description appartient au document, pas à la version : une restauration
+        # de fichier ne doit pas la réécrire.
+        description=doc.description,
+        user_id=current_user.id,
+        restauree_depuis=version,
+    )
 
 
 @router.delete("/documents/{doc_id}")

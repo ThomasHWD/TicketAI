@@ -12,12 +12,17 @@ import {
   ChevronRight,
   Search,
   Download,
+  History,
   RefreshCw,
 } from "lucide-react";
 import { apiFetch, listDocuments, getDocumentChunks, deleteDocument, downloadDocument } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import UpdateDocModal from "./UpdateDocModal";
-import type { Domaine, IndexedDocument } from "../../types.ts";
+import DocHistoryModal from "./DocHistoryModal";
+import type { Domaine, IndexedDocument, UpdateImpact } from "../../types.ts";
+
+const ACTION_BTN =
+  "p-2 rounded-lg border border-gray-300 dark:border-white/15 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
 
 async function fetchDomaines(): Promise<string[]> {
   const res = await apiFetch("/api/v1/admin/domaines");
@@ -207,6 +212,12 @@ export default function AllDocs() {
   const [viewing, setViewing] = useState<IndexedDocument | null>(null);
   const [confirming, setConfirming] = useState<IndexedDocument | null>(null);
   const [updating, setUpdating] = useState<IndexedDocument | null>(null);
+  const [historyOf, setHistoryOf] = useState<IndexedDocument | null>(null);
+  // Restauration : l'aperçu est déjà calculé par l'historique, la modale de mise
+  // à jour s'ouvre directement dessus.
+  const [restauration, setRestauration] = useState<
+    { doc: IndexedDocument; impact: UpdateImpact } | null
+  >(null);
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const { data: adminDomaines = [] } = useQuery({
@@ -359,13 +370,11 @@ export default function AllDocs() {
                           v{doc.version} — {doc.nb_chunks} chunk{doc.nb_chunks > 1 ? "s" : ""}
                         </span>
                       )}
-                      <button
-                        onClick={() => setViewing(doc)}
-                        title="Voir les chunks"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-white/15 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
-                      >
-                        <Eye size={13} />
-                        Voir
+                      {/* Cinq actions : les libellés ne tiennent plus sur la ligne,
+                          l'intitulé passe donc en infobulle. */}
+                      <div className="flex items-center gap-1.5">
+                      <button onClick={() => setViewing(doc)} title="Voir les chunks" className={ACTION_BTN}>
+                        <Eye size={14} />
                       </button>
                       <button
                         onClick={async () => {
@@ -377,36 +386,41 @@ export default function AllDocs() {
                           }
                         }}
                         disabled={downloading === doc.doc_id}
-                        title="Télécharger"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-white/15 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50 transition-colors"
+                        title="Télécharger la version courante"
+                        className={ACTION_BTN}
                       >
                         {downloading === doc.doc_id ? (
-                          <Loader2 size={13} className="animate-spin" />
+                          <Loader2 size={14} className="animate-spin" />
                         ) : (
-                          <Download size={13} />
+                          <Download size={14} />
                         )}
-                        Télécharger
+                      </button>
+                      <button
+                        onClick={() => setHistoryOf(doc)}
+                        title={`Historique des versions (${doc.nb_versions})`}
+                        className={ACTION_BTN}
+                      >
+                        <History size={14} />
                       </button>
                       {peutEcrire && (
                         <button
                           onClick={() => setUpdating(doc)}
                           disabled={enMaj}
-                          title="Remplacer par une nouvelle version"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-white/15 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          title="Mettre à jour : remplacer par une nouvelle version"
+                          className={ACTION_BTN}
                         >
-                          <RefreshCw size={13} />
-                          Mettre à jour
+                          <RefreshCw size={14} />
                         </button>
                       )}
                       <button
                         onClick={() => setConfirming(doc)}
                         disabled={enMaj}
                         title="Supprimer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 dark:border-red-500/25 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="p-2 rounded-lg border border-red-200 dark:border-red-500/25 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                       >
-                        <Trash2 size={13} />
-                        Supprimer
+                        <Trash2 size={14} />
                       </button>
+                      </div>
                     </div>
                   </div>
                   );
@@ -420,6 +434,29 @@ export default function AllDocs() {
       {viewing && <ChunksModal doc={viewing} onClose={() => setViewing(null)} />}
 
       {updating && <UpdateDocModal doc={updating} onClose={() => setUpdating(null)} />}
+
+      {historyOf && (
+        <DocHistoryModal
+          doc={historyOf}
+          peutRestaurer={
+            (isAdmin || userDomaines.includes(historyOf.domaine ?? "")) &&
+            historyOf.statut !== "EN_MAJ"
+          }
+          onClose={() => setHistoryOf(null)}
+          onImpact={(impact) => {
+            setRestauration({ doc: historyOf, impact });
+            setHistoryOf(null);
+          }}
+        />
+      )}
+
+      {restauration && (
+        <UpdateDocModal
+          doc={restauration.doc}
+          impactInitial={restauration.impact}
+          onClose={() => setRestauration(null)}
+        />
+      )}
 
       {confirming && (
         <DeleteConfirm
