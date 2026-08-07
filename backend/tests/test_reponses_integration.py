@@ -428,3 +428,169 @@ def test_lister_canoniques_pagination(client, db_session, validator, auth_header
     assert body["page"] == 1
     assert len(body["items"]) == 1
     assert body["items"][0]["reponse_id"] == str(source.id)
+
+
+# --------------------------------------------------------------------------- #
+# Obsolescence : GET /reponses/obsoletes, POST /reponses/{id}/restaurer
+# --------------------------------------------------------------------------- #
+def _rendre_obsolete(db, reponse, *, doc_id="doc-obsolete", raison="DOC_MIS_A_JOUR", version=2):
+    reponse.obsolete = True
+    reponse.obsolete_raison = raison
+    reponse.obsolete_doc_id = doc_id
+    reponse.obsolete_version = version
+    reponse.obsolete_at = datetime.now(timezone.utc)
+    db.commit()
+    return reponse
+
+
+def test_canoniques_exclut_les_obsoletes(client, db_session, validator, auth_header):
+    """Sans ce filtre, une réponse retirée du service passerait pour active."""
+    _, active = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3)
+    _, perimee = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3)
+    _rendre_obsolete(db_session, perimee)
+
+    body = client.get(f"{API}/reponses/canoniques", headers=auth_header(validator)).json()
+
+    assert [i["reponse_id"] for i in body["items"]] == [str(active.id)]
+
+
+def test_lister_obsoletes(client, db_session, validator, auth_header):
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=4)
+    _rendre_obsolete(db_session, reponse)
+    seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)  # active, absente
+
+    body = client.get(f"{API}/reponses/obsoletes", headers=auth_header(validator)).json()
+
+    assert body["total"] == 1
+    item = body["items"][0]
+    assert item["reponse_id"] == str(reponse.id)
+    assert item["obsolete_raison"] == "DOC_MIS_A_JOUR"
+    assert item["obsolete_version"] == 2
+    assert item["nb_validations"] == 4
+    assert item["canonique"] is True
+
+
+def test_lister_obsoletes_inclut_les_non_canoniques(client, db_session, validator, auth_header):
+    """Une VALIDÉE pas encore promue peut devenir obsolète et doit rester visible."""
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=False, nb_validations=1)
+    _rendre_obsolete(db_session, reponse)
+
+    body = client.get(f"{API}/reponses/obsoletes", headers=auth_header(validator)).json()
+
+    assert [i["reponse_id"] for i in body["items"]] == [str(reponse.id)]
+
+
+def test_lister_obsoletes_masque_les_copies(client, db_session, validator, auth_header):
+    _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
+    _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", reponse_source_id=source.id)
+    _rendre_obsolete(db_session, source)
+    _rendre_obsolete(db_session, copie)
+
+    body = client.get(f"{API}/reponses/obsoletes", headers=auth_header(validator)).json()
+
+    assert [i["reponse_id"] for i in body["items"]] == [str(source.id)]
+
+
+def test_lister_obsoletes_document_supprime(client, db_session, validator, auth_header):
+    """Jointure externe : le document déclencheur peut ne plus exister en base."""
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
+    _rendre_obsolete(db_session, reponse, doc_id="doc-disparu", raison="DOC_SUPPRIMÉ")
+
+    item = client.get(f"{API}/reponses/obsoletes", headers=auth_header(validator)).json()["items"][0]
+
+    assert item["doc_id"] == "doc-disparu"
+    assert item["document_filename"] is None
+    assert item["document_supprime"] is True
+
+
+def test_lister_obsoletes_filtre_domaine(client, db_session, validator, auth_header):
+    _, it = seed_ticket_reponse(db_session, statut="VALIDÉE", domaine="IT")
+    _, rh = seed_ticket_reponse(db_session, statut="VALIDÉE", domaine="RH")
+    _rendre_obsolete(db_session, it)
+    _rendre_obsolete(db_session, rh)
+
+    body = client.get(f"{API}/reponses/obsoletes", params={"domaine": "IT"}, headers=auth_header(validator)).json()
+
+    assert [i["reponse_id"] for i in body["items"]] == [str(it.id)]
+
+
+def test_restaurer_leve_le_drapeau_et_reindexe(client, db_session, validator, auth_header, mock_side_effects):
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3)
+    _rendre_obsolete(db_session, reponse)
+
+    resp = client.post(f"{API}/reponses/{reponse.id}/restaurer", headers=auth_header(validator))
+
+    assert resp.status_code == 200
+    db_session.expunge_all()
+    restauree = db_session.get(Reponse, reponse.id)
+    assert restauree.obsolete is False
+    assert restauree.obsolete_raison is None
+    assert restauree.obsolete_doc_id is None
+    assert restauree.obsolete_at is None
+    # Les validations acquises ne sont pas remises en cause par le cycle
+    assert restauree.nb_validations == 3
+    assert mock_side_effects.feedback.called
+
+
+def test_restaurer_remonte_toute_la_famille(client, db_session, validator, auth_header, mock_side_effects):
+    """`marquer_obsoletes` a retiré les points de la source ET de ses copies :
+    la restauration doit être symétrique, sinon les copies restent muettes."""
+    _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
+    _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", reponse_source_id=source.id)
+    _rendre_obsolete(db_session, source)
+    _rendre_obsolete(db_session, copie)
+    copie_id = copie.id
+
+    resp = client.post(f"{API}/reponses/{source.id}/restaurer", headers=auth_header(validator))
+
+    assert resp.json()["nb_restaurees"] == 2
+    db_session.expunge_all()
+    assert db_session.get(Reponse, copie_id).obsolete is False
+
+
+def test_restaurer_non_obsolete_renvoie_409(client, db_session, validator, auth_header):
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
+
+    resp = client.post(f"{API}/reponses/{reponse.id}/restaurer", headers=auth_header(validator))
+
+    assert resp.status_code == 409
+
+
+def test_restaurer_hors_domaine_renvoie_403(client, db_session, validator, auth_header):
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", domaine="RH")
+    _rendre_obsolete(db_session, reponse)
+
+    resp = client.post(f"{API}/reponses/{reponse.id}/restaurer", headers=auth_header(validator))
+
+    assert resp.status_code == 403
+
+
+def test_supprimer_obsolete_non_canonique_autorise(client, db_session, user_factory, auth_header):
+    """L'onglet Obsolètes doit pouvoir purger une réponse jamais devenue canonique."""
+    admin = user_factory("ADMIN")
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=False)
+    _rendre_obsolete(db_session, reponse)
+
+    resp = client.delete(f"{API}/reponses/{reponse.id}", headers=auth_header(admin))
+
+    assert resp.status_code == 200
+    db_session.expunge_all()
+    assert db_session.get(Reponse, reponse.id) is None
+
+
+def test_supprimer_remet_a_zero_l_obsolescence_des_copies(client, db_session, user_factory, auth_header):
+    """Détachée mais toujours marquée, la copie resterait à jamais dans l'onglet
+    Obsolètes sans plus aucune source pour l'en sortir."""
+    admin = user_factory("ADMIN")
+    _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
+    _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", reponse_source_id=source.id)
+    _rendre_obsolete(db_session, source)
+    _rendre_obsolete(db_session, copie)
+    copie_id = copie.id
+
+    client.delete(f"{API}/reponses/{source.id}", headers=auth_header(admin))
+
+    db_session.expunge_all()
+    detachee = db_session.get(Reponse, copie_id)
+    assert detachee.obsolete is False
+    assert detachee.obsolete_doc_id is None

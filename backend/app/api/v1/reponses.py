@@ -7,6 +7,7 @@ from app.config import settings
 from app.core.permissions import check_domain_write, user_domaines
 from app.core.security import AdminUser, BackofficeUser
 from app.database import SessionLocal
+from app.models.document import Document
 from app.models.notification import Notification
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
@@ -17,6 +18,7 @@ from app.schemas.reponse import (
     RejeterRequest,
 )
 from app.services.broadcast import broadcast_async
+from app.services.obsolescence import fermeture_copies
 from app.services.qdrant import delete_response_point
 from app.workers.feedback import feedback_job
 
@@ -317,6 +319,9 @@ async def lister_reponses_canoniques(
             .join(Ticket, Ticket.id == Reponse.ticket_id)
             .filter(Reponse.canonique.is_(True))
             .filter(Reponse.reponse_source_id.is_(None))
+            # Les obsolètes ont leur propre onglet : les laisser ici les ferait
+            # passer pour actives alors qu'elles ne sont plus servies.
+            .filter(Reponse.obsolete.is_(False))
         )
 
         if domaine:
@@ -355,6 +360,126 @@ async def lister_reponses_canoniques(
         }
     finally:
         db.close()
+
+
+@router.get("/reponses/obsoletes")
+async def lister_reponses_obsoletes(
+    current_user: BackofficeUser,
+    domaine: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+):
+    """Liste paginée des réponses retirées du service par un changement de document.
+
+    Comme pour les canoniques, seules les **sources** sont listées : afficher aussi
+    les copies montrerait la même réponse autant de fois qu'elle a été réutilisée.
+    Pas de filtre sur `canonique` en revanche — une VALIDÉE pas encore promue peut
+    devenir obsolète et doit rester visible pour être restaurée.
+
+    Jointure **externe** sur `documents` : le document déclencheur peut lui-même
+    avoir été supprimé, la réponse doit rester listée.
+    """
+    db = SessionLocal()
+    try:
+        query = (
+            db.query(Reponse, Ticket, Document)
+            .join(Ticket, Ticket.id == Reponse.ticket_id)
+            .outerjoin(Document, Document.doc_id == Reponse.obsolete_doc_id)
+            .filter(Reponse.obsolete.is_(True))
+            .filter(Reponse.reponse_source_id.is_(None))
+        )
+
+        if domaine:
+            query = query.filter(Ticket.domaine == domaine.upper())
+        elif current_user.role != "ADMIN":
+            query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
+
+        total = query.count()
+        resultats = (
+            query.order_by(Reponse.obsolete_at.desc().nullslast()).offset((page - 1) * limit).limit(limit).all()
+        )
+
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "items": [
+                {
+                    "reponse_id": str(r.id),
+                    "ticket_id": str(r.ticket_id),
+                    "question": r.question_suivi or t.question,
+                    "domaine": t.domaine,
+                    "contenu": r.contenu,
+                    "contenu_corrige": r.contenu_corrige,
+                    "nb_validations": r.nb_validations,
+                    "canonique": r.canonique,
+                    "obsolete_raison": r.obsolete_raison,
+                    "obsolete_version": r.obsolete_version,
+                    "obsolete_at": r.obsolete_at.isoformat() if r.obsolete_at else None,
+                    "doc_id": r.obsolete_doc_id,
+                    "document_filename": d.filename if d else None,
+                    "document_supprime": d is None or d.statut == "SUPPRIMÉ",
+                }
+                for r, t, d in resultats
+            ],
+        }
+    finally:
+        db.close()
+
+
+@router.post("/reponses/{reponse_id}/restaurer")
+async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
+    """Remet en service une réponse déclarée obsolète.
+
+    Soupape de la détection verbatim : une reformulation cosmétique du document
+    périme une réponse dont le fond n'a pas bougé ; le validateur le constate et
+    la restaure en un clic.
+
+    Le drapeau est levé sur toute la famille (source + copies transitives) et
+    chacune est réindexée — symétrique de `marquer_obsoletes`, qui avait retiré
+    les points de la famille entière. Réindexer une copie qui n'avait pas de point
+    est sans conséquence : le lookup regroupe par `reponse_id` et privilégie de
+    façon déterministe la source (plus validée) ; à l'inverse, un point manquant
+    laisserait la question sans réponse servie.
+    """
+    db = SessionLocal()
+    try:
+        reponse = get_reponse_or_404(db, reponse_id)
+        if not reponse.obsolete:
+            raise HTTPException(409, "Cette réponse n'est pas obsolète.")
+
+        ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
+        if ticket:
+            check_domain_write(ticket.domaine, current_user)
+
+        famille = fermeture_copies(db, {reponse.id})
+        a_reindexer = [
+            str(r[0])
+            for r in db.query(Reponse.id).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(True)).all()
+        ]
+        db.query(Reponse).filter(Reponse.id.in_(famille)).update(
+            {
+                "obsolete": False,
+                "obsolete_raison": None,
+                "obsolete_doc_id": None,
+                "obsolete_version": None,
+                "obsolete_at": None,
+            },
+            synchronize_session=False,
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    for rid in a_reindexer:
+        feedback_job.apply_async(args=[rid], queue="queue_ingestion")
+
+    await broadcast_async("sse:admin", "saved_answers_updated", {"reponse_id": reponse_id})
+    return {
+        "reponse_id": reponse_id,
+        "nb_restaurees": len(a_reindexer),
+        "message": "Réponse restaurée et en cours de réindexation.",
+    }
 
 
 @router.put("/reponses/{reponse_id}/editer")
@@ -400,7 +525,9 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: AdminUser):
     try:
         reponse = get_reponse_or_404(db, reponse_id)
 
-        if not reponse.canonique:
+        # Une réponse devenue obsolète a pu ne jamais être canonique : l'onglet
+        # Obsolètes doit tout de même permettre de la purger définitivement.
+        if not reponse.canonique and not reponse.obsolete:
             raise HTTPException(409, "Seules les réponses canoniques peuvent être supprimées ici.")
 
         # 1. Retrait du point Qdrant (plus de match CANONIQUE/SUGGESTION).
@@ -412,9 +539,19 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: AdminUser):
         # 3. Détacher les copies (réutilisations) qui pointent sur cette source.
         #    On retire aussi leur flag `canonique` : sinon, une fois orphelines
         #    (reponse_source_id NULL), elles réapparaîtraient comme des sources
-        #    dans la liste des réponses canoniques.
+        #    dans la liste des réponses canoniques. Même raison pour le drapeau
+        #    d'obsolescence, qui les ferait rester éternellement dans l'onglet
+        #    Obsolètes sans que rien ne puisse plus les en sortir.
         db.query(Reponse).filter(Reponse.reponse_source_id == reponse.id).update(
-            {"reponse_source_id": None, "canonique": False},
+            {
+                "reponse_source_id": None,
+                "canonique": False,
+                "obsolete": False,
+                "obsolete_raison": None,
+                "obsolete_doc_id": None,
+                "obsolete_version": None,
+                "obsolete_at": None,
+            },
             synchronize_session=False,
         )
 

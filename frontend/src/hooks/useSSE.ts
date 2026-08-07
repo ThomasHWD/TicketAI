@@ -87,6 +87,8 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
 
     case "saved_answers_updated":
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      // Restauration et suppression font passer une réponse d'une liste à l'autre.
+      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
       break;
 
     case "job_completed":

@@ -220,10 +220,13 @@ def mock_side_effects(monkeypatch):
     """
     import app.api.v1.reponses as reponses_module
     import app.main as main_module
+    import app.services.obsolescence as obsolescence_module
 
     feedback_mock = MagicMock()
     delete_point_mock = MagicMock()
     monkeypatch.setattr(reponses_module.feedback_job, "apply_async", feedback_mock)
     monkeypatch.setattr(reponses_module, "delete_response_point", delete_point_mock)
+    # Même mock côté obsolescence : `marquer_obsoletes` retire lui aussi des points.
+    monkeypatch.setattr(obsolescence_module, "delete_response_point", delete_point_mock)
     monkeypatch.setattr(main_module, "init_collection", MagicMock())
     return _SideEffectMocks(feedback_mock, delete_point_mock)

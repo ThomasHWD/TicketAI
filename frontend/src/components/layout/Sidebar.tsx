@@ -17,7 +17,7 @@ import {
   Users,
   SlidersHorizontal,
 } from "lucide-react";
-import { getIncidents } from "../../lib/api";
+import { getIncidents, getReponsesObsoletes } from "../../lib/api";
 import UserAvatar from "../ui/UserAvatar";
 
 const navMain = [
@@ -58,8 +58,10 @@ function NavItem({
   icon: React.ElementType;
   label: string;
   collapsed: boolean;
-  badge?: boolean;
+  /** `true` → pastille rouge (incident) ; nombre → compteur (masqué si 0). */
+  badge?: boolean | number;
 }) {
+  const compteur = typeof badge === "number" ? badge : 0;
   return (
     <NavLink
       to={to}
@@ -77,8 +79,13 @@ function NavItem({
     >
       <span className="relative shrink-0">
         <Icon size={18} />
-        {badge && (
+        {badge === true && (
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
+        )}
+        {compteur > 0 && (
+          <span className="absolute -top-1.5 -right-2 min-w-[1rem] px-1 rounded-full bg-amber-500 text-white text-[10px] leading-4 font-medium text-center tabular-nums">
+            {compteur > 99 ? "99+" : compteur}
+          </span>
         )}
       </span>
       <span
@@ -115,6 +122,21 @@ export default function Sidebar({ collapsed }: SidebarProps) {
     (incidents?.tickets_echoues.length ?? 0) +
     (incidents?.tickets_bloques.length ?? 0) +
     (incidents?.documents_echoues.length ?? 0) > 0;
+
+  // Compteur des réponses retirées du service par une mise à jour de document.
+  // Même clé que l'onglet Obsolètes de SavedAnswers : React Query dédoublonne.
+  // Conditionné à `userDomaines` — c'est la condition d'affichage de `navMain`,
+  // et la route est réservée au back-office.
+  const { data: obsoletes } = useQuery({
+    queryKey: ["reponses-obsoletes", "count"],
+    queryFn: () => getReponsesObsoletes({ page: 1, limit: 1 }),
+    enabled: userDomaines.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  const nbObsoletes = obsoletes?.total ?? 0;
+
   return (
     <aside
       className={`relative flex flex-col shrink-0 overflow-hidden
@@ -164,7 +186,12 @@ export default function Sidebar({ collapsed }: SidebarProps) {
             Principal
           </p>
           {navMain.map((item) => (
-            <NavItem key={item.to} {...item} collapsed={collapsed} />
+            <NavItem
+              key={item.to}
+              {...item}
+              collapsed={collapsed}
+              badge={item.to === "/reponses-enregistrees" ? nbObsoletes : undefined}
+            />
           ))}
         </nav>
       )}

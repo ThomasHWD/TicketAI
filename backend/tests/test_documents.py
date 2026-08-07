@@ -689,6 +689,32 @@ class TestDeleteDocument:
 
         assert client.delete(f"{API}/documents/{doc.doc_id}").status_code == 404
 
+    def test_marque_obsoletes_les_reponses_fondees_dessus(self, client, db_reelle, mock_qdrant):
+        """Tous les chunks disparaissent : aucune réponse issue de ce document ne
+        peut plus être servie, sans calcul d'indices."""
+        from app.models.reponse import Reponse
+        from app.models.reponse_chunk import ReponseChunk
+        from app.models.ticket import Ticket
+
+        doc = _doc_en_base(db_reelle, version=3)
+        ticket = Ticket(question="Q ?", domaine="IT", statut_job="TERMINÉ")
+        db_reelle.add(ticket)
+        db_reelle.flush()
+        reponse = Reponse(ticket_id=ticket.id, contenu="R", source="LLM", statut="VALIDÉE")
+        db_reelle.add(reponse)
+        db_reelle.flush()
+        db_reelle.add(ReponseChunk(reponse_id=reponse.id, doc_id=doc.doc_id, chunk_index=0))
+        db_reelle.commit()
+
+        r = client.delete(f"{API}/documents/{doc.doc_id}")
+
+        assert r.json()["nb_obsoletes"] == 1
+        db_reelle.refresh(reponse)
+        assert reponse.obsolete is True
+        assert reponse.obsolete_raison == "DOC_SUPPRIMÉ"
+        assert reponse.obsolete_doc_id == doc.doc_id
+        assert reponse.obsolete_version == 3
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # GET /documents/{job_id}/status

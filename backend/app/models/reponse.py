@@ -30,5 +30,17 @@ class Reponse(Base):
     validated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Obsolescence : un drapeau, et non une valeur de `statut`. Les copies
+    # SUGGESTION/CANONIQUE SONT les réponses affichées sur les tickets des
+    # utilisateurs ; écrire OBSOLÈTE dans `statut` afficherait rétroactivement
+    # comme périmée une réponse qui a bien été validée et était correcte à
+    # l'époque. Le drapeau donne le comportement voulu — retirée de Qdrant,
+    # jamais resservie, restaurable — sans réécrire l'historique des tickets clos.
+    obsolete = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    obsolete_raison = Column(String(30), nullable=True)  # DOC_MIS_A_JOUR | DOC_SUPPRIMÉ
+    obsolete_doc_id = Column(String, nullable=True)
+    obsolete_version = Column(Integer, nullable=True)
+    obsolete_at = Column(DateTime(timezone=True), nullable=True)
+
     ticket = relationship("Ticket", back_populates="reponses")
     validator = relationship("User", foreign_keys=[validator_id])

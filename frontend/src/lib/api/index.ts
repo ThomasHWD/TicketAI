@@ -18,6 +18,8 @@ export {
 export {
   getReponsesEnAttente,
   getReponsesCanoniques,
+  getReponsesObsoletes,
+  restaurerReponse,
   editerReponseCanonique,
   supprimerReponseCanonique,
   validerReponse,
