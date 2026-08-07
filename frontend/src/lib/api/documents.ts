@@ -4,6 +4,7 @@ import type {
   DocumentUploadResponse,
   DocumentHomonyme,
   DocumentStatus,
+  DocumentVersionsResponse,
   IndexedDocumentsResponse,
   DocumentChunksResponse,
   UpdateImpact,
@@ -116,24 +117,68 @@ export async function deleteDocument(docId: string): Promise<void> {
 }
 
 /**
- * Télécharge le fichier original.
+ * Télécharge une URL de l'API et déclenche l'enregistrement sous `nom`.
  *
  * Passe par fetch et non par un `<a href>` : le token est un Bearer en localStorage,
  * une navigation directe part donc sans en-tête `Authorization` et se fait refuser.
  */
-export async function downloadDocument(docId: string, filename: string | null): Promise<void> {
-  const res = await apiFetch(`${BASE_URL}/documents/${docId}/download`);
-  if (!res.ok) throw new Error(await extractApiErrorDetail(res, "Erreur téléchargement du document"));
+async function telecharger(url: string, nom: string, erreur: string): Promise<void> {
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(await extractApiErrorDetail(res, erreur));
 
-  const url = URL.createObjectURL(await res.blob());
+  const objectUrl = URL.createObjectURL(await res.blob());
   try {
     const a = document.createElement("a");
-    a.href = url;
-    a.download = filename ?? docId;
+    a.href = objectUrl;
+    a.download = nom;
     document.body.appendChild(a);
     a.click();
     a.remove();
   } finally {
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(objectUrl);
   }
+}
+
+/** Télécharge le fichier de la version courante. */
+export async function downloadDocument(docId: string, filename: string | null): Promise<void> {
+  await telecharger(
+    `${BASE_URL}/documents/${docId}/download`,
+    filename ?? docId,
+    "Erreur téléchargement du document",
+  );
+}
+
+/** Historique des versions, la plus récente en tête. */
+export async function getDocumentVersions(docId: string): Promise<DocumentVersionsResponse> {
+  const res = await apiFetch(`${BASE_URL}/documents/${docId}/versions`);
+  if (!res.ok) throw new Error(await extractApiErrorDetail(res, "Erreur chargement de l'historique"));
+  return res.json();
+}
+
+/** Télécharge le fichier archivé d'une version précise. */
+export async function downloadDocumentVersion(
+  docId: string,
+  version: number,
+  filename: string,
+): Promise<void> {
+  await telecharger(
+    `${BASE_URL}/documents/${docId}/versions/${version}/download`,
+    filename,
+    "Erreur téléchargement de la version",
+  );
+}
+
+/**
+ * Prépare la restauration d'une version archivée : même aperçu d'impact qu'une
+ * mise à jour, à confirmer avec `confirmDocumentUpdate`. Ne modifie rien.
+ */
+export async function restoreDocumentVersion(
+  docId: string,
+  version: number,
+): Promise<UpdateImpact> {
+  const res = await apiFetch(`${BASE_URL}/documents/${docId}/versions/${version}/restaurer`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(await extractApiErrorDetail(res, "Erreur lors de la restauration"));
+  return res.json();
 }

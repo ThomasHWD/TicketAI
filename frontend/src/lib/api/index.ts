@@ -37,6 +37,9 @@ export {
   getDocumentChunks,
   deleteDocument,
   downloadDocument,
+  getDocumentVersions,
+  downloadDocumentVersion,
+  restoreDocumentVersion,
 } from "./documents";
 
 export type { MembreGroupe } from "./assignation";
