@@ -27,6 +27,11 @@ function ServiceRow({ svc, label }: { svc: ServiceHealth; label: string }) {
     >
       <span className={`size-1.5 rounded-full shrink-0 ${ok ? "bg-emerald-500" : "bg-red-500"}`} />
       <span className="text-sm text-gray-700 dark:text-gray-200 flex-1">{label}</span>
+      {svc.latency_ms != null && ok && (
+        <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+          {svc.latency_ms}ms
+        </span>
+      )}
       <span className={`text-xs font-medium tabular-nums ${ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
         {ok ? "OK" : "Erreur"}
       </span>
@@ -116,6 +121,16 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
                 label="File questions"
                 value={stats?.celery_pending_questions != null ? `${stats.celery_pending_questions} tâche(s)` : null}
                 warn={(stats?.celery_pending_questions ?? 0) > 10}
+              />
+              <StatRow
+                label="Workers ingestion"
+                value={stats?.celery_workers_ingestion != null ? `${stats.celery_workers_ingestion} worker(s)` : null}
+                warn={(stats?.celery_workers_ingestion ?? 0) === 0}
+              />
+              <StatRow
+                label="Workers questions"
+                value={stats?.celery_workers_questions != null ? `${stats.celery_workers_questions} worker(s)` : null}
+                warn={(stats?.celery_workers_questions ?? 0) === 0}
               />
             </div>
 

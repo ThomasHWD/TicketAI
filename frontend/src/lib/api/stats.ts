@@ -27,6 +27,12 @@ export interface TicketSummaryDashboard {
   created_at: string | null;
 }
 
+export interface RepartitionBranche {
+  branche: "CANONIQUE" | "SUGGESTION" | "LLM";
+  count: number;
+  pct: number;
+}
+
 export interface DashboardStats {
   periode: string;
   stats_cartes: {
@@ -38,6 +44,7 @@ export interface DashboardStats {
     temps_cloture: StatCarte;
   };
   repartition_statuts: RepartitionStatut[];
+  repartition_branches: RepartitionBranche[];
   tickets_par_jour: DayCount[];
   traitement_par_jour: DayCount[];
   derniers_tickets: TicketSummaryDashboard[];

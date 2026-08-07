@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-21T14:23:04Z",
+  "generatedAt": "2026-08-07T00:00:00Z",
   "title": "Design System: TicketAI",
   "extensions": {
     "colorMeta": {
@@ -11,7 +11,17 @@
       "night": { "role": "neutral", "displayName": "Night Canvas", "canonical": "#05070f", "tonalRamp": ["#05070f", "#0b0f1c", "#131826", "#1f2637", "#2b3446", "#3b4657", "#6b7280", "#9ca3af"] },
       "state-info": { "role": "tertiary", "displayName": "Validated Blue", "canonical": "#2563eb", "tonalRamp": ["#172554", "#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#93c5fd", "#dbeafe", "#eff6ff"] },
       "state-warn": { "role": "tertiary", "displayName": "Suggestion Amber", "canonical": "#ca8a04", "tonalRamp": ["#422006", "#713f12", "#a16207", "#ca8a04", "#eab308", "#fde047", "#fef9c3", "#fefce8"] },
-      "state-danger": { "role": "tertiary", "displayName": "Rejected Red", "canonical": "#dc2626", "tonalRamp": ["#450a0a", "#7f1d1d", "#b91c1c", "#dc2626", "#ef4444", "#fca5a5", "#fee2e2", "#fef2f2"] }
+      "state-danger": { "role": "tertiary", "displayName": "Rejected Red", "canonical": "#dc2626", "tonalRamp": ["#450a0a", "#7f1d1d", "#b91c1c", "#dc2626", "#ef4444", "#fca5a5", "#fee2e2", "#fef2f2"] },
+      "chart-blue": { "role": "tertiary", "displayName": "Chart Blue", "canonical": "#3b82f6", "tonalRamp": ["#172554", "#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#93c5fd", "#bfdbfe", "#eff6ff"] },
+      "chart-blue-dark": { "role": "tertiary", "displayName": "Chart Blue (Dark)", "canonical": "#60a5fa", "tonalRamp": ["#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"] },
+      "chart-amber": { "role": "tertiary", "displayName": "Chart Amber", "canonical": "#f59e0b", "tonalRamp": ["#422006", "#713f12", "#a16207", "#ca8a04", "#f59e0b", "#fbbf24", "#fde68a", "#fffbeb"] },
+      "chart-amber-dark": { "role": "tertiary", "displayName": "Chart Amber (Dark)", "canonical": "#fbbf24", "tonalRamp": ["#713f12", "#a16207", "#ca8a04", "#f59e0b", "#fbbf24", "#fde68a", "#fef3c7", "#fffbeb"] },
+      "chart-violet": { "role": "tertiary", "displayName": "Branch Violet (Canonique)", "canonical": "#8b5cf6", "tonalRamp": ["#2e1065", "#4c1d95", "#5b21b6", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ede9fe"] },
+      "chart-violet-dark": { "role": "tertiary", "displayName": "Branch Violet Dark", "canonical": "#a78bfa", "tonalRamp": ["#4c1d95", "#5b21b6", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe"] },
+      "chart-teal": { "role": "tertiary", "displayName": "Branch Teal (Suggestion)", "canonical": "#0d9488", "tonalRamp": ["#042f2e", "#134e4a", "#115e59", "#0f766e", "#0d9488", "#14b8a6", "#5eead4", "#ccfbf1"] },
+      "chart-teal-dark": { "role": "tertiary", "displayName": "Branch Teal Dark", "canonical": "#2dd4bf", "tonalRamp": ["#115e59", "#0f766e", "#0d9488", "#0f9f96", "#2dd4bf", "#5eead4", "#99f6e4", "#ccfbf1"] },
+      "chart-rose": { "role": "tertiary", "displayName": "Branch Rose (LLM)", "canonical": "#e11d48", "tonalRamp": ["#4c0519", "#881337", "#9f1239", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fecdd3"] },
+      "chart-rose-dark": { "role": "tertiary", "displayName": "Branch Rose Dark", "canonical": "#fb7185", "tonalRamp": ["#881337", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fda4af", "#fecdd3", "#fff1f2"] }
     },
     "typographyMeta": {
       "page-title": { "displayName": "Page Title", "purpose": "One per screen; text-2xl semibold heading." },

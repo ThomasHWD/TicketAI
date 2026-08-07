@@ -297,6 +297,30 @@ def get_dashboard_stats(
             {"statut": "CLOTURÉ",  "count": nb_clotures_rep,  "pct": round(nb_clotures_rep  / total_rep * 100, 1)},
         ]
 
+        # ── Répartition par branche source ──────────────────────────────────────
+        branch_rows = (
+            db.query(Reponse.source, func.count(func.distinct(Reponse.ticket_id)))
+            .join(Ticket, Reponse.ticket_id == Ticket.id)
+            .filter(
+                Reponse.source.in_(["CANONIQUE", "SUGGESTION", "LLM"]),
+                Ticket.created_at >= curr_start,
+                Ticket.created_at < curr_end,
+                *domain_filters,
+            )
+            .group_by(Reponse.source)
+            .all()
+        )
+        branch_counts = dict(branch_rows)
+        nb_canonique  = branch_counts.get("CANONIQUE", 0)
+        nb_suggestion = branch_counts.get("SUGGESTION", 0)
+        nb_llm        = branch_counts.get("LLM", 0)
+        total_branches = (nb_canonique + nb_suggestion + nb_llm) or 1
+        repartition_branches = [
+            {"branche": "CANONIQUE", "count": nb_canonique, "pct": round(nb_canonique / total_branches * 100, 1)},
+            {"branche": "SUGGESTION", "count": nb_suggestion, "pct": round(nb_suggestion / total_branches * 100, 1)},
+            {"branche": "LLM",        "count": nb_llm,        "pct": round(nb_llm        / total_branches * 100, 1)},
+        ]
+
         today = now.date()
 
         # ── Graphiques : granularité selon la période ────────────────────────────
@@ -407,6 +431,7 @@ def get_dashboard_stats(
             "periode": periode,
             "stats_cartes": stats_cartes,
             "repartition_statuts": repartition_statuts,
+            "repartition_branches": repartition_branches,
             "tickets_par_jour": tickets_par_jour,
             "traitement_par_jour": traitement_par_jour,
             "derniers_tickets": derniers_tickets,

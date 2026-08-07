@@ -8,13 +8,14 @@ import {
   ChevronDown,
   RefreshCw,
   Timer,
+  AlertTriangle,
 } from "lucide-react";
-import { getDashboardStats, listDocuments, apiFetch } from "../../lib/api";
+import { Link } from "react-router-dom";
+import { getDashboardStats, getServicesHealth, apiFetch } from "../../lib/api";
 import StatCard from "../../components/dashboard/StatCard";
 import DonutChart from "../../components/dashboard/DonutChart";
+import BranchesDonut from "../../components/dashboard/BranchesDonut";
 import TicketsBarChart from "../../components/dashboard/TicketsBarChart";
-import RecentDocs from "../../components/dashboard/RecentDocs";
-import RecentTickets from "../../components/dashboard/RecentTickets";
 import SatisfactionCard from "../../components/dashboard/SatisfactionCard";
 
 function formatDuration(seconds: number): string {
@@ -63,12 +64,18 @@ export default function AdminDashboard() {
     refetchOnWindowFocus: false,
   });
 
-  const { data: docsData, isLoading: docsLoading } = useQuery({
-    queryKey: ["admin-dashboard-docs", filterDomaine],
-    queryFn: () => listDocuments(undefined, filterDomaine ? [filterDomaine] : undefined),
+  const { data: health } = useQuery({
+    queryKey: ["admin-health"],
+    queryFn: getServicesHealth,
     staleTime: 120_000,
+    retry: 1,
     refetchOnWindowFocus: false,
   });
+
+  const totalIncidents =
+    (health?.stats.tickets_echoues ?? 0) +
+    (health?.stats.tickets_bloques ?? 0) +
+    (health?.stats.documents_echoues ?? 0);
 
   return (
     <div className="p-6 space-y-6 max-w-screen-xl mx-auto">
@@ -79,7 +86,7 @@ export default function AdminDashboard() {
             onClick={async () => {
               setRefreshing(true);
               await queryClient.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
-              await queryClient.invalidateQueries({ queryKey: ["admin-dashboard-docs"] });
+              await queryClient.invalidateQueries({ queryKey: ["admin-health"] });
               setRefreshing(false);
             }}
             className="p-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
@@ -126,6 +133,22 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Bannière incidents */}
+      {totalIncidents > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3.5 py-2.5 text-sm text-amber-700 dark:text-amber-300">
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>
+            {totalIncidents} incident{totalIncidents > 1 ? "s détectés" : " détecté"} —{" "}
+            <Link
+              to="/admin/config"
+              className="underline underline-offset-2 hover:opacity-75 font-medium"
+            >
+              Voir l'onglet Santé
+            </Link>
+          </span>
+        </div>
+      )}
+
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
@@ -169,7 +192,7 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* Délais de traitement — hors réponses canoniques */}
+      {/* Délais de traitement */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatCard
           title="Délai moyen avant 1ère réponse"
@@ -193,13 +216,13 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* Donut + Docs */}
+      {/* Donut statuts + Donut branches */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <DonutChart data={stats?.repartition_statuts ?? []} loading={statsLoading} periode={periode} />
-        <RecentDocs docs={docsData?.items ?? []} loading={docsLoading} />
+        <BranchesDonut data={stats?.repartition_branches ?? []} loading={statsLoading} />
       </div>
 
-      {/* Line chart */}
+      {/* Bar chart */}
       <TicketsBarChart
         nouveaux={stats?.tickets_par_jour ?? []}
         traitement={stats?.traitement_par_jour ?? []}
@@ -207,11 +230,8 @@ export default function AdminDashboard() {
         periode={periode}
       />
 
-      {/* Recent tickets + satisfaction */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <RecentTickets tickets={stats?.derniers_tickets ?? []} loading={statsLoading} />
-        <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} />
-      </div>
+      {/* Satisfaction */}
+      <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} />
     </div>
   );
 }
