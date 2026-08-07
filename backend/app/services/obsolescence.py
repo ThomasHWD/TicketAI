@@ -40,6 +40,10 @@ RAISON_SUPPRESSION = "DOC_SUPPRIMÉ"
 
 _ESPACES = re.compile(r"\s+")
 
+# En deçà, un paragraphe est un titre ou un artefact de mise en page : le
+# signaler comme « passage ajouté » noierait le signal utile.
+LONGUEUR_MIN_AJOUT = 40
+
 
 def _normaliser(texte: str) -> str:
     """Espaces compactés, insécables normalisés, strip.
@@ -60,6 +64,46 @@ def indices_modifies(anciens_chunks: dict[int, str], nouveau_texte: str) -> set[
     """
     ref = _normaliser(nouveau_texte)
     return {i for i, txt in anciens_chunks.items() if _normaliser(txt or "") not in ref}
+
+
+def decouper_en_passages(texte: str) -> list[str]:
+    """Paragraphes du texte, les fragments trop courts écartés.
+
+    Le paragraphe, et non le chunk : un chunk fait 384 tokens, soit un extrait
+    illisible dans l'écran d'impact et une granularité si grosse que la moindre
+    retouche marquerait 1 500 caractères comme « ajoutés ». ``clean_text``
+    normalise déjà les sauts multiples en ``\\n\\n``, et ``texte_complet`` joint
+    les pages pareillement : la frontière est fiable.
+
+    Le seuil écarte les titres, numérotations et fragments de mise en page, que
+    les PDF produisent en quantité et qui ne portent aucune information.
+    """
+    return [
+        p for p in (_normaliser(bloc) for bloc in texte.split("\n\n")) if len(p) >= LONGUEUR_MIN_AJOUT
+    ]
+
+
+def passages_ajoutes(nouveaux_passages: list[str], ancien_texte: str) -> list[str]:
+    """Passages de la nouvelle version absents de l'ancienne — la détection en miroir.
+
+    ``indices_modifies`` répond « ce sur quoi la réponse s'appuyait a-t-il
+    changé ? ». Il est aveugle au cas inverse : un article ajouté **ailleurs**
+    dans le document, qui contredirait une réponse existante, ne touche aucun
+    passage cité et passe donc inaperçu. Or les mises à jour de charte sont
+    typiquement additives (« article 7 bis »), et cette réponse-là continuerait
+    d'être servie automatiquement.
+
+    Aucune règle automatique ne peut décider si un ajout invalide une réponse :
+    cela demande de lire. La fonction ne sert donc **pas** à rendre obsolète,
+    seulement à rendre visible — l'écran d'impact affiche les passages ajoutés
+    et laisse l'arbitrage à l'humain.
+
+    Comme ``indices_modifies``, la recherche est une sous-chaîne du texte complet
+    normalisé : un paragraphe simplement recoupé ou refusionné reste retrouvé, et
+    ne se signale donc pas comme un ajout.
+    """
+    ref = _normaliser(ancien_texte)
+    return [p for p in nouveaux_passages if _normaliser(p or "") not in ref]
 
 
 def fermeture_copies(db: Session, graines: set[uuid.UUID]) -> set[uuid.UUID]:

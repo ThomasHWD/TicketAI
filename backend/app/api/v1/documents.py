@@ -27,8 +27,10 @@ from app.models.ticket import Ticket
 from app.models.user import User
 from app.services.obsolescence import (
     RAISON_SUPPRESSION,
+    decouper_en_passages,
     indices_modifies,
     marquer_obsoletes,
+    passages_ajoutes,
     racines,
     reponses_obsoletes,
 )
@@ -457,8 +459,10 @@ def stager_et_analyser(
 
     version_cible = prochaine_version(db, doc)
     anciens = capturer_chunks(doc.doc_id, version_cible)
-    indices = indices_modifies(anciens, texte_complet(extract_text(chemin)))
+    nouveau_texte = texte_complet(extract_text(chemin))
+    indices = indices_modifies(anciens, nouveau_texte)
     impactees = racines(reponses_obsoletes(db, doc.doc_id, indices))
+    ajouts = analyser_ajouts(db, doc, nouveau_texte, deja_impactees=impactees)
 
     db.add(
         DocumentStaging(
@@ -486,6 +490,51 @@ def stager_et_analyser(
         "nb_obsoletes": len(impactees),
         "nb_canoniques": sum(1 for r in impactees if r.canonique),
         "items": [_item_impact(db, r, doc.doc_id, indices, anciens) for r in impactees],
+        **ajouts,
+    }
+
+
+def analyser_ajouts(db: Session, doc: Document, nouveau_texte: str, *, deja_impactees: list) -> dict:
+    """Passages *ajoutés* par la nouvelle version, et les réponses à relire.
+
+    Détection en miroir de l'obsolescence (cf. ``passages_ajoutes``) : on découpe
+    le nouveau texte et on cherche chaque morceau dans le texte de la version
+    sortante. **Aucune obsolescence n'en découle** — c'est un signal de tri, pas
+    une décision : les réponses signalées restent servies telles quelles.
+
+    Le coût est un ``extract_text`` de plus (quelques centaines de ms) : ni appel
+    API, ni embedding.
+
+    ``analysable=False`` quand le fichier de la version courante a disparu du
+    disque — cas des documents backfillés. On préfère taire le panneau plutôt
+    qu'annoncer « 0 passage ajouté », qui se lirait comme une garantie.
+    """
+    muet = {"ajouts_analysables": False, "nb_passages_ajoutes": 0, "extraits_ajoutes": [], "nb_a_relire": 0}
+
+    chemin_courant = chemin_du_fichier(doc)
+    if chemin_courant is None:
+        return muet
+
+    try:
+        ancien_texte = texte_complet(extract_text(chemin_courant))
+    except Exception:
+        # Une archive illisible ne doit pas faire échouer l'aperçu : l'obsolescence,
+        # elle, est déjà calculée et reste le signal principal.
+        return muet
+
+    ajouts = passages_ajoutes(decouper_en_passages(nouveau_texte), ancien_texte)
+    if not ajouts:
+        return {**muet, "ajouts_analysables": True}
+
+    # Les réponses qui vont disparaître n'ont pas à être relues.
+    condamnees = {r.id for r in deja_impactees}
+    a_relire = [r for r in racines(reponses_obsoletes(db, doc.doc_id, None)) if r.id not in condamnees]
+
+    return {
+        "ajouts_analysables": True,
+        "nb_passages_ajoutes": len(ajouts),
+        "extraits_ajoutes": [_tronquer(t) for t in ajouts[:3]],
+        "nb_a_relire": len(a_relire),
     }
 
 

@@ -12,8 +12,10 @@ import uuid
 import pytest
 from app.services.obsolescence import (
     RAISON_MAJ,
+    decouper_en_passages,
     indices_modifies,
     marquer_obsoletes,
+    passages_ajoutes,
     reponses_obsoletes,
 )
 
@@ -90,6 +92,76 @@ class TestIndicesModifies:
     def test_nouveau_texte_vide_marque_tout(self):
         anciens = _decouper(TEXTE, 40)
         assert indices_modifies(anciens, "") == set(anciens)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# passages_ajoutes — la détection en miroir
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+AJOUT = "Article 7 bis : le télétravail est suspendu en période de forte activité."
+
+
+class TestDecouperEnPassages:
+    def test_un_passage_par_paragraphe(self):
+        assert len(decouper_en_passages(TEXTE)) == 3
+
+    def test_ecarte_titres_et_numeros_de_page(self):
+        """Un PDF produit des dizaines de fragments courts. Les compter comme des
+        ajouts noierait le seul passage qui compte sous du bruit de mise en page."""
+        avec_bruit = "## Article 3\n\n" + TEXTE + "\n\n4"
+
+        assert decouper_en_passages(avec_bruit) == decouper_en_passages(TEXTE)
+
+
+class TestPassagesAjoutes:
+    def test_document_inchange_n_ajoute_rien(self):
+        """Le pendant du test décisif ci-dessus : sans cette propriété, le panneau
+        crierait « passages ajoutés » à chaque reformatage."""
+        assert passages_ajoutes(decouper_en_passages(TEXTE), TEXTE) == []
+
+    def test_paragraphe_refusionne_n_est_pas_un_ajout(self):
+        """Reflowing : deux paragraphes réunis en un seul. Le texte n'a pas bougé,
+        seule la mise en page — et la recherche porte sur le texte complet
+        normalisé, où le saut de paragraphe est devenu une simple espace."""
+        fusionne = TEXTE.replace("\n\n", " ", 1)
+
+        assert passages_ajoutes(decouper_en_passages(fusionne), TEXTE) == []
+
+    def test_passage_insere_ailleurs_est_signale(self):
+        """Le cas que `indices_modifies` ne voit pas, et la raison d'être de tout ceci.
+
+        L'article ajouté ne touche aucun passage cité par une réponse : rien ne
+        devient obsolète, et sans ce signal la contradiction resterait invisible.
+        """
+        nouveau = TEXTE + "\n\n" + AJOUT
+
+        assert indices_modifies(_decouper(TEXTE, 40), nouveau) == set()
+        assert passages_ajoutes(decouper_en_passages(nouveau), TEXTE) == [AJOUT]
+
+    def test_reformulation_compte_comme_ajout(self):
+        """Une phrase réécrite est à la fois « passage disparu » et « passage
+        ajouté » : le doublon est assumé, les deux lectures sont vraies."""
+        nouveau = TEXTE.replace("2 jours", "3 jours")
+
+        assert passages_ajoutes(decouper_en_passages(nouveau), TEXTE) == [
+            nouveau.split("\n\n")[0]
+        ]
+
+    def test_normalisation_partagee_avec_la_detection(self):
+        nouveaux = ["Le télétravail est limité\nà 2 jours   par semaine, sur accord du manager."]
+
+        assert passages_ajoutes(nouveaux, TEXTE) == []
+
+    def test_passage_vide_ignore(self):
+        assert passages_ajoutes(["", None], TEXTE) == []
+
+    def test_ancien_texte_absent_marque_tout(self):
+        """Fichier de la version courante illisible : *tout* paraît ajouté. C'est
+        exactement pourquoi l'API tait le panneau au lieu de le remplir."""
+        nouveaux = decouper_en_passages(TEXTE)
+
+        assert passages_ajoutes(nouveaux, "") == nouveaux
 
 
 # ──────────────────────────────────────────────────────────────────────────────
