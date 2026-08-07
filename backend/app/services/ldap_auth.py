@@ -70,13 +70,14 @@ def _search_filter(username: str) -> str:
 
 
 def _search_attributes() -> list[str]:
-    return [
+    attrs = [
         settings.ldap_attr_email,
         settings.ldap_attr_firstname,
         settings.ldap_attr_lastname,
         settings.ldap_attr_department,
         "memberOf",
     ]
+    return [a for a in attrs if a]
 
 
 # ── Mode réel (Active Directory / LDAP) ──────────────────────────────
