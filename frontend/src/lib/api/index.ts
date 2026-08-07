@@ -75,6 +75,7 @@ export {
 export type {
   StatCarte,
   RepartitionStatut,
+  RepartitionBranche,
   DayCount,
   TicketSummaryDashboard,
   DashboardStats,

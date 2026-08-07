@@ -39,6 +39,7 @@ export type ServiceStatusValue = "ok" | "error";
 export interface ServiceHealth {
   status: ServiceStatusValue;
   detail?: string;
+  latency_ms?: number;
 }
 
 export interface FunctionalStats {
@@ -49,6 +50,8 @@ export interface FunctionalStats {
   documents_echoues: number;
   celery_pending_ingestion: number | null;
   celery_pending_questions: number | null;
+  celery_workers_ingestion: number | null;
+  celery_workers_questions: number | null;
   derniere_activite: string | null;
 }
 
