@@ -83,6 +83,17 @@ Conséquence utile : reformater un document (retours à la ligne, espaces, PDF r
 en changer le fond ne rend **aucune** réponse obsolète. Ce ne sont pas les découpages qui sont
 comparés, ce sont les passages eux-mêmes.
 
+### Et l'information *ajoutée* ailleurs dans le document ?
+
+Elle ne déclenche rien, et c'est le comportement voulu. Ajouter un paragraphe sur les frais de
+transport ne rend pas fausse la réponse sur le télétravail : son passage source est intact,
+elle reste exacte sur ce qu'elle couvre.
+
+Le contenu ajouté n'est pas perdu pour autant. Il est indexé dès la mise à jour, et **une
+question nouvelle ne retombe pas sur une réponse enregistrée** — elle n'y ressemble pas assez.
+Elle repart donc en génération, sur le document à jour, et exploite l'ajout immédiatement. Une
+réponse enregistrée n'est resservie que pour une question qu'on a déjà traitée.
+
 ## 4. Ce qui arrive à une réponse obsolète
 
 | | |
@@ -129,9 +140,6 @@ redeviennent valables.
 - **La reformulation cosmétique déclenche un faux positif.** Changer un synonyme ou une
   ponctuation dans un passage cité marque la réponse obsolète alors que le fond n'a pas bougé.
   Réponse du système : c'est visible, et Restaurer le corrige en un clic.
-- **Ce qui est ajouté ailleurs n'est pas détecté.** Une information nouvelle, insérée dans une
-  autre partie du document, qui contredirait une réponse existante, passe inaperçue : cette
-  réponse ne s'appuyait pas sur ce passage. Aucune méthode automatique ne couvre ce cas.
 - **Un fichier renommé échappe au garde-fou homonyme** de la page Ingestion.
 - **Le domaine d'un document n'est pas modifiable** par une mise à jour.
 - **Supprimer un document efface aussi ses archives** — toutes les versions, définitivement.
