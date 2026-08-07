@@ -19,6 +19,7 @@ from app.database import SessionLocal
 from app.models.document import Document
 from app.models.document_version import DocumentVersion
 from app.models.groupe import Groupe
+from app.services.obsolescence import RAISON_SUPPRESSION, marquer_obsoletes
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
 from app.workers.ingestion import ingestion_job
@@ -300,7 +301,11 @@ async def delete_document(doc_id: str, current_user: AdminUser, db: DB):
     doc.nb_chunks = 0
     db.commit()
 
-    return {"statut": "OK", "doc_id": doc_id}
+    # Tous les chunks ont disparu : chaque réponse fondée sur ce document devient
+    # obsolète, sans calcul d'indices.
+    obsoletes = marquer_obsoletes(db, doc_id, RAISON_SUPPRESSION, version=doc.version)
+
+    return {"statut": "OK", "doc_id": doc_id, "nb_obsoletes": len(obsoletes)}
 
 
 @router.get("/documents/{job_id}/status")

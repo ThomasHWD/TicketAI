@@ -150,6 +150,10 @@ def _trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> tuple[Repo
         .filter(
             Reponse.id.in_([uuid.UUID(r) for r in scores_par_reponse]),
             Reponse.statut == "VALIDÉE",
+            # Ceinture de sécurité : la suppression du point Qdrant est la garantie
+            # principale, ce filtre couvre la fenêtre avant sa disparition effective
+            # de l'index et les jobs de MAJ partiellement échoués.
+            Reponse.obsolete.is_(False),
         )
         .all()
     )

@@ -3,6 +3,7 @@ import { toLockConflict } from "./locks";
 import type {
   ReponseEnAttente,
   ReponsesCanoniquesResponse,
+  ReponsesObsoletesResponse,
   EditerCanoniquePayload,
   ValiderPayload,
   RejeterPayload,
@@ -28,6 +29,27 @@ export async function getReponsesCanoniques(params?: {
   if (params?.domaine) query.set("domaine", params.domaine);
   const res = await apiFetch(`${BASE_URL}/reponses/canoniques?${query}`);
   if (!res.ok) throw new Error("Erreur chargement réponses canoniques");
+  return res.json();
+}
+
+export async function getReponsesObsoletes(params?: {
+  page?: number;
+  limit?: number;
+  domaine?: Domaine;
+}): Promise<ReponsesObsoletesResponse> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.domaine) query.set("domaine", params.domaine);
+  const res = await apiFetch(`${BASE_URL}/reponses/obsoletes?${query}`);
+  if (!res.ok) throw new Error("Erreur chargement réponses obsolètes");
+  return res.json();
+}
+
+/** Lève le drapeau `obsolete` et relance la réindexation Qdrant de la famille. */
+export async function restaurerReponse(reponseId: string) {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/restaurer`, { method: "POST" });
+  if (!res.ok) throw new Error("Erreur restauration de la réponse");
   return res.json();
 }
 

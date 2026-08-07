@@ -8,33 +8,80 @@ import {
   Check,
   X,
   BadgeCheck,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 import {
   getReponsesCanoniques,
+  getReponsesObsoletes,
   editerReponseCanonique,
   supprimerReponseCanonique,
+  restaurerReponse,
 } from "../../lib/api";
-import type { ReponseCanonique } from "../../types.ts";
+import { formatDate } from "../../lib/ticketStatus";
+import type { ReponseCanonique, ReponseObsolete } from "../../types.ts";
 
 /** Contenu effectivement servi : la version corrigée prime sur l'originale. */
-function contenuServi(r: ReponseCanonique): string {
+function contenuServi(r: { contenu: string; contenu_corrige: string | null }): string {
   return r.contenu_corrige ?? r.contenu;
+}
+
+const RELATIF = new Intl.RelativeTimeFormat("fr-FR", { numeric: "auto" });
+const SEUILS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["year", 365 * 86400],
+  ["month", 30 * 86400],
+  ["day", 86400],
+  ["hour", 3600],
+  ["minute", 60],
+];
+
+/** « il y a 3 jours ». La date exacte reste accessible en `title`. */
+function depuis(iso: string | null): string {
+  if (!iso) return "—";
+  const secondes = (Date.now() - new Date(iso).getTime()) / 1000;
+  for (const [unite, taille] of SEUILS) {
+    if (secondes >= taille) return RELATIF.format(-Math.floor(secondes / taille), unite);
+  }
+  return RELATIF.format(-Math.floor(secondes), "second");
 }
 
 const LIMIT = 10;
 
+type Onglet = "canoniques" | "obsoletes";
+
+/** Cible de la modale de suppression, commune aux deux onglets. */
+type CibleSuppression = { reponse_id: string; question: string; obsolete: boolean };
+
 export default function SavedAnswers() {
   const queryClient = useQueryClient();
+  const [onglet, setOnglet] = useState<Onglet>("canoniques");
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<ReponseCanonique | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CibleSuppression | null>(null);
 
-  const { data, isLoading: loading, error } = useQuery({
+  const canoniques = useQuery({
     queryKey: ["reponses-canoniques", page],
     queryFn: () => getReponsesCanoniques({ page, limit: LIMIT }),
     placeholderData: (prev) => prev,
+    enabled: onglet === "canoniques",
   });
+
+  const obsoletes = useQuery({
+    queryKey: ["reponses-obsoletes", "liste", page],
+    queryFn: () => getReponsesObsoletes({ page, limit: LIMIT }),
+    placeholderData: (prev) => prev,
+    enabled: onglet === "obsoletes",
+  });
+
+  // Compteur de l'onglet : requête distincte (limit 1) pour rester à jour même
+  // depuis l'onglet Canoniques. Clé partagée avec le badge de la Sidebar.
+  const { data: compteur } = useQuery({
+    queryKey: ["reponses-obsoletes", "count"],
+    queryFn: () => getReponsesObsoletes({ page: 1, limit: 1 }),
+    staleTime: 60_000,
+  });
+  const nbObsoletes = compteur?.total ?? 0;
 
   const editMutation = useMutation({
     mutationFn: ({ id, contenu }: { id: string; contenu: string }) =>
@@ -50,15 +97,34 @@ export default function SavedAnswers() {
     mutationFn: (id: string) => supprimerReponseCanonique(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
       setDeleteTarget(null);
     },
   });
 
-  const answers = data?.items ?? [];
-  const total = data?.total ?? 0;
+  // Une réponse restaurée réapparaît côté canoniques : les deux listes bougent.
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => restaurerReponse(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+    },
+  });
+
+  const requete = onglet === "canoniques" ? canoniques : obsoletes;
+  const loading = requete.isLoading;
+  const error = requete.error;
+  const total = requete.data?.total ?? 0;
   const totalPages = Math.ceil(total / LIMIT);
   const from = (page - 1) * LIMIT + 1;
   const to = Math.min(page * LIMIT, total);
+  const nbColonnes = onglet === "canoniques" ? 4 : 5;
+
+  function changerOnglet(cible: Onglet) {
+    setOnglet(cible);
+    setPage(1);
+    cancelEdit();
+  }
 
   function startEdit(r: ReponseCanonique) {
     setEditingId(r.reponse_id);
@@ -75,6 +141,14 @@ export default function SavedAnswers() {
     editMutation.mutate({ id, contenu: draft });
   }
 
+  function ongletClasses(cible: Onglet) {
+    return `flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+      onglet === cible
+        ? "border-emerald-500 text-gray-800 dark:text-gray-100"
+        : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+    }`;
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -86,12 +160,42 @@ export default function SavedAnswers() {
 
       {/* Card */}
       <div className="glass-card rounded-2xl overflow-hidden">
-        <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-200 dark:border-white/10">
-          <BadgeCheck size={18} className="text-emerald-500" aria-hidden="true" />
-          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-            Base de connaissances canonique
-          </h2>
+        <div
+          className="flex items-center gap-1 px-4 border-b border-gray-200 dark:border-white/10"
+          role="tablist"
+        >
+          <button
+            role="tab"
+            aria-selected={onglet === "canoniques"}
+            onClick={() => changerOnglet("canoniques")}
+            className={ongletClasses("canoniques")}
+          >
+            <BadgeCheck size={16} className="text-emerald-500" aria-hidden="true" />
+            Canoniques
+          </button>
+          <button
+            role="tab"
+            aria-selected={onglet === "obsoletes"}
+            onClick={() => changerOnglet("obsoletes")}
+            className={ongletClasses("obsoletes")}
+          >
+            <Archive size={16} className="text-gray-400" aria-hidden="true" />
+            Obsolètes
+            {nbObsoletes > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-xs font-medium tabular-nums bg-gray-200 text-gray-700 dark:bg-white/10 dark:text-gray-300">
+                {nbObsoletes}
+              </span>
+            )}
+          </button>
         </div>
+
+        {onglet === "obsoletes" && (
+          <p className="px-6 py-3 text-sm text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-white/10">
+            Ces réponses ne sont plus servies : le passage du document sur lequel
+            elles s'appuyaient a changé. Leurs validations sont conservées — les
+            restaurer les remet en service telles quelles.
+          </p>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -99,34 +203,45 @@ export default function SavedAnswers() {
               <tr className="bg-green-100 dark:bg-emerald-400/10 text-green-700 dark:text-emerald-300 text-left">
                 <th className="px-6 py-3 font-medium">Question</th>
                 <th className="px-6 py-3 font-medium">Réponse servie</th>
-                <th className="px-6 py-3 font-medium text-center whitespace-nowrap">Fois posée</th>
+                {onglet === "canoniques" ? (
+                  <th className="px-6 py-3 font-medium text-center whitespace-nowrap">Fois posée</th>
+                ) : (
+                  <>
+                    <th className="px-6 py-3 font-medium">Document</th>
+                    <th className="px-6 py-3 font-medium whitespace-nowrap">Depuis</th>
+                  </>
+                )}
                 <th className="px-6 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-white/5">
               {loading && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={nbColonnes} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     Chargement…
                   </td>
                 </tr>
               )}
               {error && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-red-600 dark:text-red-400">
+                  <td colSpan={nbColonnes} className="px-6 py-12 text-center text-red-600 dark:text-red-400">
                     {error instanceof Error ? error.message : "Erreur de chargement"}
                   </td>
                 </tr>
               )}
-              {!loading && !error && answers.length === 0 && (
+              {!loading && !error && total === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    Aucune réponse enregistrée
+                  <td colSpan={nbColonnes} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    {onglet === "canoniques"
+                      ? "Aucune réponse enregistrée"
+                      : "Aucune réponse obsolète"}
                   </td>
                 </tr>
               )}
+
               {!loading &&
-                answers.map((r) => {
+                onglet === "canoniques" &&
+                (canoniques.data?.items ?? []).map((r) => {
                   const isEditing = editingId === r.reponse_id;
                   return (
                     <tr
@@ -194,7 +309,13 @@ export default function SavedAnswers() {
                                 <Pencil size={16} />
                               </button>
                               <button
-                                onClick={() => setDeleteTarget(r)}
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    reponse_id: r.reponse_id,
+                                    question: r.question,
+                                    obsolete: false,
+                                  })
+                                }
                                 title="Supprimer"
                                 aria-label="Supprimer la réponse"
                                 className="p-1.5 rounded-lg border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
@@ -208,9 +329,91 @@ export default function SavedAnswers() {
                     </tr>
                   );
                 })}
+
+              {!loading &&
+                onglet === "obsoletes" &&
+                (obsoletes.data?.items ?? []).map((r: ReponseObsolete) => (
+                  <tr
+                    key={r.reponse_id}
+                    className="align-top hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <td className="px-6 py-4 text-gray-700 dark:text-gray-200">
+                      <span className="block max-w-xs" title={r.question}>
+                        {r.question}
+                      </span>
+                      <span className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        {r.canonique && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                            canonique
+                          </span>
+                        )}
+                        {r.nb_validations} validation{r.nb_validations > 1 ? "s" : ""}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                      <span className="block max-w-md whitespace-pre-wrap">{contenuServi(r)}</span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                      <span
+                        className="block max-w-[12rem] truncate"
+                        title={r.document_filename ?? undefined}
+                      >
+                        {r.document_filename ?? "Document inconnu"}
+                      </span>
+                      <span className="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                        {r.document_supprime
+                          ? "supprimé"
+                          : r.obsolete_version
+                            ? `v${r.obsolete_version}`
+                            : "mis à jour"}
+                      </span>
+                    </td>
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-400"
+                      title={formatDate(r.obsolete_at)}
+                    >
+                      {depuis(r.obsolete_at)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => restoreMutation.mutate(r.reponse_id)}
+                          disabled={restoreMutation.isPending}
+                          title="Restaurer : remettre cette réponse en service"
+                          aria-label="Restaurer la réponse"
+                          className="p-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <RotateCcw size={16} />
+                        </button>
+                        <button
+                          onClick={() =>
+                            setDeleteTarget({
+                              reponse_id: r.reponse_id,
+                              question: r.question,
+                              obsolete: true,
+                            })
+                          }
+                          title="Supprimer définitivement"
+                          aria-label="Supprimer définitivement la réponse"
+                          className="p-1.5 rounded-lg border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
+
+        {restoreMutation.isError && (
+          <p className="px-6 py-3 text-sm text-red-600 dark:text-red-400 border-t border-gray-200 dark:border-white/10">
+            {restoreMutation.error instanceof Error
+              ? restoreMutation.error.message
+              : "Erreur de restauration"}
+          </p>
+        )}
 
         {/* Pagination */}
         {!loading && total > 0 && (
@@ -252,12 +455,17 @@ export default function SavedAnswers() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-              Supprimer cette réponse canonique ?
+              {deleteTarget.obsolete
+                ? "Supprimer définitivement cette réponse ?"
+                : "Supprimer cette réponse canonique ?"}
             </h3>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               La réponse à «&nbsp;{deleteTarget.question}&nbsp;» sera supprimée
-              définitivement. Les futures questions similaires repasseront par le
-              pipeline de génération normal. Cette action est irréversible.
+              définitivement.{" "}
+              {deleteTarget.obsolete
+                ? "Elle ne pourra plus être restaurée."
+                : "Les futures questions similaires repasseront par le pipeline de génération normal."}{" "}
+              Cette action est irréversible.
             </p>
             {deleteMutation.isError && (
               <p className="mt-3 text-sm text-red-600 dark:text-red-400">

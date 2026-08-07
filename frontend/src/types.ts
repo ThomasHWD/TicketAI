@@ -190,6 +190,32 @@ export interface EditerCanoniquePayload {
   contenu: string;
 }
 
+/** Réponse retirée du service parce que le document qui la fondait a changé. */
+export interface ReponseObsolete {
+  reponse_id: string;
+  ticket_id: string;
+  question: string;
+  domaine: Domaine;
+  contenu: string;
+  contenu_corrige: string | null;
+  nb_validations: number;
+  canonique: boolean;
+  obsolete_raison: "DOC_MIS_A_JOUR" | "DOC_SUPPRIMÉ" | null;
+  obsolete_version: number | null;
+  obsolete_at: string | null;
+  doc_id: string | null;
+  /** null si le document a été supprimé et sa ligne purgée. */
+  document_filename: string | null;
+  document_supprime: boolean;
+}
+
+export interface ReponsesObsoletesResponse {
+  total: number;
+  page: number;
+  limit: number;
+  items: ReponseObsolete[];
+}
+
 export type WorkflowEventType =
   | "CREE"
   | "REPONSE_GENEREE"
