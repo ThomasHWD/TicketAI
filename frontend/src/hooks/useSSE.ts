@@ -91,6 +91,17 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
       queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
       break;
 
+    // Fin du job de mise à jour : la version, les chunks et éventuellement des
+    // réponses enregistrées ont bougé en même temps.
+    case "document_updated":
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
+      if (payload.doc_id) {
+        queryClient.invalidateQueries({ queryKey: ["doc-versions", payload.doc_id] });
+      }
+      break;
+
     case "job_completed":
       if (payload.job_id) {
         queryClient.invalidateQueries({ queryKey: ["job-tracker", payload.job_id] });

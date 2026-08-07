@@ -76,7 +76,7 @@ def _ensure_test_database() -> None:
 # qui référencent les autres.
 _CLEANUP_ORDER = (
     "reponse_chunks", "reponses", "tickets", "document_versions", "documents", "document_uploads",
-    "user_groups", "groupes", "users", "site_config",
+    "document_staging", "user_groups", "groupes", "users", "site_config",
 )
 
 
