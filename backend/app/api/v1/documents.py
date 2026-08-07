@@ -136,6 +136,7 @@ async def upload_document(
     file: Annotated[UploadFile, File(...)],
     db: DB,
     description: str = "",
+    force_nouveau: bool = False,
 ):
     # Validation domaine
     domaine = domaine.upper()
@@ -170,6 +171,33 @@ async def upload_document(
             "version": doublon.version,
             "statut": "DÉJÀ_INDEXÉ",
         }
+
+    # Garde-fou homonyme : même nom, même domaine, contenu différent — c'est très
+    # probablement une nouvelle version. Sans ce contrôle, l'ingestion créait un
+    # second document indépendant, et les deux versions se contredisaient en
+    # répondant tour à tour. Le `detail` est structuré pour que le front puisse
+    # proposer la mise à jour du document existant sans parser un message.
+    homonyme = (
+        db.query(Document)
+        .filter(
+            Document.filename == filename,
+            Document.domaine == domaine,
+            Document.statut.in_(STATUTS_VIVANTS),
+        )
+        .first()
+    )
+    if homonyme and not force_nouveau:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "DOCUMENT_HOMONYME",
+                "doc_id": homonyme.doc_id,
+                "filename": homonyme.filename,
+                "domaine": homonyme.domaine,
+                "version": homonyme.version,
+                "nb_chunks": homonyme.nb_chunks,
+            },
+        )
 
     # Stockage fichier brut (seulement si document nouveau)
     file_id = str(uuid.uuid4())

@@ -33,6 +33,42 @@ export interface DocumentUploadResponse {
   filename: string;
   statut: "EN_ATTENTE" | "DÉJÀ_INDEXÉ";
   doc_id?: string;
+  /** Renseignés sur `DÉJÀ_INDEXÉ` : ceux du document déjà en base. */
+  domaine?: Domaine;
+  version?: number;
+}
+
+/** Une réponse enregistrée que la nouvelle version du document va rendre obsolète. */
+export interface ImpactItem {
+  reponse_id: string;
+  question: string;
+  canonique: boolean;
+  nb_validations: number;
+  chunks_modifies: number[];
+  /** Extraits tronqués des passages disparus, trois au plus. */
+  extraits: string[];
+}
+
+/** Résultat de l'aperçu : impact **exact**, calculé sans rien modifier. */
+export interface UpdateImpact {
+  staging_id: string;
+  filename: string;
+  version_cible: number;
+  nb_chunks_modifies: number;
+  nb_total_chunks: number;
+  nb_obsoletes: number;
+  nb_canoniques: number;
+  items: ImpactItem[];
+}
+
+/** `detail` du 409 de `POST /documents` quand un document porte déjà ce nom dans le domaine. */
+export interface DocumentHomonyme {
+  code: "DOCUMENT_HOMONYME";
+  doc_id: string;
+  filename: string;
+  domaine: Domaine;
+  version: number;
+  nb_chunks: number;
 }
 
 export interface DocumentStatus {
@@ -43,6 +79,8 @@ export interface DocumentStatus {
     doc_id: string;
     stored_path: string;
     nb_chunks: number;
+    /** Job de mise à jour uniquement : réponses enregistrées devenues obsolètes. */
+    nb_obsoletes?: number;
   };
   erreur?: string;
 }

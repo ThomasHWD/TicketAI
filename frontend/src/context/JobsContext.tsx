@@ -5,13 +5,17 @@ export interface TrackedJob {
   filename: string;
   startedAt: number;
   statut: "PENDING" | "STARTED" | "RETRY" | "SUCCESS" | "FAILURE";
+  /** Absent = ingestion : les jobs déjà en localStorage restent lisibles. */
+  kind?: "ingestion" | "maj";
   nb_chunks?: number;
+  /** Mise à jour uniquement : réponses enregistrées devenues obsolètes. */
+  nb_obsoletes?: number;
   erreur?: string;
 }
 
 interface JobsContextValue {
   jobs: TrackedJob[];
-  addJob: (jobId: string, filename: string) => void;
+  addJob: (jobId: string, filename: string, kind?: TrackedJob["kind"]) => void;
   updateJob: (jobId: string, patch: Partial<TrackedJob>) => void;
   dismissJob: (jobId: string) => void;
 }
@@ -47,10 +51,10 @@ export function JobsProvider({ children }: { children: React.ReactNode }) {
     saveToStorage(jobs);
   }, [jobs]);
 
-  const addJob = useCallback((jobId: string, filename: string) => {
+  const addJob = useCallback((jobId: string, filename: string, kind: TrackedJob["kind"] = "ingestion") => {
     setJobs((prev) => [
       ...prev.filter((j) => j.jobId !== jobId),
-      { jobId, filename, startedAt: Date.now(), statut: "PENDING" },
+      { jobId, filename, kind, startedAt: Date.now(), statut: "PENDING" },
     ]);
   }, []);
 

@@ -31,11 +31,14 @@ _DOCX_MAGIC = b"PK\x03\x04" + b"\x00" * 100  # archive ZIP minimale
 _MD_CONTENT = b"# Titre\n\nContenu de test."
 
 
-def _upload(client, *, domaine="IT", filename="doc.md", content=_MD_CONTENT, content_type="text/plain", description=""):
+def _upload(client, *, domaine="IT", filename="doc.md", content=_MD_CONTENT, content_type="text/plain",
+            description="", force_nouveau=False):
     """Helper qui poste un fichier vers POST /documents."""
     params = f"domaine={domaine}"
     if description:
         params += f"&description={description}"
+    if force_nouveau:
+        params += "&force_nouveau=true"
     return client.post(
         f"{API}/documents?{params}",
         files={"file": (filename, io.BytesIO(content), content_type)},
@@ -438,6 +441,68 @@ class TestDuplicateDetection:
 
         assert r.json()["statut"] == "EN_ATTENTE"
         mock_ingestion_job.apply_async.assert_called_once()
+
+
+@pytest.mark.integration
+class TestGardeFouHomonyme:
+    """Même nom + même domaine + contenu différent = très probablement une v2.
+
+    Sans ce garde-fou, l'ingestion créait un second document indépendant et les
+    deux versions répondaient tour à tour, en se contredisant.
+    """
+
+    def test_409_avec_detail_structure(self, client, db_reelle, mock_ingestion_job):
+        """Le `detail` est un dict, pas un message : le front en tire le doc_id à mettre à jour."""
+        doc = _doc_en_base(db_reelle, domaine="IT", filename="charte.md", nb_chunks=7, version=3)
+
+        r = _upload(client, domaine="IT", filename="charte.md", content=b"# Contenu different")
+
+        assert r.status_code == 409
+        assert r.json()["detail"] == {
+            "code": "DOCUMENT_HOMONYME",
+            "doc_id": doc.doc_id,
+            "filename": "charte.md",
+            "domaine": "IT",
+            "version": 3,
+            "nb_chunks": 7,
+        }
+        mock_ingestion_job.apply_async.assert_not_called()
+
+    def test_force_nouveau_passe(self, client, db_reelle, mock_ingestion_job):
+        _doc_en_base(db_reelle, domaine="IT", filename="charte.md")
+
+        r = _upload(client, domaine="IT", filename="charte.md",
+                    content=b"# Contenu different", force_nouveau=True)
+
+        assert r.json()["statut"] == "EN_ATTENTE"
+        mock_ingestion_job.apply_async.assert_called_once()
+
+    def test_ignore_les_supprimes(self, client, db_reelle, mock_ingestion_job):
+        _doc_en_base(db_reelle, domaine="IT", filename="charte.md", statut="SUPPRIMÉ")
+
+        r = _upload(client, domaine="IT", filename="charte.md", content=b"# Contenu different")
+
+        assert r.json()["statut"] == "EN_ATTENTE"
+
+    def test_scope_au_domaine(self, client, db_reelle, mock_ingestion_job):
+        """Deux domaines cloisonnés peuvent légitimement avoir chacun leur « charte.md »."""
+        _doc_en_base(db_reelle, domaine="IT", filename="charte.md")
+
+        r = _upload(client, domaine="RH", filename="charte.md", content=b"# Contenu different")
+
+        assert r.json()["statut"] == "EN_ATTENTE"
+
+    def test_le_hash_identique_prime_sur_le_nom(self, client, db_reelle, mock_ingestion_job):
+        """Même nom ET même contenu : il n'y a rien à mettre à jour, donc pas de 409."""
+        import hashlib
+
+        _doc_en_base(db_reelle, domaine="IT", filename="charte.md",
+                     content_hash=hashlib.sha256(_MD_CONTENT).hexdigest())
+
+        r = _upload(client, domaine="IT", filename="charte.md")
+
+        assert r.status_code == 200
+        assert r.json()["statut"] == "DÉJÀ_INDEXÉ"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
