@@ -171,7 +171,7 @@ def get_dashboard_stats(
                 db.query(func.count(func.distinct(Reponse.ticket_id)))
                 .join(Ticket, Reponse.ticket_id == Ticket.id)
                 .filter(
-                    Reponse.canonique.is_(True),
+                    Reponse.source == "CANONIQUE",
                     Reponse.created_at >= start,
                     Reponse.created_at < end,
                     *domain_filters,
