@@ -155,7 +155,7 @@ export default function AdminDashboard() {
           iconColor="text-emerald-500"
           loading={statsLoading}
           suffix="%"
-          subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} tickets servis automatiquement`}
+          subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} réponses automatiques`}
           variationUnit=" pts"
         />
         <StatCard

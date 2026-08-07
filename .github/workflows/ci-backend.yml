@@ -96,16 +96,15 @@ jobs:
       - name: Run tests
         env:
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
           POSTGRES_DB: ticketai_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
           QDRANT_HOST: localhost
           QDRANT_PORT: 6333
+          QDRANT_GRPC_PORT: 6334
           VALKEY_HOST: localhost
           VALKEY_PORT: 6379
-          VALKEY_URL: redis://localhost:6379/0
-          LLM_URL: http://localhost:8000
-          LLM_MODEL_NAME: mock-model
           DOCUMENTS_STORAGE_PATH: ./test_storage_dir
           ALBERT_API_KEY: "mock_key_for_tests"
           ALBERT_LLM_URL: "https://localhost/v1"
@@ -114,6 +113,12 @@ jobs:
           ALBERT_EMBEDDINGS_MODEL_NAME: "mock-embeddings"
           ALBERT_RERANKER_URL: "https://localhost/v1/rerank"
           ALBERT_RERANKER_MODEL_NAME: "mock-reranker"
+          SEUIL_CANONIQUE: 3
+          SEUIL_COSINUS: 0.85
+          AUTH_MODE: db
+          JWT_SECRET_KEY: "ci-test-secret"
+          JWT_ALGORITHM: HS256
+          ACCESS_TOKEN_EXPIRE_MINUTES: 480
           PYTHONPATH: .
         working-directory: backend
         run: pytest
