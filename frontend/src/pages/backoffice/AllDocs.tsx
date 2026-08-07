@@ -12,7 +12,7 @@ import {
   Search,
   Download,
 } from "lucide-react";
-import { apiFetch, listDocuments, getDocumentChunks, deleteDocument } from "../../lib/api";
+import { apiFetch, listDocuments, getDocumentChunks, deleteDocument, downloadDocument } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import type { Domaine, IndexedDocument } from "../../types.ts";
 
@@ -200,6 +200,7 @@ export default function AllDocs() {
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState<IndexedDocument | null>(null);
   const [confirming, setConfirming] = useState<IndexedDocument | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const { data: adminDomaines = [] } = useQuery({
     queryKey: ["admin", "domaines"],
@@ -347,15 +348,26 @@ export default function AllDocs() {
                         <Eye size={13} />
                         Voir
                       </button>
-                      <a
-                        href={`/api/v1/documents/${doc.doc_id}/download`}
-                        download={doc.filename ?? undefined}
+                      <button
+                        onClick={async () => {
+                          setDownloading(doc.doc_id);
+                          try {
+                            await downloadDocument(doc.doc_id, doc.filename);
+                          } finally {
+                            setDownloading(null);
+                          }
+                        }}
+                        disabled={downloading === doc.doc_id}
                         title="Télécharger"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-white/15 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-white/15 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50 transition-colors"
                       >
-                        <Download size={13} />
+                        {downloading === doc.doc_id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Download size={13} />
+                        )}
                         Télécharger
-                      </a>
+                      </button>
                       <button
                         onClick={() => setConfirming(doc)}
                         title="Supprimer"

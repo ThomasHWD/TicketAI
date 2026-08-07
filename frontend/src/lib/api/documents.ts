@@ -48,5 +48,28 @@ export async function getDocumentChunks(docId: string): Promise<DocumentChunksRe
 
 export async function deleteDocument(docId: string): Promise<void> {
   const res = await apiFetch(`${BASE_URL}/documents/${docId}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Erreur suppression document");
+  if (!res.ok) throw new Error(await extractApiErrorDetail(res, "Erreur suppression document"));
+}
+
+/**
+ * Télécharge le fichier original.
+ *
+ * Passe par fetch et non par un `<a href>` : le token est un Bearer en localStorage,
+ * une navigation directe part donc sans en-tête `Authorization` et se fait refuser.
+ */
+export async function downloadDocument(docId: string, filename: string | null): Promise<void> {
+  const res = await apiFetch(`${BASE_URL}/documents/${docId}/download`);
+  if (!res.ok) throw new Error(await extractApiErrorDetail(res, "Erreur téléchargement du document"));
+
+  const url = URL.createObjectURL(await res.blob());
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename ?? docId;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }

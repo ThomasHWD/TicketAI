@@ -7,6 +7,10 @@ export interface IndexedDocument {
   stored_path: string | null;
   description: string;
   nb_chunks: number;
+  version: number;
+  statut: "ACTIF" | "EN_MAJ";
+  nb_versions: number;
+  updated_at: string | null;
 }
 
 export interface IndexedDocumentsResponse {
