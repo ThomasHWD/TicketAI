@@ -14,6 +14,7 @@ import io
 import os
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -714,6 +715,311 @@ class TestDeleteDocument:
         assert reponse.obsolete_raison == "DOC_SUPPRIMÉ"
         assert reponse.obsolete_doc_id == doc.doc_id
         assert reponse.obsolete_version == 3
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /documents/{doc_id}/versions/preview et /confirm
+# ──────────────────────────────────────────────────────────────────────────────
+
+_TEXTE_V1 = (
+    b"Le teletravail est limite a 2 jours par semaine, sur accord du manager.\n\n"
+    b"La demande se fait via le portail RH, au moins 5 jours ouvres a l'avance."
+)
+_TEXTE_V2 = _TEXTE_V1.replace(b"2 jours", b"3 jours")
+
+
+@pytest.fixture
+def qdrant_maj(monkeypatch):
+    """L'aperçu capture les chunks via `document_update.client`, pas celui du routeur."""
+    import app.workers.document_update as maj_module
+
+    mock = MagicMock()
+    mock.scroll.return_value = (
+        [
+            SimpleNamespace(payload={"chunk_index": i, "contenu": t.decode()})
+            for i, t in enumerate(_TEXTE_V1.split(b"\n\n"))
+        ],
+        None,
+    )
+    monkeypatch.setattr(maj_module, "client", mock)
+    return mock
+
+
+@pytest.fixture
+def mock_maj_job(monkeypatch):
+    import app.api.v1.documents as docs_module
+
+    mock_job = MagicMock()
+    mock_task = MagicMock()
+    mock_task.id = str(uuid.uuid4())
+    mock_job.apply_async.return_value = mock_task
+    monkeypatch.setattr(docs_module, "document_update_job", mock_job)
+    return mock_job
+
+
+@pytest.fixture
+def staging_tmp(tmp_path, monkeypatch):
+    import app.api.v1.documents as docs_module
+
+    monkeypatch.setattr(docs_module, "STAGING_DIR", str(tmp_path / "staging"))
+    return tmp_path
+
+
+def _preview(client, doc_id, content=_TEXTE_V2, filename="charte.md"):
+    return client.post(
+        f"{API}/documents/{doc_id}/versions/preview",
+        files={"file": (filename, io.BytesIO(content), "text/plain")},
+    )
+
+
+@pytest.mark.integration
+class TestPreviewMaj:
+    def test_404_document_inconnu(self, client, db_reelle, staging_tmp, qdrant_maj):
+        assert _preview(client, str(uuid.uuid4())).status_code == 404
+
+    def test_403_hors_domaine(self, client, db_reelle, backoffice_it, staging_tmp, qdrant_maj):
+        doc = _doc_en_base(db_reelle, domaine="RH", content_hash="hash-v1")
+
+        assert _preview(client, doc.doc_id).status_code == 403
+
+    def test_409_si_maj_en_cours(self, client, db_reelle, staging_tmp, qdrant_maj):
+        from datetime import datetime, timezone
+
+        doc = _doc_en_base(
+            db_reelle, content_hash="hash-v1", statut="EN_MAJ",
+            update_started_at=datetime.now(timezone.utc),
+        )
+
+        r = _preview(client, doc.doc_id)
+
+        assert r.status_code == 409
+        assert "en cours" in r.json()["detail"]
+
+    def test_verrou_perime_ne_bloque_plus(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """Un worker tué net n'exécute pas `on_failure` : sans péremption, le
+        document resterait verrouillé à vie."""
+        from datetime import datetime, timedelta, timezone
+
+        doc = _doc_en_base(
+            db_reelle, content_hash="hash-v1", statut="EN_MAJ",
+            update_started_at=datetime.now(timezone.utc) - timedelta(hours=2),
+        )
+
+        assert _preview(client, doc.doc_id).status_code == 200
+
+    def test_409_fichier_identique(self, client, db_reelle, staging_tmp, qdrant_maj):
+        import hashlib
+
+        doc = _doc_en_base(db_reelle, content_hash=hashlib.sha256(_TEXTE_V2).hexdigest())
+
+        r = _preview(client, doc.doc_id)
+
+        assert r.status_code == 409
+        assert "identique" in r.json()["detail"]
+
+    def test_hash_null_autorise_et_renseigne(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """Document backfillé : on ne peut pas prouver l'identité, donc on ne
+        l'interdit pas — et on en profite pour renseigner le hash manquant."""
+        doc = _doc_en_base(db_reelle, content_hash=None)
+
+        assert _preview(client, doc.doc_id).status_code == 200
+
+        db_reelle.refresh(doc)
+        assert doc.content_hash is not None
+
+    def test_409_contenu_deja_indexe_ailleurs(self, client, db_reelle, staging_tmp, qdrant_maj):
+        import hashlib
+
+        doc = _doc_en_base(db_reelle, content_hash="hash-v1")
+        _doc_en_base(db_reelle, filename="autre.md", content_hash=hashlib.sha256(_TEXTE_V2).hexdigest())
+
+        r = _preview(client, doc.doc_id)
+
+        assert r.status_code == 409
+        assert "autre.md" in r.json()["detail"]
+
+    def test_impact_exact(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """L'aperçu doit nommer les réponses, pas les estimer : annoncer 12
+        impactées puis n'en supprimer que 2 serait pire qu'inutile."""
+        doc = _doc_en_base(db_reelle, domaine="RH", content_hash="hash-v1")
+        reponse = _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")
+
+        body = _preview(client, doc.doc_id).json()
+
+        assert body["version_cible"] == 2
+        assert body["nb_total_chunks"] == 2
+        assert body["nb_chunks_modifies"] == 1
+        assert body["nb_obsoletes"] == 1
+        assert body["nb_canoniques"] == 1
+        item = body["items"][0]
+        assert item["reponse_id"] == str(reponse.id)
+        assert item["chunks_modifies"] == [0]
+        assert "2 jours" in item["extraits"][0]
+
+    def test_ne_modifie_rien(self, client, db_reelle, staging_tmp, qdrant_maj, mock_maj_job):
+        from app.models.document import Document
+
+        doc = _doc_en_base(db_reelle, domaine="RH", content_hash="hash-v1")
+        reponse = _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")
+
+        _preview(client, doc.doc_id)
+
+        db_reelle.refresh(reponse)
+        db_reelle.refresh(doc)
+        assert reponse.obsolete is False
+        assert doc.statut == "ACTIF"
+        assert db_reelle.query(Document).filter(Document.doc_id == doc.doc_id).first().version == 1
+        mock_maj_job.apply_async.assert_not_called()
+
+    def test_passage_intact_zero_obsolete(self, client, db_reelle, staging_tmp, qdrant_maj):
+        doc = _doc_en_base(db_reelle, domaine="RH", content_hash="hash-v1")
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=1, domaine="RH")
+
+        body = _preview(client, doc.doc_id).json()
+
+        assert body["nb_chunks_modifies"] == 1
+        assert body["nb_obsoletes"] == 0
+
+    def test_purge_les_apercus_expires(self, client, db_reelle, staging_tmp, qdrant_maj):
+        from datetime import datetime, timedelta, timezone
+
+        from app.models.document_staging import DocumentStaging
+
+        doc = _doc_en_base(db_reelle, content_hash="hash-v1")
+        vieux_fichier = staging_tmp / "abandonne.md"
+        vieux_fichier.write_bytes(_TEXTE_V1)
+        db_reelle.add(
+            DocumentStaging(
+                doc_id=doc.doc_id, stored_path=str(vieux_fichier), filename="abandonne.md",
+                expires_at=datetime.now(timezone.utc) - timedelta(hours=2),
+            )
+        )
+        db_reelle.commit()
+
+        _preview(client, doc.doc_id)
+
+        assert not vieux_fichier.exists()
+        assert db_reelle.query(DocumentStaging).filter(
+            DocumentStaging.filename == "abandonne.md"
+        ).first() is None
+
+
+@pytest.mark.integration
+class TestConfirmMaj:
+    def test_lance_le_job_et_pose_le_verrou(self, client, db_reelle, staging_tmp, qdrant_maj, mock_maj_job):
+        doc = _doc_en_base(db_reelle, domaine="RH", content_hash="hash-v1")
+        staging_id = _preview(client, doc.doc_id).json()["staging_id"]
+
+        r = client.post(
+            f"{API}/documents/{doc.doc_id}/versions/confirm", json={"staging_id": staging_id}
+        )
+
+        body = r.json()
+        assert r.status_code == 200
+        # Même forme que l'upload : le suivi de job du front fonctionne sans adaptation
+        assert set(body) == {"job_id", "doc_id", "filename", "version", "statut"}
+        assert body["version"] == 2
+        assert body["statut"] == "EN_ATTENTE"
+
+        db_reelle.refresh(doc)
+        assert doc.statut == "EN_MAJ"
+        assert doc.update_job_id == body["job_id"]
+
+        envoyes = mock_maj_job.apply_async.call_args.kwargs["kwargs"]
+        assert envoyes["new_version"] == 2
+        assert envoyes["doc_id"] == doc.doc_id
+        assert os.path.isfile(envoyes["file_path"])
+
+    def test_consomme_l_apercu(self, client, db_reelle, staging_tmp, qdrant_maj, mock_maj_job):
+        """Rejouer la même confirmation ne doit pas relancer un second job."""
+        from app.models.document_staging import DocumentStaging
+
+        doc = _doc_en_base(db_reelle, domaine="RH", content_hash="hash-v1")
+        staging_id = _preview(client, doc.doc_id).json()["staging_id"]
+        client.post(f"{API}/documents/{doc.doc_id}/versions/confirm", json={"staging_id": staging_id})
+
+        assert db_reelle.query(DocumentStaging).count() == 0
+
+    def test_404_apercu_inconnu(self, client, db_reelle, staging_tmp, qdrant_maj, mock_maj_job):
+        doc = _doc_en_base(db_reelle, content_hash="hash-v1")
+
+        r = client.post(
+            f"{API}/documents/{doc.doc_id}/versions/confirm", json={"staging_id": str(uuid.uuid4())}
+        )
+
+        assert r.status_code == 404
+
+    def test_403_apercu_d_un_autre_utilisateur(self, client, db_reelle, staging_tmp, qdrant_maj, mock_maj_job):
+        from datetime import datetime, timedelta, timezone
+
+        from app.models.document_staging import DocumentStaging
+        from app.models.user import User
+
+        doc = _doc_en_base(db_reelle, content_hash="hash-v1")
+        autre = User(email=f"{uuid.uuid4()}@test.local", role="ADMIN")
+        db_reelle.add(autre)
+        db_reelle.commit()
+        staging = DocumentStaging(
+            doc_id=doc.doc_id, user_id=autre.id, stored_path=str(staging_tmp / "x.md"),
+            filename="x.md", expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        db_reelle.add(staging)
+        db_reelle.commit()
+
+        r = client.post(
+            f"{API}/documents/{doc.doc_id}/versions/confirm", json={"staging_id": str(staging.id)}
+        )
+
+        assert r.status_code == 403
+
+    def test_409_apercu_expire(self, client, db_reelle, staging_tmp, qdrant_maj, mock_maj_job):
+        from datetime import datetime, timedelta, timezone
+
+        from app.models.document_staging import DocumentStaging
+
+        doc = _doc_en_base(db_reelle, content_hash="hash-v1")
+        fichier = staging_tmp / "expire.md"
+        fichier.write_bytes(_TEXTE_V2)
+        staging = DocumentStaging(
+            doc_id=doc.doc_id, user_id=_admin_id(db_reelle),
+            stored_path=str(fichier), filename="expire.md",
+            expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+        )
+        db_reelle.add(staging)
+        db_reelle.commit()
+
+        r = client.post(
+            f"{API}/documents/{doc.doc_id}/versions/confirm", json={"staging_id": str(staging.id)}
+        )
+
+        assert r.status_code == 409
+        assert "expiré" in r.json()["detail"]
+
+
+def _admin_id(db):
+    from app.models.user import User
+
+    return db.query(User).filter(User.role == "ADMIN").first().id
+
+
+def _reponse_sur_chunk(db, doc_id, *, chunk_index, domaine="IT"):
+    """Réponse canonique validée s'appuyant sur un chunk précis du document."""
+    from app.models.reponse import Reponse
+    from app.models.reponse_chunk import ReponseChunk
+    from app.models.ticket import Ticket
+
+    ticket = Ticket(question="Combien de jours de télétravail ?", domaine=domaine, statut_job="TERMINÉ")
+    db.add(ticket)
+    db.flush()
+    reponse = Reponse(
+        ticket_id=ticket.id, contenu="Deux jours.", source="LLM", statut="VALIDÉE",
+        canonique=True, nb_validations=3,
+    )
+    db.add(reponse)
+    db.flush()
+    db.add(ReponseChunk(reponse_id=reponse.id, doc_id=doc_id, chunk_index=chunk_index))
+    db.commit()
+    return reponse
 
 
 # ──────────────────────────────────────────────────────────────────────────────

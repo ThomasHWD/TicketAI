@@ -117,6 +117,21 @@ def reponses_obsoletes(
     )
 
 
+def racines(reponses: list[Reponse]) -> list[Reponse]:
+    """Réduit une famille aux réponses *distinctes* qu'elle représente.
+
+    ``reponses_obsoletes`` remonte les copies SUGGESTION/CANONIQUE : une réponse
+    réutilisée cinq fois apparaît six fois. Compter ces lignes gonflerait
+    l'annonce « N réponses vont devenir obsolètes » d'un facteur arbitraire.
+
+    On écarte donc les copies **dont la source est elle-même dans l'ensemble** —
+    et non toutes les copies : une copie VALIDÉE dont la source a été rejetée
+    n'est représentée par personne d'autre, et doit rester comptée.
+    """
+    ids = {r.id for r in reponses}
+    return [r for r in reponses if r.reponse_source_id not in ids]
+
+
 def marquer_obsoletes(
     db: Session,
     doc_id: str,
