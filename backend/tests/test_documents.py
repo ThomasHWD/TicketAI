@@ -75,6 +75,9 @@ def _auth_override():
     # Session DB fictive : query(Groupe.domaine).distinct().all() → [("IT",), ("RH",), ("LEGAL",)]
     mock_db = MagicMock()
     mock_db.query.return_value.distinct.return_value.all.return_value = [("IT",), ("RH",), ("LEGAL",)]
+    # ... et aucun doublon trouvé : sans ça, le MagicMock renvoyé par .first() serait
+    # truthy et tout upload serait rejeté en « DÉJÀ_INDEXÉ ».
+    mock_db.query.return_value.filter.return_value.first.return_value = None
     app.dependency_overrides[get_db] = lambda: mock_db
 
     yield
@@ -93,6 +96,77 @@ def mock_qdrant(monkeypatch):
     mock_client.scroll.return_value = ([], None)
     monkeypatch.setattr(docs_module, "client", mock_client)
     return mock_client
+
+
+@pytest.fixture
+def db_reelle(db_session):
+    """Branche les routes sur la vraie base de test, avec un admin réel en base.
+
+    Le listing, le téléchargement et la suppression lisent désormais Postgres :
+    la session mock de ``_auth_override`` ne suffit plus.
+    """
+    from app.api.v1.documents import get_db
+    from app.core.security import get_current_user
+    from app.main import app
+    from app.models.groupe import Groupe
+    from app.models.user import User
+
+    groupes = [Groupe(nom=f"Groupe {dom}", domaine=dom) for dom in ("IT", "RH", "LEGAL")]
+    db_session.add_all(groupes)
+    admin = User(email=f"{uuid.uuid4()}@test.local", role="ADMIN")
+    # check_domain_write ne fait pas d'exception pour l'admin : il doit être membre
+    # des domaines pour pouvoir y téléverser.
+    admin.groupes = groupes
+    db_session.add(admin)
+    db_session.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: admin
+    app.dependency_overrides[get_db] = lambda: db_session
+    yield db_session
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def backoffice_it(db_reelle):
+    """Validateur non-admin, membre du seul domaine IT.
+
+    Sert à vérifier le contrôle de domaine sur /chunks et /download, absent jusqu'ici.
+    """
+    from app.core.security import get_current_user
+    from app.main import app
+    from app.models.groupe import Groupe
+    from app.models.user import User
+
+    groupe_it = db_reelle.query(Groupe).filter(Groupe.domaine == "IT").first()
+    user = User(email=f"{uuid.uuid4()}@test.local", role="VALIDATEUR")
+    user.groupes = [groupe_it]
+    db_reelle.add(user)
+    db_reelle.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    return user
+
+
+def _doc_en_base(db, **overrides):
+    """Insère une ligne `documents` prête à l'emploi."""
+    from app.models.document import Document
+
+    champs = {
+        "doc_id": str(uuid.uuid4()),
+        "filename": "charte.md",
+        "domaine": "IT",
+        "description": "",
+        "nb_chunks": 3,
+        "version": 1,
+        "statut": "ACTIF",
+    }
+    champs.update(overrides)
+    doc = Document(**champs)
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return doc
 
 
 @pytest.fixture
@@ -314,56 +388,66 @@ class TestUploadValidation:
         assert r.json()["doc_id"] == _job_kwargs(mock_ingestion_job)["doc_id"]
 
 
+@pytest.mark.integration
 class TestDuplicateDetection:
-    def test_doublon_renvoie_deja_indexe(self, client, mock_qdrant, mock_ingestion_job):
-        doc_id = str(uuid.uuid4())
-        point = MagicMock()
-        point.payload = {"doc_id": doc_id, "source": "doc.md", "content_hash": "abc"}
-        # Premier scroll (vérification doublon) → trouvé
-        mock_qdrant.scroll.return_value = ([point], None)
+    """Le dédoublonnage se fait en SQL, dans le domaine visé seulement."""
 
-        r = _upload(client)
-        assert r.status_code == 200
-        body = r.json()
-        assert body["statut"] == "DÉJÀ_INDEXÉ"
-        assert body["doc_id"] == doc_id
-        assert body["job_id"] is None
-        # Aucun job Celery ne doit être lancé
-        mock_ingestion_job.apply_async.assert_not_called()
-
-    def test_doublon_meme_contenu_hash_identique(self, client, mock_qdrant, mock_ingestion_job):
-        """Deux uploads du même contenu produisent le même hash."""
+    @staticmethod
+    def _hash(contenu=_MD_CONTENT):
         import hashlib
 
-        contenu = _MD_CONTENT
-        hash1 = hashlib.sha256(contenu).hexdigest()
+        return hashlib.sha256(contenu).hexdigest()
 
-        mock_qdrant.scroll.return_value = ([], None)
-        _upload(client, content=contenu)
-        assert _job_kwargs(mock_ingestion_job)["content_hash"] == hash1
+    def test_doublon_renvoie_deja_indexe(self, client, db_reelle, mock_ingestion_job):
+        doc = _doc_en_base(db_reelle, domaine="IT", filename="deja.md",
+                           content_hash=self._hash(), version=2)
 
-    def test_contenu_different_n_est_pas_doublon(self, client, mock_qdrant, mock_ingestion_job):
-        # Aucun point trouvé → ingestion normale
-        mock_qdrant.scroll.return_value = ([], None)
-        r = _upload(client, content=b"# Contenu unique A")
-        assert r.status_code == 200
+        body = _upload(client, domaine="IT").json()
+
+        assert body["statut"] == "DÉJÀ_INDEXÉ"
+        assert body["doc_id"] == doc.doc_id
+        assert body["filename"] == "deja.md"
+        assert body["version"] == 2
+        assert body["job_id"] is None
+        mock_ingestion_job.apply_async.assert_not_called()
+
+    def test_contenu_different_n_est_pas_doublon(self, client, db_reelle, mock_ingestion_job):
+        _doc_en_base(db_reelle, domaine="IT", content_hash=self._hash())
+
+        r = _upload(client, domaine="IT", content=b"# Contenu unique A")
+
+        assert r.json()["statut"] == "EN_ATTENTE"
+        mock_ingestion_job.apply_async.assert_called_once()
+
+    def test_dedoublonnage_scope_au_domaine(self, client, db_reelle, mock_ingestion_job):
+        """search_hybrid filtre strictement par domaine : un document ingéré en IT est
+        invisible en RH, il ne doit donc pas y interdire l'ingestion du même contenu."""
+        _doc_en_base(db_reelle, domaine="IT", content_hash=self._hash())
+
+        r = _upload(client, domaine="RH")
+
+        assert r.json()["statut"] == "EN_ATTENTE"
+        mock_ingestion_job.apply_async.assert_called_once()
+
+    def test_document_supprime_ne_bloque_pas(self, client, db_reelle, mock_ingestion_job):
+        """Le soft-delete conserve la ligne mais libère le contenu pour un ré-upload."""
+        _doc_en_base(db_reelle, domaine="IT", content_hash=self._hash(), statut="SUPPRIMÉ")
+
+        r = _upload(client, domaine="IT")
+
         assert r.json()["statut"] == "EN_ATTENTE"
         mock_ingestion_job.apply_async.assert_called_once()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# GET /documents — listing (Qdrant mocké)
+# GET /documents — listing (lu en base)
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _make_point(doc_id, filename, domaine, chunk_index=0, description=""):
+def _make_point(doc_id, chunk_index=0):
     p = MagicMock()
     p.payload = {
         "doc_id": doc_id,
-        "source": filename,
-        "domaine": domaine,
-        "stored_path": f"/storage/{doc_id}/{filename}",
-        "description": description,
         "chunk_index": chunk_index,
         "contenu": f"Contenu chunk {chunk_index}",
     }
@@ -371,73 +455,80 @@ def _make_point(doc_id, filename, domaine, chunk_index=0, description=""):
     return p
 
 
+@pytest.mark.integration
 class TestListDocuments:
-    def test_liste_vide(self, client, mock_qdrant):
-        mock_qdrant.scroll.return_value = ([], None)
+    def test_liste_vide(self, client, db_reelle):
         r = client.get(f"{API}/documents")
         assert r.status_code == 200
         assert r.json() == {"total": 0, "items": []}
 
-    def test_groupement_par_doc_id(self, client, mock_qdrant):
-        doc_id = str(uuid.uuid4())
-        points = [_make_point(doc_id, "charte.md", "IT", i) for i in range(3)]
-        mock_qdrant.scroll.side_effect = [(points, None)]
+    def test_champs_du_document(self, client, db_reelle):
+        doc = _doc_en_base(db_reelle, filename="charte.md", description="Charte 2025", nb_chunks=7)
 
-        r = client.get(f"{API}/documents")
-        body = r.json()
-        assert body["total"] == 1
-        assert body["items"][0]["nb_chunks"] == 3
-        assert body["items"][0]["doc_id"] == doc_id
-        assert body["items"][0]["filename"] == "charte.md"
+        item = client.get(f"{API}/documents").json()["items"][0]
 
-    def test_plusieurs_docs(self, client, mock_qdrant):
-        id1, id2 = str(uuid.uuid4()), str(uuid.uuid4())
-        points = [
-            _make_point(id1, "doc1.md", "IT"),
-            _make_point(id1, "doc1.md", "IT", chunk_index=1),
-            _make_point(id2, "doc2.md", "RH"),
-        ]
-        mock_qdrant.scroll.side_effect = [(points, None)]
+        assert item["doc_id"] == doc.doc_id
+        assert item["filename"] == "charte.md"
+        assert item["description"] == "Charte 2025"
+        assert item["nb_chunks"] == 7
+        assert item["version"] == 1
+        assert item["statut"] == "ACTIF"
+        assert item["nb_versions"] == 1
+        assert item["updated_at"] is not None
 
-        r = client.get(f"{API}/documents")
-        body = r.json()
+    def test_nb_versions_compte_les_archives(self, client, db_reelle):
+        from app.models.document_version import DocumentVersion
+
+        doc = _doc_en_base(db_reelle, version=3)
+        for v in (1, 2, 3):
+            db_reelle.add(DocumentVersion(doc_id=doc.doc_id, version=v, filename="charte.md"))
+        db_reelle.commit()
+
+        assert client.get(f"{API}/documents").json()["items"][0]["nb_versions"] == 3
+
+    def test_plusieurs_docs(self, client, db_reelle):
+        d1 = _doc_en_base(db_reelle, domaine="IT", nb_chunks=2)
+        d2 = _doc_en_base(db_reelle, domaine="RH", nb_chunks=1)
+
+        body = client.get(f"{API}/documents").json()
+
         assert body["total"] == 2
-        chunks_by_id = {item["doc_id"]: item["nb_chunks"] for item in body["items"]}
-        assert chunks_by_id[id1] == 2
-        assert chunks_by_id[id2] == 1
+        assert {i["doc_id"]: i["nb_chunks"] for i in body["items"]} == {d1.doc_id: 2, d2.doc_id: 1}
 
-    def test_description_presente(self, client, mock_qdrant):
-        doc_id = str(uuid.uuid4())
-        points = [_make_point(doc_id, "note.md", "RH", description="Note RH 2025")]
-        mock_qdrant.scroll.side_effect = [(points, None)]
+    def test_document_supprime_absent_de_la_liste(self, client, db_reelle):
+        _doc_en_base(db_reelle, statut="SUPPRIMÉ")
 
-        r = client.get(f"{API}/documents")
-        assert r.json()["items"][0]["description"] == "Note RH 2025"
+        assert client.get(f"{API}/documents").json()["items"] == []
 
-    def test_filtre_domaine_inconnu_retourne_liste_vide(self, client, mock_qdrant):
-        mock_qdrant.scroll.return_value = ([], None)
-        r = client.get(f"{API}/documents?domaine=INCONNU")
-        assert r.status_code == 200
-        assert r.json()["items"] == []
+    def test_filtre_domaine(self, client, db_reelle):
+        _doc_en_base(db_reelle, domaine="IT")
+        attendu = _doc_en_base(db_reelle, domaine="RH")
 
-    def test_filtre_domaine_valide_passe_au_scroll(self, client, mock_qdrant):
-        mock_qdrant.scroll.return_value = ([], None)
-        client.get(f"{API}/documents?domaine=RH")
-        # scroll doit avoir été appelé avec un filtre (scroll_filter non None)
-        call_kwargs = mock_qdrant.scroll.call_args.kwargs
-        assert call_kwargs.get("scroll_filter") is not None
+        body = client.get(f"{API}/documents?domaine=RH").json()
 
-    def test_pagination_qdrant(self, client, mock_qdrant):
-        """Vérifie que le scroll continue tant que l'offset n'est pas None."""
-        id1, id2 = str(uuid.uuid4()), str(uuid.uuid4())
-        page1 = [_make_point(id1, "a.md", "IT")]
-        page2 = [_make_point(id2, "b.md", "IT")]
-        # Première page renvoie un offset "next", deuxième renvoie None
-        mock_qdrant.scroll.side_effect = [(page1, "offset_token"), (page2, None)]
+        assert [i["doc_id"] for i in body["items"]] == [attendu.doc_id]
 
-        r = client.get(f"{API}/documents")
-        assert r.json()["total"] == 2
-        assert mock_qdrant.scroll.call_count == 2
+    def test_filtre_domaine_inconnu_retourne_liste_vide(self, client, db_reelle):
+        _doc_en_base(db_reelle, domaine="IT")
+
+        assert client.get(f"{API}/documents?domaine=INCONNU").json()["items"] == []
+
+    def test_filtre_domaines_multiples(self, client, db_reelle):
+        _doc_en_base(db_reelle, domaine="IT")
+        _doc_en_base(db_reelle, domaine="RH")
+        _doc_en_base(db_reelle, domaine="LEGAL")
+
+        body = client.get(f"{API}/documents?domaines=IT,RH").json()
+
+        assert body["total"] == 2
+
+    def test_ne_scrolle_plus_qdrant(self, client, db_reelle, mock_qdrant):
+        """Le listing scrollait la collection entière ; il lit maintenant une table."""
+        _doc_en_base(db_reelle)
+
+        client.get(f"{API}/documents")
+
+        mock_qdrant.scroll.assert_not_called()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -445,89 +536,30 @@ class TestListDocuments:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.integration
 class TestGetChunks:
-    def test_chunks_tries_par_index(self, client, mock_qdrant):
-        doc_id = str(uuid.uuid4())
-        # Les points arrivent dans le désordre
-        points = [_make_point(doc_id, "x.md", "IT", i) for i in [2, 0, 1]]
-        mock_qdrant.scroll.return_value = (points, None)
+    def test_chunks_tries_par_index(self, client, db_reelle, mock_qdrant):
+        doc = _doc_en_base(db_reelle)
+        mock_qdrant.scroll.return_value = ([_make_point(doc.doc_id, i) for i in [2, 0, 1]], None)
 
-        r = client.get(f"{API}/documents/{doc_id}/chunks")
-        assert r.status_code == 200
-        body = r.json()
-        indices = [c["chunk_index"] for c in body["chunks"]]
-        assert indices == sorted(indices)
-        assert len(body["chunks"]) == 3
+        body = client.get(f"{API}/documents/{doc.doc_id}/chunks").json()
 
-    def test_doc_inexistant_renvoie_404(self, client, mock_qdrant):
-        mock_qdrant.scroll.return_value = ([], None)
+        assert [c["chunk_index"] for c in body["chunks"]] == [0, 1, 2]
+        assert "contenu" in body["chunks"][0]
+
+    def test_doc_inexistant_renvoie_404(self, client, db_reelle, mock_qdrant):
         r = client.get(f"{API}/documents/{uuid.uuid4()}/chunks")
         assert r.status_code == 404
 
-    def test_contenu_present(self, client, mock_qdrant):
-        doc_id = str(uuid.uuid4())
-        points = [_make_point(doc_id, "y.md", "IT", 0)]
-        mock_qdrant.scroll.return_value = (points, None)
-
-        r = client.get(f"{API}/documents/{doc_id}/chunks")
-        assert "contenu" in r.json()["chunks"][0]
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# DELETE /documents/{doc_id}
-# ──────────────────────────────────────────────────────────────────────────────
-
-
-class TestDeleteDocument:
-    def test_delete_doc_inexistant_renvoie_404(self, client, mock_qdrant):
-        mock_qdrant.scroll.return_value = ([], None)
-        r = client.delete(f"{API}/documents/{uuid.uuid4()}")
+    def test_doc_supprime_renvoie_404(self, client, db_reelle, mock_qdrant):
+        doc = _doc_en_base(db_reelle, statut="SUPPRIMÉ")
+        r = client.get(f"{API}/documents/{doc.doc_id}/chunks")
         assert r.status_code == 404
 
-    def test_delete_appelle_qdrant_delete(self, client, mock_qdrant, tmp_path):
-        doc_id = str(uuid.uuid4())
-        # Crée un fichier réel pour tester la suppression disque
-        stored_dir = tmp_path / doc_id
-        stored_dir.mkdir()
-        stored_file = stored_dir / "doc.md"
-        stored_file.write_text("contenu")
-
-        point = MagicMock()
-        point.payload = {"stored_path": str(stored_file)}
-        mock_qdrant.scroll.return_value = ([point], None)
-
-        r = client.delete(f"{API}/documents/{doc_id}")
-        assert r.status_code == 200
-        assert r.json()["doc_id"] == doc_id
-        mock_qdrant.delete.assert_called_once()
-
-    def test_delete_supprime_le_dossier_du_document(self, client, mock_qdrant, tmp_path, monkeypatch):
-        """Le dossier entier disparaît, archives v{n}/ comprises : supprimer le seul
-        dossier de la version courante laisserait les versions précédentes sur disque."""
-        import app.api.v1.documents as docs_module
-
-        monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
-
-        doc_id = str(uuid.uuid4())
-        (tmp_path / doc_id / "v1").mkdir(parents=True)
-        (tmp_path / doc_id / "v1" / "doc.md").write_text("v1")
-        (tmp_path / doc_id / "v2").mkdir()
-        (tmp_path / doc_id / "v2" / "doc.md").write_text("v2")
-
-        mock_qdrant.scroll.return_value = ([MagicMock()], None)
-
-        client.delete(f"{API}/documents/{doc_id}")
-        assert not (tmp_path / doc_id).exists()
-
-    def test_delete_sans_fichier_disque_ne_plante_pas(self, client, mock_qdrant, tmp_path, monkeypatch):
-        """Un dossier inexistant ne doit pas lever d'exception."""
-        import app.api.v1.documents as docs_module
-
-        monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
-        mock_qdrant.scroll.return_value = ([MagicMock()], None)
-
-        r = client.delete(f"{API}/documents/{uuid.uuid4()}")
-        assert r.status_code == 200
+    def test_hors_domaine_renvoie_403(self, client, db_reelle, mock_qdrant, backoffice_it):
+        doc = _doc_en_base(db_reelle, domaine="RH")
+        r = client.get(f"{API}/documents/{doc.doc_id}/chunks")
+        assert r.status_code == 403
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -535,34 +567,127 @@ class TestDeleteDocument:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.integration
 class TestDownloadDocument:
-    def test_download_doc_inexistant_renvoie_404(self, client, mock_qdrant):
-        mock_qdrant.scroll.return_value = ([], None)
+    def test_doc_inexistant_renvoie_404(self, client, db_reelle):
         r = client.get(f"{API}/documents/{uuid.uuid4()}/download")
         assert r.status_code == 404
 
-    def test_download_fichier_absent_sur_disque(self, client, mock_qdrant):
-        point = MagicMock()
-        point.payload = {"stored_path": "/tmp/inexistant/doc.md", "source": "doc.md"}
-        mock_qdrant.scroll.return_value = ([point], None)
-
-        r = client.get(f"{API}/documents/{uuid.uuid4()}/download")
+    def test_fichier_absent_sur_disque(self, client, db_reelle):
+        doc = _doc_en_base(db_reelle, stored_path="/tmp/inexistant/doc.md")
+        r = client.get(f"{API}/documents/{doc.doc_id}/download")
         assert r.status_code == 404
         assert "disque" in r.json()["detail"]
 
-    def test_download_renvoie_le_fichier(self, client, mock_qdrant, tmp_path):
+    def test_renvoie_le_fichier(self, client, db_reelle, tmp_path):
         contenu = b"# Contenu du document de test"
         f = tmp_path / "doc.md"
         f.write_bytes(contenu)
+        doc = _doc_en_base(db_reelle, filename="doc.md", stored_path=str(f))
 
-        point = MagicMock()
-        point.payload = {"stored_path": str(f), "source": "doc.md"}
-        mock_qdrant.scroll.return_value = ([point], None)
+        r = client.get(f"{API}/documents/{doc.doc_id}/download")
 
-        r = client.get(f"{API}/documents/{uuid.uuid4()}/download")
         assert r.status_code == 200
         assert r.content == contenu
         assert "attachment" in r.headers.get("content-disposition", "")
+
+    def test_repli_sur_l_ancien_emplacement(self, client, db_reelle, tmp_path, monkeypatch):
+        """Documents backfillés : leur fichier est resté à la racine de {doc_id}/."""
+        import app.api.v1.documents as docs_module
+
+        monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
+        doc = _doc_en_base(db_reelle, filename="doc.md", stored_path=None)
+        (tmp_path / doc.doc_id).mkdir()
+        (tmp_path / doc.doc_id / "doc.md").write_bytes(b"ancien")
+
+        r = client.get(f"{API}/documents/{doc.doc_id}/download")
+
+        assert r.status_code == 200
+        assert r.content == b"ancien"
+
+    def test_hors_domaine_renvoie_403(self, client, db_reelle, tmp_path, backoffice_it):
+        f = tmp_path / "doc.md"
+        f.write_bytes(b"secret RH")
+        doc = _doc_en_base(db_reelle, domaine="RH", stored_path=str(f))
+
+        r = client.get(f"{API}/documents/{doc.doc_id}/download")
+
+        assert r.status_code == 403
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DELETE /documents/{doc_id}
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestDeleteDocument:
+    def test_doc_inexistant_renvoie_404(self, client, db_reelle, mock_qdrant):
+        r = client.delete(f"{API}/documents/{uuid.uuid4()}")
+        assert r.status_code == 404
+
+    def test_supprime_les_points_et_marque_la_ligne(self, client, db_reelle, mock_qdrant):
+        doc = _doc_en_base(db_reelle)
+
+        r = client.delete(f"{API}/documents/{doc.doc_id}")
+
+        assert r.status_code == 200
+        assert r.json()["doc_id"] == doc.doc_id
+        mock_qdrant.delete.assert_called_once()
+        db_reelle.refresh(doc)
+        assert doc.statut == "SUPPRIMÉ"
+        assert doc.deleted_at is not None
+        assert doc.nb_chunks == 0
+
+    def test_ligne_conservee_pour_la_tracabilite(self, client, db_reelle, mock_qdrant):
+        """Les reponse_chunks orphelins doivent rester interprétables."""
+        from app.models.document import Document
+
+        doc = _doc_en_base(db_reelle, filename="charte.md")
+        client.delete(f"{API}/documents/{doc.doc_id}")
+
+        conserve = db_reelle.query(Document).filter(Document.doc_id == doc.doc_id).one()
+        assert conserve.filename == "charte.md"
+
+    def test_maj_en_cours_renvoie_409(self, client, db_reelle, mock_qdrant):
+        doc = _doc_en_base(db_reelle, statut="EN_MAJ")
+
+        r = client.delete(f"{API}/documents/{doc.doc_id}")
+
+        assert r.status_code == 409
+        mock_qdrant.delete.assert_not_called()
+
+    def test_supprime_le_dossier_archives_comprises(self, client, db_reelle, mock_qdrant,
+                                                    tmp_path, monkeypatch):
+        """Les fichiers étant rangés par version, effacer le seul dossier de la version
+        courante laisserait les archives derrière."""
+        import app.api.v1.documents as docs_module
+
+        monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
+        doc = _doc_en_base(db_reelle)
+        for v in ("v1", "v2"):
+            (tmp_path / doc.doc_id / v).mkdir(parents=True)
+            (tmp_path / doc.doc_id / v / "doc.md").write_text(v)
+        db_reelle.commit()
+
+        client.delete(f"{API}/documents/{doc.doc_id}")
+
+        assert not (tmp_path / doc.doc_id).exists()
+
+    def test_sans_fichier_disque_ne_plante_pas(self, client, db_reelle, mock_qdrant,
+                                               tmp_path, monkeypatch):
+        import app.api.v1.documents as docs_module
+
+        monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
+        doc = _doc_en_base(db_reelle)
+
+        assert client.delete(f"{API}/documents/{doc.doc_id}").status_code == 200
+
+    def test_deux_fois_renvoie_404(self, client, db_reelle, mock_qdrant):
+        doc = _doc_en_base(db_reelle)
+        client.delete(f"{API}/documents/{doc.doc_id}")
+
+        assert client.delete(f"{API}/documents/{doc.doc_id}").status_code == 404
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -610,8 +735,12 @@ pytestmark_integration = pytest.mark.integration
 
 
 @pytest.fixture
-def qdrant_doc(monkeypatch):
-    """Insère des points dans Qdrant et les nettoie après le test."""
+def qdrant_doc(db_reelle):
+    """Document réel des deux côtés : ligne Postgres + points Qdrant.
+
+    Les deux sont nécessaires depuis que la ligne `documents` fait foi : sans elle,
+    `/chunks` et `DELETE` répondent 404 avant même d'interroger Qdrant.
+    """
     from app.services.qdrant import COLLECTION_NAME
     from app.services.qdrant import client as real_client
     from qdrant_client import models as qdrant_models
@@ -624,7 +753,7 @@ def qdrant_doc(monkeypatch):
             sparse_vectors_config={"sparse": qdrant_models.SparseVectorParams()},
         )
 
-    doc_id = str(uuid.uuid4())
+    doc_id = _doc_en_base(db_reelle, filename="integration_test.md", domaine="IT").doc_id
     points = [
         PointStruct(
             id=str(uuid.uuid4()),
@@ -659,14 +788,6 @@ def qdrant_doc(monkeypatch):
 
 
 @pytest.mark.integration
-def test_integration_list_documents(client, qdrant_doc):
-    r = client.get(f"{API}/documents")
-    assert r.status_code == 200
-    doc_ids = [item["doc_id"] for item in r.json()["items"]]
-    assert qdrant_doc in doc_ids
-
-
-@pytest.mark.integration
 def test_integration_get_chunks(client, qdrant_doc):
     r = client.get(f"{API}/documents/{qdrant_doc}/chunks")
     assert r.status_code == 200
@@ -679,30 +800,25 @@ def test_integration_get_chunks(client, qdrant_doc):
 
 @pytest.mark.integration
 def test_integration_delete_document(client, qdrant_doc):
-    # Le doc existe
-    r = client.get(f"{API}/documents/{qdrant_doc}/chunks")
-    assert r.status_code == 200
+    from app.services.qdrant import COLLECTION_NAME
+    from app.services.qdrant import client as real_client
+    from qdrant_client.models import FieldCondition, Filter, MatchValue
 
-    # On le supprime
-    r = client.delete(f"{API}/documents/{qdrant_doc}")
-    assert r.status_code == 200
+    assert client.get(f"{API}/documents/{qdrant_doc}/chunks").status_code == 200
+    assert client.get(f"{API}/documents").json()["total"] == 1
 
-    # Il n'est plus trouvable
-    r = client.get(f"{API}/documents/{qdrant_doc}/chunks")
-    assert r.status_code == 404
+    assert client.delete(f"{API}/documents/{qdrant_doc}").status_code == 200
 
-
-@pytest.mark.integration
-def test_integration_filter_domaine(client, qdrant_doc):
-    r = client.get(f"{API}/documents?domaine=IT")
-    assert r.status_code == 200
-    doc_ids = [item["doc_id"] for item in r.json()["items"]]
-    assert qdrant_doc in doc_ids
-
-    r = client.get(f"{API}/documents?domaine=RH")
-    assert r.status_code == 200
-    doc_ids_rh = [item["doc_id"] for item in r.json()["items"]]
-    assert qdrant_doc not in doc_ids_rh
+    # Plus dans l'index…
+    restants, _ = real_client.scroll(
+        collection_name=COLLECTION_NAME,
+        scroll_filter=Filter(must=[FieldCondition(key="doc_id", match=MatchValue(value=qdrant_doc))]),
+        limit=10,
+    )
+    assert restants == []
+    # … ni dans la liste, mais toujours en base (soft-delete)
+    assert client.get(f"{API}/documents").json()["total"] == 0
+    assert client.get(f"{API}/documents/{qdrant_doc}/chunks").status_code == 404
 
 
 # ──────────────────────────────────────────────────────────────────────────────
