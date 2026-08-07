@@ -44,7 +44,7 @@ DB = Annotated[Session, Depends(get_db)]
 class ServiceStatus(BaseModel):
     status: Literal["ok", "error"]
     detail: str | None = None
-
+    latency_ms: int | None = None
 
 
 class FunctionalStats(BaseModel):
@@ -55,6 +55,8 @@ class FunctionalStats(BaseModel):
     documents_echoues: int = 0
     celery_pending_ingestion: int | None = None
     celery_pending_questions: int | None = None
+    celery_workers_ingestion: int | None = None
+    celery_workers_questions: int | None = None
     derniere_activite: str | None = None
 
 
@@ -368,13 +370,17 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
     except Exception as e:
         vk = ServiceStatus(status="error", detail=str(e))
 
+    import time
+
     import httpx
     albert_auth = {"Authorization": f"Bearer {settings.albert_api_key}"}
 
     def _ping_albert(url: str) -> ServiceStatus:
         try:
+            t0 = time.perf_counter()
             httpx.get(url, headers=albert_auth, timeout=3.0)
-            return ServiceStatus(status="ok")
+            latency_ms = round((time.perf_counter() - t0) * 1000)
+            return ServiceStatus(status="ok", latency_ms=latency_ms)
         except Exception as e:
             return ServiceStatus(status="error", detail=str(e))
 
@@ -382,23 +388,26 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
     al_llm = _ping_albert(settings.albert_llm_url)
     al_rer = _ping_albert(settings.albert_reranker_url)
 
-    def _celery_queue_status(queue: str) -> ServiceStatus:
-        try:
-            from app.workers.celery_app import celery_app
-            inspector = celery_app.control.inspect(timeout=2)
-            queues = inspector.active_queues() or {}
-            active = any(
-                any(q.get("name") == queue for q in worker_queues)
-                for worker_queues in queues.values()
-            )
-            if active:
-                return ServiceStatus(status="ok")
-            return ServiceStatus(status="error", detail="Aucun worker actif sur cette queue")
-        except Exception as e:
-            return ServiceStatus(status="error", detail=str(e))
+    # Appel unique à l'inspecteur Celery pour statut + comptage workers
+    celery_queues_info: dict = {}
+    try:
+        from app.workers.celery_app import celery_app
+        inspector = celery_app.control.inspect(timeout=2)
+        celery_queues_info = inspector.active_queues() or {}
+    except Exception:
+        pass
 
-    cel_ing = _celery_queue_status("queue_ingestion")
-    cel_q   = _celery_queue_status("queue_questions")
+    def _celery_status_and_count(queue: str) -> tuple[ServiceStatus, int]:
+        workers = [
+            wname for wname, wqueues in celery_queues_info.items()
+            if any(q.get("name") == queue for q in wqueues)
+        ]
+        if workers:
+            return ServiceStatus(status="ok"), len(workers)
+        return ServiceStatus(status="error", detail="Aucun worker actif sur cette queue"), 0
+
+    cel_ing, workers_ing = _celery_status_and_count("queue_ingestion")
+    cel_q,   workers_q   = _celery_status_and_count("queue_questions")
 
     # ── Stats fonctionnelles ─────────────────────────────────────────
     from datetime import datetime, timedelta, timezone
@@ -479,6 +488,8 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
             documents_echoues=documents_echoues,
             celery_pending_ingestion=celery_pending_ingestion,
             celery_pending_questions=celery_pending_questions,
+            celery_workers_ingestion=workers_ing,
+            celery_workers_questions=workers_q,
             derniere_activite=derniere_activite,
         ),
     )

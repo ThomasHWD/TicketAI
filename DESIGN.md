@@ -25,6 +25,16 @@ colors:
   state-lock-bg: "#fffbeb"
   state-danger: "#dc2626"
   state-danger-bg: "#fef2f2"
+  chart-blue: "#3b82f6"
+  chart-blue-dark: "#60a5fa"
+  chart-amber: "#f59e0b"
+  chart-amber-dark: "#fbbf24"
+  chart-violet: "#8b5cf6"
+  chart-violet-dark: "#a78bfa"
+  chart-teal: "#0d9488"
+  chart-teal-dark: "#2dd4bf"
+  chart-rose: "#e11d48"
+  chart-rose-dark: "#fb7185"
 typography:
   page-title:
     fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"

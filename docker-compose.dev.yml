@@ -40,7 +40,7 @@ services:
 
   worker_ingestion:
     build: ./backend
-    command: celery -A app.workers.celery_app worker -Q queue_ingestion -c 2 -l info
+    command: watchmedo auto-restart --directory=/app --pattern='*.py' --recursive -- celery -A app.workers.celery_app worker -Q queue_ingestion -c 2 -l info
     volumes:
       - ./backend:/app
       - documents_storage:/app/storage
@@ -57,7 +57,7 @@ services:
 
   worker_questions:
     build: ./backend
-    command: celery -A app.workers.celery_app worker -Q queue_questions -c 4 -l info
+    command: watchmedo auto-restart --directory=/app --pattern='*.py' --recursive -- celery -A app.workers.celery_app worker -Q queue_questions -c 4 -l info
     volumes:
       - ./backend:/app
     env_file: ./backend/.env
