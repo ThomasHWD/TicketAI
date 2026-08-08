@@ -1019,6 +1019,10 @@ _ARTICLE_AJOUTE = (
     b"Article 7 bis : le teletravail est suspendu pendant les periodes de forte activite."
 )
 
+_ARTICLE_ABROGE = (
+    b"Article 9 : une prime de 20 euros par mois compense les frais d'electricite du domicile."
+)
+
 
 def _doc_avec_fichier(db, tmp_path, contenu=_TEXTE_V1, **overrides):
     """Document dont le fichier de la version courante existe vraiment sur disque.
@@ -1035,7 +1039,7 @@ def _doc_avec_fichier(db, tmp_path, contenu=_TEXTE_V1, **overrides):
 
 @pytest.mark.integration
 class TestAjoutsSignales:
-    """Le miroir de l'obsolescence : ce que la nouvelle version *ajoute*.
+    """Le miroir de l'obsolescence : ce que la nouvelle version dit de neuf.
 
     Rien n'en devient obsolète — l'ajout n'invalide pas mécaniquement une réponse,
     seule une lecture humaine peut trancher. L'aperçu se contente de le rendre
@@ -1152,6 +1156,55 @@ class TestAjoutsSignales:
         assert r.status_code == 200
         assert r.json()["nb_obsoletes"] == 1
         assert r.json()["ajouts_analysables"] is False
+
+
+@pytest.mark.integration
+class TestRetraitsSignales:
+    """L'autre sens : ce que la nouvelle version ne dit plus.
+
+    Le seul cas qu'un compte d'ajouts ne peut pas voir — une règle **abrogée**
+    sans que rien ne soit inséré à la place. Aucun passage cité ne bouge, aucun
+    passage n'apparaît, et pourtant une réponse qui s'appuyait sur l'existence de
+    cette règle est peut-être devenue fausse.
+    """
+
+    def test_signale_un_passage_retire_ailleurs(self, client, db_reelle, staging_tmp, qdrant_maj):
+        doc = _doc_avec_fichier(db_reelle, staging_tmp, contenu=_TEXTE_V1 + b"\n\n" + _ARTICLE_ABROGE)
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")
+
+        body = _preview(client, doc.doc_id, content=_TEXTE_V1).json()
+
+        # Les deux passages cités sont intacts : sans le second sens, l'aperçu
+        # annoncerait un document strictement inchangé.
+        assert body["nb_chunks_modifies"] == 0
+        assert body["nb_obsoletes"] == 0
+        assert body["nb_passages_ajoutes"] == 0
+        assert body["nb_passages_retires"] == 1
+        assert "Article 9" in body["extraits_retires"][0]
+        assert body["nb_a_relire"] == 1
+
+    def test_reformatage_ne_tire_dans_aucun_sens(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """La propriété anti-inondation, vérifiée sur les deux sens à la fois :
+        un second compteur toujours non nul rendrait le panneau permanent."""
+        doc = _doc_avec_fichier(db_reelle, staging_tmp)
+        reformate = _TEXTE_V1.replace(b"\n\n", b"\n\n\n").replace(b" par ", b"  par ")
+
+        body = _preview(client, doc.doc_id, content=reformate).json()
+
+        assert body["nb_passages_ajoutes"] == 0
+        assert body["nb_passages_retires"] == 0
+        assert body["extraits_retires"] == []
+        assert body["nb_a_relire"] == 0
+
+    def test_document_backfille_tait_les_deux_sens(self, client, db_reelle, staging_tmp, qdrant_maj):
+        doc = _doc_en_base(db_reelle, domaine="RH", content_hash="hash-v1", stored_path=None)
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")
+
+        body = _preview(client, doc.doc_id, content=_TEXTE_V1).json()
+
+        assert body["ajouts_analysables"] is False
+        assert body["nb_passages_retires"] == 0
+        assert body["extraits_retires"] == []
 
 
 @pytest.mark.integration

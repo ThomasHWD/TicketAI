@@ -17,7 +17,7 @@ import {
   Users,
   SlidersHorizontal,
 } from "lucide-react";
-import { getIncidents, getReponsesObsoletes } from "../../lib/api";
+import { getIncidents, getReponsesARelire, getReponsesObsoletes } from "../../lib/api";
 import UserAvatar from "../ui/UserAvatar";
 
 const navMain = [
@@ -137,6 +137,25 @@ export default function Sidebar({ collapsed }: SidebarProps) {
   });
   const nbObsoletes = obsoletes?.total ?? 0;
 
+  // Des **documents**, pas des réponses : une phrase réécrite dans une charte qui
+  // porte 40 réponses en signale 39, et « 39 » se subit là où « 1 » se traite —
+  // c'est un seul diff à lire. Le badge doit annoncer le travail, pas le volume.
+  const { data: aRelire } = useQuery({
+    queryKey: ["reponses-a-relire", "count"],
+    queryFn: () => getReponsesARelire({ page: 1, limit: 1 }),
+    enabled: userDomaines.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  const nbDocsARelire = aRelire?.nb_documents ?? 0;
+
+  // Une seule pastille pour deux signaux : la relecture passe devant. Une réponse
+  // obsolète est déjà hors service — l'état sûr, qui peut attendre ; une réponse
+  // signalée continue d'être servie et peut être fausse dès maintenant. Le compte
+  // d'obsolètes reste visible sur son onglet.
+  const badge = nbDocsARelire || nbObsoletes;
+
   return (
     <aside
       className={`relative flex flex-col shrink-0 overflow-hidden
@@ -190,7 +209,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
               key={item.to}
               {...item}
               collapsed={collapsed}
-              badge={item.to === "/reponses-enregistrees" ? nbObsoletes : undefined}
+              badge={item.to === "/reponses-enregistrees" ? badge : undefined}
             />
           ))}
         </nav>

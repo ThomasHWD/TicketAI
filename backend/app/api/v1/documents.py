@@ -454,7 +454,7 @@ def stager_et_analyser(
     nouveau_texte = texte_complet(extract_text(chemin))
     indices = indices_modifies(anciens, nouveau_texte)
     impactees = racines(reponses_obsoletes(db, doc.doc_id, indices))
-    ajouts = analyser_ajouts(db, doc, nouveau_texte, deja_impactees=impactees)
+    changements = analyser_changements(db, doc, nouveau_texte, deja_impactees=impactees)
 
     db.add(
         DocumentStaging(
@@ -482,29 +482,38 @@ def stager_et_analyser(
         "nb_obsoletes": len(impactees),
         "nb_canoniques": sum(1 for r in impactees if r.canonique),
         "items": [_item_impact(db, r, doc.doc_id, indices, anciens) for r in impactees],
-        **ajouts,
+        **changements,
     }
 
 
-def analyser_ajouts(db: Session, doc: Document, nouveau_texte: str, *, deja_impactees: list) -> dict:
-    """Passages *ajoutés* par la nouvelle version, et les réponses à relire.
+def analyser_changements(db: Session, doc: Document, nouveau_texte: str, *, deja_impactees: list) -> dict:
+    """Ce que la nouvelle version dit de neuf ou ne dit plus, et les réponses à relire.
 
-    Détection en miroir de l'obsolescence (cf. ``passages_ajoutes``) : on découpe
-    le nouveau texte et on cherche chaque morceau dans le texte de la version
-    sortante. **Aucune obsolescence n'en découle** — c'est un signal de tri, pas
-    une décision : les réponses signalées restent servies telles quelles.
+    Détection en miroir de l'obsolescence (cf. ``passages_ajoutes``), dans les
+    deux sens : on découpe chaque texte et on cherche ses morceaux dans l'autre.
+    Le premier sens couvre l'insertion et la réécriture, le second la règle
+    **abrogée** sans rien insérer — qu'aucun ajout ne trahit. **Aucune
+    obsolescence n'en découle** : c'est un signal de tri, pas une décision, et
+    les réponses signalées restent servies telles quelles.
+
+    Le jumeau de ``workers.document_update.analyser_changements``, qui refait le
+    même calcul à la confirmation et le fige dans ``DocumentVersion.changements``.
+    Ici c'est l'aperçu, là-bas la trace ; l'un et l'autre montrent le même texte
+    parce que ``extrait`` est partagé.
 
     Le coût est un ``extract_text`` de plus (quelques centaines de ms) : ni appel
     API, ni embedding.
 
-    ``analysable=False`` quand le fichier de la version courante a disparu du
-    disque — cas des documents backfillés. On préfère taire le panneau plutôt
+    ``ajouts_analysables=False`` quand le fichier de la version courante a disparu
+    du disque — cas des documents backfillés. On préfère taire le panneau plutôt
     qu'annoncer « 0 passage ajouté », qui se lirait comme une garantie.
     """
     muet = {
         "ajouts_analysables": False,
         "nb_passages_ajoutes": 0,
         "extraits_ajoutes": [],
+        "nb_passages_retires": 0,
+        "extraits_retires": [],
         "nb_a_relire": 0,
         "a_relire": [],
     }
@@ -521,7 +530,9 @@ def analyser_ajouts(db: Session, doc: Document, nouveau_texte: str, *, deja_impa
         return muet
 
     ajouts = passages_ajoutes(decouper_en_passages(nouveau_texte), ancien_texte)
-    if not ajouts:
+    retires = passages_ajoutes(decouper_en_passages(ancien_texte), nouveau_texte)
+    if not ajouts and not retires:
+        # Reformatage pur : le document ne dit rien de neuf, rien à relire.
         return {**muet, "ajouts_analysables": True}
 
     # Les réponses qui vont disparaître n'ont pas à être relues.
@@ -537,6 +548,8 @@ def analyser_ajouts(db: Session, doc: Document, nouveau_texte: str, *, deja_impa
         "ajouts_analysables": True,
         "nb_passages_ajoutes": len(ajouts),
         "extraits_ajoutes": [extrait(t) for t in ajouts[:MAX_EXTRAITS]],
+        "nb_passages_retires": len(retires),
+        "extraits_retires": [extrait(t) for t in retires[:MAX_EXTRAITS]],
         "nb_a_relire": len(a_relire),
         "a_relire": _items_a_relire(db, a_relire[:MAX_A_RELIRE]),
     }
