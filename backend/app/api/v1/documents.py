@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.permissions import check_domain_read, check_domain_write, user_domaines
-from app.core.security import AdminUser, BackofficeUser, CurrentUser
+from app.core.security import BackofficeUser, CurrentUser
 from app.database import SessionLocal
 from app.models.document import Document
 from app.models.document_staging import DocumentStaging
@@ -814,14 +814,21 @@ def restaurer_version(doc_id: str, version: int, current_user: BackofficeUser, d
 
 
 @router.delete("/documents/{doc_id}")
-async def delete_document(doc_id: str, current_user: AdminUser, db: DB):
+async def delete_document(doc_id: str, current_user: BackofficeUser, db: DB):
     """Retire un document de l'index et du disque.
 
     La ligne `documents` est conservée en `SUPPRIMÉ` : les `reponse_chunks` qui la
     citent restent interprétables, et son `content_hash` cesse de bloquer un
     ré-upload du même contenu.
+
+    Même droit que la mise à jour — être membre du domaine, l'admin sans exception.
+    Réserver la suppression à l'admin était incohérent dans les deux sens : il
+    l'exerçait sur des domaines dont il ignore tout, et celui qui peut déjà
+    remplacer le fichier (donc périmer les mêmes réponses, en plus lent) ne pouvait
+    pas l'exercer sur le sien.
     """
     doc = get_document_vivant(db, doc_id)
+    check_domain_write(doc.domaine, current_user)
     if doc.statut == "EN_MAJ":
         raise HTTPException(409, "Une mise à jour de ce document est en cours.")
 
@@ -847,7 +854,9 @@ async def delete_document(doc_id: str, current_user: AdminUser, db: DB):
     # obsolète, sans calcul d'indices.
     obsoletes = marquer_obsoletes(db, doc_id, RAISON_SUPPRESSION, version=doc.version)
 
-    return {"statut": "OK", "doc_id": doc_id, "nb_obsoletes": len(obsoletes)}
+    # `racines` comme dans le job de mise à jour : `marquer_obsoletes` marque la
+    # famille entière, une réponse réutilisée cinq fois y compte six fois.
+    return {"statut": "OK", "doc_id": doc_id, "nb_obsoletes": len(racines(obsoletes))}
 
 
 @router.get("/documents/{job_id}/status")
