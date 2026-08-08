@@ -337,6 +337,10 @@ STAGING_TTL = timedelta(hours=1)
 MAJ_PERIMEE_APRES = timedelta(minutes=30)
 # Extrait de passage affiché dans l'écran d'impact.
 LONGUEUR_EXTRAIT = 240
+# Réponses « à relire » détaillées dans l'aperçu. Le compte, lui, reste exact :
+# un document très exploité peut en aligner des dizaines, et la modale n'est pas
+# un outil de revue — elle amorce le tri, elle ne le porte pas.
+MAX_A_RELIRE = 10
 
 
 class ConfirmerMajRequest(BaseModel):
@@ -509,7 +513,13 @@ def analyser_ajouts(db: Session, doc: Document, nouveau_texte: str, *, deja_impa
     disque — cas des documents backfillés. On préfère taire le panneau plutôt
     qu'annoncer « 0 passage ajouté », qui se lirait comme une garantie.
     """
-    muet = {"ajouts_analysables": False, "nb_passages_ajoutes": 0, "extraits_ajoutes": [], "nb_a_relire": 0}
+    muet = {
+        "ajouts_analysables": False,
+        "nb_passages_ajoutes": 0,
+        "extraits_ajoutes": [],
+        "nb_a_relire": 0,
+        "a_relire": [],
+    }
 
     chemin_courant = chemin_du_fichier(doc)
     if chemin_courant is None:
@@ -530,12 +540,42 @@ def analyser_ajouts(db: Session, doc: Document, nouveau_texte: str, *, deja_impa
     condamnees = {r.id for r in deja_impactees}
     a_relire = [r for r in racines(reponses_obsoletes(db, doc.doc_id, None)) if r.id not in condamnees]
 
+    # Les plus servies d'abord : une canonique à 12 validations part sur tous les
+    # tickets similaires, une VALIDÉE isolée ne ressort presque jamais. Relire dans
+    # cet ordre, c'est traiter le risque réel avant le résiduel.
+    a_relire.sort(key=lambda r: (r.canonique, r.nb_validations or 0), reverse=True)
+
     return {
         "ajouts_analysables": True,
         "nb_passages_ajoutes": len(ajouts),
         "extraits_ajoutes": [_tronquer(t) for t in ajouts[:3]],
         "nb_a_relire": len(a_relire),
+        "a_relire": _items_a_relire(db, a_relire[:MAX_A_RELIRE]),
     }
+
+
+def _items_a_relire(db: Session, reponses: list) -> list[dict]:
+    """Identifie nommément les réponses à relire — un compte ne suffit pas.
+
+    Annoncer « 4 réponses n'en tiennent pas compte » sans dire lesquelles laisse
+    l'utilisateur chercher à la main dans *Réponses enregistrées* : en pratique,
+    personne ne le fait, et l'avertissement retombe. On renvoie donc de quoi
+    ouvrir chaque réponse, ``ticket_id`` compris.
+    """
+    tickets = {
+        t.id: t
+        for t in db.query(Ticket).filter(Ticket.id.in_([r.ticket_id for r in reponses])).all()
+    }
+    return [
+        {
+            "reponse_id": str(r.id),
+            "ticket_id": str(r.ticket_id),
+            "question": r.question_suivi or (tickets[r.ticket_id].question if r.ticket_id in tickets else ""),
+            "canonique": r.canonique,
+            "nb_validations": r.nb_validations,
+        }
+        for r in reponses
+    ]
 
 
 def prochaine_version(db: Session, doc: Document) -> int:

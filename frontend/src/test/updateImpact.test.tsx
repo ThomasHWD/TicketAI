@@ -14,7 +14,7 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { JobsProvider } from "../context/JobsContext";
 import UpdateDocModal from "../pages/backoffice/UpdateDocModal";
-import type { UpdateImpact } from "../types.ts";
+import type { ReponseARelire, UpdateImpact } from "../types.ts";
 
 function impact(overrides: Partial<UpdateImpact> = {}): UpdateImpact {
   return {
@@ -31,6 +31,18 @@ function impact(overrides: Partial<UpdateImpact> = {}): UpdateImpact {
     nb_passages_ajoutes: 0,
     extraits_ajoutes: [],
     nb_a_relire: 0,
+    a_relire: [],
+    ...overrides,
+  };
+}
+
+function aRelire(overrides: Partial<ReponseARelire> = {}): ReponseARelire {
+  return {
+    reponse_id: "r1",
+    ticket_id: "t1",
+    question: "Combien de jours de télétravail ?",
+    canonique: true,
+    nb_validations: 5,
     ...overrides,
   };
 }
@@ -61,6 +73,7 @@ describe("Passages ajoutés", () => {
         nb_passages_ajoutes: 1,
         extraits_ajoutes: ["Article 7 bis : le télétravail est suspendu en forte activité."],
         nb_a_relire: 4,
+        a_relire: [aRelire()],
       }),
     );
 
@@ -68,6 +81,42 @@ describe("Passages ajoutés", () => {
     expect(screen.getByText(/Article 7 bis/)).toBeInTheDocument();
     expect(screen.getByText(/4 réponses enregistrées/)).toBeInTheDocument();
     expect(screen.getByText(/Aucune réponse enregistrée n'est remise en cause/)).toBeInTheDocument();
+  });
+
+  it("ouvre chaque réponse à relire sans quitter la mise à jour", () => {
+    // Un compte seul n'est pas actionnable, et une navigation classique perdrait
+    // l'aperçu : il faudrait re-déposer le fichier, donc on ignorerait l'alerte.
+    afficher(
+      impact({
+        nb_passages_ajoutes: 1,
+        extraits_ajoutes: ["Article 7 bis."],
+        nb_a_relire: 1,
+        a_relire: [aRelire({ ticket_id: "t-42", question: "Puis-je télétravailler 3 jours ?" })],
+      }),
+    );
+
+    const lien = screen.getByRole("link", { name: /Puis-je télétravailler 3 jours/ });
+
+    expect(lien).toHaveAttribute("href", "/tickets/t-42");
+    expect(lien).toHaveAttribute("target", "_blank");
+  });
+
+  it("renvoie vers Réponses enregistrées au-delà des dix premières", () => {
+    // La modale amorce le tri, elle ne le porte pas : le reste doit être annoncé,
+    // pas escamoté, sinon la charge réelle paraît plus faible qu'elle n'est.
+    afficher(
+      impact({
+        nb_passages_ajoutes: 1,
+        extraits_ajoutes: ["Article 7 bis."],
+        nb_a_relire: 14,
+        a_relire: Array.from({ length: 10 }, (_, i) =>
+          aRelire({ reponse_id: `r${i}`, ticket_id: `t${i}` }),
+        ),
+      }),
+    );
+
+    expect(screen.getAllByRole("link")).toHaveLength(10);
+    expect(screen.getByText(/et 4 autres/)).toBeInTheDocument();
   });
 
   it("se tait quand la nouvelle version n'ajoute rien", () => {
