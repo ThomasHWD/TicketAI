@@ -292,9 +292,9 @@ def test_corriger_contenu_vide_renvoie_400(client, db_session, validator, auth_h
 
 
 # --------------------------------------------------------------------------- #
-# PUT /reponses/{id}/editer  (réponses canoniques — réservé ADMIN)
+# PUT /reponses/{id}/editer  (canoniques — back-office ayant le domaine)
 # --------------------------------------------------------------------------- #
-def test_editer_non_admin_renvoie_403(client, db_session, auth_headers):
+def test_editer_hors_backoffice_renvoie_403(client, db_session, auth_headers):
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
 
     resp = client.put(
@@ -306,14 +306,27 @@ def test_editer_non_admin_renvoie_403(client, db_session, auth_headers):
     assert resp.status_code == 403
 
 
-def test_editer_canonique_ok(client, db_session, user_factory, auth_header):
-    admin = user_factory("ADMIN")
+def test_editer_hors_domaine_renvoie_403(client, db_session, validator, auth_header):
+    """Le droit suit le domaine du ticket, pas le rôle : le validateur IT n'édite
+    pas une canonique RH, exactement comme il ne remplacerait pas un document RH."""
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, domaine="RH")
+
+    resp = client.put(
+        f"{API}/reponses/{reponse.id}/editer",
+        json={"contenu": "Nouveau contenu servi"},
+        headers=auth_header(validator),
+    )
+
+    assert resp.status_code == 403
+
+
+def test_editer_canonique_ok(client, db_session, validator, auth_header):
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
 
     resp = client.put(
         f"{API}/reponses/{reponse.id}/editer",
         json={"contenu": "Nouveau contenu servi"},
-        headers=auth_header(admin),
+        headers=auth_header(validator),
     )
 
     assert resp.status_code == 200
@@ -321,50 +334,54 @@ def test_editer_canonique_ok(client, db_session, user_factory, auth_header):
     assert db_session.get(Reponse, reponse.id).contenu_corrige == "Nouveau contenu servi"
 
 
-def test_editer_non_canonique_renvoie_409(client, db_session, user_factory, auth_header):
-    admin = user_factory("ADMIN")
+def test_editer_non_canonique_renvoie_409(client, db_session, validator, auth_header):
     _, reponse = seed_ticket_reponse(db_session, canonique=False)
 
     resp = client.put(
         f"{API}/reponses/{reponse.id}/editer",
         json={"contenu": "Peu importe"},
-        headers=auth_header(admin),
+        headers=auth_header(validator),
     )
 
     assert resp.status_code == 409
 
 
-def test_editer_contenu_vide_renvoie_400(client, db_session, user_factory, auth_header):
-    admin = user_factory("ADMIN")
+def test_editer_contenu_vide_renvoie_400(client, db_session, validator, auth_header):
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
 
     resp = client.put(
         f"{API}/reponses/{reponse.id}/editer",
         json={"contenu": "  "},
-        headers=auth_header(admin),
+        headers=auth_header(validator),
     )
 
     assert resp.status_code == 400
 
 
 # --------------------------------------------------------------------------- #
-# DELETE /reponses/{id}  (réponses canoniques — réservé ADMIN)
+# DELETE /reponses/{id}  (canoniques — back-office ayant le domaine)
 # --------------------------------------------------------------------------- #
-def test_supprimer_non_canonique_renvoie_409(client, db_session, user_factory, auth_header):
-    admin = user_factory("ADMIN")
+def test_supprimer_hors_domaine_renvoie_403(client, db_session, validator, auth_header):
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, domaine="RH")
+
+    resp = client.delete(f"{API}/reponses/{reponse.id}", headers=auth_header(validator))
+
+    assert resp.status_code == 403
+
+
+def test_supprimer_non_canonique_renvoie_409(client, db_session, validator, auth_header):
     _, reponse = seed_ticket_reponse(db_session, canonique=False)
 
-    resp = client.delete(f"{API}/reponses/{reponse.id}", headers=auth_header(admin))
+    resp = client.delete(f"{API}/reponses/{reponse.id}", headers=auth_header(validator))
 
     assert resp.status_code == 409
 
 
-def test_supprimer_canonique_detache_les_copies(client, db_session, user_factory, auth_header, mock_side_effects):
-    admin = user_factory("ADMIN")
+def test_supprimer_canonique_detache_les_copies(client, db_session, validator, auth_header, mock_side_effects):
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
     _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, reponse_source_id=source.id)
 
-    resp = client.delete(f"{API}/reponses/{source.id}", headers=auth_header(admin))
+    resp = client.delete(f"{API}/reponses/{source.id}", headers=auth_header(validator))
 
     assert resp.status_code == 200
     # Le point Qdrant est retiré (mock) et la source disparaît de la base.
@@ -379,14 +396,13 @@ def test_supprimer_canonique_detache_les_copies(client, db_session, user_factory
     assert reloaded_copie.canonique is False
 
 
-def test_supprimer_canonique_nettoie_les_chunks(client, db_session, user_factory, auth_header):
-    admin = user_factory("ADMIN")
+def test_supprimer_canonique_nettoie_les_chunks(client, db_session, validator, auth_header):
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
     db_session.add(ReponseChunk(reponse_id=reponse.id, doc_id="doc-1", chunk_index=0))
     db_session.commit()
 
     reponse_id = reponse.id
-    resp = client.delete(f"{API}/reponses/{reponse_id}", headers=auth_header(admin))
+    resp = client.delete(f"{API}/reponses/{reponse_id}", headers=auth_header(validator))
 
     assert resp.status_code == 200
     db_session.expunge_all()
@@ -565,30 +581,28 @@ def test_restaurer_hors_domaine_renvoie_403(client, db_session, validator, auth_
     assert resp.status_code == 403
 
 
-def test_supprimer_obsolete_non_canonique_autorise(client, db_session, user_factory, auth_header):
+def test_supprimer_obsolete_non_canonique_autorise(client, db_session, validator, auth_header):
     """L'onglet Obsolètes doit pouvoir purger une réponse jamais devenue canonique."""
-    admin = user_factory("ADMIN")
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=False)
     _rendre_obsolete(db_session, reponse)
 
-    resp = client.delete(f"{API}/reponses/{reponse.id}", headers=auth_header(admin))
+    resp = client.delete(f"{API}/reponses/{reponse.id}", headers=auth_header(validator))
 
     assert resp.status_code == 200
     db_session.expunge_all()
     assert db_session.get(Reponse, reponse.id) is None
 
 
-def test_supprimer_remet_a_zero_l_obsolescence_des_copies(client, db_session, user_factory, auth_header):
+def test_supprimer_remet_a_zero_l_obsolescence_des_copies(client, db_session, validator, auth_header):
     """Détachée mais toujours marquée, la copie resterait à jamais dans l'onglet
     Obsolètes sans plus aucune source pour l'en sortir."""
-    admin = user_factory("ADMIN")
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
     _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", reponse_source_id=source.id)
     _rendre_obsolete(db_session, source)
     _rendre_obsolete(db_session, copie)
     copie_id = copie.id
 
-    client.delete(f"{API}/reponses/{source.id}", headers=auth_header(admin))
+    client.delete(f"{API}/reponses/{source.id}", headers=auth_header(validator))
 
     db_session.expunge_all()
     detachee = db_session.get(Reponse, copie_id)

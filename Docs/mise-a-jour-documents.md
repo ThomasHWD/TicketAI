@@ -144,11 +144,13 @@ Deux réserves à connaître :
   ajouté. Les deux lectures sont vraies, le doublon est assumé ;
 - le panneau reste **masqué** si le fichier de la version courante n'est plus sur le disque
   (documents antérieurs au versionnage). Afficher « 0 passage ajouté » se lirait comme une
-  garantie ; mieux vaut ne rien dire que rassurer à tort ;
-- **corriger une réponse signalée demande le rôle Administrateur.** La mise à jour d'un document
-  est ouverte à tout back-office ayant le domaine ; réécrire (`editer`) ou purger (`DELETE`) une
-  réponse canonique ne l'est pas. Un validateur peut donc voir l'alerte, ouvrir les réponses, et
-  devoir passer la main pour agir.
+  garantie ; mieux vaut ne rien dire que rassurer à tort.
+
+Agir sur une réponse signalée — la réécrire (`editer`) ou la purger (`DELETE`) — demande le
+**même droit que la mise à jour du document** : être back-office et avoir le domaine du ticket
+d'origine. Celui qui voit l'alerte peut donc la traiter lui-même. Séparer les deux reviendrait à
+dire qu'un validateur peut périmer une réponse en remplaçant le document dont elle découle, mais
+pas la corriger directement.
 
 ## 4. Ce qui arrive à une réponse obsolète
 

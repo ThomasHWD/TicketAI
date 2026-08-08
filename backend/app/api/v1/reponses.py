@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.config import settings
 from app.core.permissions import check_domain_write, user_domaines
-from app.core.security import AdminUser, BackofficeUser
+from app.core.security import BackofficeUser
 from app.database import SessionLocal
 from app.models.document import Document
 from app.models.notification import Notification
@@ -46,6 +46,31 @@ def get_reponse_or_404(db, reponse_id: str) -> Reponse:
     if not reponse:
         raise HTTPException(404, f"Réponse {reponse_id} introuvable")
     return reponse
+
+
+def check_reponse_write(db, reponse: Reponse, current_user) -> None:
+    """Droit d'agir sur une réponse enregistrée : le domaine du ticket qui l'a produite.
+
+    Même règle que la mise à jour d'un document. Les séparer reviendrait à dire
+    qu'un validateur peut périmer une réponse en remplaçant le document dont elle
+    découle, mais pas la corriger directement — alors que c'est la même matière,
+    et que l'écran d'impact d'une mise à jour lui demande précisément d'aller les
+    relire.
+
+    ``check_domain_write`` n'exempte pas l'admin : lui aussi doit être membre du
+    domaine. C'est la règle déjà appliquée à ``restaurer_reponse`` et à la mise à
+    jour de document.
+
+    Réponse orpheline (ticket disparu) : réservée à l'admin. Sauter le contrôle
+    laisserait n'importe quel back-office agir hors de son domaine ; l'interdire à
+    tous rendrait ces lignes impossibles à nettoyer.
+    """
+    ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
+    if ticket is None:
+        if current_user.role != "ADMIN":
+            raise HTTPException(403, "Réponse sans ticket : réservée à un administrateur.")
+        return
+    check_domain_write(ticket.domaine, current_user)
 
 
 def verifier_etat_initial(reponse: Reponse):
@@ -448,9 +473,7 @@ async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
         if not reponse.obsolete:
             raise HTTPException(409, "Cette réponse n'est pas obsolète.")
 
-        ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
-        if ticket:
-            check_domain_write(ticket.domaine, current_user)
+        check_reponse_write(db, reponse, current_user)
 
         famille = fermeture_copies(db, {reponse.id})
         a_reindexer = [
@@ -486,14 +509,19 @@ async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
 async def editer_reponse_canonique(
     reponse_id: str,
     payload: EditerCanoniqueRequest,
-    current_user: AdminUser,
+    current_user: BackofficeUser,
 ):
     """Édite le contenu servi d'une réponse canonique puis la réindexe dans Qdrant,
     afin que les futures questions renvoient le nouveau texte. Le nouveau contenu est
-    stocké dans `contenu_corrige` (champ privilégié par le feedback_job)."""
+    stocké dans `contenu_corrige` (champ privilégié par le feedback_job).
+
+    Ouvert au back-office ayant le domaine, et non au seul admin : c'est la voie de
+    sortie de l'avertissement « passages ajoutés » de l'écran d'impact, qui s'adresse
+    à celui qui met le document à jour."""
     db = SessionLocal()
     try:
         reponse = get_reponse_or_404(db, reponse_id)
+        check_reponse_write(db, reponse, current_user)
 
         if not reponse.canonique:
             raise HTTPException(409, "Seules les réponses canoniques peuvent être éditées ici.")
@@ -516,14 +544,17 @@ async def editer_reponse_canonique(
 
 
 @router.delete("/reponses/{reponse_id}")
-async def supprimer_reponse_canonique(reponse_id: str, current_user: AdminUser):
+async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeUser):
     """Supprime définitivement une réponse canonique : retrait du point Qdrant et de
     la ligne en base. Les futures questions similaires repassent par le pipeline RAG
     normal. Aucune cascade n'étant déclarée sur les FK, on nettoie manuellement les
-    chunks liés et on détache les copies (réutilisations CANONIQUE) avant la suppression."""
+    chunks liés et on détache les copies (réutilisations CANONIQUE) avant la suppression.
+
+    Même droit que l'édition : le domaine du ticket d'origine (`check_reponse_write`)."""
     db = SessionLocal()
     try:
         reponse = get_reponse_or_404(db, reponse_id)
+        check_reponse_write(db, reponse, current_user)
 
         # Une réponse devenue obsolète a pu ne jamais être canonique : l'onglet
         # Obsolètes doit tout de même permettre de la purger définitivement.
