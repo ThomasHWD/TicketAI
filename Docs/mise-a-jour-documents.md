@@ -6,8 +6,10 @@ Les réponses enregistrées ont été rédigées **sur les documents tels qu'ils
 de leur validation. Quand la charte télétravail passe de 2 à 3 jours, la réponse canonique qui
 disait « 2 jours » continue d'être servie automatiquement, sans qu'aucun humain la relise.
 
-Il fallait donc deux choses : pouvoir **remplacer** le fichier d'un document sans casser ce qui
-s'y rattache, et **savoir lesquelles** des réponses enregistrées ce remplacement rend fausses.
+Il fallait donc trois choses : pouvoir **remplacer** le fichier d'un document sans casser ce qui
+s'y rattache ; **savoir lesquelles** des réponses enregistrées ce remplacement rend fausses ; et,
+pour tout ce que cette dernière question ne peut pas trancher seule, **poser la question à un
+humain** au lieu de continuer à servir en silence.
 
 ## 2. Le parcours
 
@@ -22,10 +24,13 @@ flowchart TD
     C --> D{"Des réponses<br/>sont-elles touchées ?"}
     D -- non --> E["✅ Aucune réponse remise en cause"]
     D -- oui --> F["⚠️ Liste nominative des réponses<br/>qui vont devenir obsolètes,<br/>avec les passages en cause"]
+    C --> J["📄 Ce que la version ajoute<br/>ou retire ailleurs dans le document"]
     E --> G["Confirmer"]
     F --> G
+    J --> G
     G --> H["Ré-indexation en tâche de fond<br/>(suivie par le bandeau de jobs)"]
     H --> I["v2 en ligne · v1 archivée<br/>réponses touchées retirées du service"]
+    H --> K["Réponses survivantes déposées<br/>dans l'onglet À relire"]
 ```
 
 L'écran d'analyse est **exact, pas indicatif** : les réponses qu'il nomme sont exactement
@@ -93,9 +98,9 @@ au cas inverse.
 > continue d'être servie automatiquement.
 
 C'est le risque le plus sérieux du dispositif, et il faut le nommer : contrairement au faux
-positif de la section 4 — visible dans l'onglet Obsolètes, réversible en un clic — celui-ci est
-**invisible**. Et les mises à jour de charte sont typiquement additives : le cas n'a rien de
-théorique.
+positif de la section 4 — visible dans l'onglet Obsolètes, réversible en un clic — celui-ci
+serait **invisible**. Et les mises à jour de charte sont typiquement additives : le cas n'a rien
+de théorique.
 
 On pourrait croire que l'indexation suffit : le passage ajouté est bien indexé, et une question
 *nouvelle* repart en génération sur le document à jour. C'est vrai, mais hors sujet — le
@@ -104,20 +109,37 @@ enregistrée à resservir.
 
 Aucune règle automatique ne peut trancher : décider si un ajout invalide une réponse demande de
 le lire. Ce qu'on peut faire, en revanche, c'est **le rendre visible**. La même comparaison est
-donc appliquée dans l'autre sens — quels paragraphes de la nouvelle version sont absents de
-l'ancienne — et l'écran d'impact affiche, à côté du verdict d'obsolescence :
+donc appliquée **dans les deux sens** :
+
+| Sens | Ce qu'il attrape |
+|---|---|
+| Paragraphes de la v2 absents de la v1 | L'article **ajouté**, et la phrase réécrite. |
+| Paragraphes de la v1 absents de la v2 | La règle **abrogée** — supprimée sans que rien ne soit écrit à la place, donc invisible au premier sens. |
+
+Un pur reformatage (retours à la ligne, espaces, PDF réexporté) ne tire dans **aucun** des deux :
+c'est ce qui empêche le signal de se déclencher à chaque mise à jour et de cesser d'être lu.
+
+Dès qu'un des deux sens tire, deux choses se produisent.
+
+**1. L'écran d'impact le montre, avant confirmation** — à la personne qui met le document à jour,
+la mieux placée pour savoir ce qu'elle vient d'y écrire :
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│ 📄  2 passages ajoutés par cette version.                      │
+│ 📄  Cette version change le contenu du document.               │
 │                                                                │
 │     4 réponses enregistrées de ce document n'en tiennent pas   │
 │     compte et resteront servies telles quelles. Rien ne        │
-│     devient obsolète : à vous de juger si un de ces ajouts     │
-│     les contredit.                                             │
+│     devient obsolète : à vous de juger si un de ces            │
+│     changements les contredit. Elles seront listées dans       │
+│     Réponses enregistrées › À relire.                          │
 │                                                                │
+│     2 PASSAGES AJOUTÉS                                         │
 │     │ Article 7 bis : le télétravail est suspendu pendant…     │
 │     │ Article 9 : les frais d'équipement sont plafonnés à…     │
+│                                                                │
+│     1 PASSAGE RETIRÉ                                           │
+│     │ Article 12 : une prime de 20 € couvre les frais…         │
 │                                                                │
 │     À RELIRE, LES PLUS SERVIES D'ABORD                         │
 │     ┌──────────────────────────────────────────────────────┐   │
@@ -128,15 +150,14 @@ l'ancienne — et l'écran d'impact affiche, à côté du verdict d'obsolescence
 ```
 
 Les réponses sont **nommées, pas comptées** : un simple « 4 réponses n'en tiennent pas compte »
-obligerait à les retrouver à la main dans *Réponses enregistrées*, et l'avertissement retomberait.
-Chaque ligne ouvre son ticket **dans un nouvel onglet** — la mise à jour en cours n'est pas
-perdue, on peut relire sans renoncer à confirmer. Les plus validées viennent en tête : ce sont
-celles qui repartent le plus souvent. Au-delà de dix, le reste est annoncé et se traite depuis
-*Réponses enregistrées*.
+obligerait à les retrouver à la main, et l'avertissement retomberait. Chaque ligne ouvre son
+ticket **dans un nouvel onglet** — la mise à jour en cours n'est pas perdue, on peut relire sans
+renoncer à confirmer. Les plus validées viennent en tête : ce sont celles qui repartent le plus
+souvent.
 
-C'est un **signal de tri, pas une décision** : aucune réponse n'est retirée du service par ce
-panneau. Il transforme un angle mort en information affichée au bon moment — devant la personne
-qui met le document à jour, et qui est la mieux placée pour savoir ce qu'elle vient d'y écrire.
+**2. Les réponses concernées sont déposées dans une liste durable** — l'onglet **À relire** de
+*Réponses enregistrées*, décrit en section 4 bis. C'est ce qui distingue ce dispositif d'un
+simple avertissement : la modale se ferme, le signal reste.
 
 Deux réserves à connaître :
 
@@ -144,15 +165,33 @@ Deux réserves à connaître :
   ajouté. Les deux lectures sont vraies, le doublon est assumé ;
 - le panneau reste **masqué** si le fichier de la version courante n'est plus sur le disque
   (documents antérieurs au versionnage). Afficher « 0 passage ajouté » se lirait comme une
-  garantie ; mieux vaut ne rien dire que rassurer à tort.
+  garantie ; mieux vaut ne rien dire que rassurer à tort. Les réponses sont alors quand même
+  signalées, mais avec la mention « la version précédente n'a pas pu être relue » — un onglet
+  bruyant qui dit pourquoi il l'est vaut mieux qu'un silence.
 
-Agir sur une réponse signalée — la réécrire (`editer`) ou la purger (`DELETE`) — demande le
-**même droit que la mise à jour du document** : être back-office et avoir le domaine du ticket
-d'origine. Celui qui voit l'alerte peut donc la traiter lui-même. Séparer les deux reviendrait à
-dire qu'un validateur peut périmer une réponse en remplaçant le document dont elle découle, mais
-pas la corriger directement.
+Agir sur une réponse signalée — la confirmer, la réécrire, la retirer du service ou la purger —
+demande le **même droit que la mise à jour du document** : être back-office et avoir le domaine
+du ticket d'origine. Celui qui voit l'alerte peut donc la traiter lui-même. Séparer les deux
+reviendrait à dire qu'un validateur peut périmer une réponse en remplaçant le document dont elle
+découle, mais pas la corriger directement. **L'administrateur n'y échappe pas** : il voit tout, il
+n'écrit que dans ses domaines.
 
 ## 4. Ce qui arrive à une réponse obsolète
+
+Avant le détail : ne pas confondre les deux états. Ils viennent tous deux d'une mise à jour de
+document, mais ils ne disent pas la même chose et ne se traitent pas de la même façon.
+
+| | **Obsolète** | **À relire** |
+|---|---|---|
+| Ce qu'on sait | Un passage qui **fondait** la réponse a disparu. | Le document a changé **ailleurs**. |
+| Est-elle encore servie ? | **Non** — retirée de l'index. | **Oui** — rien n'a changé pour elle. |
+| Ce qu'on vous demande | Vérifier si le retrait était mérité. | Juger si le changement la contredit. |
+| Où | Onglet **Obsolètes** | Onglet **À relire** |
+| Le geste normal | Restaurer, ou laisser. | Confirmer, corriger, ou retirer du service. |
+
+Autrement dit : l'obsolescence est une **décision** prise par le système, faillible et
+réversible ; le signalement est une **question** posée à un humain, parce qu'aucune règle ne peut
+y répondre.
 
 | | |
 |---|---|
@@ -167,6 +206,66 @@ quelqu'un a simplement reformulé une phrase sans en changer le sens, la répons
 obsolète à tort. Vous la relisez, vous constatez qu'elle tient toujours, vous la restaurez.
 C'est le prix d'une règle sans seuil à régler — et c'est un faux positif visible et réversible,
 là où un seuil mal calibré produirait des faux négatifs invisibles.
+
+## 4 bis. L'onglet *À relire*
+
+Toutes les réponses encore servies d'un document dont le contenu a changé y sont déposées. Elles
+**continuent d'être servies** pendant tout ce temps : le drapeau est une file de relecture, pas
+un retrait. Le contraire ferait tomber en génération toute la base de connaissances d'un document
+au moindre ajout.
+
+**Le volume est réel et assumé.** Une phrase réécrite dans une charte qui porte 40 réponses en
+signale 39. C'est la conséquence directe de ce qu'on cherche : la contradiction est *ailleurs* que
+dans les passages cités, par définition — cibler « près de la zone modifiée » raterait précisément
+le cas visé. La réponse au volume est donc ergonomique, pas un filtre qui rendrait le signal muet :
+
+```
+Réponses enregistrées   [ Canoniques ]  [ À relire ② ]  [ Obsolètes 3 ]
+                                                 ▲
+                              le badge compte les DOCUMENTS, pas les réponses
+┌──────────────────────────────────────────────────────────────────────┐
+│ Charte_RH.md  v3                              [ ✓ Tout confirmer ]   │
+│ 12 réponses sur cette page                                           │
+│                                                                      │
+│ 1 PASSAGE AJOUTÉ                                                     │
+│ │ Article 7 bis : le télétravail est suspendu pendant les périodes…  │
+│ ────────────────────────────────────────────────────────────────────│
+│  Combien de jours de télétravail ? ↗          canonique     12 val.  │
+│  Vous pouvez télétravailler jusqu'à deux jours hebdomadaires…        │
+│                        [ ✓ Toujours d'actualité ]  [ ✎ ]  [ 👁 ]     │
+│ ────────────────────────────────────────────────────────────────────│
+│  Le télétravail est-il de droit ? ↗           canonique      5 val.  │
+│  …                                                                   │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Le diff se lit une fois, en tête du groupe** — et il est *figé* au moment de la mise à jour, pas
+recalculé : trois jours plus tard, l'archive de la version sortante peut avoir été purgée, et
+« cette réponse est liée à Charte_RH v3 » ne permettrait de juger de rien.
+
+**Le badge compte les documents.** « 2 documents à relire » se traite ; « 39 réponses » se subit —
+alors que ce sont bien deux diffs à lire, pas trente-neuf.
+
+Trois issues par réponse, plus une en lot :
+
+| Action | Effet |
+|---|---|
+| **Toujours d'actualité** | Le signalement tombe, rien d'autre ne change. La réponse continue d'être servie. |
+| **Modifier** | On réécrit la réponse pour tenir compte du changement. Le signalement tombe : l'avoir éditée *est* le jugement demandé. |
+| **Retirer du service** | La réponse bascule dans **Obsolètes**, d'où elle reste restaurable. |
+| **Tout confirmer** | La sortie normale quand un document a signalé trente réponses : on lève le lot d'un document et d'une version. |
+
+La **version** fait partie de la clé du lot, et pas seulement le document : si le document a été
+remis à jour entre-temps, ses réponses ont été reflaguées sur v(n+1), et une confirmation partie
+de l'écran de v(n) ne doit pas balayer un signalement que personne n'a vu.
+
+Une réponse signalée reste visible dans l'onglet **Canoniques**, où elle porte une pastille ambre.
+C'est cohérent : elle est toujours servie, elle a toute sa place dans la liste des réponses
+actives — mais l'écran ne doit pas la présenter comme acquise.
+
+Enfin, si une réponse signalée devient **obsolète** lors d'une mise à jour ultérieure, son
+signalement est levé : l'obsolescence tranche la question que la relecture posait, et la réponse
+ne siège jamais dans les deux onglets à la fois.
 
 ## 5. Versions et restauration
 
@@ -198,10 +297,18 @@ redeviennent valables.
 - **La reformulation cosmétique déclenche un faux positif.** Changer un synonyme ou une
   ponctuation dans un passage cité marque la réponse obsolète alors que le fond n'a pas bougé.
   Réponse du système : c'est visible, et Restaurer le corrige en un clic.
-- **Une information ajoutée ailleurs ne rend rien obsolète automatiquement.** Elle est signalée
-  sur l'écran d'impact (§3), mais c'est à un humain de juger si elle contredit une réponse
-  existante. C'est la limite la plus sérieuse, et la seule qui repose entièrement sur la
-  vigilance de la personne qui met à jour.
+- **On signale, on ne décide pas.** Un changement ailleurs dans le document est détecté (dans les
+  deux sens) et dépose les réponses concernées dans l'onglet *À relire* — mais aucune règle ne
+  peut dire s'il les contredit : cela demande de lire. Tant que personne n'a tranché, la réponse
+  **continue d'être servie**. C'est la limite la plus sérieuse, et la seule qui repose entièrement
+  sur la vigilance humaine ; ce qui a changé, c'est qu'elle ne repose plus sur la vigilance d'une
+  seule personne à un seul instant.
+- **Le signalement est large, et bruyant par construction.** Toutes les réponses du document sont
+  déposées, pas seulement celles proches du changement — cibler plus finement raterait le cas
+  même qu'on cherche. D'où le groupement et la confirmation en lot (§4 bis).
+- **Un seul signalement à la fois par réponse.** Si un second document la fait signaler, les
+  colonnes sont écrasées : dernier arrivé gagne. Une réponse ne peut pas porter deux relectures en
+  attente.
 - **Un fichier renommé échappe au garde-fou homonyme** de la page Ingestion.
 - **Le domaine d'un document n'est pas modifiable** par une mise à jour.
 - **Supprimer un document efface aussi ses archives** — toutes les versions, définitivement.
@@ -232,26 +339,60 @@ copies SUGGESTION/CANONIQUE via `reponse_source_id` (elles ne citent aucun chunk
 dédoublonne la famille pour que le comptage annoncé à l'écran soit celui des réponses réellement
 distinctes.
 
-**Détection en miroir** : `decouper_en_passages` + `passages_ajoutes`, même primitive appliquée
-dans l'autre sens. L'unité est le **paragraphe**, pas le chunk : un chunk fait 384 tokens, donc
-un extrait illisible et une granularité telle que la moindre retouche marquerait 1 500
-caractères comme ajoutés. Les blocs de moins de 40 caractères (titres, numérotation, artefacts
-PDF) sont écartés. Coût : un `extract_text` de plus au moment de l'aperçu — sur le fichier de la
-version courante, qui sert de texte de référence. Ni appel API, ni embedding. Si ce fichier est
-absent ou illisible, `analyser_ajouts` renvoie `ajouts_analysables: False` et le front masque le
-panneau : l'obsolescence, elle, est déjà calculée, et perdre le signal secondaire ne doit pas
-coûter le principal.
+**Détection en miroir** : `decouper_en_passages` + `passages_ajoutes`, **même primitive appelée
+deux fois, arguments inversés** — c'est tout le second sens. L'unité est le **paragraphe**, pas
+le chunk : un chunk fait 384 tokens, donc un extrait illisible et une granularité telle que la
+moindre retouche marquerait 1 500 caractères comme ajoutés. Les blocs de moins de 40 caractères
+(titres, numérotation, artefacts PDF) sont écartés. Coût : un `extract_text` de plus — sur le
+fichier de la version courante, qui sert de texte de référence. Ni appel API, ni embedding. Si ce
+fichier est absent ou illisible, `analyser_changements` (`api/v1/documents.py`) renvoie
+`ajouts_analysables: False` et le front masque le panneau : l'obsolescence, elle, est déjà
+calculée, et perdre le signal secondaire ne doit pas coûter le principal.
+
+Le calcul existe en deux exemplaires, volontairement : `analyser_changements` côté API pour
+l'aperçu, son homonyme dans le worker pour figer le résultat dans `DocumentVersion.changements` à
+la confirmation. `extrait()` est partagé pour que les deux montrent exactement le même texte.
+**Ne jamais** reconstituer le texte sortant en concaténant les chunks capturés : le chevauchement
+de 128 tokens du splitter fabriquerait une fausse suppression à chaque couture.
 
 **Job** : `backend/app/workers/document_update.py`, file `queue_ingestion`.
 Ordre imposé — `scroll` (capture du texte des anciens passages, **avant toute suppression** :
 c'est leur seule source) → extraction + détection → découpage + embeddings → `upsert` des
-nouveaux points → `delete` des anciens → commit Postgres → `marquer_obsoletes` → SSE
-`document_updated`. L'upsert précède le delete : l'ordre inverse ouvrirait un trou de service
-pendant toute la durée des embeddings. Le prix est une fenêtre de quelques centaines de
-millisecondes où les deux versions coexistent dans l'index.
+nouveaux points → `delete` des anciens → commit Postgres → `marquer_obsoletes` →
+`marquer_a_relire` → SSE `document_updated`. L'upsert précède le delete : l'ordre inverse
+ouvrirait un trou de service pendant toute la durée des embeddings. Le prix est une fenêtre de
+quelques centaines de millisecondes où les deux versions coexistent dans l'index.
+Le signalement vient **après** l'obsolescence, jamais avant : les réponses qui viennent de
+disparaître n'ont pas à être relues, et `reponses_obsoletes` les écarte une fois le commit passé.
+Le chemin du fichier sortant se lit dans le pré-vol, avec le domaine : la session est fermée
+ensuite et `doc` devient détaché.
 
 **Obsolescence en base** : un **drapeau** `Reponse.obsolete` (+ `obsolete_raison`,
 `obsolete_doc_id`, `obsolete_version`, `obsolete_at`), et non une valeur de `statut`. `statut`
 porte le workflow du ticket ; y écrire « obsolète » ferait apparaître comme périmée, sur des
 tickets clos, une réponse qui *a bien été* validée et *était* correcte. Le drapeau donne le
 comportement voulu sans corrompre l'historique.
+
+**Signalement en base** : cinq colonnes en miroir exact des précédentes — `Reponse.a_relire`
+(+ `a_relire_raison`, `a_relire_doc_id`, `a_relire_version`, `a_relire_at`). `marquer_a_relire`
+**ne touche pas à Qdrant** : c'est toute la différence avec l'obsolescence. Il flague la famille
+entière (`reponses_obsoletes(..., indices=None)`) et non les seules `racines` — `racines` garde
+les copies dont la source est hors ensemble, que le filtre `reponse_source_id IS NULL` des listes
+rendrait invisibles donc indéboulonnables.
+
+Ce qui lève le drapeau : `confirmer_actualite`, `PUT /reponses/{id}/editer`, `corriger_reponse`,
+`marquer_obsoletes` (une réponse ne siège jamais dans les deux onglets), `restaurer_reponse`
+(restaurer *est* le jugement demandé), et le reset des copies détachées par `DELETE`. Ce qui ne
+le lève **pas** : `valider_reponse` — le validateur d'un nouveau ticket ne sait pas que le
+document a bougé.
+
+| Route | Effet |
+|---|---|
+| `GET /reponses/a-relire` | Liste paginée des **sources** signalées, avec `changements` de la version et `nb_documents` (le badge). |
+| `POST /reponses/{id}/confirmer-actualite` | Lève le drapeau sur la famille. 409 si la réponse n'est pas signalée. |
+| `POST /reponses/confirmer-actualite` | Lot `{doc_id, version}`, restreint aux domaines de l'appelant. |
+| `POST /reponses/{id}/retirer` | Obsolescence à la main, `raison = RETIRÉ_À_LA_MAIN`, en reprenant `a_relire_doc_id`/`a_relire_version` — sinon l'onglet Obsolètes afficherait « document supprimé ». |
+
+**`feedback_job` upserte sans condition** et `valider_reponse` le déclenche sur la source : le
+point Qdrant d'une réponse retirée peut donc réapparaître. Le filtre `obsolete.is_(False)` de
+`question.py` reste la vraie garantie — à ne pas présenter comme un retrait définitif.
