@@ -138,8 +138,24 @@ def scenario_maj(tmp_path, monkeypatch, qdrant_mock, db_session):
     )
 
     doc_id = str(uuid.uuid4())
-    db_session.add(Document(doc_id=doc_id, filename="charte.md", domaine="RH", version=1, nb_chunks=2))
-    db_session.add(DocumentVersion(doc_id=doc_id, version=1, filename="charte.md", nb_chunks=2))
+
+    # Le fichier de la v1 sur disque, et pas seulement la ligne en base : c'est
+    # lui que le job relit pour comparer les contenus. Sans lui, tous les tests
+    # partiraient dans la branche dégradée `VERSION_SORTANTE_ILLISIBLE` en
+    # donnant l'illusion de couvrir la détection.
+    dossier_v1 = tmp_path / "storage" / doc_id / "v1"
+    dossier_v1.mkdir(parents=True)
+    fichier_v1 = dossier_v1 / "charte.md"
+    fichier_v1.write_text(TEXTE_V1, encoding="utf-8")
+
+    db_session.add(Document(
+        doc_id=doc_id, filename="charte.md", domaine="RH", version=1,
+        nb_chunks=2, stored_path=str(fichier_v1),
+    ))
+    db_session.add(DocumentVersion(
+        doc_id=doc_id, version=1, filename="charte.md",
+        nb_chunks=2, stored_path=str(fichier_v1),
+    ))
     db_session.commit()
 
     # La version sortante, telle que Qdrant la conserve
@@ -152,6 +168,7 @@ def scenario_maj(tmp_path, monkeypatch, qdrant_mock, db_session):
         doc_id=doc_id,
         db=db_session,
         fichier=fichier,
+        fichier_v1=fichier_v1,
         kwargs={
             "doc_id": doc_id,
             "new_version": 2,
@@ -333,6 +350,124 @@ class TestObsolescenceDeclenchee:
         scenario_maj.db.refresh(r)
         assert r.obsolete is False
         assert resultat["nb_obsoletes"] == 0
+
+
+@pytest.mark.integration
+class TestSignalementARelire:
+    """Le filet du cas que la détection verbatim ne voit pas.
+
+    Le document dit quelque chose de neuf ou ne dit plus quelque chose ; on ne
+    peut pas savoir si cela contredit les réponses existantes, donc on demande
+    une relecture au lieu de laisser servir en silence.
+    """
+
+    _reponse_sur = staticmethod(TestObsolescenceDeclenchee._reponse_sur)
+
+    def test_ajout_ailleurs_signale_sans_perimer(self, scenario_maj):
+        """Le scénario de référence : l'article ajouté ne touche aucun passage
+        cité, rien ne devient obsolète — et sans signalement, personne ne saurait
+        jamais qu'il faut relire."""
+        from app.workers.document_update import document_update_job
+
+        r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 1)
+        scenario_maj.fichier.write_text(
+            TEXTE_V1 + "\n\nArticle 7 bis : le télétravail est suspendu en période de forte activité.",
+            encoding="utf-8",
+        )
+
+        resultat = document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r)
+        assert resultat["nb_obsoletes"] == 0
+        assert resultat["nb_a_relire"] == 1
+        assert r.obsolete is False  # toujours servie
+        assert r.a_relire is True
+        assert r.a_relire_raison == "DOC_MODIFIÉ"
+        assert r.a_relire_doc_id == scenario_maj.doc_id
+        assert r.a_relire_version == 2
+
+    def test_passage_retire_ailleurs_signale(self, scenario_maj):
+        """Une règle abrogée, rien d'inséré : le sens inverse est le seul à voir."""
+        from app.workers.document_update import document_update_job
+
+        r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
+        scenario_maj.fichier.write_text(TEXTE_V1.split("\n\n")[0], encoding="utf-8")
+
+        resultat = document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r)
+        assert resultat["nb_a_relire"] == 1
+        assert r.a_relire is True
+
+    def test_reformatage_ne_signale_rien(self, scenario_maj):
+        """La propriété anti-inondation, côté job. Sans elle, redéposer le même
+        contenu mettrait toute la base de connaissances du document en relecture."""
+        from app.workers.document_update import document_update_job
+
+        r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 1)
+        scenario_maj.fichier.write_text(TEXTE_V1.replace(" ", "  "), encoding="utf-8")
+
+        resultat = document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r)
+        assert resultat["nb_a_relire"] == 0
+        assert r.a_relire is False
+
+    def test_perimee_n_est_pas_aussi_signalee(self, scenario_maj):
+        """Une réponse qui vient de disparaître n'a pas à être relue : elle
+        siégerait dans les deux onglets."""
+        from app.workers.document_update import document_update_job
+
+        r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
+
+        resultat = document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r)
+        assert resultat["nb_obsoletes"] == 1
+        assert resultat["nb_a_relire"] == 0
+        assert r.obsolete is True
+        assert r.a_relire is False
+
+    def test_version_sortante_illisible_signale_avec_sa_raison(self, scenario_maj):
+        """Document backfillé ou archive disparue : on ne peut plus comparer.
+
+        Se taire laisserait passer un changement réel ; réutiliser la raison du
+        signal normal ferait croire à une détection qui n'a pas eu lieu. La
+        liste dit donc elle-même pourquoi elle est bruyante.
+        """
+        from app.workers.document_update import document_update_job
+
+        r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 1)
+        scenario_maj.fichier_v1.unlink()
+
+        resultat = document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r)
+        assert resultat["nb_a_relire"] == 1
+        assert r.a_relire_raison == "VERSION_SORTANTE_ILLISIBLE"
+
+    def test_changements_ecrits_sur_la_version(self, scenario_maj):
+        """Les extraits sont figés à la mise à jour : la liste se consulte des
+        jours plus tard, quand l'archive sortante peut avoir été purgée."""
+        from app.models.document_version import DocumentVersion
+        from app.workers.document_update import document_update_job
+
+        document_update_job(**scenario_maj.kwargs)
+
+        ligne = (
+            scenario_maj.db.query(DocumentVersion)
+            .filter(
+                DocumentVersion.doc_id == scenario_maj.doc_id,
+                DocumentVersion.version == 2,
+            )
+            .first()
+        )
+        scenario_maj.db.refresh(ligne)
+        # TEXTE_V2 réécrit le 1er paragraphe : il est à la fois ajouté et retiré.
+        assert ligne.changements["nb_ajoutes"] == 1
+        assert ligne.changements["nb_retires"] == 1
+        assert "3 jours" in ligne.changements["extraits_ajoutes"][0]
+        assert "2 jours" in ligne.changements["extraits_retires"][0]
 
 
 @pytest.mark.integration

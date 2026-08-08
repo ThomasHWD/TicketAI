@@ -38,10 +38,28 @@ from app.models.document_upload import DocumentUpload
 from app.models.document_version import DocumentVersion
 from app.services.broadcast import broadcast_sync
 from app.services.embedding import embed_texts
-from app.services.obsolescence import RAISON_MAJ, indices_modifies, marquer_obsoletes, racines
+from app.services.obsolescence import (
+    MAX_EXTRAITS,
+    RAISON_ILLISIBLE,
+    RAISON_MAJ,
+    RAISON_MODIF,
+    decouper_en_passages,
+    extrait,
+    indices_modifies,
+    marquer_a_relire,
+    marquer_obsoletes,
+    passages_ajoutes,
+    racines,
+)
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
-from app.workers.ingestion import chunk_text, extract_text, point_id, store_file
+from app.workers.ingestion import (
+    chemin_du_fichier,
+    chunk_text,
+    extract_text,
+    point_id,
+    store_file,
+)
 
 
 def filtre_anciens(doc_id: str, version_cible: int) -> Filter:
@@ -92,6 +110,43 @@ def capturer_chunks(doc_id: str, version_cible: int) -> dict[int, str]:
 def texte_complet(pages: list[str]) -> str:
     """Le texte tel que ``chunk_text`` le verra — donc celui où chercher les passages."""
     return "\n\n".join(pages)
+
+
+def analyser_changements(chemin_sortant: str | None, nouveau_texte: str) -> dict | None:
+    """Ce que la nouvelle version dit de neuf, et ce qu'elle ne dit plus.
+
+    Les deux sens sortent de la même primitive, arguments inversés :
+    ``ajoutes`` couvre l'insertion et la réécriture (un paragraphe réécrit est
+    absent de l'ancien texte), ``retires`` couvre le seul cas qui restait — une
+    règle **abrogée** ailleurs, sans rien insérer.
+
+    ``_normaliser`` garantit qu'un pur reformatage ne produit ni l'un ni l'autre :
+    c'est le garde-fou contre l'inondation, sans lui chaque redécoupage
+    signalerait tout le document.
+
+    Renvoie ``None`` quand la version sortante est illisible — fichier disparu
+    (documents backfillés) ou archive corrompue. L'appelant signale alors avec
+    ``RAISON_ILLISIBLE`` plutôt que de se taire : la liste dit elle-même pourquoi
+    elle est bruyante. **Ne jamais** reconstituer le texte sortant en concaténant
+    les chunks capturés — le chevauchement de 128 tokens du splitter fabriquerait
+    une fausse suppression à chaque couture.
+    """
+    if chemin_sortant is None:
+        return None
+    try:
+        ancien_texte = texte_complet(extract_text(chemin_sortant))
+    except Exception as exc:
+        print(f"[MAJ] version sortante illisible ({exc}) — signalement dégradé")
+        return None
+
+    ajoutes = passages_ajoutes(decouper_en_passages(nouveau_texte), ancien_texte)
+    retires = passages_ajoutes(decouper_en_passages(ancien_texte), nouveau_texte)
+    return {
+        "nb_ajoutes": len(ajoutes),
+        "nb_retires": len(retires),
+        "extraits_ajoutes": [extrait(t) for t in ajoutes[:MAX_EXTRAITS]],
+        "extraits_retires": [extrait(t) for t in retires[:MAX_EXTRAITS]],
+    }
 
 
 class TacheMaj(celery_app.Task):
@@ -158,6 +213,9 @@ def document_update_job(
                 print(f"[MAJ] v{new_version} déjà en place — rien à faire")
                 return {"statut": "OK", "doc_id": doc_id, "version": new_version, "nb_obsoletes": 0}
             domaine = doc.domaine
+            # Le chemin du fichier sortant se lit ici, pas plus loin : la session
+            # ferme dans deux lignes et `doc` devient détaché.
+            chemin_sortant = chemin_du_fichier(doc.doc_id, doc.filename, doc.stored_path)
         finally:
             db.close()
 
@@ -180,8 +238,17 @@ def document_update_job(
 
         # Étape 3 — Extraction et détection d'impact (ni chunking ni embedding requis)
         pages = extract_text(file_path)
-        indices = indices_modifies(anciens, texte_complet(pages))
+        nouveau_texte = texte_complet(pages)
+        indices = indices_modifies(anciens, nouveau_texte)
         print(f"[MAJ] {len(indices)}/{len(anciens)} passages modifiés")
+
+        # Le fichier sortant est encore sur le disque : `store_file` (étape 5)
+        # écrit sous v{new_version}, il ne l'écrase pas.
+        changements = analyser_changements(chemin_sortant, nouveau_texte)
+        if changements is None:
+            print("[MAJ] contenu comparé impossible — toutes les réponses seront à relire")
+        else:
+            print(f"[MAJ] {changements['nb_ajoutes']} ajout(s), {changements['nb_retires']} retrait(s)")
 
         # Étape 4 — Chunking + embedding de la nouvelle version
         chunks = chunk_text(pages)
@@ -254,6 +321,7 @@ def document_update_job(
             ligne.uploaded_by = user_uuid
             ligne.restauree_depuis = restauree_depuis
             ligne.remplacee_at = None
+            ligne.changements = changements
 
             doc.version = new_version
             doc.filename = filename
@@ -272,14 +340,28 @@ def document_update_job(
             # Étape 9 — Obsolescence, une fois la nouvelle version bien en place
             obsoletes = marquer_obsoletes(db, doc_id, RAISON_MAJ, version=new_version, indices=indices)
             nb_obsoletes = len(racines(obsoletes))
+
+            # Étape 10 — Signalement pour relecture. Après l'obsolescence, jamais
+            # avant : les réponses qui viennent de disparaître n'ont pas à être
+            # relues, et `reponses_obsoletes` les écarte une fois le commit passé.
+            if changements is None:
+                nb_a_relire = len(racines(marquer_a_relire(db, doc_id, new_version, RAISON_ILLISIBLE)))
+            elif changements["nb_ajoutes"] or changements["nb_retires"]:
+                nb_a_relire = len(racines(marquer_a_relire(db, doc_id, new_version, RAISON_MODIF)))
+            else:
+                # Reformatage pur : le document ne dit rien de neuf, rien à relire.
+                nb_a_relire = 0
         finally:
             db.close()
 
-        # Étape 10 — Le staging n'a plus d'utilité : plus aucun retry ne suivra
+        # Étape 11 — Le staging n'a plus d'utilité : plus aucun retry ne suivra
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        print(f"[MAJ] ✅ v{ancienne_version} → v{new_version}, {nb_obsoletes} réponse(s) obsolète(s)")
+        print(
+            f"[MAJ] ✅ v{ancienne_version} → v{new_version}, "
+            f"{nb_obsoletes} obsolète(s), {nb_a_relire} à relire"
+        )
 
         broadcast_sync(
             f"sse:domain:{domaine}",
@@ -290,6 +372,7 @@ def document_update_job(
                 "filename": filename,
                 "nb_chunks": len(chunks),
                 "nb_obsoletes": nb_obsoletes,
+                "nb_a_relire": nb_a_relire,
                 "job_id": self.request.id,
             },
         )
@@ -302,6 +385,7 @@ def document_update_job(
             "stored_path": stored_path,
             "nb_chunks": len(chunks),
             "nb_obsoletes": nb_obsoletes,
+            "nb_a_relire": nb_a_relire,
         }
 
     except Exception as exc:

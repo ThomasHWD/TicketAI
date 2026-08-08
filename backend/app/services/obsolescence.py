@@ -37,12 +37,35 @@ from sqlalchemy.orm import Session
 # Raisons d'obsolescence stockées dans `Reponse.obsolete_raison`
 RAISON_MAJ = "DOC_MIS_A_JOUR"
 RAISON_SUPPRESSION = "DOC_SUPPRIMÉ"
+RAISON_MANUELLE = "RETIRÉ_À_LA_MAIN"
+
+# Raisons de relecture stockées dans `Reponse.a_relire_raison`
+RAISON_MODIF = "DOC_MODIFIÉ"
+RAISON_ILLISIBLE = "VERSION_SORTANTE_ILLISIBLE"
 
 _ESPACES = re.compile(r"\s+")
 
 # En deçà, un paragraphe est un titre ou un artefact de mise en page : le
 # signaler comme « passage ajouté » noierait le signal utile.
 LONGUEUR_MIN_AJOUT = 40
+
+# Longueur d'un extrait de passage montré à l'humain.
+LONGUEUR_EXTRAIT = 240
+
+# Extraits conservés par sens de changement. Trois suffisent à faire comprendre
+# ce qui a bougé ; au-delà, on recopierait le document dans une colonne JSON.
+MAX_EXTRAITS = 3
+
+
+def extrait(texte: str) -> str:
+    """Passage tronqué pour affichage.
+
+    Vit ici, et non dans ``api/v1/documents.py``, pour que l'écran d'impact et
+    les ``changements`` figés par le worker montrent exactement le même texte —
+    ce sont les deux faces du même signalement, à quelques secondes d'écart.
+    """
+    texte = " ".join(texte.split())
+    return texte if len(texte) <= LONGUEUR_EXTRAIT else texte[:LONGUEUR_EXTRAIT] + "…"
 
 
 def _normaliser(texte: str) -> str:
@@ -191,6 +214,23 @@ def marquer_obsoletes(
     et ``delete_response_point`` sur un id absent est un no-op.
     """
     reponses = reponses_obsoletes(db, doc_id, indices)
+    retirer_du_service(db, reponses, raison, doc_id, version)
+    return reponses
+
+
+def retirer_du_service(
+    db: Session,
+    reponses: list[Reponse],
+    raison: str,
+    doc_id: str | None,
+    version: int | None,
+) -> None:
+    """Retire de Qdrant et pose les drapeaux, sur une liste déjà constituée.
+
+    Extrait de ``marquer_obsoletes`` pour servir aussi le retrait à la main
+    (``POST /reponses/{id}/retirer``), qui part d'une famille précise et non
+    d'un document.
+    """
     maintenant = datetime.now(timezone.utc)
 
     for r in reponses:
@@ -200,6 +240,65 @@ def marquer_obsoletes(
         r.obsolete_doc_id = doc_id
         r.obsolete_version = version
         r.obsolete_at = maintenant
+        # Une réponse signalée à la v3 puis périmée à la v4 siégerait dans les
+        # deux onglets. L'obsolescence tranche la question que la relecture
+        # posait : le signal n'a plus lieu d'être.
+        lever_a_relire(r)
+
+    db.commit()
+
+
+def lever_a_relire(r: Reponse) -> None:
+    """Efface les cinq colonnes de relecture d'une réponse."""
+    r.a_relire = False
+    r.a_relire_raison = None
+    r.a_relire_doc_id = None
+    r.a_relire_version = None
+    r.a_relire_at = None
+
+
+def marquer_a_relire(
+    db: Session,
+    doc_id: str,
+    version: int,
+    raison: str = RAISON_MODIF,
+) -> list[Reponse]:
+    """Signale pour relecture toutes les réponses encore servies issues du document.
+
+    Répond à l'angle mort de ``indices_modifies`` : le contenu du document a
+    changé quelque part, sans qu'aucun passage cité n'ait bougé. Impossible de
+    savoir si le nouveau texte contredit ces réponses — seul un humain le peut.
+    Le périmètre est donc **tout le document** : cibler « près de la zone
+    modifiée » raterait précisément le cas visé, la contradiction étant ailleurs
+    par définition.
+
+    Ne touche pas à Qdrant : c'est toute la différence avec l'obsolescence. La
+    réponse continue d'être servie tant que personne n'a tranché.
+
+    Flague la **famille entière** et non les seules ``racines`` : ``racines``
+    conserve les copies dont la source est hors ensemble, qu'un futur filtre
+    ``reponse_source_id IS NULL`` rendrait invisibles — donc indéboulonnables.
+    Seul le *comptage* passe par ``racines``.
+
+    Les réponses déjà obsolètes sont hors jeu : ``reponses_obsoletes`` les filtre,
+    et ``marquer_obsoletes`` commite avant qu'on arrive ici.
+    """
+    reponses = reponses_obsoletes(db, doc_id, indices=None)
+    maintenant = datetime.now(timezone.utc)
+
+    for r in reponses:
+        r.a_relire = True
+        r.a_relire_raison = raison
+        r.a_relire_doc_id = doc_id
+        r.a_relire_version = version
+        r.a_relire_at = maintenant
 
     db.commit()
     return reponses
+
+
+def confirmer_actualite(db: Session, reponses: list[Reponse]) -> None:
+    """Lève le signalement : un humain a relu et jugé la réponse toujours juste."""
+    for r in reponses:
+        lever_a_relire(r)
+    db.commit()

@@ -12,10 +12,14 @@ import uuid
 import pytest
 from app.services.obsolescence import (
     RAISON_MAJ,
+    RAISON_MODIF,
+    confirmer_actualite,
     decouper_en_passages,
     indices_modifies,
+    marquer_a_relire,
     marquer_obsoletes,
     passages_ajoutes,
+    racines,
     reponses_obsoletes,
 )
 
@@ -162,6 +166,49 @@ class TestPassagesAjoutes:
         nouveaux = decouper_en_passages(TEXTE)
 
         assert passages_ajoutes(nouveaux, "") == nouveaux
+
+
+class TestDetectionDansLesDeuxSens:
+    """Le déclencheur du signalement « à relire » : la même primitive, deux fois.
+
+    ``ajoutes`` = ce que la nouvelle version dit de neuf,
+    ``retires`` = ce qu'elle ne dit plus. Cf. ``analyser_changements``.
+    """
+
+    @staticmethod
+    def _deux_sens(ancien: str, nouveau: str) -> tuple[list[str], list[str]]:
+        return (
+            passages_ajoutes(decouper_en_passages(nouveau), ancien),
+            passages_ajoutes(decouper_en_passages(ancien), nouveau),
+        )
+
+    def test_passage_retire_ailleurs_est_signale(self):
+        """Le cas qu'aucun des deux autres détecteurs n'attrape.
+
+        Une règle est **abrogée** ailleurs dans le document, sans rien insérer :
+        les passages cités par les réponses sont intacts (`indices_modifies` est
+        vide), et rien n'est ajouté non plus. Sans le sens inverse, une réponse
+        canonique continuerait de servir une règle qui n'existe plus.
+        """
+        nouveau = "\n\n".join(TEXTE.split("\n\n")[:2])
+
+        ajoutes, retires = self._deux_sens(TEXTE, nouveau)
+
+        assert indices_modifies(_decouper(nouveau, 40), nouveau) == set()
+        assert ajoutes == []
+        assert retires == [TEXTE.split("\n\n")[2]]
+
+    def test_reformatage_ne_signale_dans_aucun_sens(self):
+        """La propriété anti-inondation. Sans elle, chaque redépôt du même contenu
+        mettrait toute la base de connaissances du document en relecture."""
+        reformate = TEXTE.replace("\n\n", "\n\n\n").replace(" ", "  ")
+
+        assert self._deux_sens(TEXTE, reformate) == ([], [])
+
+    def test_ajout_pur_signale_dans_un_seul_sens(self):
+        nouveau = TEXTE + "\n\n" + AJOUT
+
+        assert self._deux_sens(TEXTE, nouveau) == ([AJOUT], [])
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -336,6 +383,107 @@ class TestMarquerObsoletes:
 
         assert len(premier) == 1
         assert second == []
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# marquer_a_relire — le signalement, qui ne retire rien
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestMarquerARelire:
+    def test_marque_et_horodate(self, scenario):
+        r = scenario(chunks=[1], canonique=True)
+
+        marquer_a_relire(scenario.db, scenario.doc_id, 2)
+
+        scenario.db.refresh(r)
+        assert r.a_relire is True
+        assert r.a_relire_raison == RAISON_MODIF
+        assert r.a_relire_doc_id == scenario.doc_id
+        assert r.a_relire_version == 2
+        assert r.a_relire_at is not None
+
+    def test_ne_touche_pas_a_qdrant(self, scenario, _qdrant_muet):
+        """Toute la différence avec l'obsolescence : la réponse continue d'être
+        servie tant qu'un humain n'a pas tranché."""
+        r = scenario(chunks=[1], canonique=True)
+
+        marquer_a_relire(scenario.db, scenario.doc_id, 2)
+
+        scenario.db.refresh(r)
+        assert _qdrant_muet == []
+        assert r.obsolete is False
+
+    def test_signale_meme_sans_chunk_modifie(self, scenario):
+        """La raison d'être : les passages cités sont intacts, la contradiction
+        est ailleurs. `marquer_obsoletes` ne trouve rien, le signalement si."""
+        r = scenario(chunks=[1])
+
+        assert marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, 2, set()) == []
+        marquer_a_relire(scenario.db, scenario.doc_id, 2)
+
+        scenario.db.refresh(r)
+        assert r.a_relire is True
+
+    def test_famille_entiere_flaguee_racines_seules_comptees(self, scenario):
+        """Flaguer les seules racines rendrait les copies indéboulonnables : la
+        liste ne montre que les sources, une copie flaguée n'aurait aucune issue.
+        Le *comptage*, lui, passe par `racines` — sinon une réponse réutilisée
+        cinq fois s'annoncerait six fois."""
+        source = scenario(chunks=[1])
+        copie = scenario(source=source)
+
+        signalees = marquer_a_relire(scenario.db, scenario.doc_id, 2)
+
+        assert {r.id for r in signalees} == {source.id, copie.id}
+        assert [r.id for r in racines(signalees)] == [source.id]
+
+    def test_deja_obsolete_non_signalee(self, scenario):
+        """Une réponse qui vient de disparaître n'a pas à être relue."""
+        r = scenario(chunks=[1], obsolete=True)
+
+        assert marquer_a_relire(scenario.db, scenario.doc_id, 2) == []
+
+        scenario.db.refresh(r)
+        assert r.a_relire is False
+
+    def test_obsolescence_ulterieure_leve_le_signalement(self, scenario, _qdrant_muet):
+        """Signalée en v3, périmée en v4 : sans ce nettoyage, la réponse siégerait
+        dans les deux onglets à la fois."""
+        r = scenario(chunks=[1])
+        marquer_a_relire(scenario.db, scenario.doc_id, 3)
+
+        marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=4, indices={1})
+
+        scenario.db.refresh(r)
+        assert r.obsolete is True
+        assert r.a_relire is False
+        assert r.a_relire_doc_id is None
+
+    def test_confirmer_actualite_leve_les_cinq_colonnes(self, scenario):
+        r = scenario(chunks=[1])
+        marquer_a_relire(scenario.db, scenario.doc_id, 2)
+
+        confirmer_actualite(scenario.db, [r])
+
+        scenario.db.refresh(r)
+        assert (r.a_relire, r.a_relire_raison, r.a_relire_doc_id) == (False, None, None)
+        assert (r.a_relire_version, r.a_relire_at) == (None, None)
+
+    def test_reponse_signalee_reste_reutilisable(self, scenario):
+        """Le signalement est un tri, pas un retrait — la branche CANONIQUE
+        continue de servir la réponse jusqu'au jugement humain."""
+        from app.workers.question import SEUIL_COSINUS, _trouver_reponse_reutilisable
+
+        r = scenario(chunks=[1], canonique=True)
+        marquer_a_relire(scenario.db, scenario.doc_id, 2)
+
+        trouvee, _ = _trouver_reponse_reutilisable(
+            scenario.db, [{"reponse_id": str(r.id), "score_cosinus": SEUIL_COSINUS + 0.1}]
+        )
+
+        assert trouvee is not None and trouvee.id == r.id
 
 
 # ──────────────────────────────────────────────────────────────────────────────

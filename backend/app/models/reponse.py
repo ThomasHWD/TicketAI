@@ -42,5 +42,16 @@ class Reponse(Base):
     obsolete_version = Column(Integer, nullable=True)
     obsolete_at = Column(DateTime(timezone=True), nullable=True)
 
+    # « À relire » : le document source a changé de contenu, mais aucun passage
+    # dont cette réponse est issue n'a bougé. La détection verbatim ne peut pas
+    # savoir si l'ajout d'un article ailleurs la contredit — seul un humain le
+    # peut. Contrairement à `obsolete`, la réponse reste indexée et servie : le
+    # drapeau est une file de relecture, pas un retrait.
+    a_relire = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    a_relire_raison = Column(String(30), nullable=True)  # DOC_MODIFIÉ | VERSION_SORTANTE_ILLISIBLE
+    a_relire_doc_id = Column(String, nullable=True)
+    a_relire_version = Column(Integer, nullable=True)
+    a_relire_at = Column(DateTime(timezone=True), nullable=True)
+
     ticket = relationship("Ticket", back_populates="reponses")
     validator = relationship("User", foreign_keys=[validator_id])
