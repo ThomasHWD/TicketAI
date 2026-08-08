@@ -152,6 +152,26 @@ def backoffice_it(db_reelle):
     return user
 
 
+@pytest.fixture
+def admin_sans_groupe(db_reelle):
+    """Administrateur membre d'aucun domaine.
+
+    La fixture ``db_reelle`` inscrit son admin dans les trois domaines, ce qui
+    masque entièrement le contrôle d'écriture. Celui-ci sert à vérifier ce que
+    l'admin ne peut *pas* faire : `check_domain_write` ne l'exempte pas.
+    """
+    from app.core.security import get_current_user
+    from app.main import app
+    from app.models.user import User
+
+    user = User(email=f"{uuid.uuid4()}@test.local", role="ADMIN")
+    db_reelle.add(user)
+    db_reelle.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    return user
+
+
 def _doc_en_base(db, **overrides):
     """Insère une ligne `documents` prête à l'emploi."""
     from app.models.document import Document
@@ -714,6 +734,32 @@ class TestDeleteDocument:
 
         conserve = db_reelle.query(Document).filter(Document.doc_id == doc.doc_id).one()
         assert conserve.filename == "charte.md"
+
+    def test_hors_domaine_renvoie_403(self, client, db_reelle, backoffice_it, mock_qdrant):
+        doc = _doc_en_base(db_reelle, domaine="RH")
+
+        r = client.delete(f"{API}/documents/{doc.doc_id}")
+
+        assert r.status_code == 403
+        mock_qdrant.delete.assert_not_called()
+
+    def test_admin_hors_domaine_renvoie_403(self, client, db_reelle, admin_sans_groupe, mock_qdrant):
+        """Le rôle ne donne rien ici : supprimer un document, c'est agir sur un
+        domaine, et `check_domain_write` n'exempte pas l'administrateur."""
+        doc = _doc_en_base(db_reelle, domaine="RH")
+
+        r = client.delete(f"{API}/documents/{doc.doc_id}")
+
+        assert r.status_code == 403
+        mock_qdrant.delete.assert_not_called()
+
+    def test_par_le_domaine_ok_sans_etre_admin(self, client, db_reelle, backoffice_it, mock_qdrant):
+        """Le pendant : celui qui peut remplacer le fichier peut aussi le supprimer."""
+        doc = _doc_en_base(db_reelle, domaine="IT")
+
+        r = client.delete(f"{API}/documents/{doc.doc_id}")
+
+        assert r.status_code == 200
 
     def test_maj_en_cours_renvoie_409(self, client, db_reelle, mock_qdrant):
         doc = _doc_en_base(db_reelle, statut="EN_MAJ")

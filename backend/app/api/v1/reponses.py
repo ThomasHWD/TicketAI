@@ -61,15 +61,14 @@ def check_reponse_write(db, reponse: Reponse, current_user) -> None:
     domaine. C'est la règle déjà appliquée à ``restaurer_reponse`` et à la mise à
     jour de document.
 
-    Réponse orpheline (ticket disparu) : réservée à l'admin. Sauter le contrôle
-    laisserait n'importe quel back-office agir hors de son domaine ; l'interdire à
-    tous rendrait ces lignes impossibles à nettoyer.
+    Réponse orpheline (ticket disparu) : refusée à tout le monde, admin compris.
+    Sans ticket, il n'y a aucun domaine à confronter — accorder le droit à l'admin
+    reviendrait à rouvrir par la petite porte l'exception que cette règle refuse.
+    Aucune route ne supprime de ticket : la branche est défensive.
     """
     ticket = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
     if ticket is None:
-        if current_user.role != "ADMIN":
-            raise HTTPException(403, "Réponse sans ticket : réservée à un administrateur.")
-        return
+        raise HTTPException(409, "Réponse sans ticket : aucun domaine ne s'y rattache.")
     check_domain_write(ticket.domaine, current_user)
 
 

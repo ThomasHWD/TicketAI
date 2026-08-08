@@ -343,8 +343,10 @@ export default function AllDocs() {
                 {docs.map((doc) => {
                   const enMaj = doc.statut === "EN_MAJ";
                   // Miroir de `check_domain_write` côté serveur : proposer un bouton
-                  // qui répondrait 403 serait une invitation à l'échec.
-                  const peutEcrire = isAdmin || userDomaines.includes(doc.domaine ?? "");
+                  // qui répondrait 403 serait une invitation à l'échec. L'admin n'y
+                  // fait pas exception — il voit tous les documents, il n'agit que
+                  // sur ceux de ses domaines.
+                  const peutEcrire = userDomaines.includes(doc.domaine ?? "");
                   return (
                   <div
                     key={doc.doc_id}
@@ -412,14 +414,16 @@ export default function AllDocs() {
                           <RefreshCw size={14} />
                         </button>
                       )}
-                      <button
-                        onClick={() => setConfirming(doc)}
-                        disabled={enMaj}
-                        title="Supprimer"
-                        className="p-2 rounded-lg border border-red-200 dark:border-red-500/25 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {peutEcrire && (
+                        <button
+                          onClick={() => setConfirming(doc)}
+                          disabled={enMaj}
+                          title="Supprimer"
+                          className="p-2 rounded-lg border border-red-200 dark:border-red-500/25 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                       </div>
                     </div>
                   </div>
@@ -439,8 +443,7 @@ export default function AllDocs() {
         <DocHistoryModal
           doc={historyOf}
           peutRestaurer={
-            (isAdmin || userDomaines.includes(historyOf.domaine ?? "")) &&
-            historyOf.statut !== "EN_MAJ"
+            userDomaines.includes(historyOf.domaine ?? "") && historyOf.statut !== "EN_MAJ"
           }
           onClose={() => setHistoryOf(null)}
           onImpact={(impact) => {
