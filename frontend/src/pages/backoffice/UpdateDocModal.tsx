@@ -98,44 +98,32 @@ function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
 }
 
 /**
- * Ce que la nouvelle version *ajoute*, en regard de ce qu'elle périme.
+ * Un des deux sens du changement : les extraits, et ce qui déborde du plafond.
  *
- * L'obsolescence ne voit que les passages qui fondaient une réponse. Un article
- * ajouté ailleurs — le geste le plus courant sur une charte — ne touche aucun
- * d'eux : rien ne devient obsolète, et la réponse existante, qui l'ignore,
- * continuerait d'être servie automatiquement sans que personne ne le sache.
- *
- * D'où ce panneau : neutre et non bloquant, il ne décide de rien. Décider
- * demanderait de lire l'ajout, ce qu'aucune règle ne peut faire à la place d'un
- * humain. Masqué quand il n'y a rien à dire — ou rien de démontrable.
+ * Les deux listes se distinguent par leur libellé et rien d'autre — même forme,
+ * même plafond de trois : « ajouté » et « retiré » se lisent en regard l'un de
+ * l'autre, et une mise en page différente laisserait croire à une hiérarchie
+ * entre eux qui n'existe pas.
  */
-function EncadreAjouts({ impact }: { impact: UpdateImpact }) {
-  if (!impact.ajouts_analysables || impact.nb_passages_ajoutes === 0) return null;
-
-  const n = impact.nb_passages_ajoutes;
-  const relire = impact.nb_a_relire;
+function SensDuChangement({
+  titre,
+  total,
+  extraits,
+}: {
+  titre: string;
+  total: number;
+  extraits: string[];
+}) {
+  if (total === 0) return null;
 
   return (
-    <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
-      <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
-        <FilePlus2 size={16} />
-        {n} passage{n > 1 ? "s" : ""} ajouté{n > 1 ? "s" : ""} par cette version.
-      </p>
-      <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-        {relire > 0 ? (
-          <>
-            {relire} réponse{relire > 1 ? "s" : ""} enregistrée{relire > 1 ? "s" : ""} de ce
-            document {relire > 1 ? "n'en tiennent" : "n'en tient"} pas compte et{" "}
-            {relire > 1 ? "resteront servies" : "restera servie"} telle{relire > 1 ? "s" : ""}{" "}
-            quelle{relire > 1 ? "s" : ""}. Rien ne devient obsolète : à vous de juger si un de ces
-            ajouts les contredit.
-          </>
-        ) : (
-          <>Aucune réponse enregistrée ne subsiste sur ce document : rien à relire.</>
-        )}
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
+        {total} passage{total > 1 ? "s" : ""} {titre}
+        {total > 1 ? "s" : ""}
       </p>
       <ul className="space-y-1.5 max-h-32 overflow-y-auto">
-        {impact.extraits_ajoutes.map((extrait, i) => (
+        {extraits.map((extrait, i) => (
           <li
             key={i}
             className="text-[11px] text-gray-600 dark:text-gray-400 font-mono leading-relaxed border-l-2 border-amber-300 dark:border-amber-500/40 pl-2"
@@ -144,12 +132,59 @@ function EncadreAjouts({ impact }: { impact: UpdateImpact }) {
           </li>
         ))}
       </ul>
-      {n > impact.extraits_ajoutes.length && (
+      {total > extraits.length && (
         <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
-          … et {n - impact.extraits_ajoutes.length} autre
-          {n - impact.extraits_ajoutes.length > 1 ? "s" : ""}.
+          … et {total - extraits.length} autre{total - extraits.length > 1 ? "s" : ""}.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Ce que la nouvelle version dit de neuf ou ne dit plus, en regard de ce qu'elle périme.
+ *
+ * L'obsolescence ne voit que les passages qui fondaient une réponse. Un article
+ * ajouté ailleurs — le geste le plus courant sur une charte — ne touche aucun
+ * d'eux : rien ne devient obsolète, et la réponse existante, qui l'ignore,
+ * continuerait d'être servie automatiquement sans que personne ne le sache. Le
+ * second sens couvre le cas symétrique, invisible au premier : une règle
+ * **abrogée** sans que rien ne soit écrit à la place.
+ *
+ * D'où ce panneau : neutre et non bloquant, il ne décide de rien. Décider
+ * demanderait de lire, ce qu'aucune règle ne peut faire à la place d'un humain.
+ * Masqué quand il n'y a rien à dire — ou rien de démontrable.
+ */
+function EncadreChangements({ impact }: { impact: UpdateImpact }) {
+  const ajoutes = impact.nb_passages_ajoutes;
+  const retires = impact.nb_passages_retires;
+  if (!impact.ajouts_analysables || (ajoutes === 0 && retires === 0)) return null;
+
+  const relire = impact.nb_a_relire;
+
+  return (
+    <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
+      <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
+        <FilePlus2 size={16} />
+        Cette version change le contenu du document.
+      </p>
+      <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+        {relire > 0 ? (
+          <>
+            {relire} réponse{relire > 1 ? "s" : ""} enregistrée{relire > 1 ? "s" : ""} de ce
+            document {relire > 1 ? "n'en tiennent" : "n'en tient"} pas compte et{" "}
+            {relire > 1 ? "resteront servies" : "restera servie"} telle{relire > 1 ? "s" : ""}{" "}
+            quelle{relire > 1 ? "s" : ""}. Rien ne devient obsolète : à vous de juger si un de ces
+            changements les contredit. {relire > 1 ? "Elles seront listées" : "Elle sera listée"} dans{" "}
+            <span className="font-medium">Réponses enregistrées › À relire</span>.
+          </>
+        ) : (
+          <>Aucune réponse enregistrée ne subsiste sur ce document : rien à relire.</>
+        )}
+      </p>
+
+      <SensDuChangement titre="ajouté" total={ajoutes} extraits={impact.extraits_ajoutes} />
+      <SensDuChangement titre="retiré" total={retires} extraits={impact.extraits_retires} />
 
       {impact.a_relire.length > 0 && (
         <div className="pt-1 space-y-1.5 border-t border-amber-200/70 dark:border-amber-500/25">
@@ -219,7 +254,7 @@ function EcranImpact({ impact }: { impact: UpdateImpact }) {
   return (
     <div className="space-y-3">
       <EcranObsolescence impact={impact} />
-      <EncadreAjouts impact={impact} />
+      <EncadreChangements impact={impact} />
     </div>
   );
 }

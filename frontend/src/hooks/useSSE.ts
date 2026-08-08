@@ -89,6 +89,9 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
       // Restauration et suppression font passer une réponse d'une liste à l'autre.
       queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
+      // Confirmer, corriger ou retirer lève le drapeau : le badge doit tomber
+      // chez les autres validateurs du domaine, pas seulement chez l'auteur.
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
       break;
 
     // Fin du job de mise à jour : la version, les chunks et éventuellement des
@@ -97,6 +100,9 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
+      // C'est ici que la liste « À relire » se remplit : le job vient de flaguer
+      // les réponses du document, l'onglet doit le montrer sans rechargement.
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
       if (payload.doc_id) {
         queryClient.invalidateQueries({ queryKey: ["doc-versions", payload.doc_id] });
       }

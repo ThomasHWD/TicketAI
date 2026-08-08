@@ -93,6 +93,12 @@ export interface UpdateImpact {
   nb_passages_ajoutes: number;
   /** Trois extraits au plus. */
   extraits_ajoutes: string[];
+  /**
+   * L'autre sens : les passages que la nouvelle version *retire*. Couvre la
+   * règle abrogée sans rien insérer, que `nb_passages_ajoutes` ne voit pas.
+   */
+  nb_passages_retires: number;
+  extraits_retires: string[];
   /** Réponses enregistrées du document qui survivent, et ignorent donc l'ajout. */
   nb_a_relire: number;
   /** Les dix premières de `nb_a_relire`, les plus servies d'abord. */
@@ -264,6 +270,8 @@ export interface ReponseCanonique {
   contenu_corrige: string | null;
   nb_validations: number;
   occurence: number;
+  /** Toujours servie, mais son document a changé : cf. `ReponseSignalee`. */
+  a_relire: boolean;
   validated_at: string | null;
   created_at: string | null;
 }
@@ -289,7 +297,7 @@ export interface ReponseObsolete {
   contenu_corrige: string | null;
   nb_validations: number;
   canonique: boolean;
-  obsolete_raison: "DOC_MIS_A_JOUR" | "DOC_SUPPRIMÉ" | null;
+  obsolete_raison: "DOC_MIS_A_JOUR" | "DOC_SUPPRIMÉ" | "RETIRÉ_À_LA_MAIN" | null;
   obsolete_version: number | null;
   obsolete_at: string | null;
   doc_id: string | null;
@@ -303,6 +311,46 @@ export interface ReponsesObsoletesResponse {
   page: number;
   limit: number;
   items: ReponseObsolete[];
+}
+
+/** Ce qu'une version de document a changé, figé au moment de la mise à jour. */
+export interface ChangementsVersion {
+  nb_ajoutes: number;
+  nb_retires: number;
+  /** Trois extraits au plus par sens. */
+  extraits_ajoutes: string[];
+  extraits_retires: string[];
+}
+
+/**
+ * Réponse toujours servie dont le document source a changé de contenu.
+ *
+ * Le même objet que `ReponseARelire` (l'aperçu de la modale), replacé dans son
+ * contexte : c'est le même signalement, consulté plus tard. Rien ne lui est
+ * arrivé — d'où l'absence de tout champ d'état : elle continue d'être servie
+ * jusqu'à ce qu'un humain tranche.
+ */
+export interface ReponseSignalee extends ReponseARelire {
+  domaine: Domaine;
+  contenu: string;
+  contenu_corrige: string | null;
+  a_relire_raison: "DOC_MODIFIÉ" | "VERSION_SORTANTE_ILLISIBLE" | null;
+  a_relire_version: number | null;
+  a_relire_at: string | null;
+  doc_id: string | null;
+  document_filename: string | null;
+  document_supprime: boolean;
+  /** null pour les documents mis à jour avant l'arrivée de la colonne. */
+  changements: ChangementsVersion | null;
+}
+
+export interface ReponsesARelireResponse {
+  total: number;
+  /** Ce que compte le badge : « 2 documents » se traite, « 39 réponses » se subit. */
+  nb_documents: number;
+  page: number;
+  limit: number;
+  items: ReponseSignalee[];
 }
 
 export type WorkflowEventType =

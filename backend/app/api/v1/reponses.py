@@ -390,6 +390,11 @@ async def lister_reponses_canoniques(
                     "contenu_corrige": r.contenu_corrige,
                     "nb_validations": r.nb_validations,
                     "occurence": t.occurence,
+                    # Une réponse signalée continue d'être servie : elle siège donc
+                    # ici, et pas seulement dans l'onglet « À relire ». Sans cette
+                    # pastille, cet écran la présenterait comme acquise alors qu'un
+                    # humain doit encore trancher.
+                    "a_relire": r.a_relire,
                     "validated_at": r.validated_at.isoformat() if r.validated_at else None,
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                 }

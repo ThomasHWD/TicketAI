@@ -4,6 +4,7 @@ import type {
   ReponseEnAttente,
   ReponsesCanoniquesResponse,
   ReponsesObsoletesResponse,
+  ReponsesARelireResponse,
   EditerCanoniquePayload,
   ValiderPayload,
   RejeterPayload,
@@ -43,6 +44,47 @@ export async function getReponsesObsoletes(params?: {
   if (params?.domaine) query.set("domaine", params.domaine);
   const res = await apiFetch(`${BASE_URL}/reponses/obsoletes?${query}`);
   if (!res.ok) throw new Error("Erreur chargement réponses obsolètes");
+  return res.json();
+}
+
+export async function getReponsesARelire(params?: {
+  page?: number;
+  limit?: number;
+  domaine?: Domaine;
+}): Promise<ReponsesARelireResponse> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.domaine) query.set("domaine", params.domaine);
+  const res = await apiFetch(`${BASE_URL}/reponses/a-relire?${query}`);
+  if (!res.ok) throw new Error("Erreur chargement réponses à relire");
+  return res.json();
+}
+
+/** « Toujours d'actualité » : le signalement tombe, rien d'autre ne change. */
+export async function confirmerActualite(reponseId: string) {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/confirmer-actualite`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Erreur confirmation de la réponse");
+  return res.json();
+}
+
+/** Confirme d'un coup toutes les réponses signalées par une version de document. */
+export async function confirmerActualiteLot(doc_id: string, version: number) {
+  const res = await apiFetch(`${BASE_URL}/reponses/confirmer-actualite`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ doc_id, version }),
+  });
+  if (!res.ok) throw new Error("Erreur confirmation groupée");
+  return res.json();
+}
+
+/** Bascule la réponse dans les obsolètes, d'où elle reste restaurable. */
+export async function retirerReponse(reponseId: string) {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/retirer`, { method: "POST" });
+  if (!res.ok) throw new Error("Erreur retrait de la réponse");
   return res.json();
 }
 
