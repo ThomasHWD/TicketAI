@@ -26,8 +26,10 @@ from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.services.obsolescence import (
+    MAX_EXTRAITS,
     RAISON_SUPPRESSION,
     decouper_en_passages,
+    extrait,
     indices_modifies,
     marquer_obsoletes,
     passages_ajoutes,
@@ -37,7 +39,7 @@ from app.services.obsolescence import (
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
 from app.workers.document_update import capturer_chunks, document_update_job, texte_complet
-from app.workers.ingestion import extract_text, ingestion_job
+from app.workers.ingestion import chemin_du_fichier, extract_text, ingestion_job
 
 router = APIRouter()
 
@@ -118,18 +120,6 @@ def get_document_vivant(db: Session, doc_id: str) -> Document:
     if doc is None:
         raise HTTPException(404, "Document introuvable")
     return doc
-
-
-def chemin_du_fichier(doc: Document) -> str | None:
-    """Chemin sur disque du fichier courant, ou None s'il a disparu.
-
-    Le repli couvre les documents backfillés, dont le fichier est resté à la racine
-    du dossier ``{doc_id}`` au lieu d'un sous-dossier ``v{n}/``.
-    """
-    if doc.stored_path and os.path.isfile(doc.stored_path):
-        return doc.stored_path
-    repli = os.path.join(settings.documents_storage_path, doc.doc_id, doc.filename)
-    return repli if os.path.isfile(repli) else None
 
 
 @router.post("/documents")
@@ -312,7 +302,7 @@ async def download_document(doc_id: str, current_user: BackofficeUser, db: DB):
     doc = get_document_vivant(db, doc_id)
     check_domain_read(doc.domaine, current_user)
 
-    chemin = chemin_du_fichier(doc)
+    chemin = chemin_du_fichier(doc.doc_id, doc.filename, doc.stored_path)
     if chemin is None:
         raise HTTPException(404, "Fichier non disponible sur disque")
 
@@ -335,8 +325,6 @@ STAGING_TTL = timedelta(hours=1)
 # Au-delà, un EN_MAJ est tenu pour un verrou abandonné : `on_failure` ne s'exécute
 # pas quand le worker est tué net, et le document resterait bloqué à vie.
 MAJ_PERIMEE_APRES = timedelta(minutes=30)
-# Extrait de passage affiché dans l'écran d'impact.
-LONGUEUR_EXTRAIT = 240
 # Réponses « à relire » détaillées dans l'aperçu. Le compte, lui, reste exact :
 # un document très exploité peut en aligner des dizaines, et la modale n'est pas
 # un outil de revue — elle amorce le tri, elle ne le porte pas.
@@ -521,7 +509,7 @@ def analyser_ajouts(db: Session, doc: Document, nouveau_texte: str, *, deja_impa
         "a_relire": [],
     }
 
-    chemin_courant = chemin_du_fichier(doc)
+    chemin_courant = chemin_du_fichier(doc.doc_id, doc.filename, doc.stored_path)
     if chemin_courant is None:
         return muet
 
@@ -548,7 +536,7 @@ def analyser_ajouts(db: Session, doc: Document, nouveau_texte: str, *, deja_impa
     return {
         "ajouts_analysables": True,
         "nb_passages_ajoutes": len(ajouts),
-        "extraits_ajoutes": [_tronquer(t) for t in ajouts[:3]],
+        "extraits_ajoutes": [extrait(t) for t in ajouts[:MAX_EXTRAITS]],
         "nb_a_relire": len(a_relire),
         "a_relire": _items_a_relire(db, a_relire[:MAX_A_RELIRE]),
     }
@@ -610,13 +598,8 @@ def _item_impact(db: Session, reponse, doc_id: str, indices: set[int], anciens: 
         "canonique": reponse.canonique,
         "nb_validations": reponse.nb_validations,
         "chunks_modifies": modifies,
-        "extraits": [_tronquer(anciens.get(i, "")) for i in modifies[:3]],
+        "extraits": [extrait(anciens.get(i, "")) for i in modifies[:MAX_EXTRAITS]],
     }
-
-
-def _tronquer(texte: str) -> str:
-    texte = " ".join(texte.split())
-    return texte if len(texte) <= LONGUEUR_EXTRAIT else texte[:LONGUEUR_EXTRAIT] + "…"
 
 
 @router.post("/documents/{doc_id}/versions/confirm")

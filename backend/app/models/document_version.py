@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.database import Base
@@ -31,3 +31,9 @@ class DocumentVersion(Base):
     restauree_depuis = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     remplacee_at = Column(DateTime(timezone=True), nullable=True)
+    # Ce que cette version a changé par rapport à la précédente :
+    # {"nb_ajoutes", "nb_retires", "extraits_ajoutes": [≤3], "extraits_retires": [≤3]}.
+    # Stocké et non recalculé — la liste « à relire » se consulte des jours plus
+    # tard, quand l'archive sortante peut avoir été purgée. Sans ces extraits,
+    # « cette réponse est liée à Charte_RH v3 » ne permet de juger de rien.
+    changements = Column(JSON, nullable=True)

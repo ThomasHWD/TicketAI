@@ -86,6 +86,23 @@ def version_dir(doc_id: str, version: int) -> str:
     return os.path.join(settings.documents_storage_path, doc_id, f"v{version}")
 
 
+def chemin_du_fichier(doc_id: str, filename: str, stored_path: str | None) -> str | None:
+    """Chemin sur disque du fichier courant d'un document, ou None s'il a disparu.
+
+    Le repli couvre les documents backfillés, dont le fichier est resté à la racine
+    du dossier ``{doc_id}`` au lieu d'un sous-dossier ``v{n}/``.
+
+    Prend des chaînes plutôt qu'un ``Document`` : le job de mise à jour l'appelle
+    après avoir fermé sa session, où l'instance est détachée. Et il vit ici plutôt
+    que dans ``api/v1/documents.py``, qui importe déjà le job — l'inverse fermerait
+    le cycle.
+    """
+    if stored_path and os.path.isfile(stored_path):
+        return stored_path
+    repli = os.path.join(settings.documents_storage_path, doc_id, filename)
+    return repli if os.path.isfile(repli) else None
+
+
 def store_file(tmp_path: str, doc_id: str, filename: str, version: int = 1) -> str:
     """Copie le fichier de /tmp vers le stockage permanent de la version.
 

@@ -8,17 +8,25 @@ from app.core.permissions import check_domain_write, user_domaines
 from app.core.security import BackofficeUser
 from app.database import SessionLocal
 from app.models.document import Document
+from app.models.document_version import DocumentVersion
 from app.models.notification import Notification
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
 from app.schemas.reponse import (
+    ConfirmerLotRequest,
     CorrigerRequest,
     EditerCanoniqueRequest,
     RejeterRequest,
 )
 from app.services.broadcast import broadcast_async
-from app.services.obsolescence import fermeture_copies
+from app.services.obsolescence import (
+    RAISON_MANUELLE,
+    confirmer_actualite,
+    fermeture_copies,
+    lever_a_relire,
+    retirer_du_service,
+)
 from app.services.qdrant import delete_response_point
 from app.workers.feedback import feedback_job
 
@@ -254,6 +262,12 @@ async def corriger_reponse(
         reponse.validator_id = current_user.id
         reponse.validated_at = datetime.now(timezone.utc)
 
+        # `reponses_obsoletes` ne retient que les VALIDÉE : une réponse signalée
+        # puis corrigée sortirait du périmètre en gardant son drapeau, et
+        # occuperait l'onglet À relire sans qu'aucune action ne l'en déloge.
+        if reponse.a_relire:
+            lever_a_relire(reponse)
+
         if ticket:
             ticket.statut_ticket = "VALIDÉ"
             liberer_verrou(ticket)
@@ -451,6 +465,215 @@ async def lister_reponses_obsoletes(
         db.close()
 
 
+@router.get("/reponses/a-relire")
+async def lister_reponses_a_relire(
+    current_user: BackofficeUser,
+    domaine: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+):
+    """Réponses toujours servies dont le document source a changé de contenu.
+
+    Ce que l'onglet Obsolètes ne peut pas dire : la détection verbatim ne voit
+    que les passages *cités* par une réponse. Un article ajouté ailleurs dans la
+    charte peut la contredire sans qu'aucun de ces passages bouge — personne
+    n'est prévenu et la branche CANONIQUE continue de servir. Cette liste est le
+    filet : elle ne décide rien, elle demande une relecture.
+
+    Deux jointures externes : `documents` pour le nom (le document a pu être
+    supprimé depuis) et `document_versions` sur **(doc_id, version)** pour
+    remonter `changements` — sans les extraits de ce qui a changé, « cette
+    réponse est liée à Charte_RH v3 » ne permet de juger de rien.
+
+    Comme les autres onglets, seules les **sources** sont listées.
+    """
+    db = SessionLocal()
+    try:
+        query = (
+            db.query(Reponse, Ticket, Document, DocumentVersion)
+            .join(Ticket, Ticket.id == Reponse.ticket_id)
+            .outerjoin(Document, Document.doc_id == Reponse.a_relire_doc_id)
+            .outerjoin(
+                DocumentVersion,
+                (DocumentVersion.doc_id == Reponse.a_relire_doc_id)
+                & (DocumentVersion.version == Reponse.a_relire_version),
+            )
+            .filter(Reponse.a_relire.is_(True))
+            .filter(Reponse.reponse_source_id.is_(None))
+        )
+
+        if domaine:
+            query = query.filter(Ticket.domaine == domaine.upper())
+        elif current_user.role != "ADMIN":
+            query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
+
+        total = query.count()
+        # Groupé par document dans l'interface : trier d'abord par document garde
+        # les membres d'un même groupe sur la même page.
+        resultats = (
+            query.order_by(
+                Reponse.a_relire_doc_id,
+                Reponse.a_relire_at.desc().nullslast(),
+            )
+            .offset((page - 1) * limit)
+            .limit(limit)
+            .all()
+        )
+
+        # Le compteur de la sidebar compte les **documents**, pas les réponses :
+        # « 2 documents à relire » se traite, « 39 réponses » se subit. Compté sur
+        # toute la requête et non sur la page.
+        nb_documents = query.with_entities(Reponse.a_relire_doc_id).distinct().count()
+
+        return {
+            "total": total,
+            "nb_documents": nb_documents,
+            "page": page,
+            "limit": limit,
+            "items": [
+                {
+                    "reponse_id": str(r.id),
+                    "ticket_id": str(r.ticket_id),
+                    "question": r.question_suivi or t.question,
+                    "domaine": t.domaine,
+                    "contenu": r.contenu,
+                    "contenu_corrige": r.contenu_corrige,
+                    "nb_validations": r.nb_validations,
+                    "canonique": r.canonique,
+                    "a_relire_raison": r.a_relire_raison,
+                    "a_relire_version": r.a_relire_version,
+                    "a_relire_at": r.a_relire_at.isoformat() if r.a_relire_at else None,
+                    "doc_id": r.a_relire_doc_id,
+                    "document_filename": d.filename if d else None,
+                    "document_supprime": d is None or d.statut == "SUPPRIMÉ",
+                    "changements": v.changements if v else None,
+                }
+                for r, t, d, v in resultats
+            ],
+        }
+    finally:
+        db.close()
+
+
+@router.post("/reponses/confirmer-actualite")
+async def confirmer_actualite_lot(payload: ConfirmerLotRequest, current_user: BackofficeUser):
+    """Confirme en lot toutes les réponses signalées par une version de document.
+
+    La sortie normale quand une phrase réécrite dans une charte très exploitée en
+    signale trente-neuf : on lit le diff une fois, on juge les trente-neuf
+    ensuite. Sans elle, la liste serait techniquement correcte et pratiquement
+    abandonnée dès la première mise à jour d'ampleur.
+
+    Le domaine est vérifié réponse par réponse : un lot mélangeant deux domaines
+    (le même document peut avoir servi à des tickets de domaines différents) ne
+    confirme que ce qui relève de l'appelant, sans échouer sur le reste.
+    """
+    db = SessionLocal()
+    try:
+        candidates = (
+            db.query(Reponse)
+            .filter(
+                Reponse.a_relire.is_(True),
+                Reponse.a_relire_doc_id == payload.doc_id,
+                Reponse.a_relire_version == payload.version,
+            )
+            .all()
+        )
+
+        autorisees = [r for r in candidates if _domaine_autorise(db, r, current_user)]
+        familles = fermeture_copies(db, {r.id for r in autorisees}) if autorisees else set()
+        a_lever = (
+            db.query(Reponse).filter(Reponse.id.in_(familles)).all() if familles else []
+        )
+        confirmer_actualite(db, a_lever)
+        nb = len(autorisees)
+    finally:
+        db.close()
+
+    await broadcast_async("sse:admin", "saved_answers_updated", {"doc_id": payload.doc_id})
+    return {
+        "doc_id": payload.doc_id,
+        "version": payload.version,
+        "nb_confirmees": nb,
+        "message": f"{nb} réponse(s) confirmée(s) comme toujours d'actualité.",
+    }
+
+
+def _domaine_autorise(db, reponse: Reponse, current_user) -> bool:
+    """`check_reponse_write` en forme booléenne, pour les traitements en lot."""
+    try:
+        check_reponse_write(db, reponse, current_user)
+    except HTTPException:
+        return False
+    return True
+
+
+@router.post("/reponses/{reponse_id}/confirmer-actualite")
+async def confirmer_actualite_reponse(reponse_id: str, current_user: BackofficeUser):
+    """Un humain a relu et juge la réponse toujours juste : le signalement tombe.
+
+    Rien d'autre ne change — la réponse n'a jamais cessé d'être servie, c'est la
+    différence avec l'obsolescence. Le drapeau est levé sur toute la famille,
+    comme il y avait été posé.
+    """
+    db = SessionLocal()
+    try:
+        reponse = get_reponse_or_404(db, reponse_id)
+        check_reponse_write(db, reponse, current_user)
+
+        if not reponse.a_relire:
+            raise HTTPException(409, "Cette réponse n'est pas signalée à relire.")
+
+        famille = fermeture_copies(db, {reponse.id})
+        confirmer_actualite(db, db.query(Reponse).filter(Reponse.id.in_(famille)).all())
+    finally:
+        db.close()
+
+    await broadcast_async("sse:admin", "saved_answers_updated", {"reponse_id": reponse_id})
+    return {
+        "reponse_id": reponse_id,
+        "message": "Réponse confirmée comme toujours d'actualité.",
+    }
+
+
+@router.post("/reponses/{reponse_id}/retirer")
+async def retirer_reponse(reponse_id: str, current_user: BackofficeUser):
+    """Retire du service une réponse relue et jugée dépassée.
+
+    Troisième issue du signalement, entre « toujours d'actualité » et « je la
+    réécris » : la réponse n'a plus lieu d'être mais mérite de rester
+    consultable. Elle bascule dans l'onglet Obsolètes, d'où elle reste
+    restaurable.
+
+    Le `doc_id`/`version` du signalement est repris comme origine de
+    l'obsolescence : sans lui, l'onglet Obsolètes afficherait « document
+    supprimé » (jointure externe sans correspondance) pour une réponse retirée à
+    la main sur un document bien vivant.
+    """
+    db = SessionLocal()
+    try:
+        reponse = get_reponse_or_404(db, reponse_id)
+        check_reponse_write(db, reponse, current_user)
+
+        if not reponse.a_relire:
+            raise HTTPException(409, "Cette réponse n'est pas signalée à relire.")
+
+        doc_id, version = reponse.a_relire_doc_id, reponse.a_relire_version
+        famille = fermeture_copies(db, {reponse.id})
+        cibles = db.query(Reponse).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(False)).all()
+        retirer_du_service(db, cibles, RAISON_MANUELLE, doc_id, version)
+        nb = len(cibles)
+    finally:
+        db.close()
+
+    await broadcast_async("sse:admin", "saved_answers_updated", {"reponse_id": reponse_id})
+    return {
+        "reponse_id": reponse_id,
+        "nb_retirees": nb,
+        "message": "Réponse retirée du service. Elle reste restaurable depuis l'onglet Obsolètes.",
+    }
+
+
 @router.post("/reponses/{reponse_id}/restaurer")
 async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
     """Remet en service une réponse déclarée obsolète.
@@ -486,6 +709,13 @@ async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
                 "obsolete_doc_id": None,
                 "obsolete_version": None,
                 "obsolete_at": None,
+                # Restaurer *est* le jugement humain que le signalement réclamait :
+                # le reposer renverrait aussitôt la réponse dans l'onglet À relire.
+                "a_relire": False,
+                "a_relire_raison": None,
+                "a_relire_doc_id": None,
+                "a_relire_version": None,
+                "a_relire_at": None,
             },
             synchronize_session=False,
         )
@@ -522,13 +752,21 @@ async def editer_reponse_canonique(
         reponse = get_reponse_or_404(db, reponse_id)
         check_reponse_write(db, reponse, current_user)
 
-        if not reponse.canonique:
+        # Une VALIDÉE pas encore promue peut être signalée à relire : « corriger »
+        # est l'une des trois issues qu'on lui propose, la refuser ici ne
+        # laisserait que confirmer ou retirer.
+        if not reponse.canonique and not reponse.a_relire:
             raise HTTPException(409, "Seules les réponses canoniques peuvent être éditées ici.")
 
         if not payload.contenu.strip():
             raise HTTPException(400, "Le contenu ne peut pas être vide.")
 
         reponse.contenu_corrige = payload.contenu
+        # Réécrire la réponse *est* la relecture qu'on demandait.
+        if reponse.a_relire:
+            confirmer_actualite(db, db.query(Reponse).filter(
+                Reponse.id.in_(fermeture_copies(db, {reponse.id}))
+            ).all())
         db.commit()
     finally:
         db.close()
@@ -570,8 +808,9 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeU
         #    On retire aussi leur flag `canonique` : sinon, une fois orphelines
         #    (reponse_source_id NULL), elles réapparaîtraient comme des sources
         #    dans la liste des réponses canoniques. Même raison pour le drapeau
-        #    d'obsolescence, qui les ferait rester éternellement dans l'onglet
-        #    Obsolètes sans que rien ne puisse plus les en sortir.
+        #    d'obsolescence et pour celui de relecture, qui les feraient rester
+        #    éternellement dans leur onglet sans que rien ne puisse plus les en
+        #    sortir : les deux listes ne montrent que les sources.
         db.query(Reponse).filter(Reponse.reponse_source_id == reponse.id).update(
             {
                 "reponse_source_id": None,
@@ -581,6 +820,11 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeU
                 "obsolete_doc_id": None,
                 "obsolete_version": None,
                 "obsolete_at": None,
+                "a_relire": False,
+                "a_relire_raison": None,
+                "a_relire_doc_id": None,
+                "a_relire_version": None,
+                "a_relire_at": None,
             },
             synchronize_session=False,
         )
