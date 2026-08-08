@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
+  ExternalLink,
   FilePlus2,
   Loader2,
   RefreshCw,
@@ -13,7 +14,7 @@ import { confirmDocumentUpdate, previewDocumentUpdate } from "../../lib/api";
 import FileDropzone from "../../components/ui/FileDropzone";
 import { validateFile } from "../../lib/documentUpload";
 import { useJobs } from "../../context/JobsContext";
-import type { ImpactItem, UpdateImpact } from "../../types.ts";
+import type { ImpactItem, ReponseARelire, UpdateImpact } from "../../types.ts";
 
 /**
  * Le minimum pour cibler une mise à jour.
@@ -55,6 +56,43 @@ function LigneImpact({ item }: { item: ImpactItem }) {
           {extrait}
         </p>
       ))}
+    </li>
+  );
+}
+
+/**
+ * Une réponse à relire, ouvrable **dans un nouvel onglet**.
+ *
+ * Le `target="_blank"` n'est pas cosmétique : la modale est au milieu d'un flux
+ * en deux temps, et naviguer perdrait l'aperçu calculé — il faudrait re-déposer
+ * le fichier. On veut que la relecture puisse se faire *sans* renoncer à la mise
+ * à jour, ou l'avertissement pousserait à l'ignorer pour ne pas tout refaire.
+ */
+function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
+  return (
+    <li>
+      <a
+        href={`/tickets/${reponse.ticket_id}`}
+        target="_blank"
+        rel="noreferrer"
+        className="group flex items-start gap-2 rounded-lg border border-amber-200/70 dark:border-amber-500/25 bg-white/70 dark:bg-white/[0.03] px-3 py-2 hover:bg-white dark:hover:bg-white/[0.07] transition-colors"
+      >
+        <p className="flex-1 text-xs text-gray-900 dark:text-gray-100 line-clamp-2">
+          {reponse.question || <span className="italic text-gray-500">Question indisponible</span>}
+        </p>
+        {reponse.canonique && (
+          <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300">
+            canonique
+          </span>
+        )}
+        <span className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">
+          {reponse.nb_validations} val.
+        </span>
+        <ExternalLink
+          size={12}
+          className="shrink-0 mt-0.5 text-gray-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors"
+        />
+      </a>
     </li>
   );
 }
@@ -111,6 +149,26 @@ function EncadreAjouts({ impact }: { impact: UpdateImpact }) {
           … et {n - impact.extraits_ajoutes.length} autre
           {n - impact.extraits_ajoutes.length > 1 ? "s" : ""}.
         </p>
+      )}
+
+      {impact.a_relire.length > 0 && (
+        <div className="pt-1 space-y-1.5 border-t border-amber-200/70 dark:border-amber-500/25">
+          <p className="pt-2 text-[11px] font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
+            À relire, les plus servies d'abord
+          </p>
+          <ul className="space-y-1.5 max-h-40 overflow-y-auto">
+            {impact.a_relire.map((r) => (
+              <LigneARelire key={r.reponse_id} reponse={r} />
+            ))}
+          </ul>
+          {relire > impact.a_relire.length && (
+            <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
+              … et {relire - impact.a_relire.length} autre
+              {relire - impact.a_relire.length > 1 ? "s" : ""}, dans{" "}
+              <span className="font-medium">Réponses enregistrées</span>.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

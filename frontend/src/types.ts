@@ -95,6 +95,21 @@ export interface UpdateImpact {
   extraits_ajoutes: string[];
   /** Réponses enregistrées du document qui survivent, et ignorent donc l'ajout. */
   nb_a_relire: number;
+  /** Les dix premières de `nb_a_relire`, les plus servies d'abord. */
+  a_relire: ReponseARelire[];
+}
+
+/**
+ * Réponse qui survit à la mise à jour et n'a pas connaissance des passages
+ * ajoutés. Rien ne lui arrive : c'est une invitation à relire, pas un verdict.
+ */
+export interface ReponseARelire {
+  reponse_id: string;
+  /** Cible du lien : la réponse se consulte depuis le ticket qui l'a produite. */
+  ticket_id: string;
+  question: string;
+  canonique: boolean;
+  nb_validations: number;
 }
 
 /** `detail` du 409 de `POST /documents` quand un document porte déjà ce nom dans le domaine. */

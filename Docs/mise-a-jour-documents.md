@@ -118,8 +118,21 @@ l'ancienne — et l'écran d'impact affiche, à côté du verdict d'obsolescence
 │                                                                │
 │     │ Article 7 bis : le télétravail est suspendu pendant…     │
 │     │ Article 9 : les frais d'équipement sont plafonnés à…     │
+│                                                                │
+│     À RELIRE, LES PLUS SERVIES D'ABORD                         │
+│     ┌──────────────────────────────────────────────────────┐   │
+│     │ Combien de jours de télétravail ?  canonique 12 val. ↗│   │
+│     │ Le télétravail est-il de droit ?   canonique  5 val. ↗│   │
+│     └──────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+Les réponses sont **nommées, pas comptées** : un simple « 4 réponses n'en tiennent pas compte »
+obligerait à les retrouver à la main dans *Réponses enregistrées*, et l'avertissement retomberait.
+Chaque ligne ouvre son ticket **dans un nouvel onglet** — la mise à jour en cours n'est pas
+perdue, on peut relire sans renoncer à confirmer. Les plus validées viennent en tête : ce sont
+celles qui repartent le plus souvent. Au-delà de dix, le reste est annoncé et se traite depuis
+*Réponses enregistrées*.
 
 C'est un **signal de tri, pas une décision** : aucune réponse n'est retirée du service par ce
 panneau. Il transforme un angle mort en information affichée au bon moment — devant la personne
@@ -131,7 +144,11 @@ Deux réserves à connaître :
   ajouté. Les deux lectures sont vraies, le doublon est assumé ;
 - le panneau reste **masqué** si le fichier de la version courante n'est plus sur le disque
   (documents antérieurs au versionnage). Afficher « 0 passage ajouté » se lirait comme une
-  garantie ; mieux vaut ne rien dire que rassurer à tort.
+  garantie ; mieux vaut ne rien dire que rassurer à tort ;
+- **corriger une réponse signalée demande le rôle Administrateur.** La mise à jour d'un document
+  est ouverte à tout back-office ayant le domaine ; réécrire (`editer`) ou purger (`DELETE`) une
+  réponse canonique ne l'est pas. Un validateur peut donc voir l'alerte, ouvrir les réponses, et
+  devoir passer la main pour agir.
 
 ## 4. Ce qui arrive à une réponse obsolète
 

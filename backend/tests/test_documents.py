@@ -1012,6 +1012,48 @@ class TestAjoutsSignales:
         assert "Article 7 bis" in body["extraits_ajoutes"][0]
         assert body["nb_a_relire"] == 1
 
+    def test_nomme_les_reponses_a_relire(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """Un compte seul n'est pas actionnable : « 4 réponses n'en tiennent pas
+        compte » oblige à les retrouver à la main, donc personne ne le fait.
+        L'aperçu doit livrer de quoi ouvrir chacune, `ticket_id` compris."""
+        doc = _doc_avec_fichier(db_reelle, staging_tmp)
+        reponse = _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")
+
+        body = _preview(client, doc.doc_id, content=_TEXTE_V1 + b"\n\n" + _ARTICLE_AJOUTE).json()
+
+        assert body["nb_a_relire"] == 1
+        [item] = body["a_relire"]
+        assert item["reponse_id"] == str(reponse.id)
+        assert item["ticket_id"] == str(reponse.ticket_id)
+        assert item["question"] == "Combien de jours de télétravail ?"
+        assert item["canonique"] is True
+        assert item["nb_validations"] == 3
+
+    def test_les_plus_servies_en_tete(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """Une canonique à 12 validations part sur tous les tickets similaires ;
+        une VALIDÉE isolée ne ressort presque jamais. L'ordre de relecture doit
+        suivre le risque réel, pas l'ordre d'insertion en base."""
+        doc = _doc_avec_fichier(db_reelle, staging_tmp)
+        _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH", nb_validations=1)
+        forte = _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=1, domaine="RH", nb_validations=12)
+
+        body = _preview(client, doc.doc_id, content=_TEXTE_V1 + b"\n\n" + _ARTICLE_AJOUTE).json()
+
+        assert [i["nb_validations"] for i in body["a_relire"]] == [12, 1]
+        assert body["a_relire"][0]["reponse_id"] == str(forte.id)
+
+    def test_plafonne_la_liste_sans_fausser_le_compte(self, client, db_reelle, staging_tmp, qdrant_maj):
+        """La modale amorce le tri, elle ne le porte pas. Mais tronquer le *compte*
+        minimiserait la charge annoncée : seule la liste est plafonnée."""
+        doc = _doc_avec_fichier(db_reelle, staging_tmp)
+        for _ in range(12):
+            _reponse_sur_chunk(db_reelle, doc.doc_id, chunk_index=0, domaine="RH")
+
+        body = _preview(client, doc.doc_id, content=_TEXTE_V1 + b"\n\n" + _ARTICLE_AJOUTE).json()
+
+        assert body["nb_a_relire"] == 12
+        assert len(body["a_relire"]) == 10
+
     def test_aucun_ajout_sur_un_simple_reformatage(self, client, db_reelle, staging_tmp, qdrant_maj):
         """Le panneau doit rester silencieux quand rien n'a été écrit : sinon il
         s'affiche à chaque mise à jour et cesse d'être lu."""
@@ -1164,7 +1206,7 @@ def _admin_id(db):
     return db.query(User).filter(User.role == "ADMIN").first().id
 
 
-def _reponse_sur_chunk(db, doc_id, *, chunk_index, domaine="IT"):
+def _reponse_sur_chunk(db, doc_id, *, chunk_index, domaine="IT", nb_validations=3):
     """Réponse canonique validée s'appuyant sur un chunk précis du document."""
     from app.models.reponse import Reponse
     from app.models.reponse_chunk import ReponseChunk
@@ -1175,7 +1217,7 @@ def _reponse_sur_chunk(db, doc_id, *, chunk_index, domaine="IT"):
     db.flush()
     reponse = Reponse(
         ticket_id=ticket.id, contenu="Deux jours.", source="LLM", statut="VALIDÉE",
-        canonique=True, nb_validations=3,
+        canonique=True, nb_validations=nb_validations,
     )
     db.add(reponse)
     db.flush()
