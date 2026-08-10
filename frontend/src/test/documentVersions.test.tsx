@@ -91,7 +91,11 @@ describe("API des versions", () => {
     // Bearer (stocké en localStorage) et se fait refuser en 401.
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response(new Blob(["contenu"]), { status: 200 })),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        blob: () => Promise.resolve(new Blob(["contenu"])),
+      }),
     );
     vi.stubGlobal("URL", { ...URL, createObjectURL: () => "blob:x", revokeObjectURL: () => {} });
 
