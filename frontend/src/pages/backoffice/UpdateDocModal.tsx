@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
-  ExternalLink,
   FilePlus2,
   Loader2,
   RefreshCw,
@@ -60,26 +59,18 @@ function LigneImpact({ item }: { item: ImpactItem }) {
   );
 }
 
-/**
- * Une réponse à relire, ouvrable **dans un nouvel onglet**.
- *
- * Le `target="_blank"` n'est pas cosmétique : la modale est au milieu d'un flux
- * en deux temps, et naviguer perdrait l'aperçu calculé — il faudrait re-déposer
- * le fichier. On veut que la relecture puisse se faire *sans* renoncer à la mise
- * à jour, ou l'avertissement pousserait à l'ignorer pour ne pas tout refaire.
- */
 function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
   return (
-    <li>
-      <a
-        href={`/tickets/${reponse.ticket_id}`}
-        target="_blank"
-        rel="noreferrer"
-        className="group flex items-start gap-2 rounded-lg border border-amber-200/70 dark:border-amber-500/25 bg-white/70 dark:bg-white/[0.03] px-3 py-2 hover:bg-white dark:hover:bg-white/[0.07] transition-colors"
-      >
-        <p className="flex-1 text-xs text-gray-900 dark:text-gray-100 line-clamp-2">
-          {reponse.question || <span className="italic text-gray-500">Question indisponible</span>}
-        </p>
+    <li className="rounded-lg border border-amber-200/70 dark:border-amber-500/25 bg-white/70 dark:bg-white/[0.03] px-3 py-2.5 space-y-1.5">
+      <div className="flex items-start gap-2">
+        <a
+          href={`/tickets/${reponse.ticket_id}`}
+          target="_blank"
+          rel="noreferrer"
+          className="flex-1 text-xs font-medium text-gray-900 dark:text-gray-100 line-clamp-2 hover:underline"
+        >
+          {reponse.question || <span className="italic font-normal text-gray-500">Question indisponible</span>}
+        </a>
         {reponse.canonique && (
           <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300">
             canonique
@@ -88,56 +79,13 @@ function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
         <span className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">
           {reponse.nb_validations} val.
         </span>
-        <ExternalLink
-          size={12}
-          className="shrink-0 mt-0.5 text-gray-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors"
-        />
-      </a>
-    </li>
-  );
-}
-
-/**
- * Un des deux sens du changement : les extraits, et ce qui déborde du plafond.
- *
- * Les deux listes se distinguent par leur libellé et rien d'autre — même forme,
- * même plafond de trois : « ajouté » et « retiré » se lisent en regard l'un de
- * l'autre, et une mise en page différente laisserait croire à une hiérarchie
- * entre eux qui n'existe pas.
- */
-function SensDuChangement({
-  titre,
-  total,
-  extraits,
-}: {
-  titre: string;
-  total: number;
-  extraits: string[];
-}) {
-  if (total === 0) return null;
-
-  return (
-    <div className="space-y-1.5">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
-        {total} passage{total > 1 ? "s" : ""} {titre}
-        {total > 1 ? "s" : ""}
-      </p>
-      <ul className="space-y-1.5 max-h-32 overflow-y-auto">
-        {extraits.map((extrait, i) => (
-          <li
-            key={i}
-            className="text-[11px] text-gray-600 dark:text-gray-400 font-mono leading-relaxed border-l-2 border-amber-300 dark:border-amber-500/40 pl-2"
-          >
-            {extrait}
-          </li>
-        ))}
-      </ul>
-      {total > extraits.length && (
-        <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
-          … et {total - extraits.length} autre{total - extraits.length > 1 ? "s" : ""}.
+      </div>
+      {reponse.contenu && (
+        <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
+          {reponse.contenu}
         </p>
       )}
-    </div>
+    </li>
   );
 }
 
@@ -155,12 +103,46 @@ function SensDuChangement({
  * demanderait de lire, ce qu'aucune règle ne peut faire à la place d'un humain.
  * Masqué quand il n'y a rien à dire — ou rien de démontrable.
  */
+function SensChangement({
+  titre,
+  total,
+  extraits,
+}: {
+  titre: string;
+  total: number;
+  extraits: string[];
+}) {
+  if (total === 0) return null;
+  return (
+    <div className="space-y-1">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
+        {total} passage{total > 1 ? "s" : ""} {titre}
+        {total > 1 ? "s" : ""}
+      </p>
+      <ul className="space-y-1">
+        {extraits.map((e, i) => (
+          <li
+            key={i}
+            className="text-[11px] text-gray-600 dark:text-gray-400 font-mono leading-relaxed border-l-2 border-amber-300 dark:border-amber-500/40 pl-2"
+          >
+            {e}
+          </li>
+        ))}
+      </ul>
+      {total > extraits.length && (
+        <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
+          … et {total - extraits.length} autre{total - extraits.length > 1 ? "s" : ""}.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function EncadreChangements({ impact }: { impact: UpdateImpact }) {
   const ajoutes = impact.nb_passages_ajoutes;
   const retires = impact.nb_passages_retires;
-  if (!impact.ajouts_analysables || (ajoutes === 0 && retires === 0)) return null;
-
   const relire = impact.nb_a_relire;
+  if (!impact.ajouts_analysables || (ajoutes === 0 && retires === 0)) return null;
 
   return (
     <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
@@ -168,48 +150,50 @@ function EncadreChangements({ impact }: { impact: UpdateImpact }) {
         <FilePlus2 size={16} />
         Cette version change le contenu du document.
       </p>
-      <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+      <SensChangement titre="ajouté" total={ajoutes} extraits={impact.extraits_ajoutes} />
+      <SensChangement titre="retiré" total={retires} extraits={impact.extraits_retires} />
+      <div className="space-y-2.5">
         {relire > 0 ? (
           <>
-            {relire} réponse{relire > 1 ? "s" : ""} enregistrée{relire > 1 ? "s" : ""} de ce
-            document {relire > 1 ? "n'en tiennent" : "n'en tient"} pas compte et{" "}
-            {relire > 1 ? "resteront servies" : "restera servie"} telle{relire > 1 ? "s" : ""}{" "}
-            quelle{relire > 1 ? "s" : ""}. Rien ne devient obsolète : à vous de juger si un de ces
-            changements les contredit. {relire > 1 ? "Elles seront listées" : "Elle sera listée"} dans{" "}
-            <span className="font-medium">Réponses enregistrées › À relire</span>.
+            <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+              {relire} réponse{relire > 1 ? "s" : ""} enregistrée{relire > 1 ? "s" : ""}{" "}
+              {relire > 1 ? "continueront" : "continuera"} d'être{" "}
+              {relire > 1 ? "servies" : "servie"} après la mise à jour. À vérifier dans{" "}
+              <a
+                href="/reponses-enregistrees?onglet=a_relire"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium underline decoration-amber-600/50 hover:decoration-amber-700 dark:decoration-amber-400/50 dark:hover:decoration-amber-300"
+              >
+                Réponses enregistrées › À relire
+              </a>
+              .
+            </p>
+            <ul className="space-y-2 max-h-72 overflow-y-auto">
+              {impact.a_relire.map((r) => (
+                <LigneARelire key={r.reponse_id} reponse={r} />
+              ))}
+            </ul>
+            {relire > impact.a_relire.length && (
+              <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
+                … et {relire - impact.a_relire.length} autre
+                {relire - impact.a_relire.length > 1 ? "s" : ""}.
+              </p>
+            )}
           </>
         ) : (
-          <>Aucune réponse enregistrée ne subsiste sur ce document : rien à relire.</>
-        )}
-      </p>
-
-      <SensDuChangement titre="ajouté" total={ajoutes} extraits={impact.extraits_ajoutes} />
-      <SensDuChangement titre="retiré" total={retires} extraits={impact.extraits_retires} />
-
-      {impact.a_relire.length > 0 && (
-        <div className="pt-1 space-y-1.5 border-t border-amber-200/70 dark:border-amber-500/25">
-          <p className="pt-2 text-[11px] font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
-            À relire, les plus servies d'abord
+          <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+            Aucune réponse enregistrée ne subsiste après cette mise à jour.
           </p>
-          <ul className="space-y-1.5 max-h-40 overflow-y-auto">
-            {impact.a_relire.map((r) => (
-              <LigneARelire key={r.reponse_id} reponse={r} />
-            ))}
-          </ul>
-          {relire > impact.a_relire.length && (
-            <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
-              … et {relire - impact.a_relire.length} autre
-              {relire - impact.a_relire.length > 1 ? "s" : ""}, dans{" "}
-              <span className="font-medium">Réponses enregistrées</span>.
-            </p>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
 function EcranObsolescence({ impact }: { impact: UpdateImpact }) {
+  const enAttente = impact.nb_en_attente;
+
   if (impact.nb_obsoletes === 0) {
     return (
       <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-400/10 px-4 py-3.5 space-y-1.5">
@@ -218,10 +202,17 @@ function EcranObsolescence({ impact }: { impact: UpdateImpact }) {
           Aucune réponse enregistrée n'est remise en cause.
         </p>
         <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80">
-          {impact.nb_chunks_modifies} passage{impact.nb_chunks_modifies > 1 ? "s" : ""} modifié
-          {impact.nb_chunks_modifies > 1 ? "s" : ""} sur {impact.nb_total_chunks}, mais aucun ne
-          fondait une réponse enregistrée.
+          {impact.nb_chunks_modifies !== 0
+            ? `${impact.nb_chunks_modifies} passage${impact.nb_chunks_modifies > 1 ? "s" : ""} modifié${impact.nb_chunks_modifies > 1 ? "s" : ""} sur ${impact.nb_total_chunks}, mais aucun ne fondait une réponse enregistrée.`
+            : null}
         </p>
+        {enAttente > 0 && (
+          <p className="text-xs text-emerald-800/70 dark:text-emerald-200/70">
+            {enAttente} réponse{enAttente > 1 ? "s" : ""} en attente de validation{" "}
+            {enAttente > 1 ? "seront annulées" : "sera annulée"} (jamais validée
+            {enAttente > 1 ? "s" : ""}).
+          </p>
+        )}
       </div>
     );
   }
@@ -241,6 +232,13 @@ function EcranObsolescence({ impact }: { impact: UpdateImpact }) {
         génération sur le document à jour. Elles restent consultables dans l'onglet{" "}
         <span className="font-medium">Obsolètes</span> et peuvent y être restaurées.
       </p>
+      {enAttente > 0 && (
+        <p className="text-xs text-red-800/70 dark:text-red-200/70">
+          {enAttente} réponse{enAttente > 1 ? "s" : ""} en attente de validation{" "}
+          {enAttente > 1 ? "seront annulées" : "sera annulée"} (jamais validée
+          {enAttente > 1 ? "s" : ""}).
+        </p>
+      )}
       <ul className="space-y-2 max-h-56 overflow-y-auto">
         {impact.items.map((item) => (
           <LigneImpact key={item.reponse_id} item={item} />

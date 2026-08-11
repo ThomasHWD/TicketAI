@@ -128,32 +128,25 @@ la mieux placée pour savoir ce qu'elle vient d'y écrire :
 ┌────────────────────────────────────────────────────────────────┐
 │ 📄  Cette version change le contenu du document.               │
 │                                                                │
-│     4 réponses enregistrées de ce document n'en tiennent pas   │
-│     compte et resteront servies telles quelles. Rien ne        │
-│     devient obsolète : à vous de juger si un de ces            │
-│     changements les contredit. Elles seront listées dans       │
-│     Réponses enregistrées › À relire.                          │
+│     2 réponses enregistrées continueront d'être servies        │
+│     après la mise à jour. À vérifier dans                      │
+│     Réponses enregistrées › À relire ↗                         │
 │                                                                │
-│     2 PASSAGES AJOUTÉS                                         │
-│     │ Article 7 bis : le télétravail est suspendu pendant…     │
-│     │ Article 9 : les frais d'équipement sont plafonnés à…     │
-│                                                                │
-│     1 PASSAGE RETIRÉ                                           │
-│     │ Article 12 : une prime de 20 € couvre les frais…         │
-│                                                                │
-│     À RELIRE, LES PLUS SERVIES D'ABORD                         │
 │     ┌──────────────────────────────────────────────────────┐   │
-│     │ Combien de jours de télétravail ?  canonique 12 val. ↗│   │
-│     │ Le télétravail est-il de droit ?   canonique  5 val. ↗│   │
+│     │ Combien de jours de télétravail ?   canonique 12 val.│   │
+│     │ Vous pouvez télétravailler jusqu'à deux jours…       │   │
+│     └──────────────────────────────────────────────────────┘   │
+│     ┌──────────────────────────────────────────────────────┐   │
+│     │ Le télétravail est-il de droit ?    canonique  5 val.│   │
+│     │ Le télétravail est un droit ouvert à tous les…       │   │
 │     └──────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-Les réponses sont **nommées, pas comptées** : un simple « 4 réponses n'en tiennent pas compte »
-obligerait à les retrouver à la main, et l'avertissement retomberait. Chaque ligne ouvre son
-ticket **dans un nouvel onglet** — la mise à jour en cours n'est pas perdue, on peut relire sans
-renoncer à confirmer. Les plus validées viennent en tête : ce sont celles qui repartent le plus
-souvent.
+Les réponses sont **nommées, pas comptées** — **toutes** les réponses VALIDÉE encore servies
+du document sont affichées, sans filtre. Les plus validées viennent en tête : ce sont celles
+qui repartent le plus souvent. La question de savoir si un changement spécifique contredit une
+réponse donnée revient à l'humain ; aucun filtre automatique ne peut y répondre de façon fiable.
 
 **2. Les réponses concernées sont déposées dans une liste durable** — l'onglet **À relire** de
 *Réponses enregistrées*, décrit en section 4 bis. C'est ce qui distingue ce dispositif d'un
@@ -209,15 +202,13 @@ là où un seuil mal calibré produirait des faux négatifs invisibles.
 
 ## 4 bis. L'onglet *À relire*
 
-Toutes les réponses encore servies d'un document dont le contenu a changé y sont déposées. Elles
-**continuent d'être servies** pendant tout ce temps : le drapeau est une file de relecture, pas
-un retrait. Le contraire ferait tomber en génération toute la base de connaissances d'un document
-au moindre ajout.
+Toutes les réponses VALIDÉE encore servies d'un document dont le contenu a changé y sont
+déposées — **sans filtre**. Elles **continuent d'être servies** pendant tout ce temps : le
+drapeau est une file de relecture, pas un retrait. Le contraire ferait tomber en génération toute
+la base de connaissances d'un document au moindre ajout.
 
-**Le volume est réel et assumé.** Une phrase réécrite dans une charte qui porte 40 réponses en
-signale 39. C'est la conséquence directe de ce qu'on cherche : la contradiction est *ailleurs* que
-dans les passages cités, par définition — cibler « près de la zone modifiée » raterait précisément
-le cas visé. La réponse au volume est donc ergonomique, pas un filtre qui rendrait le signal muet :
+Les réponses EN_ATTENTE (générées par le RAG mais pas encore validées) sont elles aussi annulées
+à la mise à jour : les valider ensuite aboutirait à une réponse fondée sur l'ancienne version.
 
 ```
 Réponses enregistrées   [ Canoniques ]  [ À relire ② ]  [ Obsolètes 3 ]
@@ -225,23 +216,25 @@ Réponses enregistrées   [ Canoniques ]  [ À relire ② ]  [ Obsolètes 3 ]
                               le badge compte les DOCUMENTS, pas les réponses
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Charte_RH.md  v3                              [ ✓ Tout confirmer ]   │
-│ 12 réponses sur cette page                                           │
-│                                                                      │
-│ 1 PASSAGE AJOUTÉ                                                     │
-│ │ Article 7 bis : le télétravail est suspendu pendant les périodes…  │
-│ ────────────────────────────────────────────────────────────────────│
-│  Combien de jours de télétravail ? ↗          canonique     12 val.  │
+│ 2 réponses sur cette page                                            │
+│ 1 passage ajouté                                                     │
+│ ▌ Article 7 bis : le télétravail est suspendu pendant les            │
+│   périodes de forte activité déclarées par la direction.             │
+│ ─────────────────────────────────────────────────────────────────── │
+│  Combien de jours de télétravail ?            canonique     12 val.  │
 │  Vous pouvez télétravailler jusqu'à deux jours hebdomadaires…        │
 │                        [ ✓ Toujours d'actualité ]  [ ✎ ]  [ 👁 ]     │
-│ ────────────────────────────────────────────────────────────────────│
-│  Le télétravail est-il de droit ? ↗           canonique      5 val.  │
-│  …                                                                   │
+│ ─────────────────────────────────────────────────────────────────── │
+│  Le télétravail est-il de droit ?             canonique      5 val.  │
+│  Le télétravail est un droit ouvert à tout collaborateur…            │
+│                        [ ✓ Toujours d'actualité ]  [ ✎ ]  [ 👁 ]     │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-**Le diff se lit une fois, en tête du groupe** — et il est *figé* au moment de la mise à jour, pas
-recalculé : trois jours plus tard, l'archive de la version sortante peut avoir été purgée, et
-« cette réponse est liée à Charte_RH v3 » ne permettrait de juger de rien.
+Le **diff du document** (passages ajoutés et retirés) est affiché **une seule fois en tête de
+groupe** — c'est lui qu'on lit pour juger l'ensemble, pas répété par carte. Il est *figé* au
+moment de la mise à jour, pas recalculé : trois jours plus tard, l'archive de la version sortante
+peut avoir été purgée.
 
 **Le badge compte les documents.** « 2 documents à relire » se traite ; « 39 réponses » se subit —
 alors que ce sont bien deux diffs à lire, pas trente-neuf.
@@ -298,14 +291,15 @@ redeviennent valables.
   ponctuation dans un passage cité marque la réponse obsolète alors que le fond n'a pas bougé.
   Réponse du système : c'est visible, et Restaurer le corrige en un clic.
 - **On signale, on ne décide pas.** Un changement ailleurs dans le document est détecté (dans les
-  deux sens) et dépose les réponses concernées dans l'onglet *À relire* — mais aucune règle ne
-  peut dire s'il les contredit : cela demande de lire. Tant que personne n'a tranché, la réponse
-  **continue d'être servie**. C'est la limite la plus sérieuse, et la seule qui repose entièrement
-  sur la vigilance humaine ; ce qui a changé, c'est qu'elle ne repose plus sur la vigilance d'une
-  seule personne à un seul instant.
-- **Le signalement est large, et bruyant par construction.** Toutes les réponses du document sont
-  déposées, pas seulement celles proches du changement — cibler plus finement raterait le cas
-  même qu'on cherche. D'où le groupement et la confirmation en lot (§4 bis).
+  deux sens) et dépose **toutes** les réponses VALIDÉE du document dans l'onglet *À relire* — mais
+  aucune règle ne peut dire si le changement les contredit : cela demande de lire. Tant que
+  personne n'a tranché, la réponse **continue d'être servie**. C'est la limite la plus sérieuse,
+  et la seule qui repose entièrement sur la vigilance humaine ; ce qui a changé, c'est qu'elle ne
+  repose plus sur la vigilance d'une seule personne à un seul instant.
+- **Le signalement est large par construction.** Toutes les réponses VALIDÉE d'un document dont le
+  contenu a changé sont déposées dans l'onglet, même celles qui ne concernent pas la modification.
+  C'est voulu : tout filtre automatique produit des faux négatifs invisibles. D'où le groupement
+  par document et la confirmation en lot (§4 bis) — c'est la sortie normale, pas l'exception.
 - **Un seul signalement à la fois par réponse.** Si un second document la fait signaler, les
   colonnes sont écrasées : dernier arrivé gagne. Une réponse ne peut pas porter deux relectures en
   attente.
@@ -374,11 +368,17 @@ tickets clos, une réponse qui *a bien été* validée et *était* correcte. Le 
 comportement voulu sans corrompre l'historique.
 
 **Signalement en base** : cinq colonnes en miroir exact des précédentes — `Reponse.a_relire`
-(+ `a_relire_raison`, `a_relire_doc_id`, `a_relire_version`, `a_relire_at`). `marquer_a_relire`
-**ne touche pas à Qdrant** : c'est toute la différence avec l'obsolescence. Il flague la famille
-entière (`reponses_obsoletes(..., indices=None)`) et non les seules `racines` — `racines` garde
-les copies dont la source est hors ensemble, que le filtre `reponse_source_id IS NULL` des listes
-rendrait invisibles donc indéboulonnables.
+(+ `a_relire_raison`, `a_relire_doc_id`, `a_relire_version`, `a_relire_at`). Les colonnes
+`passages_pertinents` et `correction_suggeree` existent en base (migrations déjà appliquées) mais
+ne sont plus peuplées. `marquer_a_relire` **ne touche pas à Qdrant** : c'est toute la différence
+avec l'obsolescence. Il flague la famille entière (`reponses_obsoletes(..., indices=None)`) et non
+les seules `racines` — `racines` garde les copies dont la source est hors ensemble, que le filtre
+`reponse_source_id IS NULL` des listes rendrait invisibles donc indéboulonnables.
+
+**EN_ATTENTE.** `marquer_obsoletes` annule aussi les réponses EN_ATTENTE liées au document via
+`ReponseChunk` : les valider ensuite aboutirait à indexer une réponse fondée sur l'ancienne
+version. Les EN_ATTENTE n'ont pas de point Qdrant (indexé seulement à la validation), l'appel à
+`delete_response_point` est donc un no-op pour elles.
 
 Ce qui lève le drapeau : `confirmer_actualite`, `PUT /reponses/{id}/editer`, `corriger_reponse`,
 `marquer_obsoletes` (une réponse ne siège jamais dans les deux onglets), `restaurer_reponse`

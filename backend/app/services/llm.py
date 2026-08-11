@@ -81,3 +81,5 @@ Réponse :"""
     response.raise_for_status()
 
     return response.json()["choices"][0]["message"]["content"].strip()
+
+

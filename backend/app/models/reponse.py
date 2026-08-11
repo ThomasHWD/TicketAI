@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -21,6 +21,11 @@ class Reponse(Base):
     canonique = Column(Boolean, nullable=False, default=False)
     reponse_source_id = Column(UUID(as_uuid=True), ForeignKey("reponses.id"), nullable=True)
     contenu_corrige = Column(Text, nullable=True)
+    correction_suggeree = Column(Text, nullable=True)
+    # Passages du document retenus par le pré-filtrage sémantique et envoyés au LLM.
+    # {"ajoutes": ["...", "..."], "retires": ["..."]} — null si filtre LLM désactivé
+    # ou si la réponse a été signalée avant l'introduction de ce champ.
+    passages_pertinents = Column(JSON, nullable=True)
     # Texte de la précision (relance utilisateur) ayant déclenché cette réponse.
     # NULL pour la réponse à la question initiale du ticket.
     question_suivi = Column(Text, nullable=True)

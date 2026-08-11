@@ -112,7 +112,9 @@ def texte_complet(pages: list[str]) -> str:
     return "\n\n".join(pages)
 
 
-def analyser_changements(chemin_sortant: str | None, nouveau_texte: str) -> dict | None:
+def analyser_changements(
+    chemin_sortant: str | None, nouveau_texte: str
+) -> tuple[dict | None, list[str], list[str]]:
     """Ce que la nouvelle version dit de neuf, et ce qu'elle ne dit plus.
 
     Les deux sens sortent de la même primitive, arguments inversés :
@@ -124,29 +126,37 @@ def analyser_changements(chemin_sortant: str | None, nouveau_texte: str) -> dict
     c'est le garde-fou contre l'inondation, sans lui chaque redécoupage
     signalerait tout le document.
 
-    Renvoie ``None`` quand la version sortante est illisible — fichier disparu
-    (documents backfillés) ou archive corrompue. L'appelant signale alors avec
-    ``RAISON_ILLISIBLE`` plutôt que de se taire : la liste dit elle-même pourquoi
-    elle est bruyante. **Ne jamais** reconstituer le texte sortant en concaténant
-    les chunks capturés — le chevauchement de 128 tokens du splitter fabriquerait
-    une fausse suppression à chaque couture.
+    Renvoie ``(None, [], [])`` quand la version sortante est illisible — fichier
+    disparu (documents backfillés) ou archive corrompue. L'appelant signale alors
+    avec ``RAISON_ILLISIBLE`` plutôt que de se taire : la liste dit elle-même
+    pourquoi elle est bruyante. **Ne jamais** reconstituer le texte sortant en
+    concaténant les chunks capturés — le chevauchement de 128 tokens du splitter
+    fabriquerait une fausse suppression à chaque couture.
+
+    Les listes complètes ``ajoutes_full`` et ``retires_full`` (deuxième et
+    troisième éléments du tuple) sont passées à ``marquer_a_relire`` pour le
+    filtrage LLM — sans elles, le filtre opérerait sur les extraits tronqués.
     """
     if chemin_sortant is None:
-        return None
+        return None, [], []
     try:
         ancien_texte = texte_complet(extract_text(chemin_sortant))
     except Exception as exc:
         print(f"[MAJ] version sortante illisible ({exc}) — signalement dégradé")
-        return None
+        return None, [], []
 
     ajoutes = passages_ajoutes(decouper_en_passages(nouveau_texte), ancien_texte)
     retires = passages_ajoutes(decouper_en_passages(ancien_texte), nouveau_texte)
-    return {
-        "nb_ajoutes": len(ajoutes),
-        "nb_retires": len(retires),
-        "extraits_ajoutes": [extrait(t) for t in ajoutes[:MAX_EXTRAITS]],
-        "extraits_retires": [extrait(t) for t in retires[:MAX_EXTRAITS]],
-    }
+    return (
+        {
+            "nb_ajoutes": len(ajoutes),
+            "nb_retires": len(retires),
+            "extraits_ajoutes": [extrait(t) for t in ajoutes[:MAX_EXTRAITS]],
+            "extraits_retires": [extrait(t) for t in retires[:MAX_EXTRAITS]],
+        },
+        ajoutes,
+        retires,
+    )
 
 
 class TacheMaj(celery_app.Task):
@@ -244,7 +254,7 @@ def document_update_job(
 
         # Le fichier sortant est encore sur le disque : `store_file` (étape 5)
         # écrit sous v{new_version}, il ne l'écrase pas.
-        changements = analyser_changements(chemin_sortant, nouveau_texte)
+        changements, ajoutes_full, retires_full = analyser_changements(chemin_sortant, nouveau_texte)
         if changements is None:
             print("[MAJ] contenu comparé impossible — toutes les réponses seront à relire")
         else:

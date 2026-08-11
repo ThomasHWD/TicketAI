@@ -126,7 +126,6 @@ def scenario_maj(tmp_path, monkeypatch, qdrant_mock, db_session):
     from app.config import settings
     from app.models.document import Document
     from app.models.document_version import DocumentVersion
-
     monkeypatch.setattr(settings, "documents_storage_path", str(tmp_path / "storage"))
     monkeypatch.setattr(maj, "chunk_text", lambda pages: "\n\n".join(pages).split("\n\n"))
     monkeypatch.setattr(
@@ -351,6 +350,30 @@ class TestObsolescenceDeclenchee:
         assert r.obsolete is False
         assert resultat["nb_obsoletes"] == 0
 
+    def test_en_attente_marquee_obsolete(self, scenario_maj):
+        """Une réponse EN_ATTENTE liée au document devient obsolète même si aucune
+        réponse VALIDÉE n'est impactée : indexer une réponse bâtie sur l'ancienne
+        version introduirait une information périmée dès la première validation."""
+        from app.models.reponse import Reponse
+        from app.models.reponse_chunk import ReponseChunk
+        from app.models.ticket import Ticket
+        from app.workers.document_update import document_update_job
+
+        ticket = Ticket(question="Q?", domaine="RH", statut_job="TERMINÉ")
+        scenario_maj.db.add(ticket)
+        scenario_maj.db.flush()
+        r = Reponse(ticket_id=ticket.id, contenu="R.", source="LLM", statut="EN_ATTENTE")
+        scenario_maj.db.add(r)
+        scenario_maj.db.flush()
+        scenario_maj.db.add(ReponseChunk(reponse_id=r.id, doc_id=scenario_maj.doc_id, chunk_index=0))
+        scenario_maj.db.commit()
+
+        document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r)
+        assert r.obsolete is True
+        assert r.obsolete_raison == "DOC_MIS_A_JOUR"
+
 
 @pytest.mark.integration
 class TestSignalementARelire:
@@ -445,6 +468,59 @@ class TestSignalementARelire:
         scenario_maj.db.refresh(r)
         assert resultat["nb_a_relire"] == 1
         assert r.a_relire_raison == "VERSION_SORTANTE_ILLISIBLE"
+
+    def test_toutes_validees_signalees_meme_chunk_intact_survivant(self, scenario_maj):
+        """La règle centrale : toutes les VALIDÉE survivantes sont signalées.
+
+        r0 sur chunk 0 (modifié) → obsolète.
+        r1 sur chunk 1 (intact) → toujours servie, mais à relire.
+        Sans cette règle, un article ajouté ailleurs serait silencieux."""
+        from app.workers.document_update import document_update_job
+
+        r0 = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
+        r1 = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 1)
+        # TEXTE_V2 (défaut du fixture) réécrit le 1er paragraphe → chunk 0 modifié,
+        # chunk 1 intact ; le remplacement crée aussi 1 ajout + 1 retrait → à relire.
+
+        resultat = document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r0)
+        scenario_maj.db.refresh(r1)
+        assert r0.obsolete is True
+        assert r1.obsolete is False
+        assert r1.a_relire is True
+        assert resultat["nb_obsoletes"] == 1
+        assert resultat["nb_a_relire"] == 1
+
+    def test_en_attente_obsolete_pas_a_relire(self, scenario_maj):
+        """EN_ATTENTE : obsolète immédiatement, jamais dans l'onglet À relire.
+
+        La signaler pour relecture n'aurait aucun sens : elle n'est pas encore
+        indexée et ne sera jamais servie telle quelle."""
+        from app.models.reponse import Reponse
+        from app.models.reponse_chunk import ReponseChunk
+        from app.models.ticket import Ticket
+        from app.workers.document_update import document_update_job
+
+        ticket = Ticket(question="Q?", domaine="RH", statut_job="TERMINÉ")
+        scenario_maj.db.add(ticket)
+        scenario_maj.db.flush()
+        r = Reponse(ticket_id=ticket.id, contenu="R.", source="LLM", statut="EN_ATTENTE")
+        scenario_maj.db.add(r)
+        scenario_maj.db.flush()
+        scenario_maj.db.add(ReponseChunk(reponse_id=r.id, doc_id=scenario_maj.doc_id, chunk_index=1))
+        scenario_maj.db.commit()
+        scenario_maj.fichier.write_text(
+            TEXTE_V1 + "\n\nArticle 7 bis : le télétravail est suspendu en période de forte activité.",
+            encoding="utf-8",
+        )
+
+        resultat = document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r)
+        assert r.obsolete is True
+        assert r.a_relire is False
+        assert resultat["nb_a_relire"] == 0
 
     def test_changements_ecrits_sur_la_version(self, scenario_maj):
         """Les extraits sont figés à la mise à jour : la liste se consulte des

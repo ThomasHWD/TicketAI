@@ -35,6 +35,7 @@ function impact(overrides: Partial<UpdateImpact> = {}): UpdateImpact {
     extraits_retires: [],
     nb_a_relire: 0,
     a_relire: [],
+    nb_en_attente: 0,
     ...overrides,
   };
 }
@@ -44,6 +45,7 @@ function aRelire(overrides: Partial<ReponseARelire> = {}): ReponseARelire {
     reponse_id: "r1",
     ticket_id: "t1",
     question: "Combien de jours de télétravail ?",
+    contenu: "Deux jours par semaine.",
     canonique: true,
     nb_validations: 5,
     ...overrides,
@@ -151,7 +153,8 @@ describe("Changements de contenu", () => {
       }),
     );
 
-    expect(screen.getAllByRole("link")).toHaveLength(10);
+    // 10 réponses + 1 lien « Réponses enregistrées › À relire »
+    expect(screen.getAllByRole("link")).toHaveLength(11);
     expect(screen.getByText(/et 4 autres/)).toBeInTheDocument();
   });
 
