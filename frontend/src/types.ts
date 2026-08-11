@@ -103,6 +103,8 @@ export interface UpdateImpact {
   nb_a_relire: number;
   /** Les dix premières de `nb_a_relire`, les plus servies d'abord. */
   a_relire: ReponseARelire[];
+  /** Réponses EN_ATTENTE (non encore validées) qui seront annulées. */
+  nb_en_attente: number;
 }
 
 /**
@@ -111,9 +113,10 @@ export interface UpdateImpact {
  */
 export interface ReponseARelire {
   reponse_id: string;
-  /** Cible du lien : la réponse se consulte depuis le ticket qui l'a produite. */
   ticket_id: string;
   question: string;
+  /** Contenu servi (contenu_corrige ?? contenu). */
+  contenu: string;
   canonique: boolean;
   nb_validations: number;
 }

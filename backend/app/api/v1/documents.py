@@ -22,6 +22,7 @@ from app.models.document import Document
 from app.models.document_staging import DocumentStaging
 from app.models.document_version import DocumentVersion
 from app.models.groupe import Groupe
+from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
 from app.models.user import User
@@ -454,6 +455,7 @@ def stager_et_analyser(
     nouveau_texte = texte_complet(extract_text(chemin))
     indices = indices_modifies(anciens, nouveau_texte)
     impactees = racines(reponses_obsoletes(db, doc.doc_id, indices))
+    nb_en_attente = _compter_en_attente(db, doc.doc_id)
     changements = analyser_changements(db, doc, nouveau_texte, deja_impactees=impactees)
 
     db.add(
@@ -480,6 +482,7 @@ def stager_et_analyser(
         "nb_chunks_modifies": len(indices),
         "nb_total_chunks": len(anciens),
         "nb_obsoletes": len(impactees),
+        "nb_en_attente": nb_en_attente,
         "nb_canoniques": sum(1 for r in impactees if r.canonique),
         "items": [_item_impact(db, r, doc.doc_id, indices, anciens) for r in impactees],
         **changements,
@@ -544,24 +547,25 @@ def analyser_changements(db: Session, doc: Document, nouveau_texte: str, *, deja
     # cet ordre, c'est traiter le risque réel avant le résiduel.
     a_relire.sort(key=lambda r: (r.canonique, r.nb_validations or 0), reverse=True)
 
+    items_a_relire = _items_a_relire(db, a_relire)
+
     return {
         "ajouts_analysables": True,
         "nb_passages_ajoutes": len(ajouts),
         "extraits_ajoutes": [extrait(t) for t in ajouts[:MAX_EXTRAITS]],
         "nb_passages_retires": len(retires),
         "extraits_retires": [extrait(t) for t in retires[:MAX_EXTRAITS]],
-        "nb_a_relire": len(a_relire),
-        "a_relire": _items_a_relire(db, a_relire[:MAX_A_RELIRE]),
+        "nb_a_relire": len(items_a_relire),
+        "a_relire": items_a_relire[:MAX_A_RELIRE],
     }
 
 
 def _items_a_relire(db: Session, reponses: list) -> list[dict]:
-    """Identifie nommément les réponses à relire — un compte ne suffit pas.
+    """Cartes des réponses à relire pour l'écran d'impact.
 
-    Annoncer « 4 réponses n'en tiennent pas compte » sans dire lesquelles laisse
-    l'utilisateur chercher à la main dans *Réponses enregistrées* : en pratique,
-    personne ne le fait, et l'avertissement retombe. On renvoie donc de quoi
-    ouvrir chaque réponse, ``ticket_id`` compris.
+    Toutes les réponses VALIDÉE survivantes sont listées, sans filtre sémantique
+    ou LLM : l'humain lit les changements au niveau du groupe (panneau global) et
+    confirme en lot. Plus rapide et zéro faux positif.
     """
     tickets = {
         t.id: t
@@ -572,11 +576,27 @@ def _items_a_relire(db: Session, reponses: list) -> list[dict]:
             "reponse_id": str(r.id),
             "ticket_id": str(r.ticket_id),
             "question": r.question_suivi or (tickets[r.ticket_id].question if r.ticket_id in tickets else ""),
+            "contenu": r.contenu_corrige or r.contenu or "",
             "canonique": r.canonique,
             "nb_validations": r.nb_validations,
         }
         for r in reponses
     ]
+
+
+def _compter_en_attente(db: Session, doc_id: str) -> int:
+    """Réponses EN_ATTENTE liées au document, non encore obsolètes."""
+    return (
+        db.query(Reponse.id)
+        .join(ReponseChunk, ReponseChunk.reponse_id == Reponse.id)
+        .filter(
+            ReponseChunk.doc_id == doc_id,
+            Reponse.statut == "EN_ATTENTE",
+            Reponse.obsolete.is_(False),
+        )
+        .distinct()
+        .count()
+    )
 
 
 def prochaine_version(db: Session, doc: Document) -> int:

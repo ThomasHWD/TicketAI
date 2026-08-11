@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,7 +13,6 @@ import {
   RotateCcw,
   AlertTriangle,
   CheckCircle2,
-  ExternalLink,
   EyeOff,
 } from "lucide-react";
 import {
@@ -144,7 +143,10 @@ function SensDuChangement({ titre, total, extraits }: { titre: string; total: nu
 
 export default function SavedAnswers() {
   const queryClient = useQueryClient();
-  const [onglet, setOnglet] = useState<Onglet>("canoniques");
+  const [searchParams] = useSearchParams();
+  const [onglet, setOnglet] = useState<Onglet>(
+    (searchParams.get("onglet") as Onglet | null) ?? "canoniques"
+  );
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -447,16 +449,9 @@ export default function SavedAnswers() {
                           className="rounded-xl border border-gray-200 dark:border-white/10 px-4 py-3 space-y-2"
                         >
                           <div className="flex items-start gap-2">
-                            <Link
-                              to={`/tickets/${r.ticket_id}`}
-                              className="group flex-1 min-w-0 flex items-start gap-1.5 text-sm text-gray-800 dark:text-gray-100 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
-                            >
-                              <span className="flex-1">{r.question}</span>
-                              <ExternalLink
-                                size={13}
-                                className="shrink-0 mt-1 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors"
-                              />
-                            </Link>
+                            <p className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-100">
+                              {r.question}
+                            </p>
                             {r.canonique && (
                               <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
                                 canonique

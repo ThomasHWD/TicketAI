@@ -10,6 +10,9 @@ qui remontent des chunks aux réponses et à leurs copies.
 import uuid
 
 import pytest
+from app.models.reponse import Reponse
+from app.models.reponse_chunk import ReponseChunk
+from app.models.ticket import Ticket
 from app.services.obsolescence import (
     RAISON_MAJ,
     RAISON_MODIF,
@@ -219,9 +222,6 @@ class TestDetectionDansLesDeuxSens:
 @pytest.fixture
 def scenario(db_session):
     """Fabrique de tickets/réponses/chunks sur la base de test."""
-    from app.models.reponse import Reponse
-    from app.models.reponse_chunk import ReponseChunk
-    from app.models.ticket import Ticket
 
     doc_id = str(uuid.uuid4())
 
@@ -335,6 +335,14 @@ class TestReponsesObsoletes:
 
         assert [x.id for x in touchees] == [validee.id]
 
+    def test_en_attente_non_incluses_dans_reponses_obsoletes(self, scenario):
+        """EN_ATTENTE traitées séparément dans marquer_obsoletes, pas via reponses_obsoletes."""
+        en_attente = scenario(chunks=[1], statut="EN_ATTENTE")
+
+        touchees = reponses_obsoletes(scenario.db, scenario.doc_id, {1})
+
+        assert en_attente.id not in {x.id for x in touchees}
+
     def test_ignore_les_deja_obsoletes(self, scenario):
         scenario(chunks=[1], obsolete=True)
 
@@ -384,6 +392,23 @@ class TestMarquerObsoletes:
         assert len(premier) == 1
         assert second == []
 
+    def test_en_attente_marquees_obsoletes(self, scenario, _qdrant_muet):
+        """Une EN_ATTENTE générée sur l'ancien document ne doit plus être proposée à la validation."""
+        en_attente = scenario(chunks=[1], statut="EN_ATTENTE")
+
+        marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=2, indices=set())
+
+        scenario.db.refresh(en_attente)
+        assert en_attente.obsolete is True
+        assert en_attente.obsolete_raison == RAISON_MAJ
+
+    def test_en_attente_idempotentes(self, scenario, _qdrant_muet):
+        """Second passage : les EN_ATTENTE déjà obsolètes ne sont pas comptées deux fois."""
+        scenario(chunks=[1], statut="EN_ATTENTE")
+
+        marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=2, indices=set())
+        marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=3, indices=set())
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # marquer_a_relire — le signalement, qui ne retire rien
@@ -425,6 +450,15 @@ class TestMarquerARelire:
 
         scenario.db.refresh(r)
         assert r.a_relire is True
+
+    def test_toutes_validees_flagguees_sans_filtre(self, scenario):
+        """Sans filtre LLM/cosinus, toutes les VALIDÉE du document sont signalées."""
+        r1 = scenario(chunks=[1])
+        r2 = scenario(chunks=[2])
+
+        signalees = marquer_a_relire(scenario.db, scenario.doc_id, 2)
+
+        assert {r.id for r in signalees} == {r1.id, r2.id}
 
     def test_famille_entiere_flaguee_racines_seules_comptees(self, scenario):
         """Flaguer les seules racines rendrait les copies indéboulonnables : la

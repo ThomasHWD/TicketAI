@@ -212,9 +212,30 @@ def marquer_obsoletes(
     jamais retrouvée. Le drapeau assure la traçabilité et l'onglet « Obsolètes ».
     Idempotent : un second passage ne retrouve rien (filtre ``obsolete is False``)
     et ``delete_response_point`` sur un id absent est un no-op.
+
+    Les réponses EN_ATTENTE liées au document sont également obsolètes : elles ont
+    été générées sur l'ancienne version et n'ont pas encore été validées. Elles
+    n'ont pas de point Qdrant (indexé seulement après validation) ; l'appel
+    ``delete_response_point`` est donc un no-op pour elles.
     """
     reponses = reponses_obsoletes(db, doc_id, indices)
     retirer_du_service(db, reponses, raison, doc_id, version)
+
+    ids_en_attente = {
+        r[0]
+        for r in db.query(Reponse.id)
+        .join(ReponseChunk, ReponseChunk.reponse_id == Reponse.id)
+        .filter(
+            ReponseChunk.doc_id == doc_id,
+            Reponse.statut == "EN_ATTENTE",
+            Reponse.obsolete.is_(False),
+        )
+        .distinct()
+        .all()
+    }
+    en_attente = db.query(Reponse).filter(Reponse.id.in_(ids_en_attente)).all() if ids_en_attente else []
+    retirer_du_service(db, en_attente, raison, doc_id, version)
+
     return reponses
 
 
@@ -249,12 +270,14 @@ def retirer_du_service(
 
 
 def lever_a_relire(r: Reponse) -> None:
-    """Efface les cinq colonnes de relecture d'une réponse."""
+    """Efface les colonnes de relecture, la suggestion LLM et les passages associés."""
     r.a_relire = False
     r.a_relire_raison = None
     r.a_relire_doc_id = None
     r.a_relire_version = None
     r.a_relire_at = None
+    r.correction_suggeree = None
+    r.passages_pertinents = None
 
 
 def marquer_a_relire(
@@ -263,7 +286,7 @@ def marquer_a_relire(
     version: int,
     raison: str = RAISON_MODIF,
 ) -> list[Reponse]:
-    """Signale pour relecture toutes les réponses encore servies issues du document.
+    """Signale pour relecture les réponses encore servies potentiellement touchées.
 
     Répond à l'angle mort de ``indices_modifies`` : le contenu du document a
     changé quelque part, sans qu'aucun passage cité n'ait bougé. Impossible de
@@ -271,6 +294,12 @@ def marquer_a_relire(
     Le périmètre est donc **tout le document** : cibler « près de la zone
     modifiée » raterait précisément le cas visé, la contradiction étant ailleurs
     par définition.
+
+    Toutes les réponses VALIDÉE survivantes sont signalées sans filtre automatique.
+    Le filtre cosinus + LLM a été supprimé : il produisait des faux positifs
+    (timeouts → fallback conservateur, jugements LLM erronés) sans garantie de
+    zéro faux positif. L'humain lit les changements une fois par groupe et confirme
+    en lot — c'est plus fiable et aussi rapide.
 
     Ne touche pas à Qdrant : c'est toute la différence avec l'obsolescence. La
     réponse continue d'être servie tant que personne n'a tranché.
@@ -284,8 +313,8 @@ def marquer_a_relire(
     et ``marquer_obsoletes`` commite avant qu'on arrive ici.
     """
     reponses = reponses_obsoletes(db, doc_id, indices=None)
-    maintenant = datetime.now(timezone.utc)
 
+    maintenant = datetime.now(timezone.utc)
     for r in reponses:
         r.a_relire = True
         r.a_relire_raison = raison
