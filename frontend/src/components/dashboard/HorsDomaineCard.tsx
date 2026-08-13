@@ -12,31 +12,23 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
 
   if (loading) {
     return (
-      <div className="glass-card rounded-2xl p-5 animate-pulse flex items-center gap-5">
-        <div className="w-9 h-9 rounded-xl bg-gray-200 dark:bg-white/10 shrink-0" />
-        <div className="flex-1 space-y-2">
-          <div className="h-3.5 bg-gray-200 dark:bg-white/10 rounded w-40" />
-          <div className="h-3 bg-gray-100 dark:bg-white/5 rounded w-24" />
-        </div>
-        <div className="h-8 w-16 bg-gray-200 dark:bg-white/10 rounded" />
+      <div className="glass-card rounded-xl px-4 py-2.5 animate-pulse flex items-center gap-3">
+        <div className="w-6 h-6 rounded-lg bg-gray-200 dark:bg-white/10 shrink-0" />
+        <div className="h-3.5 w-48 bg-gray-200 dark:bg-white/10 rounded flex-1" />
+        <div className="h-6 w-20 bg-gray-100 dark:bg-white/5 rounded-lg shrink-0" />
       </div>
     );
   }
 
   if (count === 0) {
     return (
-      <div className="glass-card rounded-2xl p-5 flex items-center gap-4">
-        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 shrink-0">
-          <CheckCircle2 size={16} className="text-emerald-500 dark:text-emerald-400" />
+      <div className="glass-card rounded-xl px-4 py-2.5 flex items-center gap-3">
+        <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 shrink-0">
+          <CheckCircle2 size={12} className="text-emerald-500 dark:text-emerald-400" />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-            Documentation complète
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-            Toutes les questions de la période ont pu être traitées.
-          </p>
-        </div>
+        <span className="text-sm text-gray-500 dark:text-gray-400 flex-1">
+          Documentation complète — aucun sujet non couvert sur cette période.
+        </span>
       </div>
     );
   }
@@ -44,34 +36,22 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
   return (
     <button
       onClick={() => navigate("/angles-morts")}
-      className="glass-card rounded-2xl p-5 flex items-center gap-4 w-full text-left hover:shadow-md transition-shadow group"
+      className="glass-card rounded-xl px-4 py-2.5 flex items-center gap-3 w-full text-left hover:shadow-md transition-shadow group"
     >
-      <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-500/10 shrink-0">
-        <BookX size={16} className="text-purple-600 dark:text-purple-400" />
+      <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-purple-50 dark:bg-purple-500/10 shrink-0">
+        <BookX size={12} className="text-purple-600 dark:text-purple-400" />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-          Sujets non couverts
-        </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-          Questions sans réponse documentaire cette période
-        </p>
-      </div>
+      <span className="text-sm text-gray-600 dark:text-gray-400 flex-1 min-w-0">
+        <span className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{count}</span>
+        {" "}sujet{count > 1 ? "s" : ""} non couvert{count > 1 ? "s" : ""} cette période
+        <span className="text-gray-400 dark:text-gray-500 ml-1.5 tabular-nums">({pct}%)</span>
+      </span>
 
-      <div className="text-right shrink-0">
-        <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 tabular-nums leading-none">
-          {count}
-        </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 tabular-nums">
-          {pct}% des tickets
-        </p>
-      </div>
-
-      <ArrowRight
-        size={15}
-        className="text-gray-300 dark:text-white/20 shrink-0 group-hover:text-gray-500 dark:group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all duration-100"
-      />
+      <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-purple-600 dark:text-purple-400 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors">
+        Voir le détail
+        <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform duration-100" />
+      </span>
     </button>
   );
 }
