@@ -1,9 +1,10 @@
 import type { RepartitionBranche } from "../../lib/api";
 
 const BRANCHE_CONFIG: Record<string, { label: string; color: string; darkColor: string }> = {
-  CANONIQUE: { label: "Canonique",    color: "#8b5cf6", darkColor: "#a78bfa" },
-  SUGGESTION: { label: "Suggestion",  color: "#0d9488", darkColor: "#2dd4bf" },
-  LLM:        { label: "Génération IA", color: "#e11d48", darkColor: "#fb7185" },
+  CANONIQUE:    { label: "Canonique",      color: "#8b5cf6", darkColor: "#a78bfa" },
+  SUGGESTION:   { label: "Suggestion",     color: "#0d9488", darkColor: "#2dd4bf" },
+  LLM:          { label: "Génération IA",  color: "#e11d48", darkColor: "#fb7185" },
+  HORS_DOMAINE: { label: "Hors domaine",   color: "#9333ea", darkColor: "#c084fc" },
 };
 
 interface BranchesDonutProps {

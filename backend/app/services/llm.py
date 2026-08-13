@@ -40,13 +40,19 @@ def chat(
     return content
 
 
+_HORS_DOMAINE_MARKER = "[HORS_DOMAINE]"
+
+
 def generate(
     question: str,
     chunks: list[dict],
     historique: list[dict] | None = None,
-) -> str:
+) -> tuple[str, bool]:
     """
     Génère une réponse via LLM.
+
+    Retourne ``(contenu, hors_domaine)`` où ``hors_domaine`` est True quand le LLM
+    signale qu'il ne dispose pas du contexte pour répondre.
 
     `historique` (optionnel) : messages alternés {"role": "user"|"assistant",
     "content": ...} des tours précédents du fil. Fourni pour une précision
@@ -62,7 +68,9 @@ def generate(
 
     prompt_system = """Tu es un assistant de support interne.
 Réponds uniquement à partir des documents fournis dans le contexte.
-Si l'information n'est pas dans le contexte, dis-le explicitement sans inventer.
+Si l'information n'est pas dans le contexte fourni, commence ta réponse EXACTEMENT par \
+"[HORS_DOMAINE]" puis explique brièvement à l'utilisateur ce que tu n'as pas pu trouver, \
+sans mentionner le contexte ni les documents. N'invente rien.
 Appuie-toi en priorité sur les extraits dont la pertinence est la plus élevée.
 
 Règles de format :
@@ -102,4 +110,8 @@ Réponse :"""
         {"role": "user", "content": prompt_user},
     ]
 
-    return chat(messages, temperature=0.1, max_tokens=512, timeout=120)
+    texte = chat(messages, temperature=0.1, max_tokens=512, timeout=120)
+    hors_domaine = texte.startswith(_HORS_DOMAINE_MARKER)
+    if hors_domaine:
+        texte = texte[len(_HORS_DOMAINE_MARKER):].lstrip()
+    return texte, hors_domaine

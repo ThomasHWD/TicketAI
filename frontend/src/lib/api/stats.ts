@@ -28,7 +28,7 @@ export interface TicketSummaryDashboard {
 }
 
 export interface RepartitionBranche {
-  branche: "CANONIQUE" | "SUGGESTION" | "LLM";
+  branche: "CANONIQUE" | "SUGGESTION" | "LLM" | "HORS_DOMAINE";
   count: number;
   pct: number;
 }
@@ -85,4 +85,28 @@ export async function getGroupeMembresStats(groupeId: string, periode = "semaine
   const res = await apiFetch(`${BASE_URL}/stats/groupe/${groupeId}/membres?periode=${periode}`);
   if (!res.ok) throw new Error("Erreur chargement statistiques équipe");
   return res.json();
+}
+
+export interface HorsDomaineQuestion {
+  id: string;
+  objet: string | null;
+  question: string;
+  created_at: string | null;
+}
+
+export interface HorsDomaineEntry {
+  domaine: string;
+  nb_tickets: number;
+  questions: HorsDomaineQuestion[];
+}
+
+export async function getHorsDomaine(periode = "mois"): Promise<HorsDomaineEntry[]> {
+  const res = await apiFetch(`${BASE_URL}/stats/hors-domaine?periode=${periode}`);
+  if (!res.ok) throw new Error("Erreur chargement angles morts");
+  return res.json();
+}
+
+export async function masquerAngleMort(ticketId: string): Promise<void> {
+  const res = await apiFetch(`${BASE_URL}/stats/hors-domaine/${ticketId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Erreur lors de la suppression");
 }

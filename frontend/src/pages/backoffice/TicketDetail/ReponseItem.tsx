@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, Check, Pencil, Sparkles, ThumbsUp, X } from "lucide-react";
+import { AlertCircle, Bot, Check, Pencil, Sparkles, ThumbsUp, X } from "lucide-react";
 import { corrigerReponse, validerReponse, LockConflictError } from "../../../lib/api";
 import UserAvatar from "../../../components/ui/UserAvatar";
 import { getValidatorId } from "../../../lib/currentUser";
@@ -7,8 +7,9 @@ import type { TicketReponse, StatutReponse } from "../../../types.ts";
 import { formatDate, BotAvatar } from "./utils";
 
 export const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
-  SUGGESTION: { label: "Suggestion", icon: Sparkles },
-  CANONIQUE:  { label: "Canonique", icon: Bot },
+  SUGGESTION:    { label: "Suggestion",   icon: Sparkles },
+  CANONIQUE:     { label: "Canonique",    icon: Bot },
+  HORS_DOMAINE:  { label: "Hors domaine", icon: AlertCircle },
 };
 
 export function reponseStatutLabel(statut: StatutReponse, canonique: boolean) {
@@ -41,12 +42,12 @@ export default function ReponseItem({
   onChanged: () => void;
   onLockConflict: (message: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(reponse.contenu);
+  const isHorsDomaine = reponse.source === "HORS_DOMAINE";
+  const canAct = reponse.statut === "EN_ATTENTE" && !readOnly;
+  const [editing, setEditing] = useState(isHorsDomaine && canAct);
+  const [draft, setDraft] = useState(isHorsDomaine ? "" : reponse.contenu);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const canAct = reponse.statut === "EN_ATTENTE" && !readOnly;
   const sourceInfo = SOURCE_LABEL[reponse.source];
   const isPending = reponse.statut === "EN_ATTENTE";
   const isCanonique = reponse.canonique;
@@ -113,7 +114,11 @@ export default function ReponseItem({
               {reponseStatutLabel(reponse.statut, reponse.canonique)}
             </span>
             {sourceInfo && reponse.source !== "CANONIQUE" && (
-              <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              <span className={`text-xs flex items-center gap-1 ${
+                reponse.source === "HORS_DOMAINE"
+                  ? "text-purple-500 dark:text-purple-400 font-medium"
+                  : "text-gray-400 dark:text-gray-500"
+              }`}>
                 <sourceInfo.icon size={11} aria-hidden="true" />
                 {sourceInfo.label}
               </span>
@@ -134,6 +139,7 @@ export default function ReponseItem({
                 onChange={(e) => setDraft(e.target.value)}
                 disabled={loading}
                 autoFocus
+                placeholder={isHorsDomaine ? "Aucun document ne couvre ce sujet. Rédigez une réponse à partir de vos connaissances…" : undefined}
                 aria-label="Contenu corrigé"
               />
               {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
@@ -145,15 +151,21 @@ export default function ReponseItem({
                 >
                   <Check size={14} aria-hidden="true" /> Valider la correction
                 </button>
-                <button
-                  onClick={handleCancel}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                >
-                  <X size={14} aria-hidden="true" /> Annuler
-                </button>
+                {!isHorsDomaine && (
+                  <button
+                    onClick={handleCancel}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                  >
+                    <X size={14} aria-hidden="true" /> Annuler
+                  </button>
+                )}
               </div>
             </div>
+          ) : isHorsDomaine && !reponse.contenu_corrige ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500 italic px-1">
+              Sujet non couvert — une réponse manuelle est attendue.
+            </p>
           ) : (
             <div className="bg-white/90 dark:bg-white/[0.07] border border-gray-200/70 dark:border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
               <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
@@ -164,19 +176,21 @@ export default function ReponseItem({
 
           {canAct && !editing && (
             <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={handleValider}
-                disabled={loading}
-                className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
-              >
-                <ThumbsUp size={14} aria-hidden="true" /> Valider
-              </button>
+              {reponse.source !== "HORS_DOMAINE" && (
+                <button
+                  onClick={handleValider}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
+                >
+                  <ThumbsUp size={14} aria-hidden="true" /> Valider
+                </button>
+              )}
               <button
                 onClick={() => setEditing(true)}
                 disabled={loading}
                 className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
               >
-                <Pencil size={14} aria-hidden="true" /> Corriger
+                <Pencil size={14} aria-hidden="true" /> {isHorsDomaine ? "Rédiger une réponse" : "Corriger"}
               </button>
               {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
             </div>

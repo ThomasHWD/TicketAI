@@ -185,7 +185,7 @@ export type StatutTicket = "NOUVEAU" | "RÉPONDU" | "VALIDÉ" | "REJETÉ";
 
 export type StatutReponse = "EN_ATTENTE" | "VALIDÉE" | "REJETÉE" | "CORRIGÉE";
 
-export type Source = "LLM" | "SUGGESTION" | "CANONIQUE";
+export type Source = "LLM" | "SUGGESTION" | "CANONIQUE" | "HORS_DOMAINE";
 
 export interface Ticket {
   id: string;
@@ -218,6 +218,7 @@ export interface Ticket {
   assigned_to: string | null;
   assigned_to_email: string | null;
   assigned_to_nom_complet: string | null;
+  reponse_source: Source | null;
 }
 
 export interface LockState {

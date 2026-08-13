@@ -39,6 +39,7 @@ class Ticket(Base):
     lock_expires_at = Column(DateTime(timezone=True), nullable=True)
 
     assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    masque_angles_morts = Column(Boolean, nullable=False, server_default="false")
 
     reponses = relationship("Reponse", back_populates="ticket")
     user = relationship("User", foreign_keys=[user_id])
