@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Archive,
   CheckCircle2,
   FilePlus2,
   Loader2,
@@ -13,7 +14,7 @@ import { confirmDocumentUpdate, previewDocumentUpdate } from "../../lib/api";
 import FileDropzone from "../../components/ui/FileDropzone";
 import { validateFile } from "../../lib/documentUpload";
 import { useJobs } from "../../context/JobsContext";
-import type { ImpactItem, ReponseARelire, UpdateImpact } from "../../types.ts";
+import type { ReponseARelire, UniteChangement, UpdateImpact } from "../../types.ts";
 
 /**
  * Le minimum pour cibler une mise à jour.
@@ -29,35 +30,7 @@ export interface DocCible {
   description?: string;
 }
 
-type Etape = "pick" | "analyse" | "impact" | "submitting" | "error";
-
-function LigneImpact({ item }: { item: ImpactItem }) {
-  return (
-    <li className="rounded-lg border border-red-200/70 dark:border-red-500/25 bg-white/70 dark:bg-white/[0.03] px-3 py-2.5 space-y-1.5">
-      <div className="flex items-start gap-2">
-        <p className="flex-1 text-xs text-gray-900 dark:text-gray-100 line-clamp-2">
-          {item.question || <span className="italic text-gray-500">Question indisponible</span>}
-        </p>
-        {item.canonique && (
-          <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300">
-            canonique
-          </span>
-        )}
-        <span className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">
-          {item.nb_validations} val.
-        </span>
-      </div>
-      {item.extraits.map((extrait, i) => (
-        <p
-          key={item.chunks_modifies[i] ?? i}
-          className="text-[11px] text-gray-600 dark:text-gray-400 font-mono leading-relaxed border-l-2 border-red-300 dark:border-red-500/40 pl-2"
-        >
-          {extrait}
-        </p>
-      ))}
-    </li>
-  );
-}
+type Etape = "pick" | "analyse" | "impact" | "submitting" | "done" | "error";
 
 function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
   return (
@@ -89,170 +62,184 @@ function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
   );
 }
 
+const LIBELLE_SENS: Record<UniteChangement["sens"], string> = {
+  AJOUT: "Ajouté",
+  RETRAIT: "Retiré",
+  REECRITURE: "Réécrit",
+};
+
 /**
- * Ce que la nouvelle version dit de neuf ou ne dit plus, en regard de ce qu'elle périme.
+ * Un changement, montré **apparié** quand c'en est un.
  *
- * L'obsolescence ne voit que les passages qui fondaient une réponse. Un article
- * ajouté ailleurs — le geste le plus courant sur une charte — ne touche aucun
- * d'eux : rien ne devient obsolète, et la réponse existante, qui l'ignore,
- * continuerait d'être servie automatiquement sans que personne ne le sache. Le
- * second sens couvre le cas symétrique, invisible au premier : une règle
- * **abrogée** sans que rien ne soit écrit à la place.
- *
- * D'où ce panneau : neutre et non bloquant, il ne décide de rien. Décider
- * demanderait de lire, ce qu'aucune règle ne peut faire à la place d'un humain.
- * Masqué quand il n'y a rien à dire — ou rien de démontrable.
+ * Deux listes indépendantes — « ces paragraphes ont disparu », « ceux-là sont
+ * apparus » — ne permettent de juger de rien. C'est le couple « 2 jours →
+ * 3 jours » qui rend le changement lisible d'un coup d'œil, et c'est exactement
+ * sous cette forme qu'il sera soumis au verdict.
  */
-function SensChangement({
-  titre,
-  total,
-  extraits,
-}: {
-  titre: string;
-  total: number;
-  extraits: string[];
-}) {
-  if (total === 0) return null;
+function LigneUnite({ unite }: { unite: UniteChangement }) {
   return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
-        {total} passage{total > 1 ? "s" : ""} {titre}
-        {total > 1 ? "s" : ""}
+    <li className="space-y-1 border-l-2 border-amber-300 dark:border-amber-500/40 pl-2.5">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
+        {LIBELLE_SENS[unite.sens]}
       </p>
-      <ul className="space-y-1">
-        {extraits.map((e, i) => (
-          <li
-            key={i}
-            className="text-[11px] text-gray-600 dark:text-gray-400 font-mono leading-relaxed border-l-2 border-amber-300 dark:border-amber-500/40 pl-2"
-          >
-            {e}
-          </li>
-        ))}
-      </ul>
-      {total > extraits.length && (
-        <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
-          … et {total - extraits.length} autre{total - extraits.length > 1 ? "s" : ""}.
+      {unite.extrait_avant && (
+        <p className="text-[11px] font-mono leading-relaxed text-gray-500 dark:text-gray-500 line-through decoration-gray-400/60">
+          {unite.extrait_avant}
         </p>
       )}
-    </div>
+      {unite.extrait_apres && (
+        <p className="text-[11px] font-mono leading-relaxed text-gray-700 dark:text-gray-300">
+          {unite.extrait_apres}
+        </p>
+      )}
+    </li>
   );
 }
 
-function EncadreChangements({ impact }: { impact: UpdateImpact }) {
-  const ajoutes = impact.nb_passages_ajoutes;
-  const retires = impact.nb_passages_retires;
-  const relire = impact.nb_a_relire;
-  if (!impact.ajouts_analysables || (ajoutes === 0 && retires === 0)) return null;
+/**
+ * Ce que la nouvelle version change, et ce qui sera examiné derrière.
+ *
+ * Ce panneau ne promet plus rien : l'aperçu n'appelle ni reranker ni LLM, il ne
+ * *peut pas* dire quelles réponses seront retirées. Il montre le diff — la seule
+ * chose démontrable sans rien lire — et annonce combien de réponses seront
+ * soumises au jugement une fois la version en place.
+ */
+function EcranChangements({ impact }: { impact: UpdateImpact }) {
+  const restantes = impact.nb_unites - impact.unites.length;
+  const aAnalyser = impact.nb_a_analyser;
 
   return (
     <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
       <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
         <FilePlus2 size={16} />
-        Cette version change le contenu du document.
+        {impact.nb_unites} changement{impact.nb_unites > 1 ? "s" : ""} dans le document
       </p>
-      <SensChangement titre="ajouté" total={ajoutes} extraits={impact.extraits_ajoutes} />
-      <SensChangement titre="retiré" total={retires} extraits={impact.extraits_retires} />
-      <div className="space-y-2.5">
-        {relire > 0 ? (
-          <>
-            <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-              {relire} réponse{relire > 1 ? "s" : ""} enregistrée{relire > 1 ? "s" : ""}{" "}
-              {relire > 1 ? "continueront" : "continuera"} d'être{" "}
-              {relire > 1 ? "servies" : "servie"} après la mise à jour. À vérifier dans{" "}
-              <a
-                href="/reponses-enregistrees?onglet=a_relire"
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium underline decoration-amber-600/50 hover:decoration-amber-700 dark:decoration-amber-400/50 dark:hover:decoration-amber-300"
-              >
-                Réponses enregistrées › À relire
-              </a>
-              .
-            </p>
-            <ul className="space-y-2 max-h-72 overflow-y-auto">
-              {impact.a_relire.map((r) => (
-                <LigneARelire key={r.reponse_id} reponse={r} />
-              ))}
-            </ul>
-            {relire > impact.a_relire.length && (
-              <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
-                … et {relire - impact.a_relire.length} autre
-                {relire - impact.a_relire.length > 1 ? "s" : ""}.
-              </p>
-            )}
-          </>
-        ) : (
+
+      <ul className="space-y-2">
+        {impact.unites.map((u, i) => (
+          <LigneUnite key={i} unite={u} />
+        ))}
+      </ul>
+      {restantes > 0 && (
+        <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
+          … et {restantes} autre{restantes > 1 ? "s" : ""}.
+        </p>
+      )}
+
+      {aAnalyser > 0 ? (
+        <div className="space-y-2.5 pt-1">
           <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-            Aucune réponse enregistrée ne subsiste après cette mise à jour.
+            {aAnalyser} réponse{aAnalyser > 1 ? "s" : ""} enregistrée{aAnalyser > 1 ? "s" : ""}{" "}
+            {aAnalyser > 1 ? "seront relues" : "sera relue"} après la mise à jour
+            {impact.nb_canoniques > 0 && `, dont ${impact.nb_canoniques} canonique${impact.nb_canoniques > 1 ? "s" : ""}`}
+            . Seules celles que le changement contredit seront retirées du service ; les
+            autres ne bougeront pas.
           </p>
-        )}
-      </div>
+          <ul className="space-y-2 max-h-64 overflow-y-auto">
+            {impact.a_analyser.map((r) => (
+              <LigneARelire key={r.reponse_id} reponse={r} />
+            ))}
+          </ul>
+          {aAnalyser > impact.a_analyser.length && (
+            <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
+              … et {aAnalyser - impact.a_analyser.length} autre
+              {aAnalyser - impact.a_analyser.length > 1 ? "s" : ""}.
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+          Aucune réponse enregistrée ne s'appuie sur ce document.
+        </p>
+      )}
     </div>
   );
 }
 
-function EcranObsolescence({ impact }: { impact: UpdateImpact }) {
-  const enAttente = impact.nb_en_attente;
-
-  if (impact.nb_obsoletes === 0) {
-    return (
-      <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-400/10 px-4 py-3.5 space-y-1.5">
-        <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-          <CheckCircle2 size={16} />
-          Aucune réponse enregistrée n'est remise en cause.
-        </p>
-        <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80">
-          {impact.nb_chunks_modifies !== 0
-            ? `${impact.nb_chunks_modifies} passage${impact.nb_chunks_modifies > 1 ? "s" : ""} modifié${impact.nb_chunks_modifies > 1 ? "s" : ""} sur ${impact.nb_total_chunks}, mais aucun ne fondait une réponse enregistrée.`
-            : null}
-        </p>
-        {enAttente > 0 && (
-          <p className="text-xs text-emerald-800/70 dark:text-emerald-200/70">
-            {enAttente} réponse{enAttente > 1 ? "s" : ""} en attente de validation{" "}
-            {enAttente > 1 ? "seront annulées" : "sera annulée"} (jamais validée
-            {enAttente > 1 ? "s" : ""}).
-          </p>
-        )}
-      </div>
-    );
-  }
+/** Les réponses qui seront jugées en premier : un passage qu'elles citent a bougé. */
+function EncadrePrioritaires({ impact }: { impact: UpdateImpact }) {
+  const n = impact.nb_prioritaires;
+  if (n === 0) return null;
 
   return (
-    <div className="rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50/80 dark:bg-red-400/10 px-4 py-3.5 space-y-3">
-      <p className="flex items-center gap-2 text-sm font-semibold text-red-800 dark:text-red-300">
-        <AlertTriangle size={16} />
-        {impact.nb_obsoletes} réponse{impact.nb_obsoletes > 1 ? "s" : ""} enregistrée
-        {impact.nb_obsoletes > 1 ? "s" : ""} {impact.nb_obsoletes > 1 ? "vont" : "va"} devenir
-        obsolète{impact.nb_obsoletes > 1 ? "s" : ""}, dont {impact.nb_canoniques} canonique
-        {impact.nb_canoniques > 1 ? "s" : ""}.
+    <div className="rounded-xl border border-slate-200 dark:border-slate-500/30 bg-slate-50/80 dark:bg-slate-400/10 px-4 py-3.5 space-y-2">
+      <p className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+        <Archive size={16} />
+        {n} réponse{n > 1 ? "s" : ""} {n > 1 ? "citent" : "cite"} un passage modifié
       </p>
-      <p className="text-xs text-red-800/80 dark:text-red-200/80">
-        Les passages sur lesquels elles s'appuyaient ne figurent plus dans la nouvelle version.
-        Elles cesseront d'être servies ; les questions correspondantes repasseront par la
-        génération sur le document à jour. Elles restent consultables dans l'onglet{" "}
-        <span className="font-medium">Obsolètes</span> et peuvent y être restaurées.
+      <p className="text-xs text-slate-600/90 dark:text-slate-300/80">
+        {n > 1 ? "Elles seront examinées" : "Elle sera examinée"} en premier. Un passage
+        modifié ne condamne rien à lui seul — une virgule corrigée suffit à le faire
+        apparaître ici. Le retrait du service n'est prononcé que si le changement contredit
+        réellement la réponse.
       </p>
-      {enAttente > 0 && (
-        <p className="text-xs text-red-800/70 dark:text-red-200/70">
-          {enAttente} réponse{enAttente > 1 ? "s" : ""} en attente de validation{" "}
-          {enAttente > 1 ? "seront annulées" : "sera annulée"} (jamais validée
-          {enAttente > 1 ? "s" : ""}).
-        </p>
-      )}
-      <ul className="space-y-2 max-h-56 overflow-y-auto">
-        {impact.items.map((item) => (
-          <LigneImpact key={item.reponse_id} item={item} />
+      <ul className="space-y-1 pt-0.5">
+        {impact.items.slice(0, 3).map((item) => (
+          <li
+            key={item.reponse_id}
+            className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-1"
+          >
+            • {item.question}
+          </li>
         ))}
       </ul>
     </div>
   );
 }
 
+/** Le cas où il n'y a rien à dire : reformatage, ou diff impossible. */
+function EcranSansChangement({ impact }: { impact: UpdateImpact }) {
+  if (!impact.diff_analysable) {
+    return (
+      <div className="rounded-xl border border-slate-200 dark:border-slate-500/30 bg-slate-50/80 dark:bg-slate-400/10 px-4 py-3.5 space-y-1.5">
+        <p className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+          <AlertTriangle size={16} />
+          La version en ligne n'a pas pu être relue.
+        </p>
+        <p className="text-xs text-slate-600/90 dark:text-slate-300/80">
+          Son fichier est introuvable sur le disque : aucune comparaison n'est possible et
+          rien ne peut être jugé. Les réponses enregistrées du document seront déposées dans
+          l'onglet À relire, à vérifier à la main.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-400/10 px-4 py-3.5 space-y-1.5">
+      <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+        <CheckCircle2 size={16} />
+        Cette version ne dit rien de nouveau.
+      </p>
+      <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80">
+        Mise en forme, espaces, export : le fond est identique. Aucune réponse enregistrée
+        ne sera examinée ni dérangée.
+      </p>
+    </div>
+  );
+}
+
 function EcranImpact({ impact }: { impact: UpdateImpact }) {
+  const aDuNeuf = impact.diff_analysable && impact.nb_unites > 0;
+  const enAttente = impact.nb_en_attente;
+
   return (
     <div className="space-y-3">
-      <EcranObsolescence impact={impact} />
-      <EncadreChangements impact={impact} />
+      {aDuNeuf ? (
+        <>
+          <EcranChangements impact={impact} />
+          <EncadrePrioritaires impact={impact} />
+        </>
+      ) : (
+        <EcranSansChangement impact={impact} />
+      )}
+      {aDuNeuf && enAttente > 0 && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
+          {enAttente} réponse{enAttente > 1 ? "s" : ""} en attente de validation{" "}
+          {enAttente > 1 ? "seront annulées et regénérées" : "sera annulée et regénérée"} sur
+          la nouvelle version.
+        </p>
+      )}
     </div>
   );
 }
@@ -312,7 +299,7 @@ export default function UpdateDocModal({
       if (res.job_id) addJob(res.job_id, res.filename, "maj");
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       onSubmitted?.();
-      onClose();
+      setEtape("done");
     },
     onError: echouer,
   });
@@ -345,6 +332,7 @@ export default function UpdateDocModal({
   // Restauration : il n'y a pas de fichier local à reprendre, le seul retour est la sortie.
   const restauration = impactInitial !== undefined;
   const depuis = impact?.restauree_depuis;
+  const nbAAnalyser = impact?.nb_a_analyser ?? 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -357,8 +345,14 @@ export default function UpdateDocModal({
         <div className="flex items-start justify-between px-6 py-5 border-b border-black/[0.06] dark:border-white/10">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">
-              {depuis != null ? `Restaurer la v${depuis}` : "Mettre à jour"} — v{doc.version} → v
-              {impact?.version_cible ?? doc.version + 1}
+              {etape === "done"
+                ? restauration ? "Restauration lancée" : "Mise à jour lancée"
+                : depuis != null
+                  ? `Restaurer la v${depuis}`
+                  : "Mettre à jour"}{" "}
+              {etape !== "done" && (
+                <>— v{doc.version} → v{impact?.version_cible ?? doc.version + 1}</>
+              )}
             </p>
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
               {doc.filename ?? doc.doc_id}
@@ -408,20 +402,48 @@ export default function UpdateDocModal({
             <div className="flex flex-col items-center gap-3 py-12">
               <Loader2 size={22} className="animate-spin text-gray-400" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Analyse de l'impact sur les réponses enregistrées…
+                Comparaison avec la version en ligne…
               </p>
             </div>
           )}
 
           {(etape === "impact" || etape === "submitting") && impact && (
-            <>
-              <EcranImpact impact={impact} />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {impact.filename} — {impact.nb_chunks_modifies} passage
-                {impact.nb_chunks_modifies > 1 ? "s" : ""} modifié
-                {impact.nb_chunks_modifies > 1 ? "s" : ""} sur {impact.nb_total_chunks}.
-              </p>
-            </>
+            <EcranImpact impact={impact} />
+          )}
+
+          {etape === "done" && (
+            <div className="flex flex-col items-center gap-4 py-10 text-center">
+              <CheckCircle2 size={40} className="text-emerald-500" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                  {restauration ? "Restauration lancée" : "Mise à jour lancée"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Le document sera ré-indexé en arrière-plan.
+                </p>
+              </div>
+              {nbAAnalyser > 0 && (
+                <>
+                  {/* L'analyse ne rend son verdict qu'après la ré-indexation : dire
+                      « à vérifier » tout de suite enverrait l'utilisateur sur une
+                      liste qui ne veut encore rien dire. */}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">
+                    {nbAAnalyser} réponse{nbAAnalyser > 1 ? "s" : ""} {nbAAnalyser > 1 ? "sont" : "est"}{" "}
+                    en cours d'analyse. Celles que le changement contredit basculeront dans
+                    Obsolètes ; les cas douteux seront déposés dans À relire, avec leur
+                    justification.
+                  </p>
+                  <a
+                    href="/reponses-enregistrees?onglet=a_relire"
+                    onClick={onClose}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium transition-colors"
+                  >
+                    <AlertTriangle size={15} />
+                    Suivre l'analyse
+                  </a>
+                </>
+              )}
+            </div>
           )}
 
           {etape === "error" && (
@@ -465,24 +487,36 @@ export default function UpdateDocModal({
               >
                 {restauration ? "Annuler" : "Retour"}
               </button>
-              <button
-                onClick={() => confirmer.mutate(impact.staging_id)}
-                disabled={enCours}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 transition-colors
-                  ${
-                    impact.nb_obsoletes > 0
-                      ? "bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500"
-                      : "bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                  }`}
-              >
-                {etape === "submitting" ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={14} />
+              <div className="flex-1 flex flex-col gap-1">
+                <button
+                  onClick={() => confirmer.mutate(impact.staging_id)}
+                  disabled={enCours}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white disabled:opacity-50 transition-colors"
+                >
+                  {etape === "submitting" ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={14} />
+                  )}
+                  {restauration ? "Confirmer la restauration" : "Confirmer la mise à jour"}
+                </button>
+                {impact.nb_a_analyser > 0 && (
+                  <p className="text-center text-[11px] text-slate-500 dark:text-slate-400">
+                    {impact.nb_a_analyser} réponse{impact.nb_a_analyser > 1 ? "s" : ""}{" "}
+                    {impact.nb_a_analyser > 1 ? "seront relues" : "sera relue"}
+                  </p>
                 )}
-                {restauration ? "Confirmer la restauration" : "Confirmer la mise à jour"}
-              </button>
+              </div>
             </>
+          )}
+
+          {etape === "done" && (
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-white/15 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+            >
+              Fermer
+            </button>
           )}
 
           {etape === "error" && (

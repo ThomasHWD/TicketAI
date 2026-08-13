@@ -21,6 +21,16 @@ SEUIL_COSINUS = settings.seuil_cosinus
 SEUIL_SUGGESTION = SEUIL_COSINUS - 0.05
 
 
+class TicketDisparu(Exception):
+    """Le ticket ciblé n'existe plus en base : le job n'a plus d'objet.
+
+    Ce n'est pas une panne, c'est une course perdue — une suppression, ou un
+    retraitement enfilé sur un ticket effacé depuis. La distinguer d'une erreur
+    ordinaire est indispensable : réessayer ne peut rien y changer, et chaque
+    tentative repaie l'embedding, le rerank et la génération pour rien.
+    """
+
+
 def _upsert_ticket(db: Session, job_id: uuid.UUID, ticket_id: uuid.UUID | None = None, **fields) -> Ticket:
     # Mode suivi : on cible le ticket existant (par son id) au lieu de le retrouver
     # par job_id. On ne réécrit ni la question, ni le domaine, ni l'auteur d'origine.
@@ -28,6 +38,8 @@ def _upsert_ticket(db: Session, job_id: uuid.UUID, ticket_id: uuid.UUID | None =
     # en attente de validation doit rebasculer le ticket en « en cours » (badges).
     if ticket_id is not None:
         ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+        if ticket is None:
+            raise TicketDisparu(str(ticket_id))
         for key in ("question", "domaine", "user_id", "objet"):
             fields.pop(key, None)
         for key, value in fields.items():
@@ -60,7 +72,13 @@ def _upsert_reponse(
 ) -> Reponse:
     # Mode suivi (`nouveau`) : on ajoute TOUJOURS une nouvelle réponse au fil, sans
     # écraser la précédente, et on mémorise le texte de la précision (`question_suivi`).
-    reponse = None if nouveau else db.query(Reponse).filter(Reponse.ticket_id == ticket.id).first()
+    # Re-traitement : la réponse précédente est obsolète — on l'ignore pour
+    # créer une nouvelle réponse propre plutôt que d'écraser une ligne marquée obsolète.
+    reponse = (
+        None
+        if nouveau
+        else (db.query(Reponse).filter(Reponse.ticket_id == ticket.id, Reponse.obsolete.is_(False)).first())
+    )
     if reponse is None:
         reponse = Reponse(
             id=uuid.uuid4(),
@@ -79,6 +97,15 @@ def _upsert_reponse(
         reponse.score_similarite = top_score
     db.flush()
     return reponse
+
+
+def _ticket_existe(ticket_id: uuid.UUID) -> bool:
+    """Session courte et dédiée : on interroge avant d'ouvrir le pipeline."""
+    db = SessionLocal()
+    try:
+        return db.query(Ticket.id).filter(Ticket.id == ticket_id).first() is not None
+    finally:
+        db.close()
 
 
 def _charger_contexte_fil(ticket_id: uuid.UUID, precision: str) -> tuple[list[dict], str]:
@@ -239,12 +266,14 @@ def _servir_reutilisation(
             ticket_source.occurence += 1
 
         if ticket.user_id:
-            db.add(Notification(
-                user_id=ticket.user_id,
-                ticket_id=ticket.id,
-                reponse_id=reponse.id,
-                type="REPONSE_VALIDEE",
-            ))
+            db.add(
+                Notification(
+                    user_id=ticket.user_id,
+                    ticket_id=ticket.id,
+                    reponse_id=reponse.id,
+                    type="REPONSE_VALIDEE",
+                )
+            )
         db.commit()
 
         event = "ticket_followup" if est_suivi else "ticket_answered"
@@ -328,6 +357,7 @@ def question_job(
     user_id: str | None = None,
     ticket_id: str | None = None,
     objet: str | None = None,
+    retraiter: bool = False,
 ):
     try:
         print("❓ --- NOUVELLE QUESTION ---")
@@ -341,8 +371,17 @@ def question_job(
         # On la mémorise comme `question_suivi` du nouveau tour et on rattache la
         # réponse au ticket d'origine plutôt que d'en créer un nouveau.
         ticket_uuid = uuid.UUID(ticket_id) if ticket_id else None
-        est_suivi = ticket_uuid is not None
+        est_suivi = ticket_uuid is not None and not retraiter
         question_suivi = question if est_suivi else None
+
+        # Le ticket ciblé existe-t-il encore ? La question se pose ICI, avant le
+        # premier appel réseau : sans ce garde-fou, un ticket supprimé fait payer
+        # l'embedding, la recherche, le rerank et la génération avant de planter
+        # à l'écriture — quatre fois, retries compris. C'est ce qui sature le
+        # quota Albert et fait tomber en 429 les questions, elles, légitimes.
+        if ticket_uuid is not None and not _ticket_existe(ticket_uuid):
+            print(f"[QUESTION] ⏭️  Ticket {ticket_uuid} introuvable — job abandonné")
+            return {"statut": "IGNORÉ", "raison": "TICKET_SUPPRIMÉ", "ticket_id": str(ticket_uuid)}
 
         # Étape 0 (suivi) — Charger le fil pour contextualiser recherche et LLM.
         # `historique` : messages alternés user/assistant des tours précédents,
@@ -508,6 +547,12 @@ def question_job(
 
     except Retry:
         raise
+    except TicketDisparu as exc:
+        # Le ticket a été supprimé pendant que le pipeline tournait (la génération
+        # prend plusieurs secondes, une suppression en back-office est instantanée).
+        # Rien à sauver, et surtout rien à réessayer : le ticket ne reviendra pas.
+        print(f"[QUESTION] ⏭️  Ticket {exc} supprimé en cours de traitement — job abandonné")
+        return {"statut": "IGNORÉ", "raison": "TICKET_SUPPRIMÉ", "ticket_id": str(exc)}
     except Exception as exc:
         print(f"[QUESTION] ❌ Erreur : {exc}")
         raise self.retry(exc=exc) from exc

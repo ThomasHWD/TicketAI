@@ -25,12 +25,16 @@ sans jamais comparer des frontières de chunks — lesquelles se décalent dès 
 première modification et ne veulent rien dire d'une version à l'autre.
 """
 
+import json
 import re
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
+from app.models.ticket import Ticket
 from app.services.qdrant import delete_response_point
 from sqlalchemy.orm import Session
 
@@ -42,6 +46,14 @@ RAISON_MANUELLE = "RETIRÉ_À_LA_MAIN"
 # Raisons de relecture stockées dans `Reponse.a_relire_raison`
 RAISON_MODIF = "DOC_MODIFIÉ"
 RAISON_ILLISIBLE = "VERSION_SORTANTE_ILLISIBLE"
+
+# Verdict de la ré-vérification (cf. `services/reverification.py`)
+RAISON_CONTREDITE = "CONTREDITE_PAR_MAJ"  # obsolete_raison
+RAISON_CONTREDITE_PROB = "CONTREDITE_PROBABLE"  # a_relire_raison
+RAISON_ANALYSE = "ANALYSE_EN_COURS"  # a_relire_raison, transitoire
+RAISON_INDISPONIBLE = "ANALYSE_INDISPONIBLE"  # a_relire_raison, repli
+RAISON_PARTIELLE = "ANALYSE_PARTIELLE"  # a_relire_raison, budget épuisé
+RAISON_MASSIVE = "REECRITURE_MASSIVE"  # a_relire_raison, document réécrit
 
 _ESPACES = re.compile(r"\s+")
 
@@ -101,9 +113,7 @@ def decouper_en_passages(texte: str) -> list[str]:
     Le seuil écarte les titres, numérotations et fragments de mise en page, que
     les PDF produisent en quantité et qui ne portent aucune information.
     """
-    return [
-        p for p in (_normaliser(bloc) for bloc in texte.split("\n\n")) if len(p) >= LONGUEUR_MIN_AJOUT
-    ]
+    return [p for p in (_normaliser(bloc) for bloc in texte.split("\n\n")) if len(p) >= LONGUEUR_MIN_AJOUT]
 
 
 def passages_ajoutes(nouveaux_passages: list[str], ancien_texte: str) -> list[str]:
@@ -129,6 +139,163 @@ def passages_ajoutes(nouveaux_passages: list[str], ancien_texte: str) -> list[st
     return [p for p in nouveaux_passages if _normaliser(p or "") not in ref]
 
 
+SENS_AJOUT = "AJOUT"
+SENS_RETRAIT = "RETRAIT"
+SENS_REECRITURE = "REECRITURE"
+
+
+@dataclass(frozen=True)
+class Unite:
+    """Un changement isolé entre deux versions, apparié quand c'est une réécriture.
+
+    L'appariement est ce qui distingue cette structure des deux listes plates que
+    produisait ``passages_ajoutes`` appelé dans les deux sens. « ce paragraphe a
+    été remplacé par celui-ci » se juge ; « un paragraphe est apparu quelque part
+    et un autre a disparu ailleurs » ne se juge pas — c'est la même information
+    privée de ce qui la rend exploitable, par un humain comme par un modèle.
+    """
+
+    sens: str  # SENS_AJOUT | SENS_RETRAIT | SENS_REECRITURE
+    avant: str | None  # None pour un ajout
+    apres: str | None  # None pour un retrait
+
+    @property
+    def texte(self) -> str:
+        """Le versant à indexer et à faire lire : le nouveau s'il existe."""
+        return self.apres or self.avant or ""
+
+
+def _requalifier(unite: Unite, ref_ancien: str, ref_nouveau: str) -> Unite | None:
+    """Écarte les unités qui ne portent rien de neuf, requalifie les demi-vraies.
+
+    ``SequenceMatcher`` raisonne sur des *positions* dans une liste de
+    paragraphes : déplacer un article en tête de document lui fait voir une
+    suppression et une insertion, alors que le texte est rigoureusement le même.
+    Sans cette passe, un simple redécoupage de pages produirait des dizaines
+    d'unités fantômes et rendrait l'étage suivant aussi inondant que le
+    signalement en bloc qu'on remplace.
+
+    Le test est celui, exact au caractère près, qui garde déjà le reformatage
+    hors du calcul d'obsolescence : « ce paragraphe existe-t-il, normalisé,
+    ailleurs dans l'autre version ? ».
+    """
+    neuf = unite.apres is not None and _normaliser(unite.apres) not in ref_ancien
+    perdu = unite.avant is not None and _normaliser(unite.avant) not in ref_nouveau
+
+    if neuf and perdu:
+        return unite
+    if neuf:
+        # L'ancien paragraphe survit ailleurs : seul le nouveau est un vrai apport.
+        return Unite(SENS_AJOUT, None, unite.apres)
+    if perdu:
+        # Le nouveau paragraphe existait déjà : seul l'ancien a réellement disparu.
+        return Unite(SENS_RETRAIT, unite.avant, None)
+    return None
+
+
+def unites_de_changement(ancien_texte: str, nouveau_texte: str) -> list[Unite]:
+    """Ce qui a changé d'une version à l'autre, apparié quand c'est appariable.
+
+    ``SequenceMatcher`` aligne les deux listes de paragraphes et rend des blocs
+    ``replace`` / ``delete`` / ``insert``. Un ``replace`` est apparié par position
+    à l'intérieur du bloc : c'est une approximation, mais dans le seul cas qui
+    compte — un paragraphe réécrit au milieu de paragraphes stables — le bloc ne
+    contient qu'une paire et l'appariement est exact.
+
+    ``autojunk=False`` n'est pas un détail : à ``True`` (le défaut), l'heuristique
+    « junk » écarte tout élément présent dans plus de 1 % d'une séquence de plus
+    de 200 items. Sur un document à en-têtes ou mentions répétés — la norme pour
+    une charte paginée — elle fabrique des ``replace`` entre paragraphes sans
+    rapport, donc des réécritures inventées.
+
+    **Aucun seuil de similarité globale n'intervient.** Sur une charte de 60 000
+    caractères, remplacer « 2 jours » par « 3 jours » donne un ratio de 0,9999 :
+    tout filtre par ratio classerait « cosmétique » exactement le changement le
+    plus dangereux. Le garde-fou contre le reformatage est ``_requalifier``, qui
+    compare des textes et non des scores.
+
+    Liste vide ⇒ la nouvelle version ne dit rien de neuf : aucune réponse n'est
+    à inquiéter, et le pipeline de ré-vérification n'est même pas lancé.
+    """
+    anciens = decouper_en_passages(ancien_texte)
+    nouveaux = decouper_en_passages(nouveau_texte)
+
+    brutes: list[Unite] = []
+    for op, i1, i2, j1, j2 in SequenceMatcher(None, anciens, nouveaux, autojunk=False).get_opcodes():
+        if op == "equal":
+            continue
+        supprimes, ajoutes = anciens[i1:i2], nouveaux[j1:j2]
+        commun = min(len(supprimes), len(ajoutes))
+        brutes += [Unite(SENS_REECRITURE, a, n) for a, n in zip(supprimes[:commun], ajoutes[:commun], strict=True)]
+        brutes += [Unite(SENS_RETRAIT, a, None) for a in supprimes[commun:]]
+        brutes += [Unite(SENS_AJOUT, None, n) for n in ajoutes[commun:]]
+
+    ref_ancien, ref_nouveau = _normaliser(ancien_texte), _normaliser(nouveau_texte)
+    return [u for u in (_requalifier(b, ref_ancien, ref_nouveau) for b in brutes) if u is not None]
+
+
+# Au-delà, sérialiser les unités recopierait le document dans une colonne JSON.
+MAX_OCTETS_UNITES = 256 * 1024
+
+
+def analyser_changements(ancien_texte: str, nouveau_texte: str) -> dict:
+    """Le résumé des changements, tel qu'il est affiché puis figé sur la version.
+
+    Fonction **pure** à deux chaînes : l'aperçu (``api/v1/documents.py``) et le
+    worker (``workers/document_update.py``) en avaient chacun une copie, dont
+    l'une se déclarait « le jumeau » de l'autre — deux implémentations tenues de
+    rester d'accord sans aucun test pour le garantir. Les deux appelants gardent
+    leur propre ``extract_text`` ; la logique ne vit plus qu'ici.
+
+    ``nb_ajoutes`` / ``nb_retires`` / ``extraits_*`` sont conservés tels quels :
+    l'onglet « À relire » lit ces clés dans les lignes ``DocumentVersion`` déjà
+    écrites, qui ne seront pas rétro-remplies.
+    """
+    unites = unites_de_changement(ancien_texte, nouveau_texte)
+    ajoutes = [u for u in unites if u.sens in (SENS_AJOUT, SENS_REECRITURE)]
+    retires = [u for u in unites if u.sens in (SENS_RETRAIT, SENS_REECRITURE)]
+
+    return {
+        "nb_unites": len(unites),
+        "nb_ajoutes": len(ajoutes),
+        "nb_retires": len(retires),
+        "extraits_ajoutes": [extrait(u.apres or "") for u in ajoutes[:MAX_EXTRAITS]],
+        "extraits_retires": [extrait(u.avant or "") for u in retires[:MAX_EXTRAITS]],
+        **serialiser_unites(unites),
+    }
+
+
+def serialiser_unites(unites: list[Unite], max_octets: int = MAX_OCTETS_UNITES) -> dict:
+    """Les unités sous forme JSON-able, tronquées à un budget d'octets.
+
+    Elles transitent par ``DocumentVersion.changements`` et non par les kwargs
+    Celery : le worker de ré-vérification relit ainsi *exactement* ce que
+    l'humain a vu à l'écran d'impact, et n'a pas besoin de ré-extraire une
+    archive qui aura peut-être été purgée. Un rejeu depuis le retry admin part
+    donc du même diff, pas d'un diff recalculé sur un disque qui a bougé.
+
+    ``unites_tronquees`` n'est pas décoratif : il dit à l'étage de décision que
+    le jugement portera sur un échantillon, pas sur la totalité des changements.
+    """
+    gardees: list[dict] = []
+    octets = 0
+    for u in unites:
+        brut = {"sens": u.sens, "avant": u.avant, "apres": u.apres}
+        octets += len(json.dumps(brut, ensure_ascii=False).encode())
+        if octets > max_octets:
+            break
+        gardees.append(brut)
+
+    return {"unites": gardees, "unites_tronquees": len(gardees) < len(unites)}
+
+
+def deserialiser_unites(changements: dict | None) -> list[Unite]:
+    """Relit les unités figées sur la version. Tolérant aux lignes d'avant."""
+    if not changements:
+        return []
+    return [Unite(u.get("sens", SENS_AJOUT), u.get("avant"), u.get("apres")) for u in changements.get("unites") or []]
+
+
 def fermeture_copies(db: Session, graines: set[uuid.UUID]) -> set[uuid.UUID]:
     """Descend des réponses-graines vers toutes leurs copies, transitivement.
 
@@ -142,10 +309,7 @@ def fermeture_copies(db: Session, graines: set[uuid.UUID]) -> set[uuid.UUID]:
     vus = set(graines)
     frontiere = set(graines)
     while frontiere:
-        copies = {
-            r[0]
-            for r in db.query(Reponse.id).filter(Reponse.reponse_source_id.in_(frontiere)).all()
-        }
+        copies = {r[0] for r in db.query(Reponse.id).filter(Reponse.reponse_source_id.in_(frontiere)).all()}
         frontiere = copies - vus
         vus |= frontiere
     return vus
@@ -156,11 +320,14 @@ def reponses_obsoletes(
     doc_id: str,
     indices: set[int] | None = None,
 ) -> list[Reponse]:
-    """Réponses encore réutilisables qui s'appuient sur les chunks visés.
+    """Réponses indexées dans Qdrant qui s'appuient sur les chunks visés.
 
     ``indices=None`` → tout le document est concerné (cas de la suppression).
-    Seules les ``VALIDÉE`` non déjà obsolètes sont retenues : ce sont les seules
-    que ``_trouver_reponse_reutilisable`` peut resservir.
+    VALIDÉE et CORRIGÉE sont retenues : les deux sont indexées dans Qdrant par
+    ``feedback_job`` et doivent être retirées de l'index à la suppression du
+    document source. CORRIGÉE n'est pas resservie directement (filtre VALIDÉE
+    dans ``_trouver_reponse_reutilisable``) mais son point Qdrant subsiste et
+    polluerait le contexte RAG si on ne le supprime pas.
     """
     if indices is not None and not indices:
         return []
@@ -177,7 +344,7 @@ def reponses_obsoletes(
         db.query(Reponse)
         .filter(
             Reponse.id.in_(fermeture_copies(db, graines)),
-            Reponse.statut == "VALIDÉE",
+            Reponse.statut.in_(["VALIDÉE", "CORRIGÉE"]),
             Reponse.obsolete.is_(False),
         )
         .all()
@@ -205,7 +372,7 @@ def marquer_obsoletes(
     raison: str,
     version: int | None = None,
     indices: set[int] | None = None,
-) -> list[Reponse]:
+) -> tuple[list[Reponse], list[Reponse]]:
     """Retire de Qdrant puis marque obsolètes les réponses concernées.
 
     Le point Qdrant supprimé est la garantie principale : la réponse n'est plus
@@ -220,8 +387,23 @@ def marquer_obsoletes(
     """
     reponses = reponses_obsoletes(db, doc_id, indices)
     retirer_du_service(db, reponses, raison, doc_id, version)
+    return reponses, perimer_en_attente(db, doc_id, raison, version)
 
-    ids_en_attente = {
+
+def perimer_en_attente(db: Session, doc_id: str, raison: str, version: int | None) -> list[Reponse]:
+    """Périme les réponses EN_ATTENTE bâties sur le document, quel que soit le chunk cité.
+
+    Aucun jugement n'est requis pour celles-là : elles n'ont jamais été servies,
+    ne sont pas indexées, et les valider plus tard reviendrait à publier une
+    réponse construite sur une version qui n'existe plus. Les repasser au RAG
+    (``requeuer_en_attente``) coûte un ticket retraité et rend une réponse à jour
+    — c'est strictement moins cher que de faire trancher un humain ou un modèle.
+
+    Extrait de ``marquer_obsoletes`` parce que la mise à jour n'appelle plus que
+    cette moitié : depuis que le verdict revient à la ré-vérification, faire
+    prononcer une obsolescence à ``indices_modifies`` seul n'a plus lieu d'être.
+    """
+    ids = {
         r[0]
         for r in db.query(Reponse.id)
         .join(ReponseChunk, ReponseChunk.reponse_id == Reponse.id)
@@ -233,10 +415,9 @@ def marquer_obsoletes(
         .distinct()
         .all()
     }
-    en_attente = db.query(Reponse).filter(Reponse.id.in_(ids_en_attente)).all() if ids_en_attente else []
+    en_attente = db.query(Reponse).filter(Reponse.id.in_(ids)).all() if ids else []
     retirer_du_service(db, en_attente, raison, doc_id, version)
-
-    return reponses
+    return en_attente
 
 
 def retirer_du_service(
@@ -270,7 +451,15 @@ def retirer_du_service(
 
 
 def lever_a_relire(r: Reponse) -> None:
-    """Efface les colonnes de relecture, la suggestion LLM et les passages associés."""
+    """Efface les colonnes de relecture, la suggestion LLM et les passages associés.
+
+    Ne touche **pas** à ``analyse_justification`` / ``analyse_extraits`` :
+    ``retirer_du_service`` passe par ici avant de poser une obsolescence, et
+    effacer la justification en chemin priverait l'onglet « Obsolètes » de la
+    seule chose qui rend un retrait sec compréhensible. Les deux colonnes sont
+    remises à zéro explicitement par le verdict ``INTACTE``, qui est le seul cas
+    où plus rien n'est à expliquer.
+    """
     r.a_relire = False
     r.a_relire_raison = None
     r.a_relire_doc_id = None
@@ -280,29 +469,39 @@ def lever_a_relire(r: Reponse) -> None:
     r.passages_pertinents = None
 
 
+def poser_a_relire(reponses: list[Reponse], raison: str, doc_id: str, version: int) -> None:
+    """Pose le drapeau de relecture, sans commit ni Qdrant.
+
+    Ne touche pas à Qdrant : c'est toute la différence avec l'obsolescence. La
+    réponse continue d'être servie tant que personne n'a tranché.
+    """
+    maintenant = datetime.now(timezone.utc)
+    for r in reponses:
+        r.a_relire = True
+        r.a_relire_raison = raison
+        r.a_relire_doc_id = doc_id
+        r.a_relire_version = version
+        r.a_relire_at = maintenant
+
+
 def marquer_a_relire(
     db: Session,
     doc_id: str,
     version: int,
     raison: str = RAISON_MODIF,
 ) -> list[Reponse]:
-    """Signale pour relecture les réponses encore servies potentiellement touchées.
+    """Signale en bloc toutes les réponses encore servies du document.
 
-    Répond à l'angle mort de ``indices_modifies`` : le contenu du document a
-    changé quelque part, sans qu'aucun passage cité n'ait bougé. Impossible de
-    savoir si le nouveau texte contredit ces réponses — seul un humain le peut.
-    Le périmètre est donc **tout le document** : cibler « près de la zone
-    modifiée » raterait précisément le cas visé, la contradiction étant ailleurs
-    par définition.
+    Périmètre volontairement large — tout le document — parce qu'aucune
+    information ne permet de faire mieux dans les deux cas qui en restent
+    tributaires : la version sortante illisible (``RAISON_ILLISIBLE``, pas de
+    diff calculable) et le document réécrit au-delà du plafond
+    (``RAISON_MASSIVE``, plus rien à discriminer).
 
-    Toutes les réponses VALIDÉE survivantes sont signalées sans filtre automatique.
-    Le filtre cosinus + LLM a été supprimé : il produisait des faux positifs
-    (timeouts → fallback conservateur, jugements LLM erronés) sans garantie de
-    zéro faux positif. L'humain lit les changements une fois par groupe et confirme
-    en lot — c'est plus fiable et aussi rapide.
-
-    Ne touche pas à Qdrant : c'est toute la différence avec l'obsolescence. La
-    réponse continue d'être servie tant que personne n'a tranché.
+    Ce n'était **pas** un cas particulier auparavant : la moindre retouche
+    passait par ici, et envoyait tout le corpus validé du document en relecture.
+    Le tri est désormais fait par ``workers/reverification.py``, qui juge réponse
+    par réponse ; cette fonction est le repli, plus la règle.
 
     Flague la **famille entière** et non les seules ``racines`` : ``racines``
     conserve les copies dont la source est hors ensemble, qu'un futur filtre
@@ -313,17 +512,27 @@ def marquer_a_relire(
     et ``marquer_obsoletes`` commite avant qu'on arrive ici.
     """
     reponses = reponses_obsoletes(db, doc_id, indices=None)
-
-    maintenant = datetime.now(timezone.utc)
-    for r in reponses:
-        r.a_relire = True
-        r.a_relire_raison = raison
-        r.a_relire_doc_id = doc_id
-        r.a_relire_version = version
-        r.a_relire_at = maintenant
-
+    poser_a_relire(reponses, raison, doc_id, version)
     db.commit()
     return reponses
+
+
+def flaguer_en_analyse(db: Session, doc_id: str, version: int) -> list[Reponse]:
+    """Marque « analyse en cours » les réponses que la ré-vérification va juger.
+
+    Posé **dans la foulée de la bascule de version**, avant que le job d'analyse
+    ne démarre. Celui-ci met de trente secondes à quelques minutes ; sans ce
+    drapeau, il existerait une fenêtre pendant laquelle le document dit une chose,
+    les réponses canoniques en disent une autre, et rien nulle part ne le signale.
+
+    Le drapeau n'est pas une demande de relecture : c'est un état transitoire que
+    le job résout — il le lève (``INTACTE``), l'aggrave en obsolescence
+    (``CONTREDITE``) ou le requalifie (``INCERTAIN``, budget, panne). Le front le
+    présente donc comme un badge neutre et non comme une tâche à traiter. S'il
+    survit à la fin du job, c'est que le worker est mort : le ``on_failure``
+    le rabat alors en ``RAISON_INDISPONIBLE``.
+    """
+    return marquer_a_relire(db, doc_id, version, RAISON_ANALYSE)
 
 
 def confirmer_actualite(db: Session, reponses: list[Reponse]) -> None:
@@ -331,3 +540,38 @@ def confirmer_actualite(db: Session, reponses: list[Reponse]) -> None:
     for r in reponses:
         lever_a_relire(r)
     db.commit()
+
+
+def requeuer_en_attente(db: Session, reponses: list[Reponse]) -> None:
+    """Re-soumet au pipeline RAG les tickets dont la réponse EN_ATTENTE vient d\'être rendue obsolète.
+
+    Import différé de ``question_job`` pour briser la dépendance circulaire :
+    ``obsolescence`` ← importe ← ``question``, et ``question`` importe ce module.
+    On ne l\'importe qu\'au moment de l\'appel, pas au chargement du module.
+    """
+    if not reponses:
+        return
+
+    from app.workers.question import question_job  # noqa: PLC0415 — import différé anti-circulaire
+
+    ids_tickets = {r.ticket_id for r in reponses if r.ticket_id is not None}
+    if not ids_tickets:
+        return
+
+    tickets = db.query(Ticket).filter(Ticket.id.in_(ids_tickets)).all()
+    for ticket in tickets:
+        ticket.statut_job = "EN_ATTENTE"
+        ticket.statut_ticket = "NOUVEAU"
+        ticket.erreur = None
+    db.commit()
+
+    for ticket in tickets:
+        question_job.delay(
+            question=ticket.question,
+            domaine=ticket.domaine,
+            user_id=str(ticket.user_id) if ticket.user_id else None,
+            ticket_id=str(ticket.id),
+            objet=ticket.objet,
+            retraiter=True,
+        )
+        print(f"[REQUEUE] ticket {ticket.id} re-soumis au pipeline RAG")

@@ -25,6 +25,7 @@ from app.services.obsolescence import (
     confirmer_actualite,
     fermeture_copies,
     lever_a_relire,
+    requeuer_en_attente,
     retirer_du_service,
 )
 from app.services.qdrant import delete_response_point
@@ -39,12 +40,15 @@ def _notifier_employe(db, ticket: Ticket, reponse_id: str, validator_id: uuid.UU
         return
     if ticket.user_id == validator_id:
         return
-    db.add(Notification(
-        user_id=ticket.user_id,
-        ticket_id=ticket.id,
-        reponse_id=uuid.UUID(reponse_id),
-        type="REPONSE_VALIDEE",
-    ))
+    db.add(
+        Notification(
+            user_id=ticket.user_id,
+            ticket_id=ticket.id,
+            reponse_id=uuid.UUID(reponse_id),
+            type="REPONSE_VALIDEE",
+        )
+    )
+
 
 ETATS_FINAUX = {"REJETÉE", "CORRIGÉE", "CANONIQUE"}
 
@@ -430,6 +434,7 @@ async def lister_reponses_obsoletes(
             .outerjoin(Document, Document.doc_id == Reponse.obsolete_doc_id)
             .filter(Reponse.obsolete.is_(True))
             .filter(Reponse.reponse_source_id.is_(None))
+            .filter(Reponse.statut.in_(["VALIDÉE", "CORRIGÉE"]))
         )
 
         if domaine:
@@ -438,9 +443,7 @@ async def lister_reponses_obsoletes(
             query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
 
         total = query.count()
-        resultats = (
-            query.order_by(Reponse.obsolete_at.desc().nullslast()).offset((page - 1) * limit).limit(limit).all()
-        )
+        resultats = query.order_by(Reponse.obsolete_at.desc().nullslast()).offset((page - 1) * limit).limit(limit).all()
 
         return {
             "total": total,
@@ -459,6 +462,10 @@ async def lister_reponses_obsoletes(
                     "obsolete_raison": r.obsolete_raison,
                     "obsolete_version": r.obsolete_version,
                     "obsolete_at": r.obsolete_at.isoformat() if r.obsolete_at else None,
+                    # Sans elles, un retrait sec est indéfendable : la personne qui
+                    # relit voit une réponse disparue et rien qui dise pourquoi.
+                    "analyse_justification": r.analyse_justification,
+                    "analyse_extraits": (r.analyse_extraits or {}).get("unites") or [],
                     "doc_id": r.obsolete_doc_id,
                     "document_filename": d.filename if d else None,
                     "document_supprime": d is None or d.statut == "SUPPRIMÉ",
@@ -468,6 +475,19 @@ async def lister_reponses_obsoletes(
         }
     finally:
         db.close()
+
+
+def _changements_allegees(changements: dict | None) -> dict | None:
+    """Le diff de la version, sans les unités intégrales.
+
+    ``changements["unites"]`` porte le texte complet des paragraphes modifiés,
+    plafonné à 256 Ko : c'est la matière du worker, pas de l'écran. Le renvoyer
+    par item ferait une page de plusieurs mégaoctets pour afficher trois extraits.
+    Ce que l'interface lit — ``nb_unites``, ``extraits_*`` — est conservé.
+    """
+    if not changements:
+        return changements
+    return {k: v for k, v in changements.items() if k != "unites"}
 
 
 @router.get("/reponses/a-relire")
@@ -551,10 +571,15 @@ async def lister_reponses_a_relire(
                     "a_relire_raison": r.a_relire_raison,
                     "a_relire_version": r.a_relire_version,
                     "a_relire_at": r.a_relire_at.isoformat() if r.a_relire_at else None,
+                    # Le verdict du modèle et les unités qui l'ont fondé : c'est ce
+                    # qui distingue « ce document a bougé » de « voici pourquoi cette
+                    # réponse-là est en cause ».
+                    "analyse_justification": r.analyse_justification,
+                    "analyse_extraits": (r.analyse_extraits or {}).get("unites") or [],
                     "doc_id": r.a_relire_doc_id,
                     "document_filename": d.filename if d else None,
                     "document_supprime": d is None or d.statut == "SUPPRIMÉ",
-                    "changements": v.changements if v else None,
+                    "changements": _changements_allegees(v.changements if v else None),
                 }
                 for r, t, d, v in resultats
             ],
@@ -590,9 +615,7 @@ async def confirmer_actualite_lot(payload: ConfirmerLotRequest, current_user: Ba
 
         autorisees = [r for r in candidates if _domaine_autorise(db, r, current_user)]
         familles = fermeture_copies(db, {r.id for r in autorisees}) if autorisees else set()
-        a_lever = (
-            db.query(Reponse).filter(Reponse.id.in_(familles)).all() if familles else []
-        )
+        a_lever = db.query(Reponse).filter(Reponse.id.in_(familles)).all() if familles else []
         confirmer_actualite(db, a_lever)
         nb = len(autorisees)
     finally:
@@ -669,7 +692,9 @@ async def retirer_reponse(reponse_id: str, current_user: BackofficeUser):
         doc_id, version = reponse.a_relire_doc_id, reponse.a_relire_version
         famille = fermeture_copies(db, {reponse.id})
         cibles = db.query(Reponse).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(False)).all()
+        en_attente_cibles = [r for r in cibles if r.statut == "EN_ATTENTE"]
         retirer_du_service(db, cibles, RAISON_MANUELLE, doc_id, version)
+        requeuer_en_attente(db, en_attente_cibles)
         nb = len(cibles)
     finally:
         db.close()
@@ -707,8 +732,7 @@ async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
 
         famille = fermeture_copies(db, {reponse.id})
         a_reindexer = [
-            str(r[0])
-            for r in db.query(Reponse.id).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(True)).all()
+            str(r[0]) for r in db.query(Reponse.id).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(True)).all()
         ]
         db.query(Reponse).filter(Reponse.id.in_(famille)).update(
             {
@@ -772,9 +796,7 @@ async def editer_reponse_canonique(
         reponse.contenu_corrige = payload.contenu
         # Réécrire la réponse *est* la relecture qu'on demandait.
         if reponse.a_relire:
-            confirmer_actualite(db, db.query(Reponse).filter(
-                Reponse.id.in_(fermeture_copies(db, {reponse.id}))
-            ).all())
+            confirmer_actualite(db, db.query(Reponse).filter(Reponse.id.in_(fermeture_copies(db, {reponse.id}))).all())
         db.commit()
     finally:
         db.close()
@@ -791,11 +813,12 @@ async def editer_reponse_canonique(
 @router.delete("/reponses/{reponse_id}")
 async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeUser):
     """Supprime définitivement une réponse canonique : retrait du point Qdrant et de
-    la ligne en base. Les futures questions similaires repassent par le pipeline RAG
-    normal. Aucune cascade n'étant déclarée sur les FK, on nettoie manuellement les
-    chunks liés et on détache les copies (réutilisations CANONIQUE) avant la suppression.
+    la ligne en base. Les futures questions similaires repassent par le pipeline RAG.
 
-    Même droit que l'édition : le domaine du ticket d'origine (`check_reponse_write`)."""
+    Toutes les copies (VALIDÉE et EN_ATTENTE) sont retirées du service via
+    ``fermeture_copies`` avant la suppression — même cohérence que ``retirer_reponse``.
+
+    Même droit que l'édition : le domaine du ticket d'origine (``check_reponse_write``)."""
     db = SessionLocal()
     try:
         reponse = get_reponse_or_404(db, reponse_id)
@@ -806,38 +829,35 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeU
         if not reponse.canonique and not reponse.obsolete:
             raise HTTPException(409, "Seules les réponses canoniques peuvent être supprimées ici.")
 
-        # 1. Retrait du point Qdrant (plus de match CANONIQUE/SUGGESTION).
-        delete_response_point(reponse_id)
+        # 1. Retirer du service toutes les copies (VALIDÉE, EN_ATTENTE, etc.).
+        #    La source est exclue — elle sera supprimée en base, pas rendue obsolète.
+        #    delete_response_point est un no-op pour les EN_ATTENTE (pas de point Qdrant),
+        #    mais obsolete=True les bloque définitivement à la validation.
+        famille = fermeture_copies(db, {reponse.id})
+        copies = (
+            db.query(Reponse)
+            .filter(Reponse.id.in_(famille), Reponse.id != reponse.id, Reponse.obsolete.is_(False))
+            .all()
+        )
+        en_attente_copies = [r for r in copies if r.statut == "EN_ATTENTE"]
+        retirer_du_service(db, copies, RAISON_MANUELLE, None, None)
+        requeuer_en_attente(db, en_attente_copies)
 
-        # 2. Chunks liés (pas de cascade en base).
-        db.query(ReponseChunk).filter(ReponseChunk.reponse_id == reponse.id).delete(synchronize_session=False)
-
-        # 3. Détacher les copies (réutilisations) qui pointent sur cette source.
-        #    On retire aussi leur flag `canonique` : sinon, une fois orphelines
-        #    (reponse_source_id NULL), elles réapparaîtraient comme des sources
-        #    dans la liste des réponses canoniques. Même raison pour le drapeau
-        #    d'obsolescence et pour celui de relecture, qui les feraient rester
-        #    éternellement dans leur onglet sans que rien ne puisse plus les en
-        #    sortir : les deux listes ne montrent que les sources.
+        # 2. Détacher les enfants directs. Aucune cascade n'est déclarée sur
+        #    `reponse_source_id` : sans ce détachement, le `db.delete` ci-dessous
+        #    lève une violation de clé étrangère et l'appel finit en 500. On retire
+        #    aussi `canonique`, sinon la copie orpheline réapparaîtrait comme source
+        #    dans la liste des canoniques. Le drapeau d'obsolescence posé à l'étape 1
+        #    est conservé : devenue racine, la copie reste visible et restaurable
+        #    depuis l'onglet Obsolètes.
         db.query(Reponse).filter(Reponse.reponse_source_id == reponse.id).update(
-            {
-                "reponse_source_id": None,
-                "canonique": False,
-                "obsolete": False,
-                "obsolete_raison": None,
-                "obsolete_doc_id": None,
-                "obsolete_version": None,
-                "obsolete_at": None,
-                "a_relire": False,
-                "a_relire_raison": None,
-                "a_relire_doc_id": None,
-                "a_relire_version": None,
-                "a_relire_at": None,
-            },
+            {"reponse_source_id": None, "canonique": False},
             synchronize_session=False,
         )
 
-        # 4. Suppression de la réponse elle-même.
+        # 3. Retrait de la source : Qdrant, chunks, ligne en base.
+        delete_response_point(reponse_id)
+        db.query(ReponseChunk).filter(ReponseChunk.reponse_id == reponse.id).delete(synchronize_session=False)
         db.delete(reponse)
         db.commit()
     finally:

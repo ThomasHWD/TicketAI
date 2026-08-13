@@ -358,6 +358,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
 
     try:
         from app.services.qdrant import client as qdrant_client
+
         qdrant_client.get_collections()
         qd = ServiceStatus(status="ok")
     except Exception as e:
@@ -373,6 +374,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
     import time
 
     import httpx
+
     albert_auth = {"Authorization": f"Bearer {settings.albert_api_key}"}
 
     def _ping_albert(url: str) -> ServiceStatus:
@@ -392,6 +394,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
     celery_queues_info: dict = {}
     try:
         from app.workers.celery_app import celery_app
+
         inspector = celery_app.control.inspect(timeout=2)
         celery_queues_info = inspector.active_queues() or {}
     except Exception:
@@ -399,15 +402,14 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
 
     def _celery_status_and_count(queue: str) -> tuple[ServiceStatus, int]:
         workers = [
-            wname for wname, wqueues in celery_queues_info.items()
-            if any(q.get("name") == queue for q in wqueues)
+            wname for wname, wqueues in celery_queues_info.items() if any(q.get("name") == queue for q in wqueues)
         ]
         if workers:
             return ServiceStatus(status="ok"), len(workers)
         return ServiceStatus(status="error", detail="Aucun worker actif sur cette queue"), 0
 
     cel_ing, workers_ing = _celery_status_and_count("queue_ingestion")
-    cel_q,   workers_q   = _celery_status_and_count("queue_questions")
+    cel_q, workers_q = _celery_status_and_count("queue_questions")
 
     # ── Stats fonctionnelles ─────────────────────────────────────────
     from datetime import datetime, timedelta, timezone
@@ -429,11 +431,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
 
     # Tickets bloqués (EN_COURS > 10 min)
     seuil = datetime.now(timezone.utc) - timedelta(minutes=10)
-    tickets_bloques = (
-        db.query(Ticket)
-        .filter(Ticket.statut_job == "EN_COURS", Ticket.created_at < seuil)
-        .count()
-    )
+    tickets_bloques = db.query(Ticket).filter(Ticket.statut_job == "EN_COURS", Ticket.created_at < seuil).count()
 
     # Longueur des files Celery + documents échoués via Redis
     celery_pending_ingestion: int | None = None
@@ -441,6 +439,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
     documents_echoues = 0
     try:
         import json as _json
+
         r = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=2)
         celery_pending_ingestion = r.llen("queue_ingestion")
         celery_pending_questions = r.llen("queue_questions")
@@ -450,9 +449,8 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
             if raw:
                 try:
                     meta = _json.loads(raw)
-                    if (
-                        meta.get("status") == "FAILURE"
-                        and "ingestion_job" in str(meta.get("task_name") or meta.get("name") or "")
+                    if meta.get("status") == "FAILURE" and "ingestion_job" in str(
+                        meta.get("task_name") or meta.get("name") or ""
                     ):
                         documents_echoues += 1
                 except Exception:
@@ -501,6 +499,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
 def _scan_document_incidents() -> list[DocumentIncident]:
     """Parcourt les résultats Celery dans Redis pour trouver les ingestions échouées."""
     import json as _json
+
     incidents: list[DocumentIncident] = []
     try:
         r = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=2)
@@ -525,12 +524,14 @@ def _scan_document_incidents() -> list[DocumentIncident]:
                     erreur = str(result)
                 task_id = key.decode() if isinstance(key, bytes) else str(key)
                 task_id = task_id.replace("celery-task-meta-", "")
-                incidents.append(DocumentIncident(
-                    task_id=task_id,
-                    filename=kwargs.get("filename"),
-                    domaine=kwargs.get("domaine"),
-                    erreur=erreur,
-                ))
+                incidents.append(
+                    DocumentIncident(
+                        task_id=task_id,
+                        filename=kwargs.get("filename"),
+                        domaine=kwargs.get("domaine"),
+                        erreur=erreur,
+                    )
+                )
             except Exception:
                 pass
     except Exception:
@@ -544,13 +545,7 @@ def get_incidents(_: AdminUser, db: DB) -> IncidentsResponse:
 
     from app.models.ticket import Ticket
 
-    echoues = (
-        db.query(Ticket)
-        .filter(Ticket.statut_job == "ÉCHOUÉ")
-        .order_by(Ticket.created_at.desc())
-        .limit(50)
-        .all()
-    )
+    echoues = db.query(Ticket).filter(Ticket.statut_job == "ÉCHOUÉ").order_by(Ticket.created_at.desc()).limit(50).all()
 
     seuil = datetime.now(timezone.utc) - timedelta(minutes=10)
     bloques = (
@@ -615,6 +610,7 @@ def retry_ticket(ticket_id: UUID, _: AdminUser, db: DB):
     db.commit()
 
     from app.workers.question import question_job
+
     question_job.apply_async(
         kwargs={"ticket_id": str(ticket.id), "question": ticket.question, "domaine": ticket.domaine},
         task_id=str(new_job_id),
@@ -688,6 +684,7 @@ def retry_document(task_id: str, _: AdminUser):
         )
 
     from app.workers.ingestion import ingestion_job
+
     new_task_id = str(_uuid.uuid4())
     ingestion_job.apply_async(kwargs=kwargs, task_id=new_task_id, queue="queue_ingestion")
 
@@ -705,6 +702,7 @@ def delete_document_incident(task_id: str, _: AdminUser):
         if not raw:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tâche introuvable.")
         import json as _json
+
         meta = _json.loads(raw)
         kwargs = meta.get("kwargs") or {}
         file_path = kwargs.get("file_path")

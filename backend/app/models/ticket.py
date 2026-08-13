@@ -30,7 +30,7 @@ class Ticket(Base):
     # Clôture par l'utilisateur (NULL = ouvert). Indépendant de statut_ticket.
     closed_at = Column(DateTime(timezone=True), nullable=True)
     note_qualite = Column(Integer, nullable=True)  # 1–5, note qualité réponse
-    note_delai = Column(Integer, nullable=True)    # 1–5, note délai de traitement
+    note_delai = Column(Integer, nullable=True)  # 1–5, note délai de traitement
 
     # Verrou collaboratif (bail à expiration) : évite que deux validateurs
     # traitent le même ticket en même temps. Voir app/api/v1/tickets.py.

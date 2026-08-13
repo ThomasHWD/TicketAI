@@ -52,17 +52,20 @@ def collecter_documents_qdrant() -> dict[str, dict]:
             doc_id = p.get("doc_id")
             if not doc_id:
                 continue
-            entree = docs.setdefault(doc_id, {
-                "doc_id": doc_id,
-                "filename": p.get("source") or "document",
-                "domaine": p.get("domaine") or "",
-                "description": p.get("description") or "",
-                "content_hash": p.get("content_hash") or None,
-                "stored_path": p.get("stored_path") or None,
-                "uploaded_by": p.get("uploaded_by") or None,
-                "version": p.get("version") or 1,
-                "nb_chunks": 0,
-            })
+            entree = docs.setdefault(
+                doc_id,
+                {
+                    "doc_id": doc_id,
+                    "filename": p.get("source") or "document",
+                    "domaine": p.get("domaine") or "",
+                    "description": p.get("description") or "",
+                    "content_hash": p.get("content_hash") or None,
+                    "stored_path": p.get("stored_path") or None,
+                    "uploaded_by": p.get("uploaded_by") or None,
+                    "version": p.get("version") or 1,
+                    "nb_chunks": 0,
+                },
+            )
             entree["nb_chunks"] += 1
             # Le payload d'un document ancien peut être partiel d'un point à l'autre :
             # on retient la première valeur non vide rencontrée.
@@ -115,31 +118,35 @@ def reconcilier_documents(db: Session) -> dict:
         version = int(entree["version"])
 
         if doc_id not in existants:
-            db.add(Document(
-                doc_id=doc_id,
-                version=version,
-                filename=entree["filename"],
-                domaine=entree["domaine"],
-                description=entree["description"],
-                content_hash=entree["content_hash"],
-                stored_path=stored_path,
-                nb_chunks=entree["nb_chunks"],
-                statut="ACTIF",
-                uploaded_by=auteur,
-            ))
+            db.add(
+                Document(
+                    doc_id=doc_id,
+                    version=version,
+                    filename=entree["filename"],
+                    domaine=entree["domaine"],
+                    description=entree["description"],
+                    content_hash=entree["content_hash"],
+                    stored_path=stored_path,
+                    nb_chunks=entree["nb_chunks"],
+                    statut="ACTIF",
+                    uploaded_by=auteur,
+                )
+            )
             crees += 1
 
         if (doc_id, version) not in versions_existantes:
-            db.add(DocumentVersion(
-                doc_id=doc_id,
-                version=version,
-                filename=entree["filename"],
-                content_hash=entree["content_hash"],
-                stored_path=stored_path,
-                nb_chunks=entree["nb_chunks"],
-                taille_octets=os.path.getsize(stored_path) if stored_path and os.path.isfile(stored_path) else None,
-                uploaded_by=auteur,
-            ))
+            db.add(
+                DocumentVersion(
+                    doc_id=doc_id,
+                    version=version,
+                    filename=entree["filename"],
+                    content_hash=entree["content_hash"],
+                    stored_path=stored_path,
+                    nb_chunks=entree["nb_chunks"],
+                    taille_octets=os.path.getsize(stored_path) if stored_path and os.path.isfile(stored_path) else None,
+                    uploaded_by=auteur,
+                )
+            )
             versions_creees += 1
 
     db.commit()

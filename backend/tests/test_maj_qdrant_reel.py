@@ -88,12 +88,7 @@ class TestSuppressionDesAnciens:
         assert _ids_presents([backfille]) == set()
 
     def test_supprime_les_versions_anterieures(self, doc_id):
-        ids = _semer(
-            [
-                _point({"doc_id": doc_id, "version": v, "chunk_index": 0, "contenu": f"v{v}"})
-                for v in (1, 2)
-            ]
-        )
+        ids = _semer([_point({"doc_id": doc_id, "version": v, "chunk_index": 0, "contenu": f"v{v}"}) for v in (1, 2)])
 
         client.delete(
             collection_name=COLLECTION_NAME,
@@ -106,9 +101,7 @@ class TestSuppressionDesAnciens:
     def test_conserve_la_version_en_cours_d_ecriture(self, doc_id):
         """Les points fraîchement upsertés ne doivent pas être emportés par le delete
         qui les suit — c'est toute la raison d'être du `must_not`."""
-        [nouveau] = _semer(
-            [_point({"doc_id": doc_id, "version": VERSION_CIBLE, "chunk_index": 0, "contenu": "v3"})]
-        )
+        [nouveau] = _semer([_point({"doc_id": doc_id, "version": VERSION_CIBLE, "chunk_index": 0, "contenu": "v3"})])
 
         client.delete(
             collection_name=COLLECTION_NAME,
@@ -134,9 +127,7 @@ class TestSuppressionDesAnciens:
     def test_epargne_les_points_de_feedback(self, doc_id):
         """Les réponses canoniques vivent dans la même collection et n'ont **aucune**
         clé `doc_id`. Sans le `must=[doc_id]`, le delete les emporterait toutes."""
-        [reponse] = _semer(
-            [_point({"reponse_id": str(uuid.uuid4()), "ticket_id": str(uuid.uuid4()), "domaine": "RH"})]
-        )
+        [reponse] = _semer([_point({"reponse_id": str(uuid.uuid4()), "ticket_id": str(uuid.uuid4()), "domaine": "RH"})])
         try:
             client.delete(
                 collection_name=COLLECTION_NAME,
@@ -156,9 +147,7 @@ class TestCapturerChunks:
             [
                 _point({"doc_id": doc_id, "version": 2, "chunk_index": 0, "contenu": "Alpha"}),
                 _point({"doc_id": doc_id, "chunk_index": 1, "contenu": "Beta"}),  # backfillé
-                _point(
-                    {"doc_id": doc_id, "version": VERSION_CIBLE, "chunk_index": 9, "contenu": "Neuf"}
-                ),
+                _point({"doc_id": doc_id, "version": VERSION_CIBLE, "chunk_index": 9, "contenu": "Neuf"}),
             ]
         )
 
@@ -170,10 +159,7 @@ class TestCapturerChunks:
         aveugle sur tout ce qui suit — donc silencieusement incomplète."""
         total = 300
         _semer(
-            [
-                _point({"doc_id": doc_id, "version": 2, "chunk_index": i, "contenu": f"chunk {i}"})
-                for i in range(total)
-            ]
+            [_point({"doc_id": doc_id, "version": 2, "chunk_index": i, "contenu": f"chunk {i}"}) for i in range(total)]
         )
 
         anciens = capturer_chunks(doc_id, VERSION_CIBLE)

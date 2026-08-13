@@ -75,8 +75,17 @@ def _ensure_test_database() -> None:
 # Ordre FK-safe pour le nettoyage inter-tests : on supprime d'abord les tables
 # qui référencent les autres.
 _CLEANUP_ORDER = (
-    "reponse_chunks", "reponses", "tickets", "document_versions", "documents", "document_uploads",
-    "document_staging", "user_groups", "groupes", "users", "site_config",
+    "reponse_chunks",
+    "reponses",
+    "tickets",
+    "document_versions",
+    "documents",
+    "document_uploads",
+    "document_staging",
+    "user_groups",
+    "groupes",
+    "users",
+    "site_config",
 )
 
 
