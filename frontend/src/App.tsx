@@ -28,6 +28,7 @@ import UserTicketDetail from "./pages/user/UserTicketDetail/UserTicketDetail";
 import Ingestion from "./pages/backoffice/Ingestion";
 import AllDocs from "./pages/backoffice/AllDocs";
 import TicketTracking from "./pages/backoffice/TicketTracking";
+import HorsDomaine from "./pages/backoffice/HorsDomaine";
 import AdminPage from "./pages/admin/Groups";
 import SiteConfigPage from "./pages/admin/SiteConfig";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -123,6 +124,7 @@ export default function App() {
               <Route path="/Documentations" element={<Ingestion />} />
               <Route path="/documents-indexes" element={<AllDocs />} />
               <Route path="/mon-suivi" element={<TicketTracking />} />
+              <Route path="/angles-morts" element={<HorsDomaine />} />
             </Route>
           </Route>
           <Route element={<Layout />}>

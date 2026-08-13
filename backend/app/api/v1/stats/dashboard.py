@@ -5,6 +5,7 @@ from sqlalchemy import Date, cast, exists, extract, func, or_
 
 from app.api.v1.stats._helpers import (
     _avg_satisfaction,
+    _build_domain_filters,
     _get_period_bounds,
     _variation,
     _variation_taux,
@@ -17,24 +18,6 @@ from app.models.ticket import Ticket
 
 router = APIRouter()
 
-
-def _build_domain_filters(current_user, domaine: str | None) -> tuple[list, list]:
-    """Retourne (domain_filters, reponse_domain_joins) selon l'utilisateur et le domaine demandé."""
-    if domaine:
-        domaine = domaine.upper()
-        return (
-            [Ticket.domaine == domaine],
-            [Reponse.ticket.has(Ticket.domaine == domaine)],
-        )
-    if current_user.role == "ADMIN":
-        return [], []
-    user_domaines = [g.domaine for g in current_user.groupes]
-    if user_domaines:
-        return (
-            [Ticket.domaine.in_(user_domaines)],
-            [Reponse.ticket.has(Ticket.domaine.in_(user_domaines))],
-        )
-    return [Ticket.id.is_(None)], [Reponse.id.is_(None)]
 
 
 def _count_nouveaux(db, start: datetime, end: datetime, domain_filters: list, reponse_validee_exists) -> int:
@@ -278,7 +261,7 @@ def get_dashboard_stats(
             db.query(Reponse.source, func.count(func.distinct(Reponse.ticket_id)))
             .join(Ticket, Reponse.ticket_id == Ticket.id)
             .filter(
-                Reponse.source.in_(["CANONIQUE", "SUGGESTION", "LLM"]),
+                Reponse.source.in_(["CANONIQUE", "SUGGESTION", "LLM", "HORS_DOMAINE"]),
                 Ticket.created_at >= curr_start,
                 Ticket.created_at < curr_end,
                 *domain_filters,
@@ -290,11 +273,14 @@ def get_dashboard_stats(
         nb_canonique = branch_counts.get("CANONIQUE", 0)
         nb_suggestion = branch_counts.get("SUGGESTION", 0)
         nb_llm = branch_counts.get("LLM", 0)
-        total_branches = (nb_canonique + nb_suggestion + nb_llm) or 1
+        nb_hors_domaine = branch_counts.get("HORS_DOMAINE", 0)
+        total_branches = (nb_canonique + nb_suggestion + nb_llm + nb_hors_domaine) or 1
         repartition_branches = [
             {"branche": "CANONIQUE", "count": nb_canonique, "pct": round(nb_canonique / total_branches * 100, 1)},
             {"branche": "SUGGESTION", "count": nb_suggestion, "pct": round(nb_suggestion / total_branches * 100, 1)},
             {"branche": "LLM", "count": nb_llm, "pct": round(nb_llm / total_branches * 100, 1)},
+            {"branche": "HORS_DOMAINE", "count": nb_hors_domaine,
+             "pct": round(nb_hors_domaine / total_branches * 100, 1)},
         ]
 
         # ── Graphiques ───────────────────────────────────────────────────────────

@@ -2,7 +2,27 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func
 
+from app.models.reponse import Reponse
 from app.models.ticket import Ticket
+
+
+def _build_domain_filters(current_user, domaine: str | None) -> tuple[list, list]:
+    """Retourne (domain_filters, reponse_domain_joins) selon l'utilisateur et le domaine demandé."""
+    if domaine:
+        domaine = domaine.upper()
+        return (
+            [Ticket.domaine == domaine],
+            [Reponse.ticket.has(Ticket.domaine == domaine)],
+        )
+    if current_user.role == "ADMIN":
+        return [], []
+    user_domaines = [g.domaine for g in current_user.groupes]
+    if user_domaines:
+        return (
+            [Ticket.domaine.in_(user_domaines)],
+            [Reponse.ticket.has(Ticket.domaine.in_(user_domaines))],
+        )
+    return [Ticket.id.is_(None)], [Reponse.id.is_(None)]
 
 
 def _get_period_bounds(periode: str, now: datetime) -> tuple[datetime, datetime, datetime, datetime]:
