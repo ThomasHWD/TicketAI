@@ -611,14 +611,12 @@ def test_supprimer_obsolete_non_canonique_autorise(client, db_session, validator
     assert db_session.get(Reponse, reponse.id) is None
 
 
-def test_supprimer_detache_la_copie_deja_obsolete_sans_la_ressusciter(client, db_session, validator, auth_header):
-    """La copie déjà marquée garde ses drapeaux, mais doit être détachée.
+def test_supprimer_supprime_aussi_les_copies_deja_obsoletes(client, db_session, validator, auth_header):
+    """Les copies déjà obsolètes sont supprimées avec la source, pas seulement détachées.
 
-    Elle est hors du lot de l'étape 1 (filtré sur ``obsolete is False``) : c'est
-    précisément le cas où l'on peut oublier de la détacher, et la suppression part
-    alors en violation de clé étrangère. Ses drapeaux sont conservés — devenue
-    racine, elle reste visible et restaurable depuis l'onglet Obsolètes ; les
-    remettre à zéro la remettrait en service sans que personne ne l'ait décidé.
+    Les laisser en base et les détacher les ferait réapparaître dans l'onglet
+    Obsolètes comme entrées indépendantes avec un contenu identique à la source
+    qu'on vient de purger — doublon inutile et source de confusion.
     """
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
     _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", reponse_source_id=source.id)
@@ -631,11 +629,7 @@ def test_supprimer_detache_la_copie_deja_obsolete_sans_la_ressusciter(client, db
 
     assert resp.status_code == 200
     db_session.expunge_all()
-    detachee = db_session.get(Reponse, copie_id)
-    assert detachee.reponse_source_id is None
-    assert detachee.canonique is False
-    assert detachee.obsolete is True
-    assert detachee.a_relire is True
+    assert db_session.get(Reponse, copie_id) is None
 
 
 # --------------------------------------------------------------------------- #

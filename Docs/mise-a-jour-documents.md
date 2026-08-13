@@ -29,7 +29,11 @@ flowchart TD
     G --> H["Ré-indexation en tâche de fond<br/>(suivie par le bandeau de jobs)"]
     H --> I["v2 en ligne · v1 archivée"]
     I --> J["Ré-vérification, réponse par réponse<br/>(30 s à quelques minutes)"]
-    J --> K["Contredites → retirées du service<br/>Douteuses → onglet À relire<br/>Intactes → rien"]
+    J --> K{"Verdict LLM<br/>par réponse"}
+    K -- "CONTREDITE<br/>+ citante du doc" --> L["🚫 Retirée du service<br/>(CONTREDITE_PAR_MAJ)"]
+    K -- "CONTREDITE<br/>+ non-citante" --> M["⚠ À relire — reste servie<br/>(CONTREDITE_PROBABLE)"]
+    K -- INTACTE --> N["✅ Drapeau levé,<br/>rien ne change"]
+    K -- "INCERTAIN / panne" --> O["⚠ À relire — reste servie"]
 ```
 
 **L'aperçu n'est plus un verdict.** Il montre le diff réel — ce que la nouvelle version ajoute,
@@ -346,6 +350,32 @@ doit pas la présenter comme acquise.
 Enfin, si une réponse signalée devient **obsolète** lors d'une mise à jour ultérieure, son
 signalement est levé : une réponse ne siège jamais dans les deux onglets à la fois.
 
+## 4 ter. Cycle de vie d'une réponse
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> Servie : validation
+
+    Servie --> Transitoire : mise à jour doc\n(ANALYSE_EN_COURS)
+
+    Transitoire --> Servie : INTACTE\n→ lever_a_relire
+    Transitoire --> ARelire : CONTREDITE non-citante\nINCERTAIN · panne\nbudget · réécriture massive
+    Transitoire --> Obsolète : CONTREDITE + citante\n→ retirer_du_service
+
+    Servie --> Obsolète : suppression doc\nou retrait manuel
+
+    ARelire --> Servie : confirmer / modifier
+    ARelire --> Obsolète : retirer du service\nou mise à jour ultérieure\n(CONTREDITE citante)
+
+    Obsolète --> Servie : restaurer
+```
+
+La règle d'asymétrie tient en une ligne : seule une réponse qui **cite réellement** le document
+peut en être retirée automatiquement. Pour les autres, la machine ne fait que poser une question
+à un humain — elle ne tranche jamais seule.
+
 ## 5. Versions et restauration
 
 Chaque mise à jour archive la version sortante. L'**historique** liste les versions de la plus
@@ -459,6 +489,18 @@ Sans Celery, donc testable en unitaire. Quatre fonctions, une par étage :
 | `juger` | un appel `chat` (`temperature=0`, JSON strict) | Lève sur panne HTTP — l'appelant n'a pas les mêmes options face à une panne et face à une hésitation. Sortie illisible ⇒ `INCERTAIN`, **jamais `INTACTE`**. |
 | `decider` | applique, rend l'action pour le comptage | Passe par `_famille` (`fermeture_copies`) : décider sur la seule graine laisserait la copie CANONIQUE indexée, donc resservie. |
 
+```mermaid
+flowchart TD
+    A["decider(candidate, verdict)"] --> B{verdict ?}
+    B -- CONTREDITE --> C{citante ?}
+    C -- oui --> D["retirer_du_service\n(CONTREDITE_PAR_MAJ)\nsupprimé de Qdrant"]
+    C -- non --> E["poser_a_relire\n(CONTREDITE_PROBABLE)\nreste servie"]
+    B -- INTACTE --> F{"a_relire_doc_id\n== doc_id ?"}
+    F -- oui --> G["lever_a_relire\n+ effacer justification"]
+    F -- non --> H["rien — signal\nd'un autre doc,\nne pas toucher"]
+    B -- INCERTAIN --> I["poser_a_relire\n(DOC_MODIFIÉ)\nreste servie"]
+```
+
 `lever_a_relire` n'est appelé que si `r.a_relire_doc_id == doc_id` : sans cette garde, ce job
 effacerait le signal posé par la mise à jour d'un **autre** document.
 
@@ -504,14 +546,26 @@ entre-temps : elle a reflagué le même périmètre à son propre numéro et por
 
 ### Ordre du job de mise à jour — `app/workers/document_update.py`, file `queue_ingestion`
 
-```
-scroll (capture du texte des anciens passages, AVANT toute suppression : seule source)
-  → extraction + diff → découpage + embeddings
-  → upsert des nouveaux points → delete des anciens          (jamais l'inverse)
-  → commit Postgres
-  → étape 9  : perimer_en_attente + requeuer_en_attente      (si ≥ 1 unité)
-  → étape 10 : flaguer_en_analyse                            (si ≥ 1 unité)
-  → étape 12 : reverification_job.apply_async(queue_questions)
+```mermaid
+sequenceDiagram
+    participant W as document_update_job<br/>(queue_ingestion)
+    participant Q as Qdrant
+    participant PG as PostgreSQL
+    participant R as reverification_job<br/>(queue_questions)
+
+    W->>Q: scroll — texte des anciens passages<br/>(AVANT tout delete : seule source)
+    W->>W: extraction + diff (unites_de_changement)
+    W->>W: découpage + embeddings
+    W->>Q: upsert nouveaux points
+    Note over W,Q: upsert avant delete :<br/>l'inverse ouvrirait un trou de service
+    W->>Q: delete anciens points
+    W->>PG: commit (version N+1 + changements sérialisés)
+
+    alt ≥ 1 unité de changement
+        W->>PG: perimer_en_attente + requeuer_en_attente
+        W->>PG: flaguer_en_analyse → ANALYSE_EN_COURS<br/>(dans la foulée du commit : ferme la race window)
+        W->>R: reverification_job.apply_async()
+    end
 ```
 
 L'upsert précède le delete : l'ordre inverse ouvrirait un trou de service pendant toute la durée
