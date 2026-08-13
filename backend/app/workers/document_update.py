@@ -3,20 +3,29 @@
 La difficulté n'est pas la ré-indexation : c'est de **capturer le texte de la
 version sortante avant de la détruire**. Qdrant est la seule source du texte des
 chunks qui ont fondé les réponses validées ; une fois les points supprimés,
-plus aucun calcul d'obsolescence n'est possible. D'où l'ordre imposé ci-dessous.
+plus aucune comparaison entre versions n'est possible. D'où l'ordre imposé
+ci-dessous.
 
 Séquence :
 
 ::
 
-    scroll (capture)  →  extract + indices_modifies  →  chunk + embed
-                                                              ↓
-    marquer_obsoletes  ←  commit Postgres  ←  delete anciens  ←  upsert nouveaux
+    scroll (capture)  →  extract + diff  →  chunk + embed
+                                                  ↓
+    flaguer_en_analyse  ←  commit Postgres  ←  delete anciens  ←  upsert nouveaux
+            ↓
+    reverification_job (queue_questions, asynchrone)
 
 L'upsert précède la suppression : l'ordre inverse ouvrirait un trou de service de
 plusieurs dizaines de secondes (la durée de l'embedding) pendant lequel le
 document ne répondrait plus. Le prix est une fenêtre de quelques centaines de ms
 où les deux versions coexistent dans l'index.
+
+**Ce job ne périme plus aucune réponse validée.** Il calcule le diff, le fige sur
+la version, marque les réponses concernées « analyse en cours » et passe la main :
+décider qu'une réponse est contredite demande de la lire, ce que fait
+``workers/reverification.py``. Seules les EN_ATTENTE sont périmées ici — elles
+n'ont jamais été servies et repassent au RAG sans que personne ait à trancher.
 """
 
 import os
@@ -39,17 +48,15 @@ from app.models.document_version import DocumentVersion
 from app.services.broadcast import broadcast_sync
 from app.services.embedding import embed_texts
 from app.services.obsolescence import (
-    MAX_EXTRAITS,
     RAISON_ILLISIBLE,
     RAISON_MAJ,
-    RAISON_MODIF,
-    decouper_en_passages,
-    extrait,
+    analyser_changements,
+    flaguer_en_analyse,
     indices_modifies,
     marquer_a_relire,
-    marquer_obsoletes,
-    passages_ajoutes,
+    perimer_en_attente,
     racines,
+    requeuer_en_attente,
 )
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
@@ -112,51 +119,29 @@ def texte_complet(pages: list[str]) -> str:
     return "\n\n".join(pages)
 
 
-def analyser_changements(
-    chemin_sortant: str | None, nouveau_texte: str
-) -> tuple[dict | None, list[str], list[str]]:
-    """Ce que la nouvelle version dit de neuf, et ce qu'elle ne dit plus.
+def analyser_sortante(chemin_sortant: str | None, nouveau_texte: str) -> dict | None:
+    """Le diff avec la version sortante, lue sur le disque.
 
-    Les deux sens sortent de la même primitive, arguments inversés :
-    ``ajoutes`` couvre l'insertion et la réécriture (un paragraphe réécrit est
-    absent de l'ancien texte), ``retires`` couvre le seul cas qui restait — une
-    règle **abrogée** ailleurs, sans rien insérer.
+    Enrobage d'entrée-sortie autour de ``obsolescence.analyser_changements``, qui
+    porte toute la logique et ne connaît que deux chaînes. L'aperçu fait de même
+    de son côté ; les deux montrent donc nécessairement le même diff.
 
-    ``_normaliser`` garantit qu'un pur reformatage ne produit ni l'un ni l'autre :
-    c'est le garde-fou contre l'inondation, sans lui chaque redécoupage
-    signalerait tout le document.
-
-    Renvoie ``(None, [], [])`` quand la version sortante est illisible — fichier
-    disparu (documents backfillés) ou archive corrompue. L'appelant signale alors
-    avec ``RAISON_ILLISIBLE`` plutôt que de se taire : la liste dit elle-même
-    pourquoi elle est bruyante. **Ne jamais** reconstituer le texte sortant en
-    concaténant les chunks capturés — le chevauchement de 128 tokens du splitter
-    fabriquerait une fausse suppression à chaque couture.
-
-    Les listes complètes ``ajoutes_full`` et ``retires_full`` (deuxième et
-    troisième éléments du tuple) sont passées à ``marquer_a_relire`` pour le
-    filtrage LLM — sans elles, le filtre opérerait sur les extraits tronqués.
+    Renvoie ``None`` quand la version sortante est illisible — fichier disparu
+    (documents backfillés) ou archive corrompue. L'appelant signale alors avec
+    ``RAISON_ILLISIBLE`` plutôt que de se taire : la liste dit elle-même pourquoi
+    elle est bruyante. **Ne jamais** reconstituer le texte sortant en concaténant
+    les chunks capturés — le chevauchement de 128 tokens du splitter fabriquerait
+    une fausse suppression à chaque couture.
     """
     if chemin_sortant is None:
-        return None, [], []
+        return None
     try:
         ancien_texte = texte_complet(extract_text(chemin_sortant))
     except Exception as exc:
         print(f"[MAJ] version sortante illisible ({exc}) — signalement dégradé")
-        return None, [], []
+        return None
 
-    ajoutes = passages_ajoutes(decouper_en_passages(nouveau_texte), ancien_texte)
-    retires = passages_ajoutes(decouper_en_passages(ancien_texte), nouveau_texte)
-    return (
-        {
-            "nb_ajoutes": len(ajoutes),
-            "nb_retires": len(retires),
-            "extraits_ajoutes": [extrait(t) for t in ajoutes[:MAX_EXTRAITS]],
-            "extraits_retires": [extrait(t) for t in retires[:MAX_EXTRAITS]],
-        },
-        ajoutes,
-        retires,
-    )
+    return analyser_changements(ancien_texte, nouveau_texte)
 
 
 class TacheMaj(celery_app.Task):
@@ -221,7 +206,7 @@ def document_update_job(
             # Reprise : le job a déjà abouti, un retry ne doit rien refaire.
             if doc.version == new_version:
                 print(f"[MAJ] v{new_version} déjà en place — rien à faire")
-                return {"statut": "OK", "doc_id": doc_id, "version": new_version, "nb_obsoletes": 0}
+                return {"statut": "OK", "doc_id": doc_id, "version": new_version, "nb_a_analyser": 0}
             domaine = doc.domaine
             # Le chemin du fichier sortant se lit ici, pas plus loin : la session
             # ferme dans deux lignes et `doc` devient détaché.
@@ -254,11 +239,11 @@ def document_update_job(
 
         # Le fichier sortant est encore sur le disque : `store_file` (étape 5)
         # écrit sous v{new_version}, il ne l'écrase pas.
-        changements, ajoutes_full, retires_full = analyser_changements(chemin_sortant, nouveau_texte)
+        changements = analyser_sortante(chemin_sortant, nouveau_texte)
         if changements is None:
             print("[MAJ] contenu comparé impossible — toutes les réponses seront à relire")
         else:
-            print(f"[MAJ] {changements['nb_ajoutes']} ajout(s), {changements['nb_retires']} retrait(s)")
+            print(f"[MAJ] {changements['nb_unites']} unité(s) de changement")
 
         # Étape 4 — Chunking + embedding de la nouvelle version
         chunks = chunk_text(pages)
@@ -347,20 +332,30 @@ def document_update_job(
             db.add(DocumentUpload(doc_id=doc_id, user_id=user_uuid, domaine=domaine, filename=filename))
             db.commit()
 
-            # Étape 9 — Obsolescence, une fois la nouvelle version bien en place
-            obsoletes = marquer_obsoletes(db, doc_id, RAISON_MAJ, version=new_version, indices=indices)
-            nb_obsoletes = len(racines(obsoletes))
+            # Étape 9 — Les EN_ATTENTE bâties sur la version sortante. Aucun
+            # jugement requis : jamais servies, jamais indexées, et les valider
+            # plus tard publierait une réponse fondée sur un texte disparu.
+            # Les VALIDÉE, elles, ne sont plus périmées ici : `indices_modifies`
+            # ne prononce plus de verdict, il ne fait que désigner des suspectes
+            # à la ré-vérification (étape 11).
+            a_du_neuf = changements is None or bool(changements["nb_unites"])
+            if a_du_neuf:
+                requeuer_en_attente(db, perimer_en_attente(db, doc_id, RAISON_MAJ, new_version))
 
-            # Étape 10 — Signalement pour relecture. Après l'obsolescence, jamais
-            # avant : les réponses qui viennent de disparaître n'ont pas à être
-            # relues, et `reponses_obsoletes` les écarte une fois le commit passé.
+            # Étape 10 — Mise sous analyse. Après l'étape 9, jamais avant : les
+            # réponses qui viennent de disparaître n'ont pas à être jugées, et
+            # `reponses_obsoletes` les écarte une fois le commit passé.
             if changements is None:
+                # Sans texte sortant, aucun diff n'est calculable : rien à donner
+                # à juger, on retombe sur le signalement en bloc.
                 nb_a_relire = len(racines(marquer_a_relire(db, doc_id, new_version, RAISON_ILLISIBLE)))
-            elif changements["nb_ajoutes"] or changements["nb_retires"]:
-                nb_a_relire = len(racines(marquer_a_relire(db, doc_id, new_version, RAISON_MODIF)))
-            else:
-                # Reformatage pur : le document ne dit rien de neuf, rien à relire.
+                nb_a_analyser = 0
+            elif changements["nb_unites"]:
+                nb_a_analyser = len(racines(flaguer_en_analyse(db, doc_id, new_version)))
                 nb_a_relire = 0
+            else:
+                # Reformatage pur : le document ne dit rien de neuf, rien à juger.
+                nb_a_relire = nb_a_analyser = 0
         finally:
             db.close()
 
@@ -368,10 +363,7 @@ def document_update_job(
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        print(
-            f"[MAJ] ✅ v{ancienne_version} → v{new_version}, "
-            f"{nb_obsoletes} obsolète(s), {nb_a_relire} à relire"
-        )
+        print(f"[MAJ] ✅ v{ancienne_version} → v{new_version}, {nb_a_analyser} à analyser, {nb_a_relire} à relire")
 
         broadcast_sync(
             f"sse:domain:{domaine}",
@@ -381,11 +373,31 @@ def document_update_job(
                 "version": new_version,
                 "filename": filename,
                 "nb_chunks": len(chunks),
-                "nb_obsoletes": nb_obsoletes,
+                "nb_a_analyser": nb_a_analyser,
                 "nb_a_relire": nb_a_relire,
                 "job_id": self.request.id,
             },
         )
+
+        # Étape 12 — La ré-vérification, sur `queue_questions` : ce job est de
+        # l'attente réseau Albert, il n'a rien à faire dans la file qui sérialise
+        # les ingestions. Enfilé explicitement plutôt que par `link()`, qui ne se
+        # rejouerait pas depuis le retry admin ; le garde `doc.version ==
+        # new_version` en tête de tâche empêche déjà un retry de ré-enfiler.
+        if nb_a_analyser:
+            from app.workers.reverification import reverification_job  # noqa: PLC0415 — anti-circulaire
+
+            reverification_job.apply_async(
+                kwargs={
+                    "doc_id": doc_id,
+                    "version": new_version,
+                    "domaine": domaine,
+                    # Les chunks cités disparus : pas un verdict, une liste de
+                    # suspectes qui court-circuitent le filtre de pertinence.
+                    "indices_disparus": sorted(indices),
+                },
+                queue="queue_questions",
+            )
 
         return {
             "statut": "OK",
@@ -394,12 +406,10 @@ def document_update_job(
             "version": new_version,
             "stored_path": stored_path,
             "nb_chunks": len(chunks),
-            "nb_obsoletes": nb_obsoletes,
+            "nb_a_analyser": nb_a_analyser,
             "nb_a_relire": nb_a_relire,
         }
 
     except Exception as exc:
         print(f"[MAJ] ❌ Erreur : {exc}")
         raise self.retry(exc=exc) from exc
-
-

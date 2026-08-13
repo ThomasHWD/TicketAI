@@ -120,11 +120,13 @@ def test_scan_document_incidents_filtre_status_success():
     from app.api.v1.admin import _scan_document_incidents
 
     task_id = str(uuid.uuid4())
-    meta = json.dumps({
-        "status": "SUCCESS",
-        "task_name": "app.workers.ingestion.ingestion_job",
-        "kwargs": {"filename": "doc.pdf", "domaine": "RH"},
-    }).encode()
+    meta = json.dumps(
+        {
+            "status": "SUCCESS",
+            "task_name": "app.workers.ingestion.ingestion_job",
+            "kwargs": {"filename": "doc.pdf", "domaine": "RH"},
+        }
+    ).encode()
 
     with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
@@ -141,11 +143,13 @@ def test_scan_document_incidents_filtre_non_ingestion():
     from app.api.v1.admin import _scan_document_incidents
 
     task_id = str(uuid.uuid4())
-    meta = json.dumps({
-        "status": "FAILURE",
-        "task_name": "app.workers.question.question_job",
-        "kwargs": {},
-    }).encode()
+    meta = json.dumps(
+        {
+            "status": "FAILURE",
+            "task_name": "app.workers.question.question_job",
+            "kwargs": {},
+        }
+    ).encode()
 
     with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
@@ -162,12 +166,14 @@ def test_scan_document_incidents_retourne_incident():
     from app.api.v1.admin import _scan_document_incidents
 
     task_id = str(uuid.uuid4())
-    meta = json.dumps({
-        "status": "FAILURE",
-        "task_name": "app.workers.ingestion.ingestion_job",
-        "kwargs": {"filename": "rapport.pdf", "domaine": "IT", "file_path": "/tmp/x.pdf"},
-        "result": {"exc_message": ["Erreur de parsing"]},
-    }).encode()
+    meta = json.dumps(
+        {
+            "status": "FAILURE",
+            "task_name": "app.workers.ingestion.ingestion_job",
+            "kwargs": {"filename": "rapport.pdf", "domaine": "IT", "file_path": "/tmp/x.pdf"},
+            "result": {"exc_message": ["Erreur de parsing"]},
+        }
+    ).encode()
 
     with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
@@ -206,10 +212,12 @@ def test_download_document_fichier_absent_disque(client, user_factory, auth_head
     headers = auth_header(admin)
 
     task_id = str(uuid.uuid4())
-    meta = json.dumps({
-        "status": "FAILURE",
-        "kwargs": {"filename": "doc.pdf", "file_path": "/tmp/inexistant_xyz.pdf"},
-    }).encode()
+    meta = json.dumps(
+        {
+            "status": "FAILURE",
+            "kwargs": {"filename": "doc.pdf", "file_path": "/tmp/inexistant_xyz.pdf"},
+        }
+    ).encode()
 
     with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
@@ -238,10 +246,12 @@ def test_retry_document_fichier_absent_409(client, user_factory, auth_header):
     headers = auth_header(admin)
 
     task_id = str(uuid.uuid4())
-    meta = json.dumps({
-        "status": "FAILURE",
-        "kwargs": {"filename": "doc.pdf", "file_path": "/tmp/inexistant_xyz_abc.pdf"},
-    }).encode()
+    meta = json.dumps(
+        {
+            "status": "FAILURE",
+            "kwargs": {"filename": "doc.pdf", "file_path": "/tmp/inexistant_xyz_abc.pdf"},
+        }
+    ).encode()
 
     with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
@@ -436,10 +446,12 @@ def test_download_document_fichier_present(client, admin_headers, tmp_path):
     fichier.write_bytes(b"%PDF-1.4 fake content")
 
     task_id = str(uuid.uuid4())
-    meta = json.dumps({
-        "status": "FAILURE",
-        "kwargs": {"filename": "rapport.pdf", "file_path": str(fichier)},
-    }).encode()
+    meta = json.dumps(
+        {
+            "status": "FAILURE",
+            "kwargs": {"filename": "rapport.pdf", "file_path": str(fichier)},
+        }
+    ).encode()
 
     with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
@@ -459,10 +471,12 @@ def test_download_document_fichier_present(client, admin_headers, tmp_path):
 @pytest.mark.integration
 def test_delete_document_incident_supprime_redis(client, admin_headers):
     task_id = str(uuid.uuid4())
-    meta = json.dumps({
-        "status": "FAILURE",
-        "kwargs": {"filename": "doc.pdf", "file_path": "/tmp/inexistant.pdf"},
-    }).encode()
+    meta = json.dumps(
+        {
+            "status": "FAILURE",
+            "kwargs": {"filename": "doc.pdf", "file_path": "/tmp/inexistant.pdf"},
+        }
+    ).encode()
 
     with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
@@ -480,10 +494,12 @@ def test_delete_document_incident_supprime_fichier(client, admin_headers, tmp_pa
     fichier.write_bytes(b"content")
 
     task_id = str(uuid.uuid4())
-    meta = json.dumps({
-        "status": "FAILURE",
-        "kwargs": {"filename": "doc.pdf", "file_path": str(fichier)},
-    }).encode()
+    meta = json.dumps(
+        {
+            "status": "FAILURE",
+            "kwargs": {"filename": "doc.pdf", "file_path": str(fichier)},
+        }
+    ).encode()
 
     with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
@@ -520,8 +536,10 @@ def test_retry_document_fichier_present(client, admin_headers, tmp_path):
     }
     meta = json.dumps({"status": "FAILURE", "kwargs": kwargs}).encode()
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib, \
-         patch("app.workers.ingestion.ingestion_job.apply_async") as mock_dispatch:
+    with (
+        patch("app.api.v1.admin.redis_lib") as mock_redis_lib,
+        patch("app.workers.ingestion.ingestion_job.apply_async") as mock_dispatch,
+    ):
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.get.return_value = meta

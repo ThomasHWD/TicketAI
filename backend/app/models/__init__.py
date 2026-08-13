@@ -11,5 +11,18 @@ from app.models.ticket import Ticket
 from app.models.ticket_event import TicketEvent
 from app.models.user import User
 
-__all__ = ["Document", "DocumentStaging", "DocumentUpload", "DocumentVersion", "Groupe", "user_groups",
-    "Notification", "Reponse", "SiteConfig", "Ticket", "TicketEvent", "User", "ReponseChunk"]
+__all__ = [
+    "Document",
+    "DocumentStaging",
+    "DocumentUpload",
+    "DocumentVersion",
+    "Groupe",
+    "user_groups",
+    "Notification",
+    "Reponse",
+    "SiteConfig",
+    "Ticket",
+    "TicketEvent",
+    "User",
+    "ReponseChunk",
+]

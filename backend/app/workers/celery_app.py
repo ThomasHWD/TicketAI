@@ -11,6 +11,7 @@ celery_app = Celery(
         "app.workers.document_update",
         "app.workers.question",
         "app.workers.feedback",
+        "app.workers.reverification",
     ],
 )
 

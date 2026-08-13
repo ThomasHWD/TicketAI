@@ -31,6 +31,8 @@ function signalee(overrides: Partial<ReponseSignalee> = {}): ReponseSignalee {
     a_relire_raison: "DOC_MODIFIÉ",
     a_relire_version: 3,
     a_relire_at: "2026-08-01T10:00:00Z",
+    analyse_justification: null,
+    analyse_extraits: [],
     doc_id: "doc-rh",
     document_filename: "Charte_RH.md",
     document_supprime: false,
@@ -203,6 +205,69 @@ describe("Onglet À relire", () => {
     await userEvent.click(await screen.findByRole("tab", { name: /À relire/ }));
 
     expect(await screen.findByText(/n'a pas pu être relue/)).toBeInTheDocument();
+  });
+
+  it("dit aussi pourquoi il est bruyant sur une réécriture massive", async () => {
+    // Quand tout a changé, il n'y a rien à discriminer : aucune réponse n'est
+    // jugée et le groupe entier arrive sans extrait. Même risque de passer pour
+    // un bug que la version illisible, donc même explication.
+    router({
+      aRelire: [signalee({ a_relire_raison: "REECRITURE_MASSIVE", changements: null })],
+      nbDocuments: 1,
+    });
+    afficher();
+    await userEvent.click(await screen.findByRole("tab", { name: /À relire/ }));
+
+    expect(await screen.findByText(/réécrit en profondeur/)).toBeInTheDocument();
+  });
+});
+
+describe("Motif propre à chaque réponse", () => {
+  it("préfère la justification du verdict au motif générique du groupe", async () => {
+    // Le diff se lit une fois par document ; la justification, elle, est propre
+    // à la réponse. C'est la différence entre « ce document a bougé » et « voici
+    // ce qui contredit cette réponse-là » — et c'est ce qui évite de redemander
+    // à l'humain le travail que l'analyse vient de faire.
+    router({
+      aRelire: [
+        signalee({
+          a_relire_raison: "CONTREDITE_PROBABLE",
+          analyse_justification: "La durée passe de 2 à 3 jours par semaine.",
+        }),
+      ],
+      nbDocuments: 1,
+    });
+    afficher();
+    await userEvent.click(await screen.findByRole("tab", { name: /À relire/ }));
+
+    expect(await screen.findByText(/La durée passe de 2 à 3 jours/)).toBeInTheDocument();
+    expect(screen.queryByText(/à confirmer avant tout retrait/)).toBeNull();
+  });
+
+  it("retombe sur le motif générique quand le modèle n'a rien dit", async () => {
+    router({
+      aRelire: [signalee({ a_relire_raison: "ANALYSE_INDISPONIBLE", analyse_justification: null })],
+      nbDocuments: 1,
+    });
+    afficher();
+    await userEvent.click(await screen.findByRole("tab", { name: /À relire/ }));
+
+    expect(await screen.findByText(/n'a pas pu se prononcer/)).toBeInTheDocument();
+  });
+
+  it("ne propose aucune action tant que l'analyse tourne", async () => {
+    // `ANALYSE_EN_COURS` est transitoire : trancher maintenant ferait juger
+    // l'humain avant la machine, et sa décision serait écrasée deux minutes plus
+    // tard par le verdict.
+    router({
+      aRelire: [signalee({ a_relire_raison: "ANALYSE_EN_COURS" })],
+      nbDocuments: 1,
+    });
+    afficher();
+    await userEvent.click(await screen.findByRole("tab", { name: /À relire/ }));
+
+    expect(await screen.findByText(/Résultat dans quelques minutes/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Confirmer|Retirer|Corriger/ })).toBeNull();
   });
 });
 

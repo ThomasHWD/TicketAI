@@ -29,13 +29,13 @@ from app.models.user import User
 from app.services.obsolescence import (
     MAX_EXTRAITS,
     RAISON_SUPPRESSION,
-    decouper_en_passages,
+    analyser_changements,
     extrait,
     indices_modifies,
     marquer_obsoletes,
-    passages_ajoutes,
     racines,
     reponses_obsoletes,
+    requeuer_en_attente,
 )
 from app.services.qdrant import COLLECTION_NAME, client
 from app.workers.celery_app import celery_app
@@ -113,11 +113,7 @@ def valider_contenu(filename: str | None, contents: bytes) -> tuple[str, str]:
 
 def get_document_vivant(db: Session, doc_id: str) -> Document:
     """Document non supprimé, ou 404."""
-    doc = (
-        db.query(Document)
-        .filter(Document.doc_id == doc_id, Document.statut.in_(STATUTS_VIVANTS))
-        .first()
-    )
+    doc = db.query(Document).filter(Document.doc_id == doc_id, Document.statut.in_(STATUTS_VIVANTS)).first()
     if doc is None:
         raise HTTPException(404, "Document introuvable")
     return doc
@@ -247,12 +243,16 @@ async def list_documents(
 
     docs = q.order_by(Document.updated_at.desc()).all()
 
-    nb_versions = dict(
-        db.query(DocumentVersion.doc_id, func.count())
-        .filter(DocumentVersion.doc_id.in_([d.doc_id for d in docs]))
-        .group_by(DocumentVersion.doc_id)
-        .all()
-    ) if docs else {}
+    nb_versions = (
+        dict(
+            db.query(DocumentVersion.doc_id, func.count())
+            .filter(DocumentVersion.doc_id.in_([d.doc_id for d in docs]))
+            .group_by(DocumentVersion.doc_id)
+            .all()
+        )
+        if docs
+        else {}
+    )
 
     items = [
         {
@@ -326,10 +326,13 @@ STAGING_TTL = timedelta(hours=1)
 # Au-delà, un EN_MAJ est tenu pour un verrou abandonné : `on_failure` ne s'exécute
 # pas quand le worker est tué net, et le document resterait bloqué à vie.
 MAJ_PERIMEE_APRES = timedelta(minutes=30)
-# Réponses « à relire » détaillées dans l'aperçu. Le compte, lui, reste exact :
+# Réponses « à analyser » détaillées dans l'aperçu. Le compte, lui, reste exact :
 # un document très exploité peut en aligner des dizaines, et la modale n'est pas
 # un outil de revue — elle amorce le tri, elle ne le porte pas.
 MAX_A_RELIRE = 10
+# Unités de changement montrées avant/après dans l'aperçu. Au-delà, on recopierait
+# le diff du document dans une modale ; le compte total reste affiché.
+MAX_UNITES_AFFICHEES = 5
 
 
 class ConfirmerMajRequest(BaseModel):
@@ -436,11 +439,17 @@ def stager_et_analyser(
     user_id,
     restauree_depuis: int | None = None,
 ) -> dict:
-    """Met le fichier en staging et calcule l'impact **exact** sur les réponses.
+    """Met le fichier en staging et annonce ce que la confirmation déclenchera.
 
     Partagé par la mise à jour et la restauration : restaurer une version, c'est
     mettre à jour avec un fichier venu des archives. Même écran d'impact, mêmes
     garanties, un seul chemin de code.
+
+    L'aperçu **n'appelle ni reranker ni LLM** : il reste instantané et gratuit,
+    y compris si l'utilisateur renonce. Il ne peut donc plus annoncer de compte
+    exact de réponses archivées — c'est le prix de ne plus détruire sur un simple
+    critère de sous-chaîne. Il annonce à la place le diff réel et le nombre de
+    réponses qui seront jugées, une fois la nouvelle version en place.
     """
     purger_staging(db)
 
@@ -454,9 +463,24 @@ def stager_et_analyser(
     anciens = capturer_chunks(doc.doc_id, version_cible)
     nouveau_texte = texte_complet(extract_text(chemin))
     indices = indices_modifies(anciens, nouveau_texte)
-    impactees = racines(reponses_obsoletes(db, doc.doc_id, indices))
     nb_en_attente = _compter_en_attente(db, doc.doc_id)
-    changements = analyser_changements(db, doc, nouveau_texte, deja_impactees=impactees)
+    changements = analyser_sortante(doc, nouveau_texte)
+
+    # `indices` ne condamne plus personne : il désigne les réponses dont un passage
+    # cité a bougé, qui seront jugées en priorité et non plus supprimées d'office.
+    prioritaires = racines(reponses_obsoletes(db, doc.doc_id, indices))
+    a_analyser = (
+        racines(reponses_obsoletes(db, doc.doc_id, None))
+        if changements is not None and changements["nb_unites"]
+        else []
+    )
+
+    # Les plus servies d'abord, et les prioritaires avant tout : une canonique à
+    # 12 validations part sur tous les tickets similaires, une VALIDÉE isolée ne
+    # ressort presque jamais. C'est aussi l'ordre dans lequel le worker consomme
+    # son budget d'appels LLM — l'écran montre donc ce qui sera réellement jugé.
+    ids_prioritaires = {r.id for r in prioritaires}
+    a_analyser.sort(key=lambda r: (r.id in ids_prioritaires, r.canonique, r.nb_validations or 0), reverse=True)
 
     db.add(
         DocumentStaging(
@@ -466,8 +490,9 @@ def stager_et_analyser(
             stored_path=chemin,
             filename=filename,
             content_hash=content_hash,
-            description=description or "",
-            nb_obsoletes=len(impactees),
+            # La colonne garde son nom ; son sens est désormais « réponses dont un
+            # passage cité a bougé », plus « réponses qui vont être archivées ».
+            nb_obsoletes=len(prioritaires),
             restauree_depuis=restauree_depuis,
             expires_at=datetime.now(timezone.utc) + STAGING_TTL,
         )
@@ -481,96 +506,81 @@ def stager_et_analyser(
         "restauree_depuis": restauree_depuis,
         "nb_chunks_modifies": len(indices),
         "nb_total_chunks": len(anciens),
-        "nb_obsoletes": len(impactees),
         "nb_en_attente": nb_en_attente,
-        "nb_canoniques": sum(1 for r in impactees if r.canonique),
-        "items": [_item_impact(db, r, doc.doc_id, indices, anciens) for r in impactees],
-        **changements,
+        "nb_prioritaires": len(prioritaires),
+        "nb_a_analyser": len(a_analyser),
+        "nb_canoniques": sum(1 for r in a_analyser if r.canonique),
+        "items": [_item_impact(db, r, doc.doc_id, indices, anciens) for r in prioritaires],
+        "a_analyser": _items_a_analyser(db, a_analyser)[:MAX_A_RELIRE],
+        **(changements or MUET),
     }
 
 
-def analyser_changements(db: Session, doc: Document, nouveau_texte: str, *, deja_impactees: list) -> dict:
-    """Ce que la nouvelle version dit de neuf ou ne dit plus, et les réponses à relire.
+# Ce que l'aperçu répond quand aucun diff n'est calculable — fichier de la version
+# courante disparu du disque (documents backfillés) ou archive corrompue. On tait
+# le panneau plutôt que d'annoncer « 0 changement », qui se lirait comme une garantie.
+MUET = {
+    "diff_analysable": False,
+    "nb_unites": 0,
+    "unites": [],
+    "nb_ajoutes": 0,
+    "extraits_ajoutes": [],
+    "nb_retires": 0,
+    "extraits_retires": [],
+}
 
-    Détection en miroir de l'obsolescence (cf. ``passages_ajoutes``), dans les
-    deux sens : on découpe chaque texte et on cherche ses morceaux dans l'autre.
-    Le premier sens couvre l'insertion et la réécriture, le second la règle
-    **abrogée** sans rien insérer — qu'aucun ajout ne trahit. **Aucune
-    obsolescence n'en découle** : c'est un signal de tri, pas une décision, et
-    les réponses signalées restent servies telles quelles.
 
-    Le jumeau de ``workers.document_update.analyser_changements``, qui refait le
-    même calcul à la confirmation et le fige dans ``DocumentVersion.changements``.
-    Ici c'est l'aperçu, là-bas la trace ; l'un et l'autre montrent le même texte
-    parce que ``extrait`` est partagé.
+def analyser_sortante(doc: Document, nouveau_texte: str) -> dict | None:
+    """Le diff avec la version actuellement en ligne, lue sur le disque.
+
+    Enrobage d'entrée-sortie autour de ``obsolescence.analyser_changements``, qui
+    porte toute la logique et ne connaît que deux chaînes. Le worker fait de même
+    de son côté ; l'aperçu et la trace figée sur la version montrent donc
+    nécessairement le même diff — ce qui n'était pas garanti quand chacun avait
+    sa propre implémentation.
 
     Le coût est un ``extract_text`` de plus (quelques centaines de ms) : ni appel
-    API, ni embedding.
-
-    ``ajouts_analysables=False`` quand le fichier de la version courante a disparu
-    du disque — cas des documents backfillés. On préfère taire le panneau plutôt
-    qu'annoncer « 0 passage ajouté », qui se lirait comme une garantie.
+    API, ni embedding. ``None`` quand la version courante est illisible.
     """
-    muet = {
-        "ajouts_analysables": False,
-        "nb_passages_ajoutes": 0,
-        "extraits_ajoutes": [],
-        "nb_passages_retires": 0,
-        "extraits_retires": [],
-        "nb_a_relire": 0,
-        "a_relire": [],
-    }
-
     chemin_courant = chemin_du_fichier(doc.doc_id, doc.filename, doc.stored_path)
     if chemin_courant is None:
-        return muet
-
+        return None
     try:
         ancien_texte = texte_complet(extract_text(chemin_courant))
     except Exception:
-        # Une archive illisible ne doit pas faire échouer l'aperçu : l'obsolescence,
-        # elle, est déjà calculée et reste le signal principal.
-        return muet
+        # Une archive illisible ne doit pas faire échouer l'aperçu.
+        return None
 
-    ajouts = passages_ajoutes(decouper_en_passages(nouveau_texte), ancien_texte)
-    retires = passages_ajoutes(decouper_en_passages(ancien_texte), nouveau_texte)
-    if not ajouts and not retires:
-        # Reformatage pur : le document ne dit rien de neuf, rien à relire.
-        return {**muet, "ajouts_analysables": True}
-
-    # Les réponses qui vont disparaître n'ont pas à être relues.
-    condamnees = {r.id for r in deja_impactees}
-    a_relire = [r for r in racines(reponses_obsoletes(db, doc.doc_id, None)) if r.id not in condamnees]
-
-    # Les plus servies d'abord : une canonique à 12 validations part sur tous les
-    # tickets similaires, une VALIDÉE isolée ne ressort presque jamais. Relire dans
-    # cet ordre, c'est traiter le risque réel avant le résiduel.
-    a_relire.sort(key=lambda r: (r.canonique, r.nb_validations or 0), reverse=True)
-
-    items_a_relire = _items_a_relire(db, a_relire)
-
+    changements = analyser_changements(ancien_texte, nouveau_texte)
     return {
-        "ajouts_analysables": True,
-        "nb_passages_ajoutes": len(ajouts),
-        "extraits_ajoutes": [extrait(t) for t in ajouts[:MAX_EXTRAITS]],
-        "nb_passages_retires": len(retires),
-        "extraits_retires": [extrait(t) for t in retires[:MAX_EXTRAITS]],
-        "nb_a_relire": len(items_a_relire),
-        "a_relire": items_a_relire[:MAX_A_RELIRE],
+        "diff_analysable": True,
+        "nb_unites": changements["nb_unites"],
+        "nb_ajoutes": changements["nb_ajoutes"],
+        "nb_retires": changements["nb_retires"],
+        "extraits_ajoutes": changements["extraits_ajoutes"],
+        "extraits_retires": changements["extraits_retires"],
+        # Les unités intégrales sont figées sur la version pour le worker ; l'écran
+        # n'en montre que les premières, tronquées à la longueur d'un extrait.
+        "unites": [
+            {
+                "sens": u["sens"],
+                "extrait_avant": extrait(u["avant"] or ""),
+                "extrait_apres": extrait(u["apres"] or ""),
+            }
+            for u in changements["unites"][:MAX_UNITES_AFFICHEES]
+        ],
     }
 
 
-def _items_a_relire(db: Session, reponses: list) -> list[dict]:
-    """Cartes des réponses à relire pour l'écran d'impact.
+def _items_a_analyser(db: Session, reponses: list) -> list[dict]:
+    """Cartes des réponses qui seront jugées, pour l'écran d'impact.
 
-    Toutes les réponses VALIDÉE survivantes sont listées, sans filtre sémantique
-    ou LLM : l'humain lit les changements au niveau du groupe (panneau global) et
-    confirme en lot. Plus rapide et zéro faux positif.
+    Toutes les VALIDÉE survivantes du document y figurent : la contradiction peut
+    porter sur un passage qu'aucune d'elles ne cite, et restreindre la liste à
+    « près de la zone modifiée » raterait précisément ce cas. Le tri, lui, n'est
+    pas cosmétique — c'est l'ordre de consommation du budget d'appels LLM.
     """
-    tickets = {
-        t.id: t
-        for t in db.query(Ticket).filter(Ticket.id.in_([r.ticket_id for r in reponses])).all()
-    }
+    tickets = {t.id: t for t in db.query(Ticket).filter(Ticket.id.in_([r.ticket_id for r in reponses])).all()}
     return [
         {
             "reponse_id": str(r.id),
@@ -605,9 +615,7 @@ def prochaine_version(db: Session, doc: Document) -> int:
     Une restauration crée une version au-dessus de toutes les autres ; se fier au
     seul numéro courant finirait par réutiliser un numéro déjà pris.
     """
-    maxi = (
-        db.query(func.max(DocumentVersion.version)).filter(DocumentVersion.doc_id == doc.doc_id).scalar()
-    )
+    maxi = db.query(func.max(DocumentVersion.version)).filter(DocumentVersion.doc_id == doc.doc_id).scalar()
     return max(doc.version, maxi or 0) + 1
 
 
@@ -747,10 +755,14 @@ async def lister_versions(doc_id: str, current_user: BackofficeUser, db: DB):
         .all()
     )
 
-    auteurs = {
-        u.id: (f"{u.prenom or ''} {u.nom or ''}".strip() or u.email)
-        for u in db.query(User).filter(User.id.in_([v.uploaded_by for v in versions if v.uploaded_by])).all()
-    } if versions else {}
+    auteurs = (
+        {
+            u.id: (f"{u.prenom or ''} {u.nom or ''}".strip() or u.email)
+            for u in db.query(User).filter(User.id.in_([v.uploaded_by for v in versions if v.uploaded_by])).all()
+        }
+        if versions
+        else {}
+    )
 
     return {
         "doc_id": doc_id,
@@ -868,7 +880,8 @@ async def delete_document(doc_id: str, current_user: BackofficeUser, db: DB):
 
     # Tous les chunks ont disparu : chaque réponse fondée sur ce document devient
     # obsolète, sans calcul d'indices.
-    obsoletes = marquer_obsoletes(db, doc_id, RAISON_SUPPRESSION, version=doc.version)
+    obsoletes, en_attente_obsoletes = marquer_obsoletes(db, doc_id, RAISON_SUPPRESSION, version=doc.version)
+    requeuer_en_attente(db, en_attente_obsoletes)
 
     # `racines` comme dans le job de mise à jour : `marquer_obsoletes` marque la
     # famille entière, une réponse réutilisée cinq fois y compte six fois.

@@ -120,12 +120,22 @@ def scenario_maj(tmp_path, monkeypatch, qdrant_mock, db_session):
     """Document v1 en base + fichier v2 sur disque, prêt à passer dans le job.
 
     Qdrant, l'embedding et le chunking sont mockés ; le reste (Postgres, disque,
-    détection d'obsolescence) est réel — c'est là que sont les bugs.
+    calcul du diff) est réel — c'est là que sont les bugs.
+
+    L'enfilement de la ré-vérification est capturé plutôt qu'exécuté :
+    ``scenario_maj.enfilees`` donne les kwargs de chaque ``apply_async``. Sans
+    cette interception, chaque test parlerait au broker et le job d'analyse
+    tournerait pour de bon, avec ses appels Albert.
     """
     import app.workers.document_update as maj
+    import app.workers.reverification as reverif
     from app.config import settings
     from app.models.document import Document
     from app.models.document_version import DocumentVersion
+
+    enfilees: list[dict] = []
+    monkeypatch.setattr(reverif.reverification_job, "apply_async", lambda **kw: enfilees.append(kw))
+
     monkeypatch.setattr(settings, "documents_storage_path", str(tmp_path / "storage"))
     monkeypatch.setattr(maj, "chunk_text", lambda pages: "\n\n".join(pages).split("\n\n"))
     monkeypatch.setattr(
@@ -147,14 +157,25 @@ def scenario_maj(tmp_path, monkeypatch, qdrant_mock, db_session):
     fichier_v1 = dossier_v1 / "charte.md"
     fichier_v1.write_text(TEXTE_V1, encoding="utf-8")
 
-    db_session.add(Document(
-        doc_id=doc_id, filename="charte.md", domaine="RH", version=1,
-        nb_chunks=2, stored_path=str(fichier_v1),
-    ))
-    db_session.add(DocumentVersion(
-        doc_id=doc_id, version=1, filename="charte.md",
-        nb_chunks=2, stored_path=str(fichier_v1),
-    ))
+    db_session.add(
+        Document(
+            doc_id=doc_id,
+            filename="charte.md",
+            domaine="RH",
+            version=1,
+            nb_chunks=2,
+            stored_path=str(fichier_v1),
+        )
+    )
+    db_session.add(
+        DocumentVersion(
+            doc_id=doc_id,
+            version=1,
+            filename="charte.md",
+            nb_chunks=2,
+            stored_path=str(fichier_v1),
+        )
+    )
     db_session.commit()
 
     # La version sortante, telle que Qdrant la conserve
@@ -168,6 +189,7 @@ def scenario_maj(tmp_path, monkeypatch, qdrant_mock, db_session):
         db=db_session,
         fichier=fichier,
         fichier_v1=fichier_v1,
+        enfilees=enfilees,
         kwargs={
             "doc_id": doc_id,
             "new_version": 2,
@@ -289,12 +311,12 @@ class TestJobComplet:
 
         second = document_update_job(**scenario_maj.kwargs)
 
-        assert second["nb_obsoletes"] == 0
+        assert second["nb_a_analyser"] == 0
         assert scenario_maj.fichier.exists()  # le job n'est pas allé jusqu'au ménage
 
 
 @pytest.mark.integration
-class TestObsolescenceDeclenchee:
+class TestMiseSousAnalyse:
     @staticmethod
     def _reponse_sur(db, doc_id, chunk_index):
         from app.models.reponse import Reponse
@@ -311,7 +333,13 @@ class TestObsolescenceDeclenchee:
         db.commit()
         return r
 
-    def test_reponse_sur_passage_modifie_devient_obsolete(self, scenario_maj):
+    def test_passage_cite_modifie_ne_perime_plus_rien(self, scenario_maj):
+        """Le correctif du défaut n° 1, exprimé comme test.
+
+        Un chunk fait 384 tokens : y corriger un chiffre le rend introuvable en
+        sous-chaîne, et cela suffisait à détruire la réponse. Le job ne prononce
+        plus ce verdict — il met la réponse sous analyse et laisse
+        ``reverification_job`` la lire avant de trancher."""
         from app.workers.document_update import document_update_job
 
         r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
@@ -319,14 +347,35 @@ class TestObsolescenceDeclenchee:
         resultat = document_update_job(**scenario_maj.kwargs)
 
         scenario_maj.db.refresh(r)
-        assert r.obsolete is True
-        assert r.obsolete_raison == "DOC_MIS_A_JOUR"
-        assert r.obsolete_version == 2
-        assert resultat["nb_obsoletes"] == 1
+        assert r.obsolete is False  # toujours servie tant que personne n'a jugé
+        assert r.a_relire is True
+        assert r.a_relire_raison == "ANALYSE_EN_COURS"
+        assert r.a_relire_version == 2
+        assert resultat["nb_a_analyser"] == 1
 
-    def test_reponse_sur_passage_intact_survit(self, scenario_maj):
-        """La non-régression qui compte : une modification locale ne doit pas
-        emporter les réponses fondées sur le reste du document."""
+    def test_chunk_cite_disparu_transmis_comme_suspicion(self, scenario_maj):
+        """`indices_modifies` est rétrogradé de verdict à signal de rappel : il
+        ne périme plus, il désigne les réponses à juger en premier."""
+        from app.workers.document_update import document_update_job
+
+        self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
+
+        document_update_job(**scenario_maj.kwargs)
+
+        assert len(scenario_maj.enfilees) == 1
+        kwargs = scenario_maj.enfilees[0]["kwargs"]
+        assert kwargs["doc_id"] == scenario_maj.doc_id
+        assert kwargs["version"] == 2
+        assert kwargs["domaine"] == "RH"
+        assert kwargs["indices_disparus"] == [0]  # le 1er paragraphe a été réécrit
+        assert scenario_maj.enfilees[0]["queue"] == "queue_questions"
+
+    def test_reponse_sur_passage_intact_part_aussi_en_analyse(self, scenario_maj):
+        """Le correctif du défaut n° 2 : le périmètre est le document entier.
+
+        Cibler « près de la zone modifiée » raterait précisément le cas visé —
+        un article ajouté ailleurs qui contredit une réponse bâtie sur un passage
+        resté intact."""
         from app.workers.document_update import document_update_job
 
         r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 1)
@@ -335,10 +384,14 @@ class TestObsolescenceDeclenchee:
 
         scenario_maj.db.refresh(r)
         assert r.obsolete is False
-        assert resultat["nb_obsoletes"] == 0
+        assert r.a_relire is True
+        assert resultat["nb_a_analyser"] == 1
 
-    def test_reformatage_ne_rend_rien_obsolete(self, scenario_maj):
-        """Même contenu, retours à la ligne et espaces différents → 0 obsolète."""
+    def test_reformatage_ne_declenche_rien(self, scenario_maj):
+        """Le correctif du défaut n° 3 : zéro unité de changement ⇒ zéro action.
+
+        Ni obsolescence, ni relecture, ni même job d'analyse — le redépôt du
+        même contenu ne doit rien coûter et ne rien salir."""
         from app.workers.document_update import document_update_job
 
         r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
@@ -348,7 +401,9 @@ class TestObsolescenceDeclenchee:
 
         scenario_maj.db.refresh(r)
         assert r.obsolete is False
-        assert resultat["nb_obsoletes"] == 0
+        assert r.a_relire is False
+        assert resultat["nb_a_analyser"] == 0
+        assert scenario_maj.enfilees == []
 
     def test_en_attente_marquee_obsolete(self, scenario_maj):
         """Une réponse EN_ATTENTE liée au document devient obsolète même si aucune
@@ -377,19 +432,19 @@ class TestObsolescenceDeclenchee:
 
 @pytest.mark.integration
 class TestSignalementARelire:
-    """Le filet du cas que la détection verbatim ne voit pas.
+    """Le repli, pour les seuls cas où aucun diff n'est calculable.
 
-    Le document dit quelque chose de neuf ou ne dit plus quelque chose ; on ne
-    peut pas savoir si cela contredit les réponses existantes, donc on demande
-    une relecture au lieu de laisser servir en silence.
+    Signaler tout le document sans filtre était la règle ; c'est désormais
+    l'exception — la version sortante illisible. Partout ailleurs le tri revient
+    à ``reverification_job``, qui juge réponse par réponse.
     """
 
-    _reponse_sur = staticmethod(TestObsolescenceDeclenchee._reponse_sur)
+    _reponse_sur = staticmethod(TestMiseSousAnalyse._reponse_sur)
 
-    def test_ajout_ailleurs_signale_sans_perimer(self, scenario_maj):
+    def test_ajout_ailleurs_met_en_analyse(self, scenario_maj):
         """Le scénario de référence : l'article ajouté ne touche aucun passage
-        cité, rien ne devient obsolète — et sans signalement, personne ne saurait
-        jamais qu'il faut relire."""
+        cité. Rien ne peut être prononcé sans lire la réponse — elle part donc
+        en analyse, et continue d'être servie en attendant."""
         from app.workers.document_update import document_update_job
 
         r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 1)
@@ -401,15 +456,15 @@ class TestSignalementARelire:
         resultat = document_update_job(**scenario_maj.kwargs)
 
         scenario_maj.db.refresh(r)
-        assert resultat["nb_obsoletes"] == 0
-        assert resultat["nb_a_relire"] == 1
+        assert resultat["nb_a_analyser"] == 1
+        assert resultat["nb_a_relire"] == 0
         assert r.obsolete is False  # toujours servie
         assert r.a_relire is True
-        assert r.a_relire_raison == "DOC_MODIFIÉ"
+        assert r.a_relire_raison == "ANALYSE_EN_COURS"
         assert r.a_relire_doc_id == scenario_maj.doc_id
         assert r.a_relire_version == 2
 
-    def test_passage_retire_ailleurs_signale(self, scenario_maj):
+    def test_passage_retire_ailleurs_met_en_analyse(self, scenario_maj):
         """Une règle abrogée, rien d'inséré : le sens inverse est le seul à voir."""
         from app.workers.document_update import document_update_job
 
@@ -419,7 +474,7 @@ class TestSignalementARelire:
         resultat = document_update_job(**scenario_maj.kwargs)
 
         scenario_maj.db.refresh(r)
-        assert resultat["nb_a_relire"] == 1
+        assert resultat["nb_a_analyser"] == 1
         assert r.a_relire is True
 
     def test_reformatage_ne_signale_rien(self, scenario_maj):
@@ -436,20 +491,19 @@ class TestSignalementARelire:
         assert resultat["nb_a_relire"] == 0
         assert r.a_relire is False
 
-    def test_perimee_n_est_pas_aussi_signalee(self, scenario_maj):
-        """Une réponse qui vient de disparaître n'a pas à être relue : elle
-        siégerait dans les deux onglets."""
+    def test_illisible_signale_sans_enfiler_d_analyse(self, scenario_maj):
+        """Sans texte sortant il n'y a aucune unité à faire juger : enfiler le
+        job ferait tourner un analyseur qui n'a rien à lire, et le retour
+        « 0 contredite » se lirait comme un feu vert."""
         from app.workers.document_update import document_update_job
 
-        r = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
+        self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 1)
+        scenario_maj.fichier_v1.unlink()
 
         resultat = document_update_job(**scenario_maj.kwargs)
 
-        scenario_maj.db.refresh(r)
-        assert resultat["nb_obsoletes"] == 1
-        assert resultat["nb_a_relire"] == 0
-        assert r.obsolete is True
-        assert r.a_relire is False
+        assert resultat["nb_a_analyser"] == 0
+        assert scenario_maj.enfilees == []
 
     def test_version_sortante_illisible_signale_avec_sa_raison(self, scenario_maj):
         """Document backfillé ou archive disparue : on ne peut plus comparer.
@@ -469,28 +523,25 @@ class TestSignalementARelire:
         assert resultat["nb_a_relire"] == 1
         assert r.a_relire_raison == "VERSION_SORTANTE_ILLISIBLE"
 
-    def test_toutes_validees_signalees_meme_chunk_intact_survivant(self, scenario_maj):
-        """La règle centrale : toutes les VALIDÉE survivantes sont signalées.
+    def test_toutes_les_validees_partent_en_analyse_aucune_perimee(self, scenario_maj):
+        """La règle centrale, après renversement : le job ne détruit plus rien.
 
-        r0 sur chunk 0 (modifié) → obsolète.
-        r1 sur chunk 1 (intact) → toujours servie, mais à relire.
-        Sans cette règle, un article ajouté ailleurs serait silencieux."""
+        r0 cite le chunk 0 (réécrit), r1 le chunk 1 (intact). Les deux restent
+        servies et passent sous analyse ; c'est le verdict de ``juger`` qui les
+        départagera, pas la présence d'une sous-chaîne."""
         from app.workers.document_update import document_update_job
 
         r0 = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
         r1 = self._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 1)
-        # TEXTE_V2 (défaut du fixture) réécrit le 1er paragraphe → chunk 0 modifié,
-        # chunk 1 intact ; le remplacement crée aussi 1 ajout + 1 retrait → à relire.
 
         resultat = document_update_job(**scenario_maj.kwargs)
 
         scenario_maj.db.refresh(r0)
         scenario_maj.db.refresh(r1)
-        assert r0.obsolete is True
-        assert r1.obsolete is False
-        assert r1.a_relire is True
-        assert resultat["nb_obsoletes"] == 1
-        assert resultat["nb_a_relire"] == 1
+        assert (r0.obsolete, r1.obsolete) == (False, False)
+        assert (r0.a_relire, r1.a_relire) == (True, True)
+        assert resultat["nb_a_analyser"] == 2
+        assert resultat["nb_a_relire"] == 0
 
     def test_en_attente_obsolete_pas_a_relire(self, scenario_maj):
         """EN_ATTENTE : obsolète immédiatement, jamais dans l'onglet À relire.

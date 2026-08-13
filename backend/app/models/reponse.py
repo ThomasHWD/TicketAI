@@ -47,16 +47,28 @@ class Reponse(Base):
     obsolete_version = Column(Integer, nullable=True)
     obsolete_at = Column(DateTime(timezone=True), nullable=True)
 
-    # « À relire » : le document source a changé de contenu, mais aucun passage
-    # dont cette réponse est issue n'a bougé. La détection verbatim ne peut pas
-    # savoir si l'ajout d'un article ailleurs la contredit — seul un humain le
-    # peut. Contrairement à `obsolete`, la réponse reste indexée et servie : le
-    # drapeau est une file de relecture, pas un retrait.
+    # « À relire » : la ré-vérification n'a pas pu conclure — le modèle a hésité,
+    # Albert n'a pas répondu, le budget d'appels était épuisé, ou le rapprochement
+    # avec le changement est trop indirect pour qu'une machine tranche seule.
+    # Contrairement à `obsolete`, la réponse reste indexée et servie : le drapeau
+    # est une file de relecture, pas un retrait. ANALYSE_EN_COURS est le seul état
+    # transitoire de la colonne — le worker le résout, ou son `on_failure` le rabat.
     a_relire = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
-    a_relire_raison = Column(String(30), nullable=True)  # DOC_MODIFIÉ | VERSION_SORTANTE_ILLISIBLE
+    a_relire_raison = Column(String(30), nullable=True)  # cf. RAISON_* dans services/obsolescence.py
     a_relire_doc_id = Column(String, nullable=True)
     a_relire_version = Column(Integer, nullable=True)
     a_relire_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Trace du verdict de ré-vérification, commune aux deux drapeaux. Sans elle, un
+    # retrait sec est une réponse qui disparaît sans que personne sache pourquoi :
+    # c'est ce qui rend l'automatisme acceptable plutôt que subi. `lever_a_relire`
+    # ne les efface pas — seul le verdict INTACTE le fait, puisqu'il ne reste alors
+    # rien à expliquer.
+    analyse_justification = Column(Text, nullable=True)
+    # Les unités de changement qui ont fondé le verdict, figées : l'archive de la
+    # version sortante sera purgée un jour, la justification doit rester lisible.
+    # [{"sens": ..., "avant": ..., "apres": ...}]
+    analyse_extraits = Column(JSON, nullable=True)
 
     ticket = relationship("Ticket", back_populates="reponses")
     validator = relationship("User", foreign_keys=[validator_id])

@@ -214,12 +214,14 @@ def ingestion_job(
                 nb_chunks=len(chunks),
                 uploaded_by=user_uuid,
             )
-            db.add(DocumentUpload(
-                doc_id=doc_id,
-                user_id=user_uuid,
-                domaine=domaine,
-                filename=filename,
-            ))
+            db.add(
+                DocumentUpload(
+                    doc_id=doc_id,
+                    user_id=user_uuid,
+                    domaine=domaine,
+                    filename=filename,
+                )
+            )
             db.commit()
         finally:
             db.close()
@@ -250,8 +252,9 @@ def ingestion_job(
         raise self.retry(exc=exc) from exc
 
 
-def _enregistrer_document(db, *, doc_id, version, filename, domaine, description,
-                          content_hash, stored_path, nb_chunks, uploaded_by) -> None:
+def _enregistrer_document(
+    db, *, doc_id, version, filename, domaine, description, content_hash, stored_path, nb_chunks, uploaded_by
+) -> None:
     """Crée (ou met à jour, si un retry est passé par là) les lignes documents/versions."""
     doc = db.query(Document).filter(Document.doc_id == doc_id).first()
     if doc is None:
@@ -268,9 +271,7 @@ def _enregistrer_document(db, *, doc_id, version, filename, domaine, description
     doc.uploaded_by = uploaded_by
 
     ligne = (
-        db.query(DocumentVersion)
-        .filter(DocumentVersion.doc_id == doc_id, DocumentVersion.version == version)
-        .first()
+        db.query(DocumentVersion).filter(DocumentVersion.doc_id == doc_id, DocumentVersion.version == version).first()
     )
     if ligne is None:
         ligne = DocumentVersion(doc_id=doc_id, version=version)

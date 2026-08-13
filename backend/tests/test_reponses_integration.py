@@ -390,10 +390,14 @@ def test_supprimer_canonique_detache_les_copies(client, db_session, validator, a
     # l'identity map pour re-lire l'état réel sans ObjectDeletedError.
     db_session.expunge_all()
     assert db_session.get(Reponse, source.id) is None
-    # La copie est détachée et n'apparaît plus comme source canonique.
+    # La copie est détachée et n'apparaît plus comme source canonique…
     reloaded_copie = db_session.get(Reponse, copie.id)
     assert reloaded_copie.reponse_source_id is None
     assert reloaded_copie.canonique is False
+    # …mais elle n'est pas laissée en service : supprimer la source, c'est juger
+    # que ce contenu ne doit plus être servi, et la copie porte le même contenu.
+    assert reloaded_copie.obsolete is True
+    assert reloaded_copie.obsolete_raison == "RETIRÉ_À_LA_MAIN"
 
 
 def test_supprimer_canonique_nettoie_les_chunks(client, db_session, validator, auth_header):
@@ -593,10 +597,15 @@ def test_supprimer_obsolete_non_canonique_autorise(client, db_session, validator
     assert db_session.get(Reponse, reponse.id) is None
 
 
-def test_supprimer_remet_a_zero_l_obsolescence_des_copies(client, db_session, validator, auth_header):
-    """Détachée mais toujours marquée, la copie resterait à jamais dans l'onglet
-    Obsolètes — ou dans l'onglet À relire — sans plus aucune source pour l'en
-    sortir : les deux listes ne montrent que les sources."""
+def test_supprimer_detache_la_copie_deja_obsolete_sans_la_ressusciter(client, db_session, validator, auth_header):
+    """La copie déjà marquée garde ses drapeaux, mais doit être détachée.
+
+    Elle est hors du lot de l'étape 1 (filtré sur ``obsolete is False``) : c'est
+    précisément le cas où l'on peut oublier de la détacher, et la suppression part
+    alors en violation de clé étrangère. Ses drapeaux sont conservés — devenue
+    racine, elle reste visible et restaurable depuis l'onglet Obsolètes ; les
+    remettre à zéro la remettrait en service sans que personne ne l'ait décidé.
+    """
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
     _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", reponse_source_id=source.id)
     _rendre_obsolete(db_session, source)
@@ -604,17 +613,15 @@ def test_supprimer_remet_a_zero_l_obsolescence_des_copies(client, db_session, va
     _signaler(db_session, copie)
     copie_id = copie.id
 
-    client.delete(f"{API}/reponses/{source.id}", headers=auth_header(validator))
+    resp = client.delete(f"{API}/reponses/{source.id}", headers=auth_header(validator))
 
+    assert resp.status_code == 200
     db_session.expunge_all()
     detachee = db_session.get(Reponse, copie_id)
-    assert detachee.obsolete is False
-    assert detachee.obsolete_doc_id is None
-    assert detachee.a_relire is False
-    assert detachee.a_relire_doc_id is None
-    assert detachee.a_relire_version is None
-    assert detachee.a_relire_raison is None
-    assert detachee.a_relire_at is None
+    assert detachee.reponse_source_id is None
+    assert detachee.canonique is False
+    assert detachee.obsolete is True
+    assert detachee.a_relire is True
 
 
 # --------------------------------------------------------------------------- #
@@ -667,11 +674,19 @@ def test_lister_a_relire_remonte_les_changements(client, db_session, validator, 
     from app.models.document_version import DocumentVersion
 
     db_session.add(Document(doc_id="charte-rh", filename="charte.md", domaine="IT", version=3))
-    db_session.add(DocumentVersion(
-        doc_id="charte-rh", version=3, filename="charte.md",
-        changements={"nb_ajoutes": 1, "nb_retires": 0,
-                     "extraits_ajoutes": ["Article 7 bis…"], "extraits_retires": []},
-    ))
+    db_session.add(
+        DocumentVersion(
+            doc_id="charte-rh",
+            version=3,
+            filename="charte.md",
+            changements={
+                "nb_ajoutes": 1,
+                "nb_retires": 0,
+                "extraits_ajoutes": ["Article 7 bis…"],
+                "extraits_retires": [],
+            },
+        )
+    )
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
     _signaler(db_session, reponse, doc_id="charte-rh", version=3)
 

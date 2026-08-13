@@ -36,11 +36,7 @@ async def marquer_lue(notification_id: str, current_user: CurrentUser):
         raise HTTPException(400, "notification_id invalide") from e
     db = SessionLocal()
     try:
-        notif = (
-            db.query(Notification)
-            .filter(Notification.id == nid, Notification.user_id == current_user.id)
-            .first()
-        )
+        notif = db.query(Notification).filter(Notification.id == nid, Notification.user_id == current_user.id).first()
         if not notif:
             raise HTTPException(404, "Notification introuvable")
         if notif.read_at is None:

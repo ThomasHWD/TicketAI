@@ -4,13 +4,22 @@ import { CheckCircle2, FileText, Loader2, X, XCircle } from "lucide-react";
 import { getDocumentStatus } from "../../lib/api";
 import { type TrackedJob, useJobs } from "../../context/JobsContext";
 
-/** Bilan d'un job réussi. Une mise à jour a deux nouvelles à donner, pas une. */
+/**
+ * Bilan d'un job réussi.
+ *
+ * Une mise à jour ne se termine plus sur un verdict : elle publie la version et
+ * passe la main à la ré-vérification. Le bandeau annonce donc ce qui commence,
+ * pas ce qui est acquis — dire « 4 réponses obsolètes » ici serait faux, la
+ * plupart survivront.
+ */
 function resume(job: TrackedJob): string {
   const chunks = `${job.nb_chunks} chunk${(job.nb_chunks ?? 0) > 1 ? "s" : ""}`;
   if (job.kind !== "maj") return `Indexé — ${chunks}`;
-  const n = job.nb_obsoletes ?? 0;
-  if (n === 0) return `Mis à jour — ${chunks}`;
-  return `Mis à jour — ${n} réponse${n > 1 ? "s" : ""} devenue${n > 1 ? "s" : ""} obsolète${n > 1 ? "s" : ""}`;
+  const n = job.nb_a_analyser ?? 0;
+  if (n > 0) return `Mis à jour — ${n} réponse${n > 1 ? "s" : ""} en cours d'analyse`;
+  const relire = job.nb_a_relire ?? 0;
+  if (relire > 0) return `Mis à jour — ${relire} réponse${relire > 1 ? "s" : ""} à relire`;
+  return `Mis à jour — ${chunks}`;
 }
 
 function JobCard({ job }: { job: TrackedJob }) {
@@ -29,7 +38,8 @@ function JobCard({ job }: { job: TrackedJob }) {
       updateJob(job.jobId, {
         statut: "SUCCESS",
         nb_chunks: data.resultat?.nb_chunks,
-        nb_obsoletes: data.resultat?.nb_obsoletes,
+        nb_a_analyser: data.resultat?.nb_a_analyser,
+        nb_a_relire: data.resultat?.nb_a_relire,
       });
     } else if (data.statut === "FAILURE") {
       updateJob(job.jobId, { statut: "FAILURE", erreur: data.erreur });

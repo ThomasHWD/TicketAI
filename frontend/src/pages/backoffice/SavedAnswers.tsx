@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Pencil,
   Trash2,
   Check,
@@ -112,6 +114,73 @@ function grouper(items: ReponseSignalee[]): GroupeARelire[] {
   return [...groupes.values()];
 }
 
+/**
+ * Ce que chaque raison veut dire, en une ligne.
+ *
+ * L'onglet ne reçoit plus « toutes les réponses du document » mais exactement ce
+ * que la machine n'a pas pu trancher — et les cas ne se traitent pas pareil :
+ * une contradiction probable se lit tout de suite, une panne d'analyse se relit
+ * quand on a le temps. Taire la nuance rendrait la liste aussi indifférenciée
+ * qu'avant.
+ */
+const RAISONS: Record<NonNullable<ReponseSignalee["a_relire_raison"]>, string> = {
+  CONTREDITE_PROBABLE:
+    "L'analyse juge cette réponse contredite, mais elle ne cite pas ce document : à confirmer avant tout retrait.",
+  ANALYSE_EN_COURS: "Analyse en cours — le verdict n'est pas encore rendu.",
+  ANALYSE_INDISPONIBLE:
+    "Le service d'analyse n'a pas pu se prononcer : cette réponse est signalée par précaution.",
+  ANALYSE_PARTIELLE:
+    "Le budget d'analyse de cette mise à jour a été épuisé avant d'atteindre cette réponse.",
+  REECRITURE_MASSIVE:
+    "Le document a été réécrit en profondeur : trop de changements pour juger réponse par réponse.",
+  DOC_MODIFIÉ: "L'analyse n'a pas su conclure : à trancher à la main.",
+  VERSION_SORTANTE_ILLISIBLE:
+    "La version précédente n'a pas pu être relue : impossible de dire ce qui a changé.",
+};
+
+/** État transitoire : rien à faire, il se résout tout seul en quelques minutes. */
+const EN_ANALYSE = "ANALYSE_EN_COURS";
+
+/**
+ * Les raisons qui valent pour tout le document, donc portées par l'en-tête du
+ * groupe. Aucune réponse n'a été jugée individuellement dans ces deux cas : les
+ * répéter sur chaque carte reviendrait à écrire trente-neuf fois la même phrase.
+ */
+const RAISONS_DE_GROUPE = ["VERSION_SORTANTE_ILLISIBLE", "REECRITURE_MASSIVE"] as const;
+
+function estRaisonDeGroupe(raison: ReponseSignalee["a_relire_raison"]): boolean {
+  return RAISONS_DE_GROUPE.some((r) => r === raison);
+}
+
+/**
+ * Pourquoi cette réponse-là est en cause, et ce que le modèle en a dit.
+ *
+ * Le diff est affiché une fois par groupe ; la justification, elle, est propre à
+ * chaque réponse. C'est toute la différence entre « ce document a bougé » et
+ * « voici ce qui contredit cette réponse » — sans elle, l'écran redemanderait à
+ * l'humain le travail que l'analyse vient de faire.
+ */
+function MotifSignalement({ reponse }: { reponse: ReponseSignalee }) {
+  const raison = reponse.a_relire_raison;
+  const generique = raison && !estRaisonDeGroupe(raison) ? RAISONS[raison] : null;
+  const message = reponse.analyse_justification ?? generique;
+  if (!message) return null;
+
+  const attention = raison === "CONTREDITE_PROBABLE";
+  return (
+    <p
+      className={`flex items-start gap-1.5 text-xs ${
+        attention
+          ? "text-amber-700 dark:text-amber-300"
+          : "text-gray-500 dark:text-gray-400"
+      }`}
+    >
+      <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+      <span>{message}</span>
+    </p>
+  );
+}
+
 /** Les extraits d'un sens du changement, ou rien. */
 function SensDuChangement({ titre, total, extraits }: { titre: string; total: number; extraits: string[] }) {
   if (total === 0) return null;
@@ -152,6 +221,10 @@ export default function SavedAnswers() {
   const [draft, setDraft] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<CibleSuppression | null>(null);
   const [retraitTarget, setRetraitTarget] = useState<ReponseSignalee | null>(null);
+  // On mémorise les groupes *repliés*, pas les dépliés : un groupe s'ouvre donc
+  // tout seul. Le diff est la seule chose qui permette de trancher — le cacher
+  // derrière un clic ferait confirmer en lot sans l'avoir lu.
+  const [groupesReplies, setGroupesReplies] = useState<Set<string>>(new Set());
 
   const canoniques = useQuery({
     queryKey: ["reponses-canoniques", page],
@@ -363,6 +436,15 @@ export default function SavedAnswers() {
           </p>
         )}
 
+        {onglet === "a_relire" && !loading && !error && total > 0 && (
+          <div className="px-6 py-3 flex items-center justify-between border-b border-amber-100 dark:border-amber-500/20 bg-amber-50/50 dark:bg-amber-400/5">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-300">
+              {nbDocsARelire} document{nbDocsARelire > 1 ? "s" : ""} mis à jour
+              {" · "}{total} réponse{total > 1 ? "s" : ""} à vérifier
+            </p>
+          </div>
+        )}
+
         {onglet === "a_relire" && (
           <div className="divide-y divide-gray-200 dark:divide-white/5">
             {loading && (
@@ -380,17 +462,35 @@ export default function SavedAnswers() {
             )}
 
             {!loading &&
-              groupes.map((g) => (
+              groupes.map((g) => {
+                const ouvert = !groupesReplies.has(g.cle);
+                const toggleGroupe = () =>
+                  setGroupesReplies((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(g.cle)) next.delete(g.cle);
+                    else next.add(g.cle);
+                    return next;
+                  });
+                return (
                 <section key={g.cle} className="px-6 py-5 space-y-4">
                   <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-300 truncate">
+                      <button
+                        onClick={toggleGroupe}
+                        className="min-w-0 flex-1 text-left"
+                        aria-expanded={ouvert}
+                      >
+                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-300 truncate flex items-center gap-1.5">
                           {g.filename ?? "Document inconnu"}
                           {g.version !== null && (
-                            <span className="ml-2 font-normal text-amber-900/70 dark:text-amber-200/70">
+                            <span className="font-normal text-amber-900/70 dark:text-amber-200/70">
                               v{g.version}
                             </span>
+                          )}
+                          {ouvert ? (
+                            <ChevronUp size={14} className="shrink-0 text-amber-700/60 dark:text-amber-300/60" />
+                          ) : (
+                            <ChevronDown size={14} className="shrink-0 text-amber-700/60 dark:text-amber-300/60" />
                           )}
                         </p>
                         <p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-200/80">
@@ -398,14 +498,14 @@ export default function SavedAnswers() {
                           page
                           {g.document_supprime && " — document supprimé depuis"}
                         </p>
-                      </div>
+                      </button>
                       {g.doc_id !== null && g.version !== null && (
                         <button
                           onClick={() =>
                             confirmLotMutation.mutate({ doc_id: g.doc_id!, version: g.version! })
                           }
                           disabled={confirmLotMutation.isPending}
-                          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         >
                           <CheckCircle2 size={15} />
                           Tout confirmer
@@ -413,30 +513,31 @@ export default function SavedAnswers() {
                       )}
                     </div>
 
-                    {g.raison === "VERSION_SORTANTE_ILLISIBLE" ? (
-                      // Le signalement dit lui-même pourquoi il est bruyant : sans
-                      // ça, un onglet plein sans un seul extrait passerait pour un bug.
-                      <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-                        La version précédente n'a pas pu être relue : impossible de dire ce qui a
-                        changé. Ces réponses sont signalées par précaution.
-                      </p>
-                    ) : g.changements ? (
-                      <>
-                        <SensDuChangement
-                          titre="ajouté"
-                          total={g.changements.nb_ajoutes}
-                          extraits={g.changements.extraits_ajoutes}
-                        />
-                        <SensDuChangement
-                          titre="retiré"
-                          total={g.changements.nb_retires}
-                          extraits={g.changements.extraits_retires}
-                        />
-                      </>
-                    ) : (
-                      <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-                        Le détail de cette mise à jour n'a pas été conservé.
-                      </p>
+                    {ouvert && (
+                      estRaisonDeGroupe(g.raison) ? (
+                        // Le signalement dit lui-même pourquoi il est bruyant : sans
+                        // ça, un onglet plein sans un seul extrait passerait pour un bug.
+                        <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                          {RAISONS[g.raison!]} Ces réponses sont signalées par précaution.
+                        </p>
+                      ) : g.changements ? (
+                        <>
+                          <SensDuChangement
+                            titre="ajouté"
+                            total={g.changements.nb_ajoutes}
+                            extraits={g.changements.extraits_ajoutes}
+                          />
+                          <SensDuChangement
+                            titre="retiré"
+                            total={g.changements.nb_retires}
+                            extraits={g.changements.extraits_retires}
+                          />
+                        </>
+                      ) : (
+                        <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                          Le détail de cette mise à jour n'a pas été conservé.
+                        </p>
+                      )
                     )}
                   </div>
 
@@ -476,6 +577,16 @@ export default function SavedAnswers() {
                             </p>
                           )}
 
+                          <MotifSignalement reponse={r} />
+
+                          {/* `ANALYSE_EN_COURS` est transitoire : proposer de trancher
+                              maintenant reviendrait à faire juger l'humain avant la
+                              machine, et sa décision serait écrasée dans deux minutes. */}
+                          {r.a_relire_raison === EN_ANALYSE ? (
+                            <p className="text-right text-[11px] text-gray-400 dark:text-gray-500">
+                              Résultat dans quelques minutes.
+                            </p>
+                          ) : (
                           <div className="flex items-center justify-end gap-1.5">
                             {isEditing ? (
                               <>
@@ -528,12 +639,14 @@ export default function SavedAnswers() {
                               </>
                             )}
                           </div>
+                          )}
                         </li>
                       );
                     })}
                   </ul>
                 </section>
-              ))}
+                );
+              })}
 
             {(confirmMutation.isError || confirmLotMutation.isError) && (
               <p className="px-6 py-3 text-sm text-red-600 dark:text-red-400">
@@ -710,6 +823,15 @@ export default function SavedAnswers() {
                     </td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
                       <span className="block max-w-md whitespace-pre-wrap">{contenuServi(r)}</span>
+                      {/* Le retrait est sec — aucune correction n'est rédigée à la
+                          place. C'est cette phrase qui le rend défendable : sans
+                          elle, on voit une réponse disparue et rien qui dise pourquoi. */}
+                      {r.analyse_justification && (
+                        <span className="mt-1.5 flex max-w-md items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                          <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                          <span>{r.analyse_justification}</span>
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
                       <span

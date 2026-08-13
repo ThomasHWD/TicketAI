@@ -24,6 +24,7 @@ from app.services.obsolescence import (
     passages_ajoutes,
     racines,
     reponses_obsoletes,
+    unites_de_changement,
 )
 
 TEXTE = (
@@ -151,9 +152,7 @@ class TestPassagesAjoutes:
         ajouté » : le doublon est assumé, les deux lectures sont vraies."""
         nouveau = TEXTE.replace("2 jours", "3 jours")
 
-        assert passages_ajoutes(decouper_en_passages(nouveau), TEXTE) == [
-            nouveau.split("\n\n")[0]
-        ]
+        assert passages_ajoutes(decouper_en_passages(nouveau), TEXTE) == [nouveau.split("\n\n")[0]]
 
     def test_normalisation_partagee_avec_la_detection(self):
         nouveaux = ["Le télétravail est limité\nà 2 jours   par semaine, sur accord du manager."]
@@ -172,10 +171,14 @@ class TestPassagesAjoutes:
 
 
 class TestDetectionDansLesDeuxSens:
-    """Le déclencheur du signalement « à relire » : la même primitive, deux fois.
+    """La primitive anti-reflow, appliquée dans les deux sens.
 
-    ``ajoutes`` = ce que la nouvelle version dit de neuf,
-    ``retires`` = ce qu'elle ne dit plus. Cf. ``analyser_changements``.
+    ``ajoutes`` = ce que la nouvelle version dit de neuf, ``retires`` = ce
+    qu'elle ne dit plus. Ce n'est plus un déclencheur : ``unites_de_changement``
+    s'en sert, via ``_requalifier``, pour jeter les paragraphes que
+    ``SequenceMatcher`` croit modifiés alors qu'ils sont seulement déplacés. Les
+    propriétés vérifiées ici sont donc celles dont dépend l'absence d'unités
+    fantômes.
     """
 
     @staticmethod
@@ -212,6 +215,111 @@ class TestDetectionDansLesDeuxSens:
         nouveau = TEXTE + "\n\n" + AJOUT
 
         assert self._deux_sens(TEXTE, nouveau) == ([AJOUT], [])
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# unites_de_changement
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class TestUnitesDeChangement:
+    """Le seul étage déterministe de la ré-vérification, et celui qui la borne.
+
+    Tout ce qui suit — rappel vectoriel, reranker, jugement LLM — ne fait que
+    trier cette liste. Une unité fantôme se paie en appels Albert et en relectures
+    humaines ; une unité manquée, c'est une réponse fausse servie sans que rien ne
+    le signale. Ces tests fixent les deux bords.
+    """
+
+    def test_reformatage_pur_ne_produit_aucune_unite(self):
+        """La propriété qui rend le déclenchement supportable : sans elle, chaque
+        redépôt du même contenu lancerait une analyse complète du domaine."""
+        reformate = TEXTE.replace("\n\n", "\n\n\n").replace(" ", "  ")
+
+        assert unites_de_changement(TEXTE, reformate) == []
+
+    def test_chiffre_modifie_donne_une_reecriture_appariee(self):
+        """Le cas dangereux : 0,999 de similarité globale, et la réponse est fausse.
+
+        L'appariement avant/après est ce qui rend le changement jugeable — deux
+        listes plates diraient « un paragraphe a disparu, un autre est apparu »,
+        ce dont on ne peut rien conclure.
+        """
+        nouveau = TEXTE.replace("2 jours", "3 jours")
+
+        [unite] = unites_de_changement(TEXTE, nouveau)
+
+        assert unite.sens == "REECRITURE"
+        assert "2 jours" in unite.avant
+        assert "3 jours" in unite.apres
+        assert unite.texte == unite.apres
+
+    def test_paragraphe_deplace_ne_produit_aucune_unite(self):
+        """`SequenceMatcher` raisonne sur des positions : un article remonté en tête
+        lui apparaît comme une suppression suivie d'une insertion. C'est
+        `_requalifier` qui rattrape, en comparant les textes et non les rangs."""
+        p = TEXTE.split("\n\n")
+        deplace = "\n\n".join([p[2], p[0], p[1]])
+
+        assert unites_de_changement(TEXTE, deplace) == []
+
+    def test_regle_abrogee_donne_un_retrait(self):
+        """Rien n'est inséré à la place : ni les chunks cités ni un compte d'ajouts
+        ne peuvent voir ce changement."""
+        nouveau = "\n\n".join(TEXTE.split("\n\n")[:2])
+
+        [unite] = unites_de_changement(TEXTE, nouveau)
+
+        assert unite.sens == "RETRAIT"
+        assert "200 euros" in unite.avant
+        assert unite.apres is None
+
+    def test_article_ajoute_ailleurs_donne_un_ajout(self):
+        [unite] = unites_de_changement(TEXTE, TEXTE + "\n\n" + AJOUT)
+
+        assert (unite.sens, unite.avant, unite.apres) == ("AJOUT", None, AJOUT)
+
+    def test_document_repetitif_ne_produit_que_le_vrai_changement(self):
+        """Un tableau de conformité de 300 lignes tirées de trois formules types.
+
+        C'est le pire cas pour l'aligneur : au-delà de 200 items, `autojunk`
+        écarte des ancrages tout élément présent dans plus de 1 % de la séquence,
+        donc ici *tout le document sauf la ligne qui nous intéresse*. Il rend
+        alors un unique `replace` couvrant la moitié du document — 150 paires au
+        lieu d'une.
+
+        Mesuré : `_requalifier` rattrape ce cas de bout en bout, et le résultat
+        est identique avec ou sans `autojunk=False` — le filtre par texte est le
+        vrai garde-fou, le paramètre n'est qu'une économie d'unités intermédiaires.
+        Ce test fixe donc la propriété qui compte (aucun fantôme sur un document
+        répétitif) et non le réglage qui la produit.
+        """
+        vocab = [
+            "Point de controle conforme aux exigences du referentiel interne.",
+            "Point de controle non applicable a ce perimetre organisationnel.",
+            "Point de controle a verifier lors du prochain audit de conformite.",
+        ]
+        lignes = [vocab[i % 3] for i in range(300)]
+        lignes[150] = "Le plafond de remboursement des frais est fixe a 200 euros par mois."
+        ancien = "\n\n".join(lignes)
+        nouveau = ancien.replace("200 euros", "300 euros")
+
+        [unite] = unites_de_changement(ancien, nouveau)
+
+        assert unite.sens == "REECRITURE"
+        assert "200 euros" in unite.avant
+        assert "300 euros" in unite.apres
+
+    def test_reecriture_partielle_de_bloc_repartit_le_surplus(self):
+        """Trois paragraphes remplacés par deux : deux paires appariées, un retrait.
+        Le surplus ne doit ni disparaître ni être apparié au hasard."""
+        ancien = "\n\n".join(f"Le paragraphe numero {i} enonce une regle de gestion precise." for i in range(3))
+        nouveau = "\n\n".join(f"La clause revisee numero {i} enonce une regle differente." for i in range(2))
+
+        unites = unites_de_changement(ancien, nouveau)
+
+        assert [u.sens for u in unites] == ["REECRITURE", "REECRITURE", "RETRAIT"]
+        assert unites[-1].apres is None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -386,8 +494,8 @@ class TestMarquerObsoletes:
     def test_marquage_idempotent(self, scenario, _qdrant_muet):
         scenario(chunks=[1])
 
-        premier = marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=2, indices={1})
-        second = marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=3, indices={1})
+        premier, _ = marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=2, indices={1})
+        second, _ = marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=3, indices={1})
 
         assert len(premier) == 1
         assert second == []
@@ -445,7 +553,7 @@ class TestMarquerARelire:
         est ailleurs. `marquer_obsoletes` ne trouve rien, le signalement si."""
         r = scenario(chunks=[1])
 
-        assert marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, 2, set()) == []
+        assert marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, 2, set())[0] == []
         marquer_a_relire(scenario.db, scenario.doc_id, 2)
 
         scenario.db.refresh(r)

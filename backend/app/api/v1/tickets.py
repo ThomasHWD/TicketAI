@@ -347,18 +347,10 @@ async def validateurs_par_domaine(domaine: str, _: BackofficeUser):
     """Liste les membres du groupe pour un domaine donné (tout utilisateur authentifié)."""
     db = SessionLocal()
     try:
-        groupe = (
-            db.query(Groupe)
-            .options(joinedload(Groupe.membres))
-            .filter(Groupe.domaine == domaine.upper())
-            .first()
-        )
+        groupe = db.query(Groupe).options(joinedload(Groupe.membres)).filter(Groupe.domaine == domaine.upper()).first()
         if not groupe:
             return []
-        return [
-            {"id": str(u.id), "email": u.email, "prenom": u.prenom, "nom": u.nom}
-            for u in groupe.membres
-        ]
+        return [{"id": str(u.id), "email": u.email, "prenom": u.prenom, "nom": u.nom} for u in groupe.membres]
     finally:
         db.close()
 
@@ -392,18 +384,20 @@ async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user
         ticket.locked_at = None
         ticket.lock_expires_at = None
         assignee = db.query(User).filter(User.id == payload.assignee_id).first()
-        db.add(TicketEvent(
-            ticket_id=tid,
-            type="ASSIGNE",
-            actor_id=current_user.id,
-            actor_email=current_user.email,
-            actor_nom_complet=_full_name(current_user),
-            meta={
-                "assignee_id": str(payload.assignee_id),
-                "assignee_email": assignee.email if assignee else None,
-                "assignee_nom": _full_name(assignee) if assignee else None,
-            },
-        ))
+        db.add(
+            TicketEvent(
+                ticket_id=tid,
+                type="ASSIGNE",
+                actor_id=current_user.id,
+                actor_email=current_user.email,
+                actor_nom_complet=_full_name(current_user),
+                meta={
+                    "assignee_id": str(payload.assignee_id),
+                    "assignee_email": assignee.email if assignee else None,
+                    "assignee_nom": _full_name(assignee) if assignee else None,
+                },
+            )
+        )
         db.commit()
         result = _serialize_ticket(ticket)
     finally:
@@ -430,14 +424,16 @@ async def desassigner_ticket(ticket_id: str, current_user: BackofficeUser):
         check_domain_write(ticket.domaine, current_user)
         domaine = ticket.domaine
         ticket.assigned_to = None
-        db.add(TicketEvent(
-            ticket_id=tid,
-            type="DESASSIGNE",
-            actor_id=current_user.id,
-            actor_email=current_user.email,
-            actor_nom_complet=_full_name(current_user),
-            meta={},
-        ))
+        db.add(
+            TicketEvent(
+                ticket_id=tid,
+                type="DESASSIGNE",
+                actor_id=current_user.id,
+                actor_email=current_user.email,
+                actor_nom_complet=_full_name(current_user),
+                meta={},
+            )
+        )
         db.commit()
         result = _serialize_ticket(ticket)
     finally:
@@ -489,7 +485,10 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
             raise HTTPException(404, "Ticket introuvable")
         check_ticket_read(ticket, current_user)
         reponses = (
-            db.query(ReponseModel).filter(ReponseModel.ticket_id == tid).order_by(ReponseModel.created_at.asc()).all()
+            db.query(ReponseModel)
+            .filter(ReponseModel.ticket_id == tid, ReponseModel.obsolete.is_(False))
+            .order_by(ReponseModel.created_at.asc())
+            .all()
         )
         return [
             {
@@ -525,79 +524,90 @@ async def get_ticket_workflow(ticket_id: str, current_user: CurrentUser):
         check_ticket_read(ticket, current_user)
 
         reponses = (
-            db.query(ReponseModel)
-            .filter(ReponseModel.ticket_id == tid)
-            .order_by(ReponseModel.created_at.asc())
-            .all()
+            db.query(ReponseModel).filter(ReponseModel.ticket_id == tid).order_by(ReponseModel.created_at.asc()).all()
         )
         ticket_events = (
-            db.query(TicketEvent)
-            .filter(TicketEvent.ticket_id == tid)
-            .order_by(TicketEvent.created_at.asc())
-            .all()
+            db.query(TicketEvent).filter(TicketEvent.ticket_id == tid).order_by(TicketEvent.created_at.asc()).all()
         )
 
         _TYPE_ORDER = {
-            "CREE": 0, "SUIVI": 1, "REPONSE_GENEREE": 2,
-            "ASSIGNE": 3, "DESASSIGNE": 3,
-            "VALIDE": 4, "CORRIGE": 4, "REJETE": 4,
+            "CREE": 0,
+            "SUIVI": 1,
+            "REPONSE_GENEREE": 2,
+            "ASSIGNE": 3,
+            "DESASSIGNE": 3,
+            "VALIDE": 4,
+            "CORRIGE": 4,
+            "REJETE": 4,
             "CLOTURE": 5,
         }
 
         events: list[dict] = []
 
-        events.append({
-            "type": "CREE",
-            "at": ticket.created_at.isoformat() if ticket.created_at else None,
-            "actor_email": ticket.user.email if ticket.user else None,
-            "actor_nom_complet": _full_name(ticket.user),
-            "meta": {"domaine": ticket.domaine},
-        })
+        events.append(
+            {
+                "type": "CREE",
+                "at": ticket.created_at.isoformat() if ticket.created_at else None,
+                "actor_email": ticket.user.email if ticket.user else None,
+                "actor_nom_complet": _full_name(ticket.user),
+                "meta": {"domaine": ticket.domaine},
+            }
+        )
 
         type_map = {"VALIDÉE": "VALIDE", "CORRIGÉE": "CORRIGE", "REJETÉE": "REJETE"}
         for reponse in reponses:
             ts = reponse.created_at.isoformat() if reponse.created_at else None
             if reponse.question_suivi:
-                events.append({
-                    "type": "SUIVI",
+                events.append(
+                    {
+                        "type": "SUIVI",
+                        "at": ts,
+                        "actor_email": None,
+                        "actor_nom_complet": None,
+                        "meta": {"texte": reponse.question_suivi},
+                    }
+                )
+            events.append(
+                {
+                    "type": "REPONSE_GENEREE",
                     "at": ts,
                     "actor_email": None,
                     "actor_nom_complet": None,
-                    "meta": {"texte": reponse.question_suivi},
-                })
-            events.append({
-                "type": "REPONSE_GENEREE",
-                "at": ts,
-                "actor_email": None,
-                "actor_nom_complet": None,
-                "meta": {"source": reponse.source},
-            })
+                    "meta": {"source": reponse.source},
+                }
+            )
             if reponse.validated_at and reponse.statut in type_map:
-                events.append({
-                    "type": type_map[reponse.statut],
-                    "at": reponse.validated_at.isoformat(),
-                    "actor_email": reponse.validator.email if reponse.validator else None,
-                    "actor_nom_complet": _full_name(reponse.validator),
-                    "meta": {},
-                })
+                events.append(
+                    {
+                        "type": type_map[reponse.statut],
+                        "at": reponse.validated_at.isoformat(),
+                        "actor_email": reponse.validator.email if reponse.validator else None,
+                        "actor_nom_complet": _full_name(reponse.validator),
+                        "meta": {},
+                    }
+                )
 
         for evt in ticket_events:
-            events.append({
-                "type": evt.type,
-                "at": evt.created_at.isoformat() if evt.created_at else None,
-                "actor_email": evt.actor_email,
-                "actor_nom_complet": evt.actor_nom_complet,
-                "meta": evt.meta or {},
-            })
+            events.append(
+                {
+                    "type": evt.type,
+                    "at": evt.created_at.isoformat() if evt.created_at else None,
+                    "actor_email": evt.actor_email,
+                    "actor_nom_complet": evt.actor_nom_complet,
+                    "meta": evt.meta or {},
+                }
+            )
 
         if ticket.closed_at:
-            events.append({
-                "type": "CLOTURE",
-                "at": ticket.closed_at.isoformat(),
-                "actor_email": None,
-                "actor_nom_complet": None,
-                "meta": {},
-            })
+            events.append(
+                {
+                    "type": "CLOTURE",
+                    "at": ticket.closed_at.isoformat(),
+                    "actor_email": None,
+                    "actor_nom_complet": None,
+                    "meta": {},
+                }
+            )
 
         events.sort(key=lambda e: (e["at"] or "", _TYPE_ORDER.get(e["type"], 6)))
         return events
@@ -667,7 +677,8 @@ async def verrouiller_ticket(ticket_id: str, current_user: BackofficeUser):
     finally:
         db.close()
     await broadcast_async(
-        f"sse:domain:{domaine}", "ticket_locked",
+        f"sse:domain:{domaine}",
+        "ticket_locked",
         {"ticket_id": ticket_id, "locked_by_email": current_user.email},
     )
     return result

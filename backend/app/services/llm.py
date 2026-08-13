@@ -2,6 +2,44 @@ import httpx
 from app.config import settings
 
 
+def chat(
+    messages: list[dict],
+    *,
+    temperature: float = 0.1,
+    max_tokens: int = 512,
+    timeout: float = 120,
+) -> str:
+    """Appel brut au ``/chat/completions`` d'Albert, sans prompt imposé.
+
+    Extrait de ``generate`` pour que la ré-vérification puisse poser sa propre
+    question au modèle — un verdict JSON, pas une réponse d'assistant — sans
+    hériter du prompt système RAG ni de l'exigence d'un ``rerank_score`` sur
+    chaque chunk. ``generate`` reste l'unique appelant côté pipeline RAG et son
+    comportement est inchangé.
+    """
+    response = httpx.post(
+        f"{settings.albert_llm_url}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {settings.albert_api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": settings.albert_llm_model_name,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+
+    data = response.json()
+    content = (data["choices"][0]["message"]["content"] or "").strip()
+    if not content:
+        print(f"[LLM] réponse vide — body complet : {data}")
+    return content
+
+
 def generate(
     question: str,
     chunks: list[dict],
@@ -64,22 +102,4 @@ Réponse :"""
         {"role": "user", "content": prompt_user},
     ]
 
-    response = httpx.post(
-        f"{settings.albert_llm_url}/chat/completions",
-        headers={
-            "Authorization": f"Bearer {settings.albert_api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": settings.albert_llm_model_name,
-            "messages": messages,
-            "temperature": 0.1,
-            "max_tokens": 512,
-        },
-        timeout=120,
-    )
-    response.raise_for_status()
-
-    return response.json()["choices"][0]["message"]["content"].strip()
-
-
+    return chat(messages, temperature=0.1, max_tokens=512, timeout=120)

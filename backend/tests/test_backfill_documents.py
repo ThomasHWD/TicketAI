@@ -50,10 +50,12 @@ class TestBackfill:
         from app.models.document_version import DocumentVersion
 
         doc_id = str(uuid.uuid4())
-        qdrant_points([
-            _point(doc_id=doc_id, chunk_index=0, source="charte.md", domaine="RH", contenu="a"),
-            _point(doc_id=doc_id, chunk_index=1, source="charte.md", domaine="RH", contenu="b"),
-        ])
+        qdrant_points(
+            [
+                _point(doc_id=doc_id, chunk_index=0, source="charte.md", domaine="RH", contenu="a"),
+                _point(doc_id=doc_id, chunk_index=1, source="charte.md", domaine="RH", contenu="b"),
+            ]
+        )
 
         stats = _reconcilier(db_session)
 
@@ -71,10 +73,16 @@ class TestBackfill:
     def test_ignore_les_points_de_feedback(self, db_session, qdrant_points):
         """Les points de feedback_job indexent une question et n'ont pas de doc_id :
         les compter créerait un document fantôme portant le texte d'une réponse."""
-        qdrant_points([
-            _point(reponse_id=str(uuid.uuid4()), ticket_id=str(uuid.uuid4()),
-                   contenu="Puis-je télétravailler ?", domaine="RH"),
-        ])
+        qdrant_points(
+            [
+                _point(
+                    reponse_id=str(uuid.uuid4()),
+                    ticket_id=str(uuid.uuid4()),
+                    contenu="Puis-je télétravailler ?",
+                    domaine="RH",
+                ),
+            ]
+        )
 
         stats = _reconcilier(db_session)
 
@@ -123,8 +131,9 @@ class TestBackfill:
         Qdrant fait foi, ce doc_id ne doit pas devenir un document actif."""
         from app.models.document_upload import DocumentUpload
 
-        db_session.add(DocumentUpload(doc_id=str(uuid.uuid4()), user_id=None,
-                                      domaine="IT", filename="jamais_indexe.md"))
+        db_session.add(
+            DocumentUpload(doc_id=str(uuid.uuid4()), user_id=None, domaine="IT", filename="jamais_indexe.md")
+        )
         db_session.commit()
         qdrant_points([])
 

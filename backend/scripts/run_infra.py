@@ -28,9 +28,7 @@ try:
             response.json()["choices"][0]["message"]["content"].strip(),
         )
     else:
-        print(
-            f"Erreur connexion LLM : Status code {response.status_code} - {response.text}"
-        )
+        print(f"Erreur connexion LLM : Status code {response.status_code} - {response.text}")
 
 except Exception as e:
     print(f"Erreur connexion LLM : {e}")
@@ -38,9 +36,7 @@ except Exception as e:
 
 # --- Test QDrant ---
 try:
-    client = QdrantClient(
-        host=os.getenv("QDRANT_HOST"), port=int(os.getenv("QDRANT_PORT"))
-    )
+    client = QdrantClient(host=os.getenv("QDRANT_HOST"), port=int(os.getenv("QDRANT_PORT")))
     collections_info = client.get_collections()
     print(f"Connexion QDrant : OK : {collections_info}")
 

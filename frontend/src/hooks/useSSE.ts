@@ -108,6 +108,22 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
       }
       break;
 
+    // La ré-vérification commence : les réponses concernées viennent de passer
+    // en « analyse en cours », un état sur lequel aucune action n'est proposée.
+    case "reverification_started":
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      break;
+
+    // Elle se termine : c'est le seul moment où des réponses sont réellement
+    // retirées du service. Les trois listes bougent d'un coup — un drapeau levé
+    // rend une réponse à Canoniques, un verdict de contradiction l'envoie dans
+    // Obsolètes, et le badge doit suivre.
+    case "reverification_done":
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      break;
+
     case "job_completed":
       if (payload.job_id) {
         queryClient.invalidateQueries({ queryKey: ["job-tracker", payload.job_id] });
