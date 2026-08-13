@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ChevronUp,
   Pencil,
   Trash2,
@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   EyeOff,
+  Search,
 } from "lucide-react";
 import {
   getReponsesCanoniques,
@@ -57,6 +58,9 @@ function depuis(iso: string | null): string {
 
 const LIMIT = 10;
 
+/** Seuil au-delà duquel "Voir tout" apparaît. */
+const SEUIL_EXPANSION = 220;
+
 type Onglet = "canoniques" | "obsoletes" | "a_relire";
 
 /** Cible de la modale de suppression, commune aux deux onglets. */
@@ -64,10 +68,6 @@ type CibleSuppression = { reponse_id: string; question: string; obsolete: boolea
 
 /**
  * Un document et une version, avec les réponses qu'ils ont fait signaler.
- *
- * La clé inclut la version : un document remis à jour entre-temps a reflagué ses
- * réponses sur v(n+1), et les deux lots ne se confirment pas ensemble — ils ne
- * portent pas sur le même diff.
  */
 type GroupeARelire = {
   cle: string;
@@ -82,14 +82,6 @@ type GroupeARelire = {
 
 /**
  * Regroupe les réponses signalées par (document, version), dans l'ordre reçu.
- *
- * Le groupement est *tout* l'intérêt de l'écran : une phrase réécrite dans une
- * charte qui porte 40 réponses en signale 39. On lit le diff une fois, on juge
- * les 39 ensuite — une liste plate obligerait à relire le même diff 39 fois, et
- * l'onglet ne serait jamais vidé.
- *
- * Le backend trie déjà par `a_relire_doc_id` : les groupes sortent contigus, et
- * la Map conserve l'ordre d'insertion.
  */
 function grouper(items: ReponseSignalee[]): GroupeARelire[] {
   const groupes = new Map<string, GroupeARelire>();
@@ -114,15 +106,6 @@ function grouper(items: ReponseSignalee[]): GroupeARelire[] {
   return [...groupes.values()];
 }
 
-/**
- * Ce que chaque raison veut dire, en une ligne.
- *
- * L'onglet ne reçoit plus « toutes les réponses du document » mais exactement ce
- * que la machine n'a pas pu trancher — et les cas ne se traitent pas pareil :
- * une contradiction probable se lit tout de suite, une panne d'analyse se relit
- * quand on a le temps. Taire la nuance rendrait la liste aussi indifférenciée
- * qu'avant.
- */
 const RAISONS: Record<NonNullable<ReponseSignalee["a_relire_raison"]>, string> = {
   CONTREDITE_PROBABLE:
     "L'analyse juge cette réponse contredite, mais elle ne cite pas ce document : à confirmer avant tout retrait.",
@@ -141,25 +124,12 @@ const RAISONS: Record<NonNullable<ReponseSignalee["a_relire_raison"]>, string> =
 /** État transitoire : rien à faire, il se résout tout seul en quelques minutes. */
 const EN_ANALYSE = "ANALYSE_EN_COURS";
 
-/**
- * Les raisons qui valent pour tout le document, donc portées par l'en-tête du
- * groupe. Aucune réponse n'a été jugée individuellement dans ces deux cas : les
- * répéter sur chaque carte reviendrait à écrire trente-neuf fois la même phrase.
- */
 const RAISONS_DE_GROUPE = ["VERSION_SORTANTE_ILLISIBLE", "REECRITURE_MASSIVE"] as const;
 
 function estRaisonDeGroupe(raison: ReponseSignalee["a_relire_raison"]): boolean {
   return RAISONS_DE_GROUPE.some((r) => r === raison);
 }
 
-/**
- * Pourquoi cette réponse-là est en cause, et ce que le modèle en a dit.
- *
- * Le diff est affiché une fois par groupe ; la justification, elle, est propre à
- * chaque réponse. C'est toute la différence entre « ce document a bougé » et
- * « voici ce qui contredit cette réponse » — sans elle, l'écran redemanderait à
- * l'humain le travail que l'analyse vient de faire.
- */
 function MotifSignalement({ reponse }: { reponse: ReponseSignalee }) {
   const raison = reponse.a_relire_raison;
   const generique = raison && !estRaisonDeGroupe(raison) ? RAISONS[raison] : null;
@@ -187,7 +157,7 @@ function SensDuChangement({ titre, total, extraits }: { titre: string; total: nu
 
   return (
     <div className="space-y-1">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
+      <p className="text-xs font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
         {total} passage{total > 1 ? "s" : ""} {titre}
         {total > 1 ? "s" : ""}
       </p>
@@ -195,16 +165,42 @@ function SensDuChangement({ titre, total, extraits }: { titre: string; total: nu
         {extraits.map((extrait, i) => (
           <li
             key={i}
-            className="text-[11px] text-gray-600 dark:text-gray-400 font-mono leading-relaxed border-l-2 border-amber-300 dark:border-amber-500/40 pl-2"
+            className="text-xs text-gray-600 dark:text-gray-400 font-mono leading-relaxed bg-amber-100/70 dark:bg-amber-500/10 rounded px-2 py-1"
           >
             {extrait}
           </li>
         ))}
       </ul>
       {total > extraits.length && (
-        <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
+        <p className="text-xs text-amber-900/70 dark:text-amber-200/70">
           … et {total - extraits.length} autre{total - extraits.length > 1 ? "s" : ""}.
         </p>
+      )}
+    </div>
+  );
+}
+
+/** Texte tronqué à 3 lignes, avec toggle "Voir tout / Réduire". */
+function ExpandableText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = text.length > SEUIL_EXPANSION;
+  return (
+    <div>
+      <p
+        className={`text-sm leading-relaxed whitespace-pre-wrap text-gray-600 dark:text-gray-300 ${
+          !expanded && long ? "line-clamp-3" : ""
+        }`}
+      >
+        {text}
+      </p>
+      {long && (
+        <button
+          onClick={() => setExpanded((e) => !e)}
+          aria-expanded={expanded}
+          className="mt-1 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+        >
+          {expanded ? "Réduire ↑" : "Voir tout ↓"}
+        </button>
       )}
     </div>
   );
@@ -221,6 +217,7 @@ export default function SavedAnswers() {
   const [draft, setDraft] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<CibleSuppression | null>(null);
   const [retraitTarget, setRetraitTarget] = useState<ReponseSignalee | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   // On mémorise les groupes *repliés*, pas les dépliés : un groupe s'ouvre donc
   // tout seul. Le diff est la seule chose qui permette de trancher — le cacher
   // derrière un clic ferait confirmer en lot sans l'avoir lu.
@@ -256,9 +253,7 @@ export default function SavedAnswers() {
   });
   const nbObsoletes = compteur?.total ?? 0;
 
-  // Le badge compte les **documents**, pas les réponses : « 2 documents à
-  // relire » se traite, « 39 réponses » se subit — et c'est bien deux diffs
-  // qu'il faut lire, pas trente-neuf.
+  // Le badge compte les **documents**, pas les réponses.
   const { data: compteurARelire } = useQuery({
     queryKey: ["reponses-a-relire", "count"],
     queryFn: () => getReponsesARelire({ page: 1, limit: 1 }),
@@ -266,8 +261,6 @@ export default function SavedAnswers() {
   });
   const nbDocsARelire = compteurARelire?.nb_documents ?? 0;
 
-  // Éditer une réponse signalée vaut jugement : le drapeau tombe côté backend,
-  // les deux listes bougent.
   const editMutation = useMutation({
     mutationFn: ({ id, contenu }: { id: string; contenu: string }) =>
       editerReponseCanonique(id, { contenu }),
@@ -296,7 +289,6 @@ export default function SavedAnswers() {
     },
   });
 
-  // Retirer bascule vers les obsolètes, d'où la réponse reste restaurable.
   const retirerMutation = useMutation({
     mutationFn: (id: string) => retirerReponse(id),
     onSuccess: () => {
@@ -316,7 +308,6 @@ export default function SavedAnswers() {
     },
   });
 
-  // Une réponse restaurée réapparaît côté canoniques : les deux listes bougent.
   const restoreMutation = useMutation({
     mutationFn: (id: string) => restaurerReponse(id),
     onSuccess: () => {
@@ -333,12 +324,21 @@ export default function SavedAnswers() {
   const totalPages = Math.ceil(total / LIMIT);
   const from = (page - 1) * LIMIT + 1;
   const to = Math.min(page * LIMIT, total);
-  const nbColonnes = onglet === "canoniques" ? 4 : 5;
   const groupes = grouper(aRelire.data?.items ?? []);
+
+  // Filtrage client-side sur la page courante
+  const q = searchQuery.trim().toLowerCase();
+  const canoniquesItems = (canoniques.data?.items ?? []).filter(
+    (r) => !q || r.question.toLowerCase().includes(q)
+  );
+  const obsoletesItems = (obsoletes.data?.items ?? []).filter(
+    (r) => !q || r.question.toLowerCase().includes(q)
+  );
 
   function changerOnglet(cible: Onglet) {
     setOnglet(cible);
     setPage(1);
+    setSearchQuery("");
     cancelEdit();
   }
 
@@ -376,6 +376,7 @@ export default function SavedAnswers() {
 
       {/* Card */}
       <div className="glass-card rounded-2xl overflow-hidden">
+        {/* Tabs */}
         <div
           className="flex items-center gap-1 px-4 border-b border-gray-200 dark:border-white/10"
           role="tablist"
@@ -419,6 +420,7 @@ export default function SavedAnswers() {
           </button>
         </div>
 
+        {/* Bandeaux contextuels */}
         {onglet === "obsoletes" && (
           <p className="px-6 py-3 text-sm text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-white/10">
             Ces réponses ne sont plus servies : le passage du document sur lequel
@@ -445,6 +447,50 @@ export default function SavedAnswers() {
           </div>
         )}
 
+        {/* Barre de recherche — Canoniques & Obsolètes */}
+        {onglet !== "a_relire" && (
+          <div className="px-6 py-3 border-b border-gray-200 dark:border-white/10">
+            <div className="relative max-w-sm">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                aria-hidden="true"
+              />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Chercher par question…"
+                aria-label="Chercher par question"
+                className="w-full pl-8 pr-8 py-1.5 text-sm rounded-xl border border-gray-200 dark:border-white/15 bg-white/60 dark:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 placeholder:text-gray-400"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Effacer la recherche"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Bandeau de stats — Canoniques */}
+        {onglet === "canoniques" && !loading && !error && total > 0 && (
+          <div className="px-6 py-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-white/10">
+            <span>
+              {total} réponse{total > 1 ? "s" : ""} canonique{total > 1 ? "s" : ""} active{total > 1 ? "s" : ""}
+            </span>
+            {q && (
+              <span className="text-emerald-600 dark:text-emerald-400">
+                · {canoniquesItems.length} résultat{canoniquesItems.length !== 1 ? "s" : ""} sur cette page
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ── Onglet À relire ── */}
         {onglet === "a_relire" && (
           <div className="divide-y divide-gray-200 dark:divide-white/5">
             {loading && (
@@ -472,179 +518,175 @@ export default function SavedAnswers() {
                     return next;
                   });
                 return (
-                <section key={g.cle} className="px-6 py-5 space-y-4">
-                  <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <button
-                        onClick={toggleGroupe}
-                        className="min-w-0 flex-1 text-left"
-                        aria-expanded={ouvert}
-                      >
-                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-300 truncate flex items-center gap-1.5">
-                          {g.filename ?? "Document inconnu"}
-                          {g.version !== null && (
-                            <span className="font-normal text-amber-900/70 dark:text-amber-200/70">
-                              v{g.version}
-                            </span>
-                          )}
-                          {ouvert ? (
-                            <ChevronUp size={14} className="shrink-0 text-amber-700/60 dark:text-amber-300/60" />
-                          ) : (
-                            <ChevronDown size={14} className="shrink-0 text-amber-700/60 dark:text-amber-300/60" />
-                          )}
-                        </p>
-                        <p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-200/80">
-                          {g.reponses.length} réponse{g.reponses.length > 1 ? "s" : ""} sur cette
-                          page
-                          {g.document_supprime && " — document supprimé depuis"}
-                        </p>
-                      </button>
-                      {g.doc_id !== null && g.version !== null && (
+                  <section key={g.cle} className="px-6 py-5 space-y-4">
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
                         <button
-                          onClick={() =>
-                            confirmLotMutation.mutate({ doc_id: g.doc_id!, version: g.version! })
-                          }
-                          disabled={confirmLotMutation.isPending}
-                          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          onClick={toggleGroupe}
+                          className="min-w-0 flex-1 text-left"
+                          aria-expanded={ouvert}
                         >
-                          <CheckCircle2 size={15} />
-                          Tout confirmer
+                          <p className="text-sm font-semibold text-amber-900 dark:text-amber-300 truncate flex items-center gap-1.5">
+                            {g.filename ?? "Document inconnu"}
+                            {g.version !== null && (
+                              <span className="font-normal text-amber-900/70 dark:text-amber-200/70">
+                                v{g.version}
+                              </span>
+                            )}
+                            {ouvert ? (
+                              <ChevronUp size={14} className="shrink-0 text-amber-700/60 dark:text-amber-300/60" />
+                            ) : (
+                              <ChevronDown size={14} className="shrink-0 text-amber-700/60 dark:text-amber-300/60" />
+                            )}
+                          </p>
+                          <p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-200/80">
+                            {g.reponses.length} réponse{g.reponses.length > 1 ? "s" : ""} sur cette
+                            page
+                            {g.document_supprime && " — document supprimé depuis"}
+                          </p>
                         </button>
+                        {g.doc_id !== null && g.version !== null && (
+                          <button
+                            onClick={() =>
+                              confirmLotMutation.mutate({ doc_id: g.doc_id!, version: g.version! })
+                            }
+                            disabled={confirmLotMutation.isPending}
+                            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <CheckCircle2 size={15} />
+                            Tout confirmer
+                          </button>
+                        )}
+                      </div>
+
+                      {ouvert && (
+                        estRaisonDeGroupe(g.raison) ? (
+                          <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                            {RAISONS[g.raison!]} Ces réponses sont signalées par précaution.
+                          </p>
+                        ) : g.changements ? (
+                          <>
+                            <SensDuChangement
+                              titre="ajouté"
+                              total={g.changements.nb_ajoutes}
+                              extraits={g.changements.extraits_ajoutes}
+                            />
+                            <SensDuChangement
+                              titre="retiré"
+                              total={g.changements.nb_retires}
+                              extraits={g.changements.extraits_retires}
+                            />
+                          </>
+                        ) : (
+                          <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                            Le détail de cette mise à jour n'a pas été conservé.
+                          </p>
+                        )
                       )}
                     </div>
 
-                    {ouvert && (
-                      estRaisonDeGroupe(g.raison) ? (
-                        // Le signalement dit lui-même pourquoi il est bruyant : sans
-                        // ça, un onglet plein sans un seul extrait passerait pour un bug.
-                        <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-                          {RAISONS[g.raison!]} Ces réponses sont signalées par précaution.
-                        </p>
-                      ) : g.changements ? (
-                        <>
-                          <SensDuChangement
-                            titre="ajouté"
-                            total={g.changements.nb_ajoutes}
-                            extraits={g.changements.extraits_ajoutes}
-                          />
-                          <SensDuChangement
-                            titre="retiré"
-                            total={g.changements.nb_retires}
-                            extraits={g.changements.extraits_retires}
-                          />
-                        </>
-                      ) : (
-                        <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-                          Le détail de cette mise à jour n'a pas été conservé.
-                        </p>
-                      )
-                    )}
-                  </div>
-
-                  <ul className="space-y-2">
-                    {g.reponses.map((r) => {
-                      const isEditing = editingId === r.reponse_id;
-                      return (
-                        <li
-                          key={r.reponse_id}
-                          className="rounded-xl border border-gray-200 dark:border-white/10 px-4 py-3 space-y-2"
-                        >
-                          <div className="flex items-start gap-2">
-                            <p className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-100">
-                              {r.question}
-                            </p>
-                            {r.canonique && (
-                              <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                                canonique
+                    <ul className="space-y-2">
+                      {g.reponses.map((r) => {
+                        const isEditing = editingId === r.reponse_id;
+                        return (
+                          <li
+                            key={r.reponse_id}
+                            className="rounded-xl border border-gray-200 dark:border-white/10 px-4 py-3 space-y-2"
+                          >
+                            <div className="flex items-start gap-2">
+                              <p className="flex-1 min-w-0 text-sm font-medium text-gray-800 dark:text-gray-100">
+                                {r.question}
+                              </p>
+                              {r.canonique && (
+                                <span className="shrink-0 px-1.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                                  canonique
+                                </span>
+                              )}
+                              <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                                {r.nb_validations} val.
                               </span>
-                            )}
-                            <span className="shrink-0 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
-                              {r.nb_validations} val.
-                            </span>
-                          </div>
+                            </div>
 
-                          {isEditing ? (
-                            <textarea
-                              value={draft}
-                              onChange={(e) => setDraft(e.target.value)}
-                              rows={6}
-                              autoFocus
-                              className="w-full rounded-xl border border-gray-200 dark:border-white/15 bg-white/70 dark:bg-white/5 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                            />
-                          ) : (
-                            <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-                              {contenuServi(r)}
-                            </p>
-                          )}
-
-                          <MotifSignalement reponse={r} />
-
-                          {/* `ANALYSE_EN_COURS` est transitoire : proposer de trancher
-                              maintenant reviendrait à faire juger l'humain avant la
-                              machine, et sa décision serait écrasée dans deux minutes. */}
-                          {r.a_relire_raison === EN_ANALYSE ? (
-                            <p className="text-right text-[11px] text-gray-400 dark:text-gray-500">
-                              Résultat dans quelques minutes.
-                            </p>
-                          ) : (
-                          <div className="flex items-center justify-end gap-1.5">
                             {isEditing ? (
-                              <>
-                                <button
-                                  onClick={() => saveEdit(r.reponse_id)}
-                                  disabled={!draft.trim() || editMutation.isPending}
-                                  title="Enregistrer"
-                                  aria-label="Enregistrer"
-                                  className="p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <Check size={16} />
-                                </button>
-                                <button
-                                  onClick={cancelEdit}
-                                  title="Annuler"
-                                  aria-label="Annuler"
-                                  className="p-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                                >
-                                  <X size={16} />
-                                </button>
-                              </>
+                              <textarea
+                                value={draft}
+                                onChange={(e) => setDraft(e.target.value)}
+                                rows={6}
+                                autoFocus
+                                className="w-full rounded-xl border border-gray-200 dark:border-white/15 bg-white/70 dark:bg-white/5 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                              />
                             ) : (
-                              <>
-                                <button
-                                  onClick={() => confirmMutation.mutate(r.reponse_id)}
-                                  disabled={confirmMutation.isPending}
-                                  title="Toujours d'actualité : lever le signalement"
-                                  aria-label="Toujours d'actualité"
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <CheckCircle2 size={15} />
-                                  Toujours d'actualité
-                                </button>
-                                <button
-                                  onClick={() => startEdit(r)}
-                                  title="Modifier"
-                                  aria-label="Modifier la réponse"
-                                  className="p-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                                >
-                                  <Pencil size={16} />
-                                </button>
-                                <button
-                                  onClick={() => setRetraitTarget(r)}
-                                  title="Retirer du service"
-                                  aria-label="Retirer la réponse du service"
-                                  className="p-1.5 rounded-lg border border-amber-200 dark:border-amber-500/25 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
-                                >
-                                  <EyeOff size={16} />
-                                </button>
-                              </>
+                              <ExpandableText text={contenuServi(r)} />
                             )}
-                          </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
+
+                            <MotifSignalement reponse={r} />
+
+                            {/* `ANALYSE_EN_COURS` est transitoire : proposer de trancher
+                                maintenant reviendrait à faire juger l'humain avant la
+                                machine, et sa décision serait écrasée dans deux minutes. */}
+                            {r.a_relire_raison === EN_ANALYSE ? (
+                              <p className="text-right text-xs text-gray-400 dark:text-gray-500">
+                                Résultat dans quelques minutes.
+                              </p>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1.5">
+                                {isEditing ? (
+                                  <>
+                                    <button
+                                      onClick={() => saveEdit(r.reponse_id)}
+                                      disabled={!draft.trim() || editMutation.isPending}
+                                      title="Enregistrer"
+                                      aria-label="Enregistrer"
+                                      className="p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                      <Check size={16} />
+                                    </button>
+                                    <button
+                                      onClick={cancelEdit}
+                                      title="Annuler"
+                                      aria-label="Annuler"
+                                      className="p-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                                    >
+                                      <X size={16} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => confirmMutation.mutate(r.reponse_id)}
+                                      disabled={confirmMutation.isPending}
+                                      title="Toujours d'actualité : lever le signalement"
+                                      aria-label="Toujours d'actualité"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                      <CheckCircle2 size={15} />
+                                      Toujours d'actualité
+                                    </button>
+                                    <button
+                                      onClick={() => startEdit(r)}
+                                      title="Modifier"
+                                      aria-label="Modifier la réponse"
+                                      className="p-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                                    >
+                                      <Pencil size={16} />
+                                    </button>
+                                    <button
+                                      onClick={() => setRetraitTarget(r)}
+                                      title="Retirer du service"
+                                      aria-label="Retirer la réponse du service"
+                                      className="p-1.5 rounded-lg border border-amber-200 dark:border-amber-500/25 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
+                                    >
+                                      <EyeOff size={16} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
                 );
               })}
 
@@ -656,236 +698,244 @@ export default function SavedAnswers() {
           </div>
         )}
 
-        {onglet !== "a_relire" && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-green-100 dark:bg-emerald-400/10 text-green-700 dark:text-emerald-300 text-left">
-                <th className="px-6 py-3 font-medium">Question</th>
-                <th className="px-6 py-3 font-medium">Réponse servie</th>
-                {onglet === "canoniques" ? (
-                  <th className="px-6 py-3 font-medium text-center whitespace-nowrap">Fois posée</th>
-                ) : (
-                  <>
-                    <th className="px-6 py-3 font-medium">Document</th>
-                    <th className="px-6 py-3 font-medium whitespace-nowrap">Depuis</th>
-                  </>
-                )}
-                <th className="px-6 py-3 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-white/5">
-              {loading && (
-                <tr>
-                  <td colSpan={nbColonnes} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    Chargement…
-                  </td>
-                </tr>
-              )}
-              {error && (
-                <tr>
-                  <td colSpan={nbColonnes} className="px-6 py-12 text-center text-red-600 dark:text-red-400">
-                    {error instanceof Error ? error.message : "Erreur de chargement"}
-                  </td>
-                </tr>
-              )}
-              {!loading && !error && total === 0 && (
-                <tr>
-                  <td colSpan={nbColonnes} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    {onglet === "canoniques"
-                      ? "Aucune réponse enregistrée"
-                      : "Aucune réponse obsolète"}
-                  </td>
-                </tr>
-              )}
+        {/* ── Onglet Canoniques — liste de cartes ── */}
+        {onglet === "canoniques" && (
+          <div className="divide-y divide-gray-200 dark:divide-white/5">
+            {loading && (
+              <p className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">Chargement…</p>
+            )}
+            {error && (
+              <p className="px-6 py-12 text-center text-red-600 dark:text-red-400">
+                {error instanceof Error ? error.message : "Erreur de chargement"}
+              </p>
+            )}
+            {!loading && !error && total === 0 && (
+              <p className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                Aucune réponse enregistrée
+              </p>
+            )}
+            {!loading && !error && total > 0 && canoniquesItems.length === 0 && q && (
+              <p className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                Aucun résultat pour « {searchQuery} » sur cette page.
+              </p>
+            )}
 
-              {!loading &&
-                onglet === "canoniques" &&
-                (canoniques.data?.items ?? []).map((r) => {
-                  const isEditing = editingId === r.reponse_id;
-                  return (
-                    <tr
-                      key={r.reponse_id}
-                      className="align-top hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                    >
-                      <td className="px-6 py-4 text-gray-700 dark:text-gray-200">
-                        <span className="block max-w-xs" title={r.question}>
-                          {r.question}
-                        </span>
-                        {/* Elle est encore servie, donc encore ici : la pastille est
-                            le seul endroit où cet écran dit qu'elle n'est plus acquise. */}
+            {!loading &&
+              canoniquesItems.map((r) => {
+                const isEditing = editingId === r.reponse_id;
+                return (
+                  <article
+                    key={r.reponse_id}
+                    className="px-6 py-4 space-y-2.5 hover:bg-gray-50/60 dark:hover:bg-white/[0.02] transition-colors"
+                  >
+                    {/* En-tête : question + badges */}
+                    <div className="flex items-start gap-2">
+                      <p className="flex-1 min-w-0 text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">
+                        {r.question}
+                      </p>
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {r.a_relire && (
                           <button
                             onClick={() => changerOnglet("a_relire")}
-                            className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-400/25 transition-colors"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-400/25 transition-colors"
                             title="Le document source a changé — voir l'onglet À relire"
                           >
-                            <AlertTriangle size={11} aria-hidden="true" />À relire
+                            <AlertTriangle size={11} aria-hidden="true" />
+                            À relire
                           </button>
                         )}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                        {isEditing ? (
-                          <textarea
-                            value={draft}
-                            onChange={(e) => setDraft(e.target.value)}
-                            rows={5}
-                            autoFocus
-                            className="w-full min-w-[18rem] rounded-xl border border-gray-200 dark:border-white/15 bg-white/70 dark:bg-white/5 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                          />
-                        ) : (
-                          <span className="block max-w-md whitespace-pre-wrap">
-                            {contenuServi(r)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-center whitespace-nowrap">
                         <span
                           className="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-medium tabular-nums bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
                           title={`Réponse auto-servie ${r.occurence} fois`}
                         >
-                          {r.occurence}
+                          {r.occurence}×
                         </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {isEditing ? (
-                            <>
-                              <button
-                                onClick={() => saveEdit(r.reponse_id)}
-                                disabled={!draft.trim() || editMutation.isPending}
-                                title="Enregistrer"
-                                aria-label="Enregistrer"
-                                className="p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                              >
-                                <Check size={16} />
-                              </button>
-                              <button
-                                onClick={cancelEdit}
-                                title="Annuler"
-                                aria-label="Annuler"
-                                className="p-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                              >
-                                <X size={16} />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => startEdit(r)}
-                                title="Modifier"
-                                aria-label="Modifier la réponse"
-                                className="p-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                              >
-                                <Pencil size={16} />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  setDeleteTarget({
-                                    reponse_id: r.reponse_id,
-                                    question: r.question,
-                                    obsolete: false,
-                                  })
-                                }
-                                title="Supprimer"
-                                aria-label="Supprimer la réponse"
-                                className="p-1.5 rounded-lg border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                      </div>
+                    </div>
 
-              {!loading &&
-                onglet === "obsoletes" &&
-                (obsoletes.data?.items ?? []).map((r: ReponseObsolete) => (
-                  <tr
-                    key={r.reponse_id}
-                    className="align-top hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                  >
-                    <td className="px-6 py-4 text-gray-700 dark:text-gray-200">
-                      <span className="block max-w-xs" title={r.question}>
-                        {r.question}
+                    {/* Corps : réponse éditable ou tronquée */}
+                    {isEditing ? (
+                      <textarea
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        rows={6}
+                        autoFocus
+                        className="w-full rounded-xl border border-gray-200 dark:border-white/15 bg-white/70 dark:bg-white/5 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                      />
+                    ) : (
+                      <ExpandableText text={contenuServi(r)} />
+                    )}
+
+                    {/* Pied : méta + actions */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                        {r.nb_validations} validation{r.nb_validations > 1 ? "s" : ""}
+                        {r.validated_at && (
+                          <span
+                            className="ml-1"
+                            title={formatDate(r.validated_at)}
+                          >
+                            · {depuis(r.validated_at)}
+                          </span>
+                        )}
                       </span>
-                      <span className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center gap-1.5">
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => saveEdit(r.reponse_id)}
+                              disabled={!draft.trim() || editMutation.isPending}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <Check size={14} />
+                              Enregistrer
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                            >
+                              <X size={14} />
+                              Annuler
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => startEdit(r)}
+                              title="Modifier"
+                              aria-label="Modifier la réponse"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                            >
+                              <Pencil size={13} />
+                              Modifier
+                            </button>
+                            <button
+                              onClick={() =>
+                                setDeleteTarget({
+                                  reponse_id: r.reponse_id,
+                                  question: r.question,
+                                  obsolete: false,
+                                })
+                              }
+                              title="Supprimer"
+                              aria-label="Supprimer la réponse"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-300 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                            >
+                              <Trash2 size={13} />
+                              Supprimer
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+          </div>
+        )}
+
+        {/* ── Onglet Obsolètes — liste de cartes ── */}
+        {onglet === "obsoletes" && (
+          <div className="divide-y divide-gray-200 dark:divide-white/5">
+            {loading && (
+              <p className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">Chargement…</p>
+            )}
+            {error && (
+              <p className="px-6 py-12 text-center text-red-600 dark:text-red-400">
+                {error instanceof Error ? error.message : "Erreur de chargement"}
+              </p>
+            )}
+            {!loading && !error && total === 0 && (
+              <p className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                Aucune réponse obsolète
+              </p>
+            )}
+            {!loading && !error && total > 0 && obsoletesItems.length === 0 && q && (
+              <p className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                Aucun résultat pour « {searchQuery} » sur cette page.
+              </p>
+            )}
+
+            {!loading &&
+              obsoletesItems.map((r: ReponseObsolete) => (
+                <article
+                  key={r.reponse_id}
+                  className="px-6 py-4 space-y-2.5 hover:bg-gray-50/60 dark:hover:bg-white/[0.02] transition-colors"
+                >
+                  {/* En-tête */}
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug">
+                        {r.question}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                         {r.canonique && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-medium">
                             canonique
                           </span>
                         )}
-                        {r.nb_validations} validation{r.nb_validations > 1 ? "s" : ""}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                      <span className="block max-w-md whitespace-pre-wrap">{contenuServi(r)}</span>
-                      {/* Le retrait est sec — aucune correction n'est rédigée à la
-                          place. C'est cette phrase qui le rend défendable : sans
-                          elle, on voit une réponse disparue et rien qui dise pourquoi. */}
-                      {r.analyse_justification && (
-                        <span className="mt-1.5 flex max-w-md items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
-                          <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-                          <span>{r.analyse_justification}</span>
+                        <span>{r.nb_validations} validation{r.nb_validations > 1 ? "s" : ""}</span>
+                        <span className="text-gray-300 dark:text-gray-600">·</span>
+                        <span
+                          className="truncate max-w-[14rem]"
+                          title={r.document_filename ?? undefined}
+                        >
+                          {r.document_filename ?? "Document inconnu"}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                      <span
-                        className="block max-w-[12rem] truncate"
-                        title={r.document_filename ?? undefined}
-                      >
-                        {r.document_filename ?? "Document inconnu"}
-                      </span>
-                      <span className="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300">
-                        {r.document_supprime
-                          ? "supprimé"
-                          : r.obsolete_version
-                            ? `v${r.obsolete_version}`
-                            : "mis à jour"}
-                      </span>
-                    </td>
-                    <td
-                      className="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-400"
-                      title={formatDate(r.obsolete_at)}
-                    >
-                      {depuis(r.obsolete_at)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => restoreMutation.mutate(r.reponse_id)}
-                          disabled={restoreMutation.isPending}
-                          title="Restaurer : remettre cette réponse en service"
-                          aria-label="Restaurer la réponse"
-                          className="p-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 shrink-0">
+                          {r.document_supprime
+                            ? "supprimé"
+                            : r.obsolete_version
+                              ? `v${r.obsolete_version}`
+                              : "mis à jour"}
+                        </span>
+                        <span
+                          className="shrink-0"
+                          title={r.obsolete_at ? formatDate(r.obsolete_at) : undefined}
                         >
-                          <RotateCcw size={16} />
-                        </button>
-                        <button
-                          onClick={() =>
-                            setDeleteTarget({
-                              reponse_id: r.reponse_id,
-                              question: r.question,
-                              obsolete: true,
-                            })
-                          }
-                          title="Supprimer définitivement"
-                          aria-label="Supprimer définitivement la réponse"
-                          className="p-1.5 rounded-lg border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                          {depuis(r.obsolete_at)}
+                        </span>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </div>
+
+                  {/* Corps */}
+                  <ExpandableText text={contenuServi(r)} />
+
+                  {r.analyse_justification && (
+                    <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                      <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                      <span>{r.analyse_justification}</span>
+                    </p>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button
+                      onClick={() => restoreMutation.mutate(r.reponse_id)}
+                      disabled={restoreMutation.isPending}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <RotateCcw size={13} />
+                      Restaurer
+                    </button>
+                    <button
+                      onClick={() =>
+                        setDeleteTarget({
+                          reponse_id: r.reponse_id,
+                          question: r.question,
+                          obsolete: true,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-300 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                    >
+                      <Trash2 size={13} />
+                      Supprimer
+                    </button>
+                  </div>
+                </article>
+              ))}
+          </div>
         )}
 
         {restoreMutation.isError && (
@@ -922,8 +972,7 @@ export default function SavedAnswers() {
         )}
       </div>
 
-      {/* Retirer du service : moins qu'une suppression, et réversible — la modale
-          doit le dire, sinon on hésitera et l'onglet ne se videra pas. */}
+      {/* Retirer du service */}
       {retraitTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
