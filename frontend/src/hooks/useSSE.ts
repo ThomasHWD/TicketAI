@@ -87,6 +87,41 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
 
     case "saved_answers_updated":
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      // Restauration et suppression font passer une réponse d'une liste à l'autre.
+      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
+      // Confirmer, corriger ou retirer lève le drapeau : le badge doit tomber
+      // chez les autres validateurs du domaine, pas seulement chez l'auteur.
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      break;
+
+    // Fin du job de mise à jour : la version, les chunks et éventuellement des
+    // réponses enregistrées ont bougé en même temps.
+    case "document_updated":
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
+      // C'est ici que la liste « À relire » se remplit : le job vient de flaguer
+      // les réponses du document, l'onglet doit le montrer sans rechargement.
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      if (payload.doc_id) {
+        queryClient.invalidateQueries({ queryKey: ["doc-versions", payload.doc_id] });
+      }
+      break;
+
+    // La ré-vérification commence : les réponses concernées viennent de passer
+    // en « analyse en cours », un état sur lequel aucune action n'est proposée.
+    case "reverification_started":
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      break;
+
+    // Elle se termine : c'est le seul moment où des réponses sont réellement
+    // retirées du service. Les trois listes bougent d'un coup — un drapeau levé
+    // rend une réponse à Canoniques, un verdict de contradiction l'envoie dans
+    // Obsolètes, et le badge doit suivre.
+    case "reverification_done":
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
       break;
 
     case "job_completed":

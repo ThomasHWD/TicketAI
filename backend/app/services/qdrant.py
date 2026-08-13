@@ -57,6 +57,22 @@ def init_collection():
     )
     print("Index payload 'content_hash' assuré.")
 
+    # Index payload pour cibler un document et une version — sans eux, les filtres
+    # (doc_id, version) de la mise à jour dégénèrent en scan complet de la collection.
+    client.create_payload_index(
+        collection_name=COLLECTION_NAME,
+        field_name="doc_id",
+        field_schema="keyword",
+    )
+    print("Index payload 'doc_id' assuré.")
+
+    client.create_payload_index(
+        collection_name=COLLECTION_NAME,
+        field_name="version",
+        field_schema="integer",
+    )
+    print("Index payload 'version' assuré.")
+
 
 def delete_response_point(reponse_id: str) -> None:
     """Supprime de Qdrant le point associé à une réponse.

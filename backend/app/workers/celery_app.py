@@ -8,8 +8,10 @@ celery_app = Celery(
     backend=settings.valkey_url,
     include=[
         "app.workers.ingestion",
+        "app.workers.document_update",
         "app.workers.question",
         "app.workers.feedback",
+        "app.workers.reverification",
     ],
 )
 

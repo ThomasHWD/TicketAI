@@ -18,6 +18,12 @@ export {
 export {
   getReponsesEnAttente,
   getReponsesCanoniques,
+  getReponsesObsoletes,
+  getReponsesARelire,
+  confirmerActualite,
+  confirmerActualiteLot,
+  retirerReponse,
+  restaurerReponse,
   editerReponseCanonique,
   supprimerReponseCanonique,
   validerReponse,
@@ -26,11 +32,18 @@ export {
 } from "./reponses";
 
 export {
+  DocumentHomonymeError,
   uploadDocument,
+  previewDocumentUpdate,
+  confirmDocumentUpdate,
   getDocumentStatus,
   listDocuments,
   getDocumentChunks,
   deleteDocument,
+  downloadDocument,
+  getDocumentVersions,
+  downloadDocumentVersion,
+  restoreDocumentVersion,
 } from "./documents";
 
 export type { MembreGroupe } from "./assignation";

@@ -65,6 +65,31 @@ def test_verifier_auto_validation_autorise_si_user_different():
     verifier_auto_validation(reponse, uuid.uuid4(), ticket)  # ne doit pas lever
 
 
+def _db_sans_ticket():
+    """Session dont la recherche de ticket ne trouve rien."""
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = None
+    return db
+
+
+def test_check_reponse_write_sans_ticket_renvoie_409():
+    """Sans ticket, il n'y a aucun domaine à confronter : personne ne passe.
+
+    L'admin non plus — lui accorder ce cas rouvrirait par la petite porte
+    l'exception que `check_domain_write` refuse partout ailleurs.
+    """
+    from app.api.v1.reponses import check_reponse_write
+    from fastapi import HTTPException
+
+    admin = MagicMock()
+    admin.role = "ADMIN"
+
+    with pytest.raises(HTTPException) as exc:
+        check_reponse_write(_db_sans_ticket(), make_reponse(), admin)
+
+    assert exc.value.status_code == 409
+
+
 def test_etats_finaux_complets():
     from app.api.v1.reponses import ETATS_FINAUX
 
