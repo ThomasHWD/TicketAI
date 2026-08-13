@@ -63,7 +63,8 @@ def get_groupe_membres_stats(
                     Reponse.validated_at >= curr_start,
                     Reponse.validated_at < curr_end,
                 )
-                .scalar() or 0
+                .scalar()
+                or 0
             )
 
             nb_documents = (
@@ -74,18 +75,21 @@ def get_groupe_membres_stats(
                     DocumentUpload.created_at >= curr_start,
                     DocumentUpload.created_at < curr_end,
                 )
-                .scalar() or 0
+                .scalar()
+                or 0
             )
 
-            membres.append({
-                "id": str(user.id),
-                "email": user.email,
-                "prenom": user.prenom,
-                "nom": user.nom,
-                "is_chef": is_chef_flag,
-                "nb_reponses_validees": nb_reponses,
-                "nb_documents": nb_documents,
-            })
+            membres.append(
+                {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "prenom": user.prenom,
+                    "nom": user.nom,
+                    "is_chef": is_chef_flag,
+                    "nb_reponses_validees": nb_reponses,
+                    "nb_documents": nb_documents,
+                }
+            )
 
         return {
             "groupe": {"id": str(groupe.id), "nom": groupe.nom, "domaine": groupe.domaine},

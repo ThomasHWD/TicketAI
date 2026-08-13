@@ -33,6 +33,18 @@ def check_ticket_read(ticket: Ticket, current_user: User) -> None:
         raise HTTPException(403, "Vous n'avez pas accès à ce ticket.")
 
 
+def check_domain_read(domaine: str, current_user: User) -> None:
+    """Lecture d'une ressource rattachée à un domaine (document, chunk, fichier).
+
+    Même règle que ``check_ticket_read`` : l'admin voit tout, les autres sont
+    limités à leurs domaines.
+    """
+    if current_user.role == "ADMIN":
+        return
+    if domaine not in user_domaines(current_user):
+        raise HTTPException(403, f"Vous n'avez pas accès au domaine {domaine}.")
+
+
 def check_domain_write(domaine: str, current_user: User) -> None:
     """Action d'écriture sur un domaine.
 

@@ -23,9 +23,7 @@ QUESTIONS = [
 
 
 def soumettre_question(question: str) -> dict:
-    response = httpx.post(
-        f"{BASE_URL}/tickets", json={"question": question, "domaine": "IT"}, timeout=10
-    )
+    response = httpx.post(f"{BASE_URL}/tickets", json={"question": question, "domaine": "IT"}, timeout=10)
     response.raise_for_status()
     return response.json()
 
@@ -41,9 +39,9 @@ def poller_statut(job_id: str, timeout: int = 120) -> dict:
     return {"statut_job": "TIMEOUT", "job_id": job_id}
 
 
-print(f"\n{'='*60}")
+print(f"\n{'=' * 60}")
 print("TEST DE CHARGE — 5 questions simultanées")
-print(f"{'='*60}\n")
+print(f"{'=' * 60}\n")
 
 # Soumission simultanée
 print("Soumission des 5 questions en parallèle...")
@@ -65,9 +63,9 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         result = f.result()
         resultats.append(result)
 
-print(f"{'='*60}")
+print(f"{'=' * 60}")
 print("RÉSULTATS")
-print(f"{'='*60}")
+print(f"{'=' * 60}")
 
 succes = 0
 echecs = 0
@@ -86,8 +84,8 @@ for r in resultats:
         timeouts += 1
         print(f"  ⏱  TIMEOUT | job_id={r['job_id'][:8]}...")
 
-print(f"\n{'='*60}")
+print(f"\n{'=' * 60}")
 print(f"Succès  : {succes}/5")
 print(f"Échecs  : {echecs}/5")
 print(f"Timeouts: {timeouts}/5")
-print(f"{'='*60}\n")
+print(f"{'=' * 60}\n")

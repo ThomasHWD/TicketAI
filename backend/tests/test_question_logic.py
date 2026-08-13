@@ -1,5 +1,7 @@
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -87,6 +89,56 @@ def test_upsert_ticket_met_a_jour_si_existant():
 
     db.add.assert_not_called()
     assert ticket.statut_job == "TERMINÉ"
+
+
+def test_upsert_ticket_cible_disparu_leve_une_erreur_nommee():
+    """Un ticket ciblé mais absent doit se dire, pas planter sur un `setattr`.
+
+    Le symptôme sans ça : `'NoneType' object has no attribute 'statut_job'`, levé
+    *après* la génération LLM, donc réessayé trois fois — quatre générations
+    payées pour un ticket qui n'existe plus. C'est ce qui saturait le quota Albert
+    et faisait tomber en 429 les questions légitimes.
+    """
+    from app.workers.question import TicketDisparu, _upsert_ticket
+
+    db = make_db()  # `first()` renvoie None : le ticket ciblé n'est pas là
+    disparu = uuid.uuid4()
+
+    with pytest.raises(TicketDisparu):
+        _upsert_ticket(db, uuid.uuid4(), ticket_id=disparu, statut_job="TERMINÉ")
+
+    db.add.assert_not_called()
+    db.flush.assert_not_called()
+
+
+def test_question_job_abandonne_un_ticket_supprime_avant_tout_appel_reseau():
+    """Le garde-fou doit tomber AVANT la recherche et la génération.
+
+    Vérifier l'existence à l'écriture ne suffirait pas : le pipeline aurait déjà
+    payé l'embedding, le rerank et le LLM. C'est l'ordre qui compte ici, pas le
+    seul fait de ne pas planter.
+    """
+    from app.workers.question import question_job
+
+    question_job.push_request(id=str(uuid.uuid4()), retries=0)
+    try:
+        with (
+            patch("app.workers.question._ticket_existe", return_value=False),
+            patch("app.workers.question.search_hybrid") as recherche,
+            patch("app.workers.question.generate") as generation,
+        ):
+            resultat = question_job.run(
+                question="Combien de jours de télétravail ?",
+                domaine="RH",
+                ticket_id=str(uuid.uuid4()),
+                retraiter=True,
+            )
+    finally:
+        question_job.pop_request()
+
+    assert resultat["statut"] == "IGNORÉ"
+    recherche.assert_not_called()
+    generation.assert_not_called()
 
 
 # ── Tests _upsert_reponse ──────────────────────────────────────────────────

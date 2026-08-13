@@ -11,6 +11,7 @@ Abonnement :
   VALIDATEUR  → + sse:domain:{domaine} pour chaque groupe
   ADMIN       → + sse:admin + psubscribe("sse:domain:*")  ← tous les domaines
 """
+
 import asyncio
 
 import redis.asyncio as aioredis

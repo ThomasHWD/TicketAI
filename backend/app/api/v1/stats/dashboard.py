@@ -47,7 +47,8 @@ def _count_nouveaux(db, start: datetime, end: datetime, domain_filters: list, re
             ~reponse_validee_exists,
             *domain_filters,
         )
-        .scalar() or 0
+        .scalar()
+        or 0
     )
 
 
@@ -61,7 +62,8 @@ def _count_en_cours(db, start: datetime, end: datetime, domain_filters: list, re
             reponse_validee_exists,
             *domain_filters,
         )
-        .scalar() or 0
+        .scalar()
+        or 0
     )
 
 
@@ -69,7 +71,8 @@ def _count_tickets_closed(db, start: datetime, end: datetime, domain_filters: li
     return (
         db.query(func.count(Ticket.id))
         .filter(Ticket.closed_at >= start, Ticket.closed_at < end, *domain_filters)
-        .scalar() or 0
+        .scalar()
+        or 0
     )
 
 
@@ -83,7 +86,8 @@ def _count_repondu_canonique(db, start: datetime, end: datetime, domain_filters:
             Reponse.created_at < end,
             *domain_filters,
         )
-        .scalar() or 0
+        .scalar()
+        or 0
     )
 
 
@@ -95,7 +99,8 @@ def _count_tickets_created(db, start: datetime, end: datetime, domain_filters: l
             Ticket.created_at < end,
             *domain_filters,
         )
-        .scalar() or 0
+        .scalar()
+        or 0
     )
 
 
@@ -168,12 +173,10 @@ def _build_graphiques_annee(db, curr_start, curr_end, today, domain_filters, rep
 
     year = today.year
     tickets_par_jour = [
-        {"date": f"{year}-{m:02d}-01", "count": tickets_month_dict.get((year, m), 0)}
-        for m in range(1, 13)
+        {"date": f"{year}-{m:02d}-01", "count": tickets_month_dict.get((year, m), 0)} for m in range(1, 13)
     ]
     traitement_par_jour = [
-        {"date": f"{year}-{m:02d}-01", "count": traitement_month_dict.get((year, m), 0)}
-        for m in range(1, 13)
+        {"date": f"{year}-{m:02d}-01", "count": traitement_month_dict.get((year, m), 0)} for m in range(1, 13)
     ]
     return tickets_par_jour, traitement_par_jour
 
@@ -265,9 +268,9 @@ def get_dashboard_stats(
         nb_clotures_rep = _count_tickets_closed(db, curr_start, curr_end, domain_filters)
         total_rep = (nb_nouveau_rep + nb_en_cours_rep + nb_clotures_rep) or 1
         repartition_statuts = [
-            {"statut": "NOUVEAU",  "count": nb_nouveau_rep,  "pct": round(nb_nouveau_rep  / total_rep * 100, 1)},
+            {"statut": "NOUVEAU", "count": nb_nouveau_rep, "pct": round(nb_nouveau_rep / total_rep * 100, 1)},
             {"statut": "EN COURS", "count": nb_en_cours_rep, "pct": round(nb_en_cours_rep / total_rep * 100, 1)},
-            {"statut": "CLOTURÉ",  "count": nb_clotures_rep, "pct": round(nb_clotures_rep / total_rep * 100, 1)},
+            {"statut": "CLOTURÉ", "count": nb_clotures_rep, "pct": round(nb_clotures_rep / total_rep * 100, 1)},
         ]
 
         # ── Répartition branches ─────────────────────────────────────────────────
@@ -284,14 +287,14 @@ def get_dashboard_stats(
             .all()
         )
         branch_counts = dict(branch_rows)
-        nb_canonique  = branch_counts.get("CANONIQUE", 0)
+        nb_canonique = branch_counts.get("CANONIQUE", 0)
         nb_suggestion = branch_counts.get("SUGGESTION", 0)
-        nb_llm        = branch_counts.get("LLM", 0)
+        nb_llm = branch_counts.get("LLM", 0)
         total_branches = (nb_canonique + nb_suggestion + nb_llm) or 1
         repartition_branches = [
-            {"branche": "CANONIQUE",  "count": nb_canonique,  "pct": round(nb_canonique  / total_branches * 100, 1)},
+            {"branche": "CANONIQUE", "count": nb_canonique, "pct": round(nb_canonique / total_branches * 100, 1)},
             {"branche": "SUGGESTION", "count": nb_suggestion, "pct": round(nb_suggestion / total_branches * 100, 1)},
-            {"branche": "LLM",        "count": nb_llm,        "pct": round(nb_llm        / total_branches * 100, 1)},
+            {"branche": "LLM", "count": nb_llm, "pct": round(nb_llm / total_branches * 100, 1)},
         ]
 
         # ── Graphiques ───────────────────────────────────────────────────────────

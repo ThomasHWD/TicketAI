@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Files,
@@ -11,10 +12,17 @@ import {
   ChevronRight,
   Search,
   Download,
+  History,
+  RefreshCw,
 } from "lucide-react";
-import { apiFetch, listDocuments, getDocumentChunks, deleteDocument } from "../../lib/api";
+import { apiFetch, listDocuments, getDocumentChunks, deleteDocument, downloadDocument } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import type { Domaine, IndexedDocument } from "../../types.ts";
+import UpdateDocModal from "./UpdateDocModal";
+import DocHistoryModal from "./DocHistoryModal";
+import type { Domaine, IndexedDocument, UpdateImpact } from "../../types.ts";
+
+const ACTION_BTN =
+  "p-2 rounded-lg border border-gray-300 dark:border-white/15 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors";
 
 async function fetchDomaines(): Promise<string[]> {
   const res = await apiFetch("/api/v1/admin/domaines");
@@ -197,9 +205,20 @@ export default function AllDocs() {
   const { userDomaines, user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
   const [domaine, setDomaine] = useState<Domaine | undefined>(undefined);
-  const [search, setSearch] = useState("");
+  // `?q=` pré-remplit la recherche : c'est ainsi que la page Ingestion renvoie
+  // vers un document déjà indexé, faute de route par `doc_id`.
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [viewing, setViewing] = useState<IndexedDocument | null>(null);
   const [confirming, setConfirming] = useState<IndexedDocument | null>(null);
+  const [updating, setUpdating] = useState<IndexedDocument | null>(null);
+  const [historyOf, setHistoryOf] = useState<IndexedDocument | null>(null);
+  // Restauration : l'aperçu est déjà calculé par l'historique, la modale de mise
+  // à jour s'ouvre directement dessus.
+  const [restauration, setRestauration] = useState<
+    { doc: IndexedDocument; impact: UpdateImpact } | null
+  >(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const { data: adminDomaines = [] } = useQuery({
     queryKey: ["admin", "domaines"],
@@ -321,7 +340,14 @@ export default function AllDocs() {
                   {docs.length} document{docs.length > 1 ? "s" : ""}
                   {terms.length && data && docs.length !== data.total ? ` sur ${data.total}` : ""}
                 </p>
-                {docs.map((doc) => (
+                {docs.map((doc) => {
+                  const enMaj = doc.statut === "EN_MAJ";
+                  // Miroir de `check_domain_write` côté serveur : proposer un bouton
+                  // qui répondrait 403 serait une invitation à l'échec. L'admin n'y
+                  // fait pas exception — il voit tous les documents, il n'agit que
+                  // sur ceux de ses domaines.
+                  const peutEcrire = userDomaines.includes(doc.domaine ?? "");
+                  return (
                   <div
                     key={doc.doc_id}
                     className="flex items-center gap-4 px-4 py-3.5 rounded-xl border border-black/[0.06] dark:border-white/10 bg-white/60 dark:bg-white/[0.03] hover:bg-white/80 dark:hover:bg-white/[0.05] transition-colors"
@@ -336,37 +362,73 @@ export default function AllDocs() {
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {doc.nb_chunks} chunk{doc.nb_chunks > 1 ? "s" : ""}
-                      </span>
-                      <button
-                        onClick={() => setViewing(doc)}
-                        title="Voir les chunks"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-white/15 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
-                      >
-                        <Eye size={13} />
-                        Voir
+                      {enMaj ? (
+                        <span className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium bg-amber-100 dark:bg-amber-400/15 text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                          <Loader2 size={12} className="animate-spin" />
+                          Mise à jour en cours…
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          v{doc.version} — {doc.nb_chunks} chunk{doc.nb_chunks > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {/* Cinq actions : les libellés ne tiennent plus sur la ligne,
+                          l'intitulé passe donc en infobulle. */}
+                      <div className="flex items-center gap-1.5">
+                      <button onClick={() => setViewing(doc)} title="Voir les chunks" className={ACTION_BTN}>
+                        <Eye size={14} />
                       </button>
-                      <a
-                        href={`/api/v1/documents/${doc.doc_id}/download`}
-                        download={doc.filename ?? undefined}
-                        title="Télécharger"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-white/15 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
-                      >
-                        <Download size={13} />
-                        Télécharger
-                      </a>
                       <button
-                        onClick={() => setConfirming(doc)}
-                        title="Supprimer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 dark:border-red-500/25 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                        onClick={async () => {
+                          setDownloading(doc.doc_id);
+                          try {
+                            await downloadDocument(doc.doc_id, doc.filename);
+                          } finally {
+                            setDownloading(null);
+                          }
+                        }}
+                        disabled={downloading === doc.doc_id}
+                        title="Télécharger la version courante"
+                        className={ACTION_BTN}
                       >
-                        <Trash2 size={13} />
-                        Supprimer
+                        {downloading === doc.doc_id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Download size={14} />
+                        )}
                       </button>
+                      <button
+                        onClick={() => setHistoryOf(doc)}
+                        title={`Historique des versions (${doc.nb_versions})`}
+                        className={ACTION_BTN}
+                      >
+                        <History size={14} />
+                      </button>
+                      {peutEcrire && (
+                        <button
+                          onClick={() => setUpdating(doc)}
+                          disabled={enMaj}
+                          title="Mettre à jour : remplacer par une nouvelle version"
+                          className={ACTION_BTN}
+                        >
+                          <RefreshCw size={14} />
+                        </button>
+                      )}
+                      {peutEcrire && (
+                        <button
+                          onClick={() => setConfirming(doc)}
+                          disabled={enMaj}
+                          title="Supprimer"
+                          className="p-2 rounded-lg border border-red-200 dark:border-red-500/25 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                      </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -374,6 +436,30 @@ export default function AllDocs() {
       </div>
 
       {viewing && <ChunksModal doc={viewing} onClose={() => setViewing(null)} />}
+
+      {updating && <UpdateDocModal doc={updating} onClose={() => setUpdating(null)} />}
+
+      {historyOf && (
+        <DocHistoryModal
+          doc={historyOf}
+          peutRestaurer={
+            userDomaines.includes(historyOf.domaine ?? "") && historyOf.statut !== "EN_MAJ"
+          }
+          onClose={() => setHistoryOf(null)}
+          onImpact={(impact) => {
+            setRestauration({ doc: historyOf, impact });
+            setHistoryOf(null);
+          }}
+        />
+      )}
+
+      {restauration && (
+        <UpdateDocModal
+          doc={restauration.doc}
+          impactInitial={restauration.impact}
+          onClose={() => setRestauration(null)}
+        />
+      )}
 
       {confirming && (
         <DeleteConfirm
