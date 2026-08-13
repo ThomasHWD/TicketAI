@@ -9,6 +9,7 @@ import {
   MessageSquare,
   // Settings,
   BookText,
+  BookX,
   History,
   // TicketPlus,
   MessagesSquare,
@@ -30,6 +31,7 @@ const navMain = [
     icon: MessageSquare,
     label: "Réponses Enregistrées",
   },
+  { to: "/angles-morts", icon: BookX, label: "Angles morts" },
   { to: "/Documentations", icon: BookText, label: "Documentations" },
   { to: "/documents-indexes", icon: File, label: "Documents indexés" },
 ];

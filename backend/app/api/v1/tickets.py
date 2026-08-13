@@ -6,7 +6,7 @@ from celery.result import AsyncResult
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import exists, or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.config import settings
 from app.core.permissions import check_domain_write, check_ticket_read, user_domaines
@@ -77,6 +77,9 @@ def _serialize_ticket(ticket: Ticket) -> dict:
         "assigned_to": str(ticket.assigned_to) if ticket.assigned_to else None,
         "assigned_to_email": ticket.assignee.email if ticket.assignee else None,
         "assigned_to_nom_complet": _full_name(ticket.assignee),
+        "reponse_source": next(
+            (r.source for r in ticket.reponses if not r.obsolete), None
+        ),
     }
 
 
@@ -252,7 +255,7 @@ async def liste_tickets(
 ):
     db = SessionLocal()
     try:
-        query = db.query(Ticket)
+        query = db.query(Ticket).options(selectinload(Ticket.reponses))
 
         # Restreindre le périmètre visible selon le rôle
         if current_user.role == "ADMIN":
@@ -333,6 +336,7 @@ async def mes_assignations(current_user: CurrentUser):
     try:
         tickets = (
             db.query(Ticket)
+            .options(selectinload(Ticket.reponses))
             .filter(Ticket.assigned_to == current_user.id, Ticket.closed_at.is_(None))
             .order_by(Ticket.created_at.desc())
             .all()

@@ -461,9 +461,11 @@ def question_job(
 
         # Étape 4 — Génération LLM (avec l'historique du fil pour un suivi)
         print("[QUESTION] Génération LLM...")
+        hors_domaine = False
         try:
-            reponse_texte = generate(question, chunks_rerankes, historique=historique)
-            print(f"[QUESTION] ✅ Réponse générée ({len(reponse_texte)} caractères)")
+            reponse_texte, hors_domaine = generate(question, chunks_rerankes, historique=historique)
+            suffix = " [HORS_DOMAINE]" if hors_domaine else ""
+            print(f"[QUESTION] ✅ Réponse générée ({len(reponse_texte)} caractères){suffix}")
             statut_job = "TERMINÉ"
             erreur = None
         except Exception as llm_exc:
@@ -499,6 +501,7 @@ def question_job(
                     ticket,
                     reponse_texte,
                     top_score,
+                    source="HORS_DOMAINE" if hors_domaine else "LLM",
                     question_suivi=question_suivi,
                     nouveau=est_suivi,
                 )

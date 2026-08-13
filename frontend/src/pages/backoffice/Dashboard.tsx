@@ -19,6 +19,7 @@ import RecentDocs from "../../components/dashboard/RecentDocs";
 import RecentTickets from "../../components/dashboard/RecentTickets";
 import SatisfactionCard from "../../components/dashboard/SatisfactionCard";
 import TeamStatsPanel from "./TeamStats";
+import HorsDomaineCard from "../../components/dashboard/HorsDomaineCard";
 
 function formatDuration(seconds: number): string {
   if (seconds === 0) return "0s";
@@ -222,6 +223,13 @@ export default function Dashboard() {
               loading={statsLoading}
             />
           </div>
+
+          {/* Sujets non couverts */}
+          <HorsDomaineCard
+            count={stats?.repartition_branches.find(b => b.branche === "HORS_DOMAINE")?.count ?? 0}
+            pct={stats?.repartition_branches.find(b => b.branche === "HORS_DOMAINE")?.pct ?? 0}
+            loading={statsLoading}
+          />
 
           {/* Donut + Docs */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
