@@ -49,6 +49,14 @@
         ],
         "createdAt": "2026-08-05T14:46:21.846Z",
         "reason": "Glass-morphism button pattern (bg-white/60 text-gray-700) is intentional and consistent throughout the app"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "frontend/src/pages/backoffice/HorsDomaine.tsx"
+        ],
+        "createdAt": "2026-08-13T13:41:53.979Z"
       }
     ]
   }
