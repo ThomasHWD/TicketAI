@@ -377,27 +377,41 @@ def test_supprimer_non_canonique_renvoie_409(client, db_session, validator, auth
     assert resp.status_code == 409
 
 
-def test_supprimer_canonique_detache_les_copies(client, db_session, validator, auth_header, mock_side_effects):
+def test_supprimer_canonique_supprime_les_copies(client, db_session, validator, auth_header, mock_side_effects):
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
     _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, reponse_source_id=source.id)
 
     resp = client.delete(f"{API}/reponses/{source.id}", headers=auth_header(validator))
 
     assert resp.status_code == 200
-    # Le point Qdrant est retiré (mock) et la source disparaît de la base.
     assert mock_side_effects.delete_point.called
-    # expunge : le route a supprimé la ligne via SA propre session ; on vide
-    # l'identity map pour re-lire l'état réel sans ObjectDeletedError.
     db_session.expunge_all()
+    # Source et copie sont supprimées — elles portent le même contenu et n'ont
+    # pas à réapparaître dans l'onglet Obsolètes comme entrées indépendantes.
     assert db_session.get(Reponse, source.id) is None
-    # La copie est détachée et n'apparaît plus comme source canonique…
-    reloaded_copie = db_session.get(Reponse, copie.id)
-    assert reloaded_copie.reponse_source_id is None
-    assert reloaded_copie.canonique is False
-    # …mais elle n'est pas laissée en service : supprimer la source, c'est juger
-    # que ce contenu ne doit plus être servi, et la copie porte le même contenu.
-    assert reloaded_copie.obsolete is True
-    assert reloaded_copie.obsolete_raison == "RETIRÉ_À_LA_MAIN"
+    assert db_session.get(Reponse, copie.id) is None
+
+
+def test_supprimer_canonique_supprime_les_copies_deja_obsoletes(
+    client, db_session, validator, auth_header, mock_side_effects
+):
+    """Une copie déjà obsolète (mise hors service par une MAJ de document) ne doit
+    pas réapparaître dans l'onglet Obsolètes après suppression de la source."""
+    _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
+    _, copie = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=False, reponse_source_id=source.id)
+    copie.obsolete = True
+    copie.obsolete_raison = "DOC_MIS_A_JOUR"
+    copie.obsolete_at = datetime.now(timezone.utc)
+    source_id = source.id
+    copie_id = copie.id
+    db_session.commit()
+
+    resp = client.delete(f"{API}/reponses/{source_id}", headers=auth_header(validator))
+
+    assert resp.status_code == 200
+    db_session.expunge_all()
+    assert db_session.get(Reponse, source_id) is None
+    assert db_session.get(Reponse, copie_id) is None
 
 
 def test_supprimer_canonique_nettoie_les_chunks(client, db_session, validator, auth_header):

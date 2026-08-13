@@ -829,31 +829,28 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeU
         if not reponse.canonique and not reponse.obsolete:
             raise HTTPException(409, "Seules les réponses canoniques peuvent être supprimées ici.")
 
-        # 1. Retirer du service toutes les copies (VALIDÉE, EN_ATTENTE, etc.).
-        #    La source est exclue — elle sera supprimée en base, pas rendue obsolète.
-        #    delete_response_point est un no-op pour les EN_ATTENTE (pas de point Qdrant),
-        #    mais obsolete=True les bloque définitivement à la validation.
+        # 1. Réunir toutes les copies, actives ou déjà obsolètes.
         famille = fermeture_copies(db, {reponse.id})
         copies = (
             db.query(Reponse)
-            .filter(Reponse.id.in_(famille), Reponse.id != reponse.id, Reponse.obsolete.is_(False))
+            .filter(Reponse.id.in_(famille), Reponse.id != reponse.id)
             .all()
         )
-        en_attente_copies = [r for r in copies if r.statut == "EN_ATTENTE"]
-        retirer_du_service(db, copies, RAISON_MANUELLE, None, None)
+        # Les tickets EN_ATTENTE encore actifs sont réémis avant la suppression.
+        en_attente_copies = [r for r in copies if r.statut == "EN_ATTENTE" and not r.obsolete]
         requeuer_en_attente(db, en_attente_copies)
 
-        # 2. Détacher les enfants directs. Aucune cascade n'est déclarée sur
-        #    `reponse_source_id` : sans ce détachement, le `db.delete` ci-dessous
-        #    lève une violation de clé étrangère et l'appel finit en 500. On retire
-        #    aussi `canonique`, sinon la copie orpheline réapparaîtrait comme source
-        #    dans la liste des canoniques. Le drapeau d'obsolescence posé à l'étape 1
-        #    est conservé : devenue racine, la copie reste visible et restaurable
-        #    depuis l'onglet Obsolètes.
-        db.query(Reponse).filter(Reponse.reponse_source_id == reponse.id).update(
-            {"reponse_source_id": None, "canonique": False},
-            synchronize_session=False,
-        )
+        # 2. Supprimer toutes les copies (actives et déjà obsolètes).
+        #    Les détacher puis les laisser obsolètes les ferait réapparaître dans
+        #    l'onglet Obsolètes comme des entrées indépendantes avec le même contenu.
+        #    Les copies actives ont un point Qdrant à retirer ; les déjà obsolètes
+        #    en sont déjà dépourvues (retrait fait lors de leur mise hors service).
+        for copie in copies:
+            if not copie.obsolete:
+                delete_response_point(str(copie.id))
+            db.query(ReponseChunk).filter(ReponseChunk.reponse_id == copie.id).delete(synchronize_session=False)
+            db.delete(copie)
+        db.flush()
 
         # 3. Retrait de la source : Qdrant, chunks, ligne en base.
         delete_response_point(reponse_id)
