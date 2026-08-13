@@ -383,7 +383,7 @@ def test_question_job_suivi_contextualise_recherche_et_generation(db_session, mo
     }
     search_mock = MagicMock(return_value=[chunk])
     rerank_mock = MagicMock(return_value=[chunk])
-    generate_mock = MagicMock(return_value="Réponse contextuelle")
+    generate_mock = MagicMock(return_value=("Réponse contextuelle", False))
     monkeypatch.setattr(q, "search_hybrid", search_mock)
     monkeypatch.setattr(q, "rerank", rerank_mock)
     monkeypatch.setattr(q, "generate", generate_mock)

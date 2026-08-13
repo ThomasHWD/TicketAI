@@ -35,6 +35,8 @@ colors:
   chart-teal-dark: "#2dd4bf"
   chart-rose: "#e11d48"
   chart-rose-dark: "#fb7185"
+  chart-purple: "#9333ea"
+  chart-purple-dark: "#c084fc"
 typography:
   page-title:
     fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"

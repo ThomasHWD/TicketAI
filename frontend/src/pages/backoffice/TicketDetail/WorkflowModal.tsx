@@ -29,6 +29,7 @@ function eventLabel(event: WorkflowEvent): string {
       if (src === "LLM") return "Réponse générée par IA";
       if (src === "SUGGESTION") return "Suggestion depuis une réponse validée";
       if (src === "CANONIQUE") return "Réponse canonique appliquée";
+      if (src === "HORS_DOMAINE") return "Réponse générée — sujet non couvert";
       return "Réponse générée";
     }
     case "SUIVI": return "Précision de l'utilisateur";

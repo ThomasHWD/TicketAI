@@ -22,33 +22,34 @@ function isProcessing(statutJob: string) {
   return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";
 }
 
-function ticketStatutLabel(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean, failed: boolean) {
+function ticketStatutLabel(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean, failed: boolean, reponseSource: string | null) {
   if (closed) return "Clôturé";
   if (failed) return "Échec";
   if (processing) return "En cours";
   if (canonique) return "Canonique";
   if (statut === "VALIDÉ") return "Validée";
-  if (statut === "RÉPONDU") return "Suggestion";
+  if (statut === "RÉPONDU") return reponseSource === "HORS_DOMAINE" ? "Hors domaine" : "Suggestion";
   if (statut === "REJETÉ") return "Rejetée";
   return "Nouvelle";
 }
 
-function ticketStatutClass(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean, failed: boolean) {
+function ticketStatutClass(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean, failed: boolean, reponseSource: string | null) {
   if (closed) return "bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/15";
   if (failed) return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (processing) return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
   if (statut === "REJETÉ") return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (canonique) return "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
   if (statut === "VALIDÉ") return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
+  if (statut === "RÉPONDU" && reponseSource === "HORS_DOMAINE") return "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/20";
   if (statut === "RÉPONDU") return "bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20";
   return "bg-gray-100 text-gray-500 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/15";
 }
 
-function StatutBadge({ statut, canonique, closed, processing, failed }: { statut: StatutTicket; canonique: boolean; closed: boolean; processing: boolean; failed: boolean }) {
+function StatutBadge({ statut, canonique, closed, processing, failed, reponseSource }: { statut: StatutTicket; canonique: boolean; closed: boolean; processing: boolean; failed: boolean; reponseSource: string | null }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique, closed, processing, failed)}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique, closed, processing, failed, reponseSource)}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
-      {ticketStatutLabel(statut, canonique, closed, processing, failed)}
+      {ticketStatutLabel(statut, canonique, closed, processing, failed, reponseSource)}
     </span>
   );
 }
@@ -242,7 +243,7 @@ export default function TicketDetail() {
               </div>
               <div>
                 <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Statut</dt>
-                <dd><StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={isProcessing(ticket.statut_job)} failed={ticket.statut_job === "ÉCHOUÉ"} /></dd>
+                <dd><StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={isProcessing(ticket.statut_job)} failed={ticket.statut_job === "ÉCHOUÉ"} reponseSource={ticket.reponse_source ?? null} /></dd>
               </div>
               <div className="pt-1 border-t border-gray-200 dark:border-white/10">
                 <dt className="text-gray-500 dark:text-gray-400 text-xs mb-0.5">Référence</dt>
