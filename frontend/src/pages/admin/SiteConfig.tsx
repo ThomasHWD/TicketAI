@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, Megaphone, TriangleAlert } from "lucide-react";
 import { getIncidents } from "../../lib/api";
 import HealthTab from "./tabs/HealthTab";
-import IncidentsTab from "./tabs/IncidentsTab";
+import IncidentsTab from "./tabs/incidents";
 import BanniereTab from "./tabs/BanniereTab";
 
 type Tab = "sante" | "incidents" | "config";

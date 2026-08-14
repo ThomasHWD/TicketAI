@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookX, ArrowRight, CheckCircle2, X } from "lucide-react";
+import { ArrowRight, CheckCircle2, X } from "lucide-react";
 import { getHorsDomaine, masquerAngleMort } from "../../lib/api/stats";
 
 const PERIODES = [
@@ -34,8 +34,6 @@ export default function HorsDomaine() {
     mutationFn: masquerAngleMort,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["angles-morts"] }),
   });
-
-  const totalTickets = data.reduce((s, d) => s + d.nb_tickets, 0);
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-5">
