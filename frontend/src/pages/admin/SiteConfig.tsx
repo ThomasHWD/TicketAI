@@ -5,7 +5,7 @@ import { getIncidents, getSuggestions } from "../../lib/api";
 import HealthTab from "./tabs/HealthTab";
 import IncidentsTab from "./tabs/incidents";
 import BanniereTab from "./tabs/BanniereTab";
-import AdminSuggestions from "./Suggestions";
+import AdminSuggestions from "./tabs/Suggestions";
 
 type Tab = "sante" | "incidents" | "config" | "suggestions";
 
