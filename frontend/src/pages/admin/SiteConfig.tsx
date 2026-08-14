@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Megaphone, TriangleAlert } from "lucide-react";
-import { getIncidents } from "../../lib/api";
+import { Activity, Lightbulb, Megaphone, TriangleAlert } from "lucide-react";
+import { getIncidents, getSuggestions } from "../../lib/api";
 import HealthTab from "./tabs/HealthTab";
 import IncidentsTab from "./tabs/incidents";
 import BanniereTab from "./tabs/BanniereTab";
+import AdminSuggestions from "./tabs/Suggestions";
 
-type Tab = "sante" | "incidents" | "config";
+type Tab = "sante" | "incidents" | "config" | "suggestions";
 
 const TABS: { id: Tab; label: string; icon: typeof Activity }[] = [
-  { id: "sante",     label: "Santé",     icon: Activity      },
-  { id: "incidents", label: "Incidents", icon: TriangleAlert },
-  { id: "config",    label: "Bannière",  icon: Megaphone     },
+  { id: "sante",       label: "Santé",       icon: Activity      },
+  { id: "incidents",   label: "Incidents",   icon: TriangleAlert },
+  { id: "config",      label: "Bannière",    icon: Megaphone     },
+  { id: "suggestions", label: "Suggestions", icon: Lightbulb     },
 ];
 
 export default function SiteConfigPage() {
@@ -28,6 +30,15 @@ export default function SiteConfigPage() {
     (incidents?.tickets_echoues.length ?? 0) +
     (incidents?.tickets_bloques.length ?? 0) +
     (incidents?.documents_echoues.length ?? 0) > 0;
+
+  const { data: suggestions } = useQuery({
+    queryKey: ["admin-suggestions"],
+    queryFn: getSuggestions,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  const nbNonLues = suggestions?.filter((s) => !s.lu).length ?? 0;
 
   return (
     <div className="px-6 py-8 max-w-5xl mx-auto">
@@ -51,15 +62,19 @@ export default function SiteConfigPage() {
               {id === "incidents" && hasIncidents && (
                 <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-red-500" />
               )}
+              {id === "suggestions" && nbNonLues > 0 && (
+                <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-amber-400" />
+              )}
             </span>
             {label}
           </button>
         ))}
       </div>
 
-      {tab === "sante"     && <HealthTab onGoIncidents={() => setTab("incidents")} />}
-      {tab === "incidents" && <IncidentsTab />}
-      {tab === "config"    && <BanniereTab />}
+      {tab === "sante"       && <HealthTab onGoIncidents={() => setTab("incidents")} />}
+      {tab === "incidents"   && <IncidentsTab />}
+      {tab === "config"      && <BanniereTab />}
+      {tab === "suggestions" && <AdminSuggestions />}
     </div>
   );
 }

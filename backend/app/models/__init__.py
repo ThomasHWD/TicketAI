@@ -7,6 +7,7 @@ from app.models.notification import Notification
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.site_config import SiteConfig
+from app.models.suggestion import Suggestion
 from app.models.ticket import Ticket
 from app.models.ticket_event import TicketEvent
 from app.models.user import User
@@ -25,4 +26,5 @@ __all__ = [
     "TicketEvent",
     "User",
     "ReponseChunk",
+    "Suggestion",
 ]

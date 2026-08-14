@@ -17,6 +17,7 @@ import {
   File,
   Users,
   SlidersHorizontal,
+  Lightbulb,
 } from "lucide-react";
 import { getIncidents, getReponsesARelire, getReponsesObsoletes } from "../../lib/api";
 import UserAvatar from "../ui/UserAvatar";
@@ -249,6 +250,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         {navSettings.map((item) => (
           <NavItem key={item.to} {...item} collapsed={collapsed} />
         ))}
+        <NavItem to="/suggestion" icon={Lightbulb} label="Faire une suggestion" collapsed={collapsed} />
       </nav>
 
       {/* User footer */}

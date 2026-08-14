@@ -33,6 +33,7 @@ import AdminPage from "./pages/admin/Groups";
 import SiteConfigPage from "./pages/admin/SiteConfig";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import NotFound from "./pages/404";
+import SuggestionBox from "./pages/user/SuggestionBox";
 
 function Layout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -133,6 +134,7 @@ export default function App() {
             <Route path="/nouveau-ticket" element={<NewTicket />} />
             <Route path="/historique" element={<UserTicketHistory />} />
             <Route path="/historique/:id" element={<UserTicketDetail />} />
+            <Route path="/suggestion" element={<SuggestionBox />} />
           </Route>
           <Route element={<AdminRoute />}>
             <Route element={<Layout />}>
