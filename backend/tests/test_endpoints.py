@@ -27,7 +27,7 @@ def make_ticket():
 
 
 def test_verifier_etat_initial_bloque_etat_final():
-    from app.api.v1.reponses import verifier_etat_initial
+    from app.services.reponse_service import verifier_etat_initial
     from fastapi import HTTPException
 
     # MODIFICATION : "VALIDÉE" -> "CANONIQUE"
@@ -38,14 +38,14 @@ def test_verifier_etat_initial_bloque_etat_final():
 
 
 def test_verifier_etat_initial_autorise_en_attente():
-    from app.api.v1.reponses import verifier_etat_initial
+    from app.services.reponse_service import verifier_etat_initial
 
     reponse = make_reponse(statut="EN_ATTENTE")
     verifier_etat_initial(reponse)  # ne doit pas lever
 
 
 def test_verifier_auto_validation_bloque_si_meme_user():
-    from app.api.v1.reponses import verifier_auto_validation
+    from app.services.reponse_service import verifier_auto_validation
     from fastapi import HTTPException
 
     validator_id = uuid.uuid4()
@@ -58,7 +58,7 @@ def test_verifier_auto_validation_bloque_si_meme_user():
 
 
 def test_verifier_auto_validation_autorise_si_user_different():
-    from app.api.v1.reponses import verifier_auto_validation
+    from app.services.reponse_service import verifier_auto_validation
 
     reponse = make_reponse()
     ticket = make_ticket()
@@ -78,7 +78,7 @@ def test_check_reponse_write_sans_ticket_renvoie_409():
     L'admin non plus — lui accorder ce cas rouvrirait par la petite porte
     l'exception que `check_domain_write` refuse partout ailleurs.
     """
-    from app.api.v1.reponses import check_reponse_write
+    from app.services.reponse_service import check_reponse_write
     from fastapi import HTTPException
 
     admin = MagicMock()
@@ -91,7 +91,7 @@ def test_check_reponse_write_sans_ticket_renvoie_409():
 
 
 def test_etats_finaux_complets():
-    from app.api.v1.reponses import ETATS_FINAUX
+    from app.services.reponse_service import ETATS_FINAUX
 
     # MODIFICATION : "VALIDÉE" -> "CANONIQUE"
     assert "CANONIQUE" in ETATS_FINAUX

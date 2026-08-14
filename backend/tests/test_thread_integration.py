@@ -87,7 +87,7 @@ def backoffice_user(db_session):
 @pytest.fixture
 def mock_question_job(monkeypatch):
     """Neutralise l'enqueue Celery de ``question_job`` déclenché par /suivi."""
-    import app.api.v1.tickets as tickets_module
+    import app.api.v1.tickets.submit as tickets_module
 
     job = MagicMock()
     job.id = "job-test-123"

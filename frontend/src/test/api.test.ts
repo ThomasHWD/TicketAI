@@ -139,10 +139,10 @@ describe("getTicket", () => {
 describe("validerReponse", () => {
   it("envoie un POST JSON avec le payload", async () => {
     mockFetch({ id: "r1", statut: "VALIDÉE" });
-    await validerReponse("r1", { commentaire: "OK" });
+    await validerReponse("r1", { validator_id: "v1" });
     const init = lastInit();
     expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body as string)).toEqual({ commentaire: "OK" });
+    expect(JSON.parse(init.body as string)).toEqual({ validator_id: "v1" });
   });
 
   it("lève LockConflictError sur 409 avec détail objet", async () => {
@@ -162,7 +162,7 @@ describe("validerReponse", () => {
         ),
       ),
     );
-    const err = await validerReponse("r1", {}).catch((e) => e);
+    const err = await validerReponse("r1", { validator_id: "v1" }).catch((e) => e);
     expect(err).toBeInstanceOf(LockConflictError);
     expect((err as LockConflictError).lockedByEmail).toBe("alice@ex.com");
   });

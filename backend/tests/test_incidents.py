@@ -104,9 +104,9 @@ def test_retry_document_refus_sans_token(client):
 
 def test_scan_document_incidents_vide():
     """Aucune tâche Redis → liste vide."""
-    from app.api.v1.admin import _scan_document_incidents
+    from app.services.admin_service import scan_document_incidents as _scan_document_incidents
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.services.admin_service.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.scan_iter.return_value = []
@@ -117,7 +117,7 @@ def test_scan_document_incidents_vide():
 
 def test_scan_document_incidents_filtre_status_success():
     """Une tâche SUCCESS ne doit pas apparaître."""
-    from app.api.v1.admin import _scan_document_incidents
+    from app.services.admin_service import scan_document_incidents as _scan_document_incidents
 
     task_id = str(uuid.uuid4())
     meta = json.dumps(
@@ -128,7 +128,7 @@ def test_scan_document_incidents_filtre_status_success():
         }
     ).encode()
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.services.admin_service.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.scan_iter.return_value = [f"celery-task-meta-{task_id}".encode()]
@@ -140,7 +140,7 @@ def test_scan_document_incidents_filtre_status_success():
 
 def test_scan_document_incidents_filtre_non_ingestion():
     """Une tâche FAILURE hors ingestion ne doit pas apparaître."""
-    from app.api.v1.admin import _scan_document_incidents
+    from app.services.admin_service import scan_document_incidents as _scan_document_incidents
 
     task_id = str(uuid.uuid4())
     meta = json.dumps(
@@ -151,7 +151,7 @@ def test_scan_document_incidents_filtre_non_ingestion():
         }
     ).encode()
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.services.admin_service.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.scan_iter.return_value = [f"celery-task-meta-{task_id}".encode()]
@@ -163,7 +163,7 @@ def test_scan_document_incidents_filtre_non_ingestion():
 
 def test_scan_document_incidents_retourne_incident():
     """Une tâche FAILURE ingestion doit être retournée avec ses kwargs."""
-    from app.api.v1.admin import _scan_document_incidents
+    from app.services.admin_service import scan_document_incidents as _scan_document_incidents
 
     task_id = str(uuid.uuid4())
     meta = json.dumps(
@@ -175,7 +175,7 @@ def test_scan_document_incidents_retourne_incident():
         }
     ).encode()
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.services.admin_service.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.scan_iter.return_value = [f"celery-task-meta-{task_id}".encode()]
@@ -198,7 +198,7 @@ def test_download_document_tache_introuvable(client, user_factory, auth_header, 
     admin = user_factory("ADMIN")
     headers = auth_header(admin)
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.api.v1.admin.health.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.get.return_value = None
@@ -219,7 +219,7 @@ def test_download_document_fichier_absent_disque(client, user_factory, auth_head
         }
     ).encode()
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.api.v1.admin.health.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.get.return_value = meta
@@ -232,7 +232,7 @@ def test_retry_document_tache_introuvable(client, user_factory, auth_header):
     admin = user_factory("ADMIN")
     headers = auth_header(admin)
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.api.v1.admin.health.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.get.return_value = None
@@ -253,7 +253,7 @@ def test_retry_document_fichier_absent_409(client, user_factory, auth_header):
         }
     ).encode()
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.api.v1.admin.health.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.get.return_value = meta
@@ -270,7 +270,7 @@ def test_retry_document_fichier_absent_409(client, user_factory, auth_header):
 
 @pytest.mark.integration
 def test_incidents_structure_vide(client, admin_headers):
-    with patch("app.api.v1.admin._scan_document_incidents", return_value=[]):
+    with patch("app.api.v1.admin.health.scan_document_incidents", return_value=[]):
         r = client.get(f"{API}/admin/incidents", headers=admin_headers)
 
     assert r.status_code == 200
@@ -287,7 +287,7 @@ def test_incidents_structure_vide(client, admin_headers):
 def test_incidents_remonte_tickets_echoues(client, admin_headers, ticket_factory):
     t = ticket_factory(statut_job="ÉCHOUÉ")
 
-    with patch("app.api.v1.admin._scan_document_incidents", return_value=[]):
+    with patch("app.api.v1.admin.health.scan_document_incidents", return_value=[]):
         r = client.get(f"{API}/admin/incidents", headers=admin_headers)
 
     assert r.status_code == 200
@@ -300,7 +300,7 @@ def test_incidents_remonte_tickets_bloques(client, admin_headers, ticket_factory
     ancien = datetime.now(timezone.utc) - timedelta(minutes=15)
     t = ticket_factory(statut_job="EN_COURS", created_at=ancien)
 
-    with patch("app.api.v1.admin._scan_document_incidents", return_value=[]):
+    with patch("app.api.v1.admin.health.scan_document_incidents", return_value=[]):
         r = client.get(f"{API}/admin/incidents", headers=admin_headers)
 
     assert r.status_code == 200
@@ -312,7 +312,7 @@ def test_incidents_remonte_tickets_bloques(client, admin_headers, ticket_factory
 def test_incidents_exclut_tickets_en_cours_recents(client, admin_headers, ticket_factory):
     t = ticket_factory(statut_job="EN_COURS")  # created_at = maintenant
 
-    with patch("app.api.v1.admin._scan_document_incidents", return_value=[]):
+    with patch("app.api.v1.admin.health.scan_document_incidents", return_value=[]):
         r = client.get(f"{API}/admin/incidents", headers=admin_headers)
 
     assert r.status_code == 200
@@ -324,7 +324,7 @@ def test_incidents_exclut_tickets_en_cours_recents(client, admin_headers, ticket
 def test_incidents_exclut_tickets_termines(client, admin_headers, ticket_factory):
     t = ticket_factory(statut_job="TERMINÉ")
 
-    with patch("app.api.v1.admin._scan_document_incidents", return_value=[]):
+    with patch("app.api.v1.admin.health.scan_document_incidents", return_value=[]):
         r = client.get(f"{API}/admin/incidents", headers=admin_headers)
 
     assert r.status_code == 200
@@ -337,7 +337,7 @@ def test_incidents_exclut_tickets_termines(client, admin_headers, ticket_factory
 def test_incidents_champs_ticket(client, admin_headers, ticket_factory):
     t = ticket_factory(statut_job="ÉCHOUÉ", domaine="IT")
 
-    with patch("app.api.v1.admin._scan_document_incidents", return_value=[]):
+    with patch("app.api.v1.admin.health.scan_document_incidents", return_value=[]):
         r = client.get(f"{API}/admin/incidents", headers=admin_headers)
 
     echoues = r.json()["tickets_echoues"]
@@ -453,7 +453,7 @@ def test_download_document_fichier_present(client, admin_headers, tmp_path):
         }
     ).encode()
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.api.v1.admin.health.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.get.return_value = meta
@@ -478,7 +478,7 @@ def test_delete_document_incident_supprime_redis(client, admin_headers):
         }
     ).encode()
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.api.v1.admin.health.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.get.return_value = meta
@@ -501,7 +501,7 @@ def test_delete_document_incident_supprime_fichier(client, admin_headers, tmp_pa
         }
     ).encode()
 
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.api.v1.admin.health.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.get.return_value = meta
@@ -512,7 +512,7 @@ def test_delete_document_incident_supprime_fichier(client, admin_headers, tmp_pa
 
 @pytest.mark.integration
 def test_delete_document_incident_tache_introuvable(client, admin_headers):
-    with patch("app.api.v1.admin.redis_lib") as mock_redis_lib:
+    with patch("app.api.v1.admin.health.redis_lib") as mock_redis_lib:
         mock_r = MagicMock()
         mock_redis_lib.from_url.return_value = mock_r
         mock_r.get.return_value = None
@@ -537,7 +537,7 @@ def test_retry_document_fichier_present(client, admin_headers, tmp_path):
     meta = json.dumps({"status": "FAILURE", "kwargs": kwargs}).encode()
 
     with (
-        patch("app.api.v1.admin.redis_lib") as mock_redis_lib,
+        patch("app.api.v1.admin.health.redis_lib") as mock_redis_lib,
         patch("app.workers.ingestion.ingestion_job.apply_async") as mock_dispatch,
     ):
         mock_r = MagicMock()
