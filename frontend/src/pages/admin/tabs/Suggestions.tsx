@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSuggestions, toggleSuggestionLu } from "../../lib/api";
-import type { SuggestionOut } from "../../lib/api";
+import { getSuggestions, toggleSuggestionLu } from "../../../lib/api";
+import type { SuggestionOut } from "../../../lib/api";
 import { CheckCheck, Circle, Loader2, MessageSquare } from "lucide-react";
 
 function formatDate(iso: string) {
