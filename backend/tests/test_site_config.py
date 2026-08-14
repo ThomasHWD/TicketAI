@@ -57,7 +57,7 @@ def groupe_factory(db_session):
 
 
 def test_config_defaults_shape():
-    from app.api.v1.admin import _CONFIG_DEFAULTS
+    from app.services.admin_service import _CONFIG_DEFAULTS
 
     assert "banner" in _CONFIG_DEFAULTS
     banner = _CONFIG_DEFAULTS["banner"]

@@ -1,14 +1,10 @@
 import asyncio
 import uuid
-from datetime import datetime, timedelta, timezone
 
-from celery.result import AsyncResult
-from fastapi import APIRouter, Body, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import exists, or_
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.config import settings
 from app.core.permissions import check_domain_write, check_ticket_read, user_domaines
 from app.core.security import BackofficeUser, CurrentUser
 from app.database import SessionLocal
@@ -18,226 +14,11 @@ from app.models.reponse import Reponse as ReponseModel
 from app.models.ticket import Ticket
 from app.models.ticket_event import TicketEvent
 from app.models.user import User
+from app.schemas.ticket import AssignerRequest
 from app.services.broadcast import broadcast_async
-from app.workers.celery_app import celery_app
-from app.workers.question import question_job
+from app.services.ticket_service import acquire_lock, full_name, lock_info, parse_ticket_id, serialize_ticket
 
 router = APIRouter()
-
-# L'identité (user_id / validator_id) est désormais dérivée du JWT via
-# get_current_user, et non plus transmise dans le corps des requêtes.
-
-
-class QuestionRequest(BaseModel):
-    question: str
-    objet: str | None = None
-    domaine: str
-
-
-class SuiviRequest(BaseModel):
-    question: str
-
-
-def _full_name(user) -> str | None:
-    return " ".join(filter(None, [user.prenom, user.nom])) or None if user else None
-
-
-def lock_info(ticket: Ticket, now: datetime | None = None) -> dict:
-    """Sérialise l'état du verrou. Un bail expiré est considéré comme libre."""
-    now = now or datetime.now(timezone.utc)
-    actif = bool(ticket.locked_by and ticket.lock_expires_at and ticket.lock_expires_at > now)
-    return {
-        "locked_by": str(ticket.locked_by) if actif else None,
-        "locked_by_email": ticket.locker.email if actif and ticket.locker else None,
-        "lock_expires_at": ticket.lock_expires_at.isoformat() if actif else None,
-    }
-
-
-def _serialize_ticket(ticket: Ticket) -> dict:
-    return {
-        "id": str(ticket.id),
-        "question": ticket.question,
-        "objet": ticket.objet,
-        "domaine": ticket.domaine,
-        "statut_ticket": ticket.statut_ticket,
-        "statut_job": ticket.statut_job,
-        "user_id": str(ticket.user_id) if ticket.user_id else None,
-        "user_email": ticket.user.email if ticket.user else None,
-        "user_nom_complet": _full_name(ticket.user),
-        "user_departement": ticket.user.departement if ticket.user else None,
-        "user_titre": ticket.user.titre if ticket.user else None,
-        "user_telephone": ticket.user.telephone if ticket.user else None,
-        "user_localisation": ticket.user.localisation if ticket.user else None,
-        "canonique": ticket.canonique,
-        "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
-        "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
-        "note_qualite": ticket.note_qualite,
-        "note_delai": ticket.note_delai,
-        **lock_info(ticket),
-        "assigned_to": str(ticket.assigned_to) if ticket.assigned_to else None,
-        "assigned_to_email": ticket.assignee.email if ticket.assignee else None,
-        "assigned_to_nom_complet": _full_name(ticket.assignee),
-        "reponse_source": next(
-            (r.source for r in ticket.reponses if not r.obsolete), None
-        ),
-    }
-
-
-def _acquire_lock(db, tid: uuid.UUID, validator_id: uuid.UUID) -> Ticket | None:
-    """Acquiert/prolonge le bail de façon atomique (UPDATE conditionnel).
-
-    Réussit uniquement si le ticket est libre, déjà détenu par ce validateur,
-    ou si le bail précédent a expiré. Renvoie le ticket si acquis, sinon None.
-    """
-    now = datetime.now(timezone.utc)
-    expiry = now + timedelta(seconds=settings.lock_ttl_seconds)
-    rows = (
-        db.query(Ticket)
-        .filter(
-            Ticket.id == tid,
-            or_(
-                Ticket.locked_by.is_(None),
-                Ticket.locked_by == validator_id,
-                Ticket.lock_expires_at < now,
-            ),
-        )
-        .update(
-            {
-                Ticket.locked_by: validator_id,
-                Ticket.locked_at: now,
-                Ticket.lock_expires_at: expiry,
-            },
-            synchronize_session=False,
-        )
-    )
-    db.commit()
-    if not rows:
-        return None
-    return db.query(Ticket).filter(Ticket.id == tid).first()
-
-
-@router.get("/tickets/domaines")
-async def list_domaines(_: CurrentUser):
-    """Liste les domaines disponibles (tout utilisateur authentifié)."""
-    db = SessionLocal()
-    try:
-        rows = db.query(Groupe.domaine).distinct().order_by(Groupe.domaine).all()
-        return [r[0] for r in rows]
-    finally:
-        db.close()
-
-
-@router.post("/tickets")
-async def soumettre_question(payload: QuestionRequest, current_user: CurrentUser):
-    domaine = payload.domaine.upper()
-    db = SessionLocal()
-    try:
-        domaines_valides = {r[0] for r in db.query(Groupe.domaine).distinct().all()}
-    finally:
-        db.close()
-    if not domaines_valides:
-        raise HTTPException(400, "Aucun domaine configuré. Contactez un administrateur.")
-    if domaine not in domaines_valides:
-        raise HTTPException(400, f"Domaine invalide : {domaine}")
-    if not payload.question.strip():
-        raise HTTPException(400, "La question ne peut pas être vide")
-
-    job = question_job.apply_async(
-        args=[payload.question, domaine, str(current_user.id)],
-        kwargs={"objet": payload.objet},
-        queue="queue_questions",
-    )
-
-    return {
-        "job_id": job.id,
-        "question": payload.question,
-        "domaine": domaine,
-        "statut": "EN_ATTENTE",
-    }
-
-
-@router.post("/tickets/{ticket_id}/suivi")
-async def soumettre_suivi(
-    ticket_id: str,
-    payload: SuiviRequest,
-    current_user: CurrentUser,
-):
-    """Ajoute une précision au fil du ticket : relance le pipeline RAG sur le
-    ticket existant (nouvelle réponse, la question d'origine est conservée)."""
-    if not payload.question.strip():
-        raise HTTPException(400, "La question ne peut pas être vide")
-    tid = _parse_ticket_id(ticket_id)
-    db = SessionLocal()
-    try:
-        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
-        if not ticket:
-            raise HTTPException(404, "Ticket introuvable")
-        if ticket.user_id != current_user.id:
-            raise HTTPException(403, "Vous ne pouvez ajouter une précision qu'à vos propres tickets.")
-        if ticket.closed_at is not None:
-            raise HTTPException(409, "Ticket clôturé : impossible d'ajouter une précision")
-        domaine = ticket.domaine
-        user_id = str(current_user.id)
-        ticket.statut_job = "EN_ATTENTE"
-        db.commit()
-    finally:
-        db.close()
-
-    job = question_job.apply_async(
-        args=[payload.question, domaine, user_id],
-        kwargs={"ticket_id": ticket_id},
-        queue="queue_questions",
-    )
-    await broadcast_async(f"sse:domain:{domaine}", "ticket_followup", {"ticket_id": ticket_id, "domaine": domaine})
-    return {
-        "job_id": job.id,
-        "ticket_id": ticket_id,
-        "question": payload.question,
-        "domaine": domaine,
-        "statut": "EN_ATTENTE",
-    }
-
-
-class CloturerRequest(BaseModel):
-    note_qualite: int | None = Field(default=None, ge=1, le=5)
-    note_delai: int | None = Field(default=None, ge=1, le=5)
-
-
-_CLOTURE_BODY = Body(default_factory=CloturerRequest)
-
-
-@router.post("/tickets/{ticket_id}/cloturer")
-async def cloturer_ticket(
-    ticket_id: str,
-    current_user: CurrentUser,
-    payload: CloturerRequest = _CLOTURE_BODY,
-):
-    """Clôture le ticket (l'utilisateur est satisfait). Idempotence refusée :
-    un ticket déjà clôturé renvoie 409."""
-    tid = _parse_ticket_id(ticket_id)
-    db = SessionLocal()
-    try:
-        ticket = db.query(Ticket).filter(Ticket.id == tid).first()
-        if not ticket:
-            raise HTTPException(404, "Ticket introuvable")
-        # Seul le créateur du ticket peut le clôturer.
-        if ticket.user_id != current_user.id:
-            raise HTTPException(403, "Seul le créateur du ticket peut le clôturer.")
-        if ticket.closed_at is not None:
-            raise HTTPException(409, "Ticket déjà clôturé")
-        domaine = ticket.domaine
-        ticket.closed_at = datetime.now(timezone.utc)
-        if payload.note_qualite is not None:
-            ticket.note_qualite = payload.note_qualite
-        if payload.note_delai is not None:
-            ticket.note_delai = payload.note_delai
-        db.commit()
-        db.refresh(ticket)
-        result = _serialize_ticket(ticket)
-    finally:
-        db.close()
-    await broadcast_async(f"sse:domain:{domaine}", "ticket_closed", {"ticket_id": ticket_id, "domaine": domaine})
-    return result
 
 
 @router.get("/tickets")
@@ -257,13 +38,9 @@ async def liste_tickets(
     try:
         query = db.query(Ticket).options(selectinload(Ticket.reponses))
 
-        # Restreindre le périmètre visible selon le rôle
         if current_user.role == "ADMIN":
-            pass  # accès lecture global
+            pass
         elif current_user.groupes:
-            # Backoffice : limité à ses domaines (le filtre ?domaine peut affiner)
-            # Exception : si le gestionnaire demande ses propres tickets (user_id=soi),
-            # pas de restriction de domaine — il doit voir ses tickets hors domaine.
             own_request = False
             if user_id:
                 try:
@@ -283,11 +60,9 @@ async def liste_tickets(
                     allowed = {requested_single}
                 query = query.filter(Ticket.domaine.in_(allowed))
         else:
-            # Lambda : uniquement ses propres tickets
             query = query.filter(Ticket.user_id == current_user.id)
 
         if disponibles:
-            # Exclut les tickets assignés à quelqu'un d'autre que l'utilisateur courant
             query = query.filter(
                 or_(
                     Ticket.assigned_to.is_(None),
@@ -323,7 +98,7 @@ async def liste_tickets(
             "total": total,
             "page": page,
             "limit": limit,
-            "items": [_serialize_ticket(t) for t in tickets],
+            "items": [serialize_ticket(t) for t in tickets],
         }
     finally:
         db.close()
@@ -331,7 +106,7 @@ async def liste_tickets(
 
 @router.get("/tickets/mes-assignations")
 async def mes_assignations(current_user: CurrentUser):
-    """Tickets ouverts assignés à l'utilisateur courant (pour la cloche de notifications)."""
+    """Tickets ouverts assignés à l'utilisateur courant."""
     db = SessionLocal()
     try:
         tickets = (
@@ -341,14 +116,14 @@ async def mes_assignations(current_user: CurrentUser):
             .order_by(Ticket.created_at.desc())
             .all()
         )
-        return [_serialize_ticket(t) for t in tickets]
+        return [serialize_ticket(t) for t in tickets]
     finally:
         db.close()
 
 
 @router.get("/tickets/domaines/{domaine}/validateurs")
 async def validateurs_par_domaine(domaine: str, _: BackofficeUser):
-    """Liste les membres du groupe pour un domaine donné (tout utilisateur authentifié)."""
+    """Liste les membres du groupe pour un domaine donné."""
     db = SessionLocal()
     try:
         groupe = db.query(Groupe).options(joinedload(Groupe.membres)).filter(Groupe.domaine == domaine.upper()).first()
@@ -359,14 +134,36 @@ async def validateurs_par_domaine(domaine: str, _: BackofficeUser):
         db.close()
 
 
-class AssignerRequest(BaseModel):
-    assignee_id: uuid.UUID
+@router.get("/tickets/participated")
+async def tickets_avec_participation(
+    current_user: BackofficeUser,
+    page: int = 1,
+    limit: int = 10,
+):
+    db = SessionLocal()
+    try:
+        base_query = (
+            db.query(Ticket)
+            .join(ReponseModel, ReponseModel.ticket_id == Ticket.id)
+            .filter(ReponseModel.validator_id == current_user.id)
+            .distinct()
+        )
+        total = base_query.count()
+        tickets = base_query.order_by(Ticket.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "items": [serialize_ticket(t) for t in tickets],
+        }
+    finally:
+        db.close()
 
 
 @router.post("/tickets/{ticket_id}/assigner")
 async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user: BackofficeUser):
     """Assigne le ticket à un validateur du même domaine."""
-    tid = _parse_ticket_id(ticket_id)
+    tid = parse_ticket_id(ticket_id)
     db = SessionLocal()
     try:
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
@@ -383,7 +180,6 @@ async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user
             raise HTTPException(422, "L'assigné n'appartient pas au domaine du ticket")
         domaine = ticket.domaine
         ticket.assigned_to = payload.assignee_id
-        # Libère tout verrou existant : seul l'assigné peut maintenant éditer
         ticket.locked_by = None
         ticket.locked_at = None
         ticket.lock_expires_at = None
@@ -394,16 +190,16 @@ async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user
                 type="ASSIGNE",
                 actor_id=current_user.id,
                 actor_email=current_user.email,
-                actor_nom_complet=_full_name(current_user),
+                actor_nom_complet=full_name(current_user),
                 meta={
                     "assignee_id": str(payload.assignee_id),
                     "assignee_email": assignee.email if assignee else None,
-                    "assignee_nom": _full_name(assignee) if assignee else None,
+                    "assignee_nom": full_name(assignee) if assignee else None,
                 },
             )
         )
         db.commit()
-        result = _serialize_ticket(ticket)
+        result = serialize_ticket(ticket)
     finally:
         db.close()
     await asyncio.gather(
@@ -419,7 +215,7 @@ async def assigner_ticket(ticket_id: str, payload: AssignerRequest, current_user
 @router.post("/tickets/{ticket_id}/desassigner")
 async def desassigner_ticket(ticket_id: str, current_user: BackofficeUser):
     """Remet le ticket dans le pot commun (supprime l'assignation)."""
-    tid = _parse_ticket_id(ticket_id)
+    tid = parse_ticket_id(ticket_id)
     db = SessionLocal()
     try:
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
@@ -434,50 +230,20 @@ async def desassigner_ticket(ticket_id: str, current_user: BackofficeUser):
                 type="DESASSIGNE",
                 actor_id=current_user.id,
                 actor_email=current_user.email,
-                actor_nom_complet=_full_name(current_user),
+                actor_nom_complet=full_name(current_user),
                 meta={},
             )
         )
         db.commit()
-        result = _serialize_ticket(ticket)
+        result = serialize_ticket(ticket)
     finally:
         db.close()
     await broadcast_async(f"sse:domain:{domaine}", "ticket_unassigned", {"ticket_id": ticket_id, "domaine": domaine})
     return result
 
 
-@router.get("/tickets/participated")
-async def tickets_avec_participation(
-    current_user: BackofficeUser,
-    page: int = 1,
-    limit: int = 10,
-):
-    from app.models.reponse import Reponse as ReponseModel
-
-    db = SessionLocal()
-    try:
-        base_query = (
-            db.query(Ticket)
-            .join(ReponseModel, ReponseModel.ticket_id == Ticket.id)
-            .filter(ReponseModel.validator_id == current_user.id)
-            .distinct()
-        )
-        total = base_query.count()
-        tickets = base_query.order_by(Ticket.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
-        return {
-            "total": total,
-            "page": page,
-            "limit": limit,
-            "items": [_serialize_ticket(t) for t in tickets],
-        }
-    finally:
-        db.close()
-
-
 @router.get("/tickets/{ticket_id}/reponses")
 async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
-    from app.models.reponse import Reponse as ReponseModel
-
     db = SessionLocal()
     try:
         try:
@@ -508,7 +274,7 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
                 "score_similarite": r.score_similarite,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
                 "validator_email": r.validator.email if r.validator else None,
-                "validator_nom_complet": _full_name(r.validator) or (r.validator.email if r.validator else None),
+                "validator_nom_complet": full_name(r.validator) or (r.validator.email if r.validator else None),
             }
             for r in reponses
         ]
@@ -521,7 +287,7 @@ async def get_ticket_workflow(ticket_id: str, current_user: CurrentUser):
     """Retourne la timeline complète du ticket, triée chronologiquement."""
     db = SessionLocal()
     try:
-        tid = _parse_ticket_id(ticket_id)
+        tid = parse_ticket_id(ticket_id)
         ticket = db.query(Ticket).filter(Ticket.id == tid).first()
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
@@ -553,7 +319,7 @@ async def get_ticket_workflow(ticket_id: str, current_user: CurrentUser):
                 "type": "CREE",
                 "at": ticket.created_at.isoformat() if ticket.created_at else None,
                 "actor_email": ticket.user.email if ticket.user else None,
-                "actor_nom_complet": _full_name(ticket.user),
+                "actor_nom_complet": full_name(ticket.user),
                 "meta": {"domaine": ticket.domaine},
             }
         )
@@ -586,7 +352,7 @@ async def get_ticket_workflow(ticket_id: str, current_user: CurrentUser):
                         "type": type_map[reponse.statut],
                         "at": reponse.validated_at.isoformat(),
                         "actor_email": reponse.validator.email if reponse.validator else None,
-                        "actor_nom_complet": _full_name(reponse.validator),
+                        "actor_nom_complet": full_name(reponse.validator),
                         "meta": {},
                     }
                 )
@@ -631,22 +397,15 @@ async def get_ticket(ticket_id: str, current_user: CurrentUser):
         if not ticket:
             raise HTTPException(404, "Ticket introuvable")
         check_ticket_read(ticket, current_user)
-        return _serialize_ticket(ticket)
+        return serialize_ticket(ticket)
     finally:
         db.close()
-
-
-def _parse_ticket_id(ticket_id: str) -> uuid.UUID:
-    try:
-        return uuid.UUID(ticket_id)
-    except ValueError as e:
-        raise HTTPException(400, "ticket_id invalide") from e
 
 
 @router.post("/tickets/{ticket_id}/lock")
 async def verrouiller_ticket(ticket_id: str, current_user: BackofficeUser):
     """Prend (ou prolonge) le verrou du ticket pour le validateur courant."""
-    tid = _parse_ticket_id(ticket_id)
+    tid = parse_ticket_id(ticket_id)
     db = SessionLocal()
     try:
         existing = db.query(Ticket).filter(Ticket.id == tid).first()
@@ -655,7 +414,6 @@ async def verrouiller_ticket(ticket_id: str, current_user: BackofficeUser):
         check_domain_write(existing.domaine, current_user)
         domaine = existing.domaine
 
-        # Un ticket assigné à quelqu'un d'autre ne peut pas être verrouillé
         if existing.assigned_to and existing.assigned_to != current_user.id:
             raise HTTPException(
                 409,
@@ -667,7 +425,7 @@ async def verrouiller_ticket(ticket_id: str, current_user: BackofficeUser):
                 },
             )
 
-        ticket = _acquire_lock(db, tid, current_user.id)
+        ticket = acquire_lock(db, tid, current_user.id)
         if ticket is None:
             ticket = db.query(Ticket).filter(Ticket.id == tid).first()
             raise HTTPException(
@@ -691,10 +449,10 @@ async def verrouiller_ticket(ticket_id: str, current_user: BackofficeUser):
 @router.post("/tickets/{ticket_id}/heartbeat")
 async def heartbeat_ticket(ticket_id: str, current_user: CurrentUser):
     """Prolonge le bail tant que le validateur garde le ticket ouvert."""
-    tid = _parse_ticket_id(ticket_id)
+    tid = parse_ticket_id(ticket_id)
     db = SessionLocal()
     try:
-        ticket = _acquire_lock(db, tid, current_user.id)
+        ticket = acquire_lock(db, tid, current_user.id)
         if ticket is None:
             ticket = db.query(Ticket).filter(Ticket.id == tid).first()
             if not ticket:
@@ -714,7 +472,7 @@ async def heartbeat_ticket(ticket_id: str, current_user: CurrentUser):
 @router.post("/tickets/{ticket_id}/unlock", status_code=204)
 async def deverrouiller_ticket(ticket_id: str, current_user: CurrentUser):
     """Libère le verrou (uniquement si détenu par ce validateur). Idempotent."""
-    tid = _parse_ticket_id(ticket_id)
+    tid = parse_ticket_id(ticket_id)
     db = SessionLocal()
     domaine = None
     try:
@@ -737,40 +495,3 @@ async def deverrouiller_ticket(ticket_id: str, current_user: CurrentUser):
         db.close()
     if domaine:
         await broadcast_async(f"sse:domain:{domaine}", "ticket_unlocked", {"ticket_id": ticket_id})
-
-
-@router.get("/tickets/{job_id}/status")
-async def statut_ticket(job_id: str, current_user: CurrentUser):
-    # Statut Celery
-    result = AsyncResult(job_id, app=celery_app)
-
-    reponse = {
-        "job_id": job_id,
-        "statut_job": result.status,
-    }
-
-    # Si le job est terminé, enrichit avec les données PostgreSQL
-    if result.status == "SUCCESS":
-        job_result = result.result
-
-        reponse["branche"] = job_result.get("branche")
-        reponse["question"] = job_result.get("question")
-        reponse["domaine"] = job_result.get("domaine")
-        reponse["reponse"] = job_result.get("reponse")
-
-        # Récupère le statut métier depuis PostgreSQL
-        ticket_id = job_result.get("ticket_id")
-        if ticket_id:
-            db = SessionLocal()
-            try:
-                ticket = db.query(Ticket).filter(Ticket.id == uuid.UUID(ticket_id)).first()
-                if ticket:
-                    reponse["statut_ticket"] = ticket.statut_ticket
-                    reponse["ticket_id"] = ticket_id
-            finally:
-                db.close()
-
-    elif result.status == "FAILURE":
-        reponse["erreur"] = str(result.result)
-
-    return reponse
