@@ -70,7 +70,7 @@ def groupe_factory(db_session):
 def test_serialize_user_summary_fields():
     from unittest.mock import MagicMock
 
-    from app.api.v1.admin import _serialize_user_summary
+    from app.services.admin_service import serialize_user_summary as _serialize_user_summary
 
     user = MagicMock()
     user.id = uuid.uuid4()
@@ -91,7 +91,7 @@ def test_serialize_user_summary_fields():
 def test_serialize_groupe_base_fields():
     from unittest.mock import MagicMock
 
-    from app.api.v1.admin import _serialize_groupe
+    from app.services.admin_service import serialize_groupe as _serialize_groupe
 
     g = MagicMock()
     g.id = uuid.uuid4()

@@ -2,27 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  Archive,
   CheckCircle2,
-  FilePlus2,
   Loader2,
   RefreshCw,
   X,
   XCircle,
 } from "lucide-react";
-import { confirmDocumentUpdate, previewDocumentUpdate } from "../../lib/api";
-import FileDropzone from "../../components/ui/FileDropzone";
-import { validateFile } from "../../lib/documentUpload";
-import { useJobs } from "../../context/JobsContext";
-import type { ReponseARelire, UniteChangement, UpdateImpact } from "../../types.ts";
+import { confirmDocumentUpdate, previewDocumentUpdate } from "../../../lib/api";
+import FileDropzone from "../../../components/ui/FileDropzone";
+import { validateFile } from "../../../lib/documentUpload";
+import { useJobs } from "../../../context/JobsContext";
+import type { UpdateImpact } from "../../../types.ts";
+import EcranImpact from "./EcranImpact";
 
-/**
- * Le minimum pour cibler une mise à jour.
- *
- * Volontairement plus étroit qu'`IndexedDocument` : l'alerte homonyme de la page
- * Ingestion ouvre cette modale à partir du `detail` d'un 409, qui ne porte que
- * ces champs.
- */
 export interface DocCible {
   doc_id: string;
   filename: string | null;
@@ -32,218 +24,6 @@ export interface DocCible {
 
 type Etape = "pick" | "analyse" | "impact" | "submitting" | "done" | "error";
 
-function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
-  return (
-    <li className="rounded-lg border border-amber-200/70 dark:border-amber-500/25 bg-white/70 dark:bg-white/[0.03] px-3 py-2.5 space-y-1.5">
-      <div className="flex items-start gap-2">
-        <a
-          href={`/tickets/${reponse.ticket_id}`}
-          target="_blank"
-          rel="noreferrer"
-          className="flex-1 text-xs font-medium text-gray-900 dark:text-gray-100 line-clamp-2 hover:underline"
-        >
-          {reponse.question || <span className="italic font-normal text-gray-500">Question indisponible</span>}
-        </a>
-        {reponse.canonique && (
-          <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 dark:bg-emerald-400/15 text-green-700 dark:text-emerald-300">
-            canonique
-          </span>
-        )}
-        <span className="shrink-0 text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">
-          {reponse.nb_validations} val.
-        </span>
-      </div>
-      {reponse.contenu && (
-        <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">
-          {reponse.contenu}
-        </p>
-      )}
-    </li>
-  );
-}
-
-const LIBELLE_SENS: Record<UniteChangement["sens"], string> = {
-  AJOUT: "Ajouté",
-  RETRAIT: "Retiré",
-  REECRITURE: "Réécrit",
-};
-
-/**
- * Un changement, montré **apparié** quand c'en est un.
- *
- * Deux listes indépendantes — « ces paragraphes ont disparu », « ceux-là sont
- * apparus » — ne permettent de juger de rien. C'est le couple « 2 jours →
- * 3 jours » qui rend le changement lisible d'un coup d'œil, et c'est exactement
- * sous cette forme qu'il sera soumis au verdict.
- */
-function LigneUnite({ unite }: { unite: UniteChangement }) {
-  return (
-    <li className="space-y-1 border-l-2 border-amber-300 dark:border-amber-500/40 pl-2.5">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-amber-900/70 dark:text-amber-200/70">
-        {LIBELLE_SENS[unite.sens]}
-      </p>
-      {unite.extrait_avant && (
-        <p className="text-[11px] font-mono leading-relaxed text-gray-500 dark:text-gray-500 line-through decoration-gray-400/60">
-          {unite.extrait_avant}
-        </p>
-      )}
-      {unite.extrait_apres && (
-        <p className="text-[11px] font-mono leading-relaxed text-gray-700 dark:text-gray-300">
-          {unite.extrait_apres}
-        </p>
-      )}
-    </li>
-  );
-}
-
-/**
- * Ce que la nouvelle version change, et ce qui sera examiné derrière.
- *
- * Ce panneau ne promet plus rien : l'aperçu n'appelle ni reranker ni LLM, il ne
- * *peut pas* dire quelles réponses seront retirées. Il montre le diff — la seule
- * chose démontrable sans rien lire — et annonce combien de réponses seront
- * soumises au jugement une fois la version en place.
- */
-function EcranChangements({ impact }: { impact: UpdateImpact }) {
-  const restantes = impact.nb_unites - impact.unites.length;
-  const aAnalyser = impact.nb_a_analyser;
-
-  return (
-    <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
-      <p className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
-        <FilePlus2 size={16} />
-        {impact.nb_unites} changement{impact.nb_unites > 1 ? "s" : ""} dans le document
-      </p>
-
-      <ul className="space-y-2">
-        {impact.unites.map((u, i) => (
-          <LigneUnite key={i} unite={u} />
-        ))}
-      </ul>
-      {restantes > 0 && (
-        <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
-          … et {restantes} autre{restantes > 1 ? "s" : ""}.
-        </p>
-      )}
-
-      {aAnalyser > 0 ? (
-        <div className="space-y-2.5 pt-1">
-          <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-            {aAnalyser} réponse{aAnalyser > 1 ? "s" : ""} enregistrée{aAnalyser > 1 ? "s" : ""}{" "}
-            {aAnalyser > 1 ? "seront relues" : "sera relue"} après la mise à jour
-            {impact.nb_canoniques > 0 && `, dont ${impact.nb_canoniques} canonique${impact.nb_canoniques > 1 ? "s" : ""}`}
-            . Seules celles que le changement contredit seront retirées du service ; les
-            autres ne bougeront pas.
-          </p>
-          <ul className="space-y-2 max-h-64 overflow-y-auto">
-            {impact.a_analyser.map((r) => (
-              <LigneARelire key={r.reponse_id} reponse={r} />
-            ))}
-          </ul>
-          {aAnalyser > impact.a_analyser.length && (
-            <p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
-              … et {aAnalyser - impact.a_analyser.length} autre
-              {aAnalyser - impact.a_analyser.length > 1 ? "s" : ""}.
-            </p>
-          )}
-        </div>
-      ) : (
-        <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-          Aucune réponse enregistrée ne s'appuie sur ce document.
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** Les réponses qui seront jugées en premier : un passage qu'elles citent a bougé. */
-function EncadrePrioritaires({ impact }: { impact: UpdateImpact }) {
-  const n = impact.nb_prioritaires;
-  if (n === 0) return null;
-
-  return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-500/30 bg-slate-50/80 dark:bg-slate-400/10 px-4 py-3.5 space-y-2">
-      <p className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-        <Archive size={16} />
-        {n} réponse{n > 1 ? "s" : ""} {n > 1 ? "citent" : "cite"} un passage modifié
-      </p>
-      <p className="text-xs text-slate-600/90 dark:text-slate-300/80">
-        {n > 1 ? "Elles seront examinées" : "Elle sera examinée"} en premier. Un passage
-        modifié ne condamne rien à lui seul — une virgule corrigée suffit à le faire
-        apparaître ici. Le retrait du service n'est prononcé que si le changement contredit
-        réellement la réponse.
-      </p>
-      <ul className="space-y-1 pt-0.5">
-        {impact.items.slice(0, 3).map((item) => (
-          <li
-            key={item.reponse_id}
-            className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-1"
-          >
-            • {item.question}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** Le cas où il n'y a rien à dire : reformatage, ou diff impossible. */
-function EcranSansChangement({ impact }: { impact: UpdateImpact }) {
-  if (!impact.diff_analysable) {
-    return (
-      <div className="rounded-xl border border-slate-200 dark:border-slate-500/30 bg-slate-50/80 dark:bg-slate-400/10 px-4 py-3.5 space-y-1.5">
-        <p className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-          <AlertTriangle size={16} />
-          La version en ligne n'a pas pu être relue.
-        </p>
-        <p className="text-xs text-slate-600/90 dark:text-slate-300/80">
-          Son fichier est introuvable sur le disque : aucune comparaison n'est possible et
-          rien ne peut être jugé. Les réponses enregistrées du document seront déposées dans
-          l'onglet À relire, à vérifier à la main.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/80 dark:bg-emerald-400/10 px-4 py-3.5 space-y-1.5">
-      <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-        <CheckCircle2 size={16} />
-        Cette version ne dit rien de nouveau.
-      </p>
-      <p className="text-xs text-emerald-800/80 dark:text-emerald-200/80">
-        Mise en forme, espaces, export : le fond est identique. Aucune réponse enregistrée
-        ne sera examinée ni dérangée.
-      </p>
-    </div>
-  );
-}
-
-function EcranImpact({ impact }: { impact: UpdateImpact }) {
-  const aDuNeuf = impact.diff_analysable && impact.nb_unites > 0;
-  const enAttente = impact.nb_en_attente;
-
-  return (
-    <div className="space-y-3">
-      {aDuNeuf ? (
-        <>
-          <EcranChangements impact={impact} />
-          <EncadrePrioritaires impact={impact} />
-        </>
-      ) : (
-        <EcranSansChangement impact={impact} />
-      )}
-      {aDuNeuf && enAttente > 0 && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
-          {enAttente} réponse{enAttente > 1 ? "s" : ""} en attente de validation{" "}
-          {enAttente > 1 ? "seront annulées et regénérées" : "sera annulée et regénérée"} sur
-          la nouvelle version.
-        </p>
-      )}
-    </div>
-  );
-}
-
 export default function UpdateDocModal({
   doc,
   fichierInitial,
@@ -252,16 +32,9 @@ export default function UpdateDocModal({
   onSubmitted,
 }: {
   doc: DocCible;
-  /** Fichier déjà choisi ailleurs (alerte homonyme) : l'analyse démarre seule. */
   fichierInitial?: File;
-  /**
-   * Aperçu déjà calculé (restauration d'une version) : le fichier est côté serveur,
-   * la modale s'ouvre directement sur l'écran d'impact et il n'y a pas de retour
-   * possible vers le choix d'un fichier.
-   */
   impactInitial?: UpdateImpact;
   onClose: () => void;
-  /** Job lancé — distingue une confirmation d'une simple fermeture. */
   onSubmitted?: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -272,9 +45,6 @@ export default function UpdateDocModal({
   );
   const [file, setFile] = useState<File | null>(fichierInitial ?? null);
   const [fileError, setFileError] = useState<string | null>(null);
-  // `undefined` = ne pas envoyer le champ, donc conserver la description en base.
-  // C'est le cas de l'alerte homonyme, qui ouvre la modale sans la connaître :
-  // envoyer une chaîne vide l'effacerait.
   const [description, setDescription] = useState<string | undefined>(doc.description);
   const [impact, setImpact] = useState<UpdateImpact | null>(impactInitial ?? null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -304,9 +74,6 @@ export default function UpdateDocModal({
     onError: echouer,
   });
 
-  // Ouverture directe sur l'analyse : le fichier vient de la page Ingestion, il
-  // n'y a pas de clic de l'utilisateur pour déclencher l'appel. Le garde-fou
-  // évite un second aperçu (donc un second staging) en StrictMode.
   const analyseLancee = useRef(false);
   useEffect(() => {
     if (!fichierInitial || analyseLancee.current) return;
@@ -329,7 +96,6 @@ export default function UpdateDocModal({
   };
 
   const enCours = etape === "analyse" || etape === "submitting";
-  // Restauration : il n'y a pas de fichier local à reprendre, le seul retour est la sortie.
   const restauration = impactInitial !== undefined;
   const depuis = impact?.restauree_depuis;
   const nbAAnalyser = impact?.nb_a_analyser ?? 0;
@@ -346,12 +112,14 @@ export default function UpdateDocModal({
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">
               {etape === "done"
-                ? restauration ? "Restauration lancée" : "Mise à jour lancée"
+                ? restauration
+                  ? "Restauration lancée"
+                  : "Mise à jour lancée"
                 : depuis != null
                   ? `Restaurer la v${depuis}`
-                  : "Mettre à jour"}{" "}
+                  : "Mettre à jour"}
               {etape !== "done" && (
-                <>— v{doc.version} → v{impact?.version_cible ?? doc.version + 1}</>
+                <> — v{doc.version} → v{impact?.version_cible ?? doc.version + 1}</>
               )}
             </p>
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
@@ -392,8 +160,8 @@ export default function UpdateDocModal({
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Le document conservera son identifiant ; l'ancienne version sera archivée et
-                restera téléchargeable.
+                Le document conservera son identifiant ; l'ancienne version sera archivée et restera
+                téléchargeable.
               </p>
             </>
           )}
@@ -424,14 +192,11 @@ export default function UpdateDocModal({
               </div>
               {nbAAnalyser > 0 && (
                 <>
-                  {/* L'analyse ne rend son verdict qu'après la ré-indexation : dire
-                      « à vérifier » tout de suite enverrait l'utilisateur sur une
-                      liste qui ne veut encore rien dire. */}
                   <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">
-                    {nbAAnalyser} réponse{nbAAnalyser > 1 ? "s" : ""} {nbAAnalyser > 1 ? "sont" : "est"}{" "}
-                    en cours d'analyse. Celles que le changement contredit basculeront dans
-                    Obsolètes ; les cas douteux seront déposés dans À relire, avec leur
-                    justification.
+                    {nbAAnalyser} réponse{nbAAnalyser > 1 ? "s" : ""}{" "}
+                    {nbAAnalyser > 1 ? "sont" : "est"} en cours d'analyse. Celles que le changement
+                    contredit basculeront dans Obsolètes ; les cas douteux seront déposés dans À
+                    relire, avec leur justification.
                   </p>
                   <a
                     href="/reponses-enregistrees?onglet=a_relire"
@@ -523,8 +288,6 @@ export default function UpdateDocModal({
             <>
               <button
                 onClick={() => {
-                  // Le 409 « mise à jour en cours » peut venir d'un verrou dont la
-                  // liste n'a pas connaissance : on la rafraîchit en sortant.
                   queryClient.invalidateQueries({ queryKey: ["documents"] });
                   onClose();
                 }}

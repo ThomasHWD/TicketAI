@@ -73,7 +73,7 @@ def _auth_override():
     """
     from unittest.mock import MagicMock
 
-    from app.api.v1.documents import get_db
+    from app.api.v1.documents.core import get_db
     from app.core.security import get_current_user
     from app.main import app
     from app.models.groupe import Groupe
@@ -100,8 +100,8 @@ def _auth_override():
 
 @pytest.fixture
 def mock_qdrant(monkeypatch):
-    """Remplace le client Qdrant dans app.api.v1.documents par un MagicMock."""
-    import app.api.v1.documents as docs_module
+    """Remplace le client Qdrant dans app.api.v1.documents.core par un MagicMock."""
+    import app.api.v1.documents.core as docs_module
 
     mock_client = MagicMock()
     # scroll() renvoie ([], None) par défaut — les tests surchargent au besoin
@@ -117,7 +117,7 @@ def db_reelle(db_session):
     Le listing, le téléchargement et la suppression lisent désormais Postgres :
     la session mock de ``_auth_override`` ne suffit plus.
     """
-    from app.api.v1.documents import get_db
+    from app.api.v1.documents.core import get_db
     from app.core.security import get_current_user
     from app.main import app
     from app.models.groupe import Groupe
@@ -204,7 +204,7 @@ def _doc_en_base(db, **overrides):
 @pytest.fixture
 def mock_ingestion_job(monkeypatch):
     """Neutralise l'enqueue Celery pour les tests d'upload."""
-    import app.api.v1.documents as docs_module
+    import app.api.v1.documents.core as docs_module
 
     mock_job = MagicMock()
     mock_task = MagicMock()
@@ -221,22 +221,22 @@ def mock_ingestion_job(monkeypatch):
 
 class TestSanitizeFilename:
     def test_normal(self):
-        from app.api.v1.documents import sanitize_filename
+        from app.services.document_service import sanitize_filename
 
         assert sanitize_filename("rapport_2025.pdf") == "rapport_2025.pdf"
 
     def test_path_traversal(self):
-        from app.api.v1.documents import sanitize_filename
+        from app.services.document_service import sanitize_filename
 
         assert sanitize_filename("../../etc/passwd") == "passwd"
 
     def test_null_bytes(self):
-        from app.api.v1.documents import sanitize_filename
+        from app.services.document_service import sanitize_filename
 
         assert "\x00" not in sanitize_filename("fichier\x00.pdf")
 
     def test_special_chars_replaced(self):
-        from app.api.v1.documents import sanitize_filename
+        from app.services.document_service import sanitize_filename
 
         # Pas de "/" dans le nom pour éviter que basename le tronque
         result = sanitize_filename("doc (1); injection$.pdf")
@@ -244,7 +244,7 @@ class TestSanitizeFilename:
         assert "$" not in result
 
     def test_empty_raises(self):
-        from app.api.v1.documents import sanitize_filename
+        from app.services.document_service import sanitize_filename
         from fastapi import HTTPException
 
         with pytest.raises(HTTPException) as exc:
@@ -252,7 +252,7 @@ class TestSanitizeFilename:
         assert exc.value.status_code == 400
 
     def test_dot_only_raises(self):
-        from app.api.v1.documents import sanitize_filename
+        from app.services.document_service import sanitize_filename
         from fastapi import HTTPException
 
         with pytest.raises(HTTPException):
@@ -692,7 +692,7 @@ class TestDownloadDocument:
 
     def test_repli_sur_l_ancien_emplacement(self, client, db_reelle, tmp_path, monkeypatch):
         """Documents backfillés : leur fichier est resté à la racine de {doc_id}/."""
-        import app.api.v1.documents as docs_module
+        import app.api.v1.documents.core as docs_module
 
         monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
         doc = _doc_en_base(db_reelle, filename="doc.md", stored_path=None)
@@ -785,7 +785,7 @@ class TestDeleteDocument:
     def test_supprime_le_dossier_archives_comprises(self, client, db_reelle, mock_qdrant, tmp_path, monkeypatch):
         """Les fichiers étant rangés par version, effacer le seul dossier de la version
         courante laisserait les archives derrière."""
-        import app.api.v1.documents as docs_module
+        import app.api.v1.documents.core as docs_module
 
         monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
         doc = _doc_en_base(db_reelle)
@@ -799,7 +799,7 @@ class TestDeleteDocument:
         assert not (tmp_path / doc.doc_id).exists()
 
     def test_sans_fichier_disque_ne_plante_pas(self, client, db_reelle, mock_qdrant, tmp_path, monkeypatch):
-        import app.api.v1.documents as docs_module
+        import app.api.v1.documents.core as docs_module
 
         monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
         doc = _doc_en_base(db_reelle)
@@ -869,7 +869,7 @@ def qdrant_maj(monkeypatch):
 
 @pytest.fixture
 def mock_maj_job(monkeypatch):
-    import app.api.v1.documents as docs_module
+    import app.api.v1.documents.versions as docs_module
 
     mock_job = MagicMock()
     mock_task = MagicMock()
@@ -881,7 +881,7 @@ def mock_maj_job(monkeypatch):
 
 @pytest.fixture
 def staging_tmp(tmp_path, monkeypatch):
-    import app.api.v1.documents as docs_module
+    import app.services.document_service as docs_module
 
     monkeypatch.setattr(docs_module, "STAGING_DIR", str(tmp_path / "staging"))
     return tmp_path
@@ -1392,7 +1392,7 @@ class TestListerVersions:
 
     def test_signale_un_fichier_archive_manquant(self, client, db_reelle, tmp_path, monkeypatch):
         """Sans ce drapeau, l'UI proposerait un téléchargement voué au 404."""
-        import app.api.v1.documents as docs_module
+        import app.api.v1.documents.core as docs_module
 
         monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
         doc = _doc_en_base(db_reelle)
@@ -1490,7 +1490,7 @@ class TestRestaurerVersion:
         assert "même contenu" in r.json()["detail"]
 
     def test_409_fichier_archive_absent(self, client, db_reelle, tmp_path, staging_tmp, qdrant_maj, monkeypatch):
-        import app.api.v1.documents as docs_module
+        import app.api.v1.documents.core as docs_module
 
         monkeypatch.setattr(docs_module.settings, "documents_storage_path", str(tmp_path))
         doc = _doc_en_base(db_reelle, version=2, content_hash="hash-v2")
@@ -1515,14 +1515,14 @@ class TestRestaurerVersion:
 
 class TestDocumentStatus:
     def test_statut_pending(self, client):
-        with patch("app.api.v1.documents.AsyncResult") as mock_ar:
+        with patch("app.api.v1.documents.core.AsyncResult") as mock_ar:
             mock_ar.return_value.status = "PENDING"
             r = client.get(f"{API}/documents/{uuid.uuid4()}/status")
         assert r.status_code == 200
         assert r.json()["statut"] == "PENDING"
 
     def test_statut_success_inclut_resultat(self, client):
-        with patch("app.api.v1.documents.AsyncResult") as mock_ar:
+        with patch("app.api.v1.documents.core.AsyncResult") as mock_ar:
             mock_ar.return_value.status = "SUCCESS"
             mock_ar.return_value.result = {
                 "filename": "doc.md",
@@ -1536,7 +1536,7 @@ class TestDocumentStatus:
         assert body["resultat"]["nb_chunks"] == 5
 
     def test_statut_failure_inclut_erreur(self, client):
-        with patch("app.api.v1.documents.AsyncResult") as mock_ar:
+        with patch("app.api.v1.documents.core.AsyncResult") as mock_ar:
             mock_ar.return_value.status = "FAILURE"
             mock_ar.return_value.result = RuntimeError("Echec embedding")
             r = client.get(f"{API}/documents/{uuid.uuid4()}/status")
@@ -1797,7 +1797,7 @@ def job_maj_reel(monkeypatch, tmp_path, qdrant_maj):
     module — le job et l'aperçu partagent ainsi la même vue de la version
     sortante, comme en production.
     """
-    import app.api.v1.documents as docs_module
+    import app.api.v1.documents.versions as docs_module
     import app.workers.document_update as maj_module
     from app.config import settings
 
