@@ -81,6 +81,9 @@ export type {
   IncidentsData,
 } from "./admin";
 
+export { soumettresuggestion, getSuggestions, toggleSuggestionLu } from "./suggestions";
+export type { SuggestionOut } from "./suggestions";
+
 export {
   getDashboardStats,
   getGroupeMembresStats,
