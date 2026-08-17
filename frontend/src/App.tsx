@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -16,24 +16,25 @@ import SidebarToggle from "./components/layout/SidebarToggle";
 import Aurora from "./components/ui/Aurora";
 import JobTracker from "./components/ui/JobTracker";
 import { JobsProvider } from "./context/JobsContext";
-import Dashboard from "./pages/backoffice/Dashboard";
-import UserDashboard from "./pages/user/UserDashboard";
-import TicketsList from "./pages/backoffice/TicketsList";
-import ClosedTicketsList from "./pages/backoffice/ClosedTicketsList";
-import TicketDetail from "./pages/backoffice/TicketDetail/TicketDetail";
-import SavedAnswers from "./pages/backoffice/SavedAnswers";
-import NewTicket from "./pages/user/NewTicket";
-import UserTicketHistory from "./pages/user/UserTicketHistory";
-import UserTicketDetail from "./pages/user/UserTicketDetail/UserTicketDetail";
-import Ingestion from "./pages/backoffice/Ingestion";
-import AllDocs from "./pages/backoffice/AllDocs";
-import TicketTracking from "./pages/backoffice/TicketTracking";
-import HorsDomaine from "./pages/backoffice/HorsDomaine";
-import AdminPage from "./pages/admin/Groups";
-import SiteConfigPage from "./pages/admin/SiteConfig";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import NotFound from "./pages/404";
-import SuggestionBox from "./pages/user/SuggestionBox";
+
+const Dashboard = lazy(() => import("./pages/backoffice/Dashboard"));
+const UserDashboard = lazy(() => import("./pages/user/UserDashboard"));
+const TicketsList = lazy(() => import("./pages/backoffice/TicketsList"));
+const ClosedTicketsList = lazy(() => import("./pages/backoffice/ClosedTicketsList"));
+const TicketDetail = lazy(() => import("./pages/backoffice/TicketDetail/TicketDetail"));
+const SavedAnswers = lazy(() => import("./pages/backoffice/SavedAnswers"));
+const NewTicket = lazy(() => import("./pages/user/NewTicket"));
+const UserTicketHistory = lazy(() => import("./pages/user/UserTicketHistory"));
+const UserTicketDetail = lazy(() => import("./pages/user/UserTicketDetail/UserTicketDetail"));
+const Ingestion = lazy(() => import("./pages/backoffice/Ingestion"));
+const AllDocs = lazy(() => import("./pages/backoffice/AllDocs"));
+const TicketTracking = lazy(() => import("./pages/backoffice/TicketTracking"));
+const HorsDomaine = lazy(() => import("./pages/backoffice/HorsDomaine"));
+const AdminPage = lazy(() => import("./pages/admin/Groups"));
+const SiteConfigPage = lazy(() => import("./pages/admin/SiteConfig"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const NotFound = lazy(() => import("./pages/404"));
+const SuggestionBox = lazy(() => import("./pages/user/SuggestionBox"));
 
 function Layout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -110,6 +111,7 @@ export default function App() {
   return (
     <JobsProvider>
     <BrowserRouter>
+      <Suspense fallback={null}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<ProtectedRoute />}>
@@ -147,6 +149,7 @@ export default function App() {
           </Route>
         </Route>
       </Routes>
+      </Suspense>
     </BrowserRouter>
     </JobsProvider>
   );

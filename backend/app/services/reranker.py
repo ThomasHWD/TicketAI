@@ -1,5 +1,9 @@
+import logging
+
 import requests
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # from sentence_transformers import CrossEncoder
 # _reranker = None
@@ -19,7 +23,7 @@ def rerank(question: str, chunks: list[dict], top_k: int = 3) -> list[dict]:
     if not chunks:
         return []
 
-    print(f"[RERANKER] Envoi de {len(chunks)} chunks à l'API Albert...")
+    logger.debug("Envoi de %d chunks à l'API Albert pour reranking", len(chunks))
 
     # 1. On extrait le texte de chaque chunk
     documents = [chunk["contenu"] for chunk in chunks]
@@ -41,7 +45,7 @@ def rerank(question: str, chunks: list[dict], top_k: int = 3) -> list[dict]:
 
     # Sécurité pour voir le détail de la validation
     if response.status_code == 422:
-        print("❌ Erreur détaillée de validation Albert :", response.json())
+        logger.error("Erreur de validation Albert (422): %s", response.json())
 
     response.raise_for_status()
     predictions = response.json()

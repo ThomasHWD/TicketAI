@@ -93,7 +93,6 @@ def _avg_closure_time(db, start: datetime, end: datetime, domain_filters: list) 
         .filter(
             Ticket.closed_at >= start,
             Ticket.closed_at < end,
-            Ticket.canonique.is_(False),
             *domain_filters,
         )
         .scalar()

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.security import AdminUser, CurrentUser
 from app.database import SessionLocal
@@ -13,15 +13,14 @@ class SuggestionIn(BaseModel):
 
 
 class SuggestionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     contenu: str
     lu: bool
     created_at: str
     user_email: str | None
     user_nom: str | None
-
-    class Config:
-        from_attributes = True
 
 
 @router.post("", status_code=201)

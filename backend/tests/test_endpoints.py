@@ -30,11 +30,11 @@ def test_verifier_etat_initial_bloque_etat_final():
     from app.services.reponse_service import verifier_etat_initial
     from fastapi import HTTPException
 
-    # MODIFICATION : "VALIDÉE" -> "CANONIQUE"
-    reponse = make_reponse(statut="CANONIQUE")
-    with pytest.raises(HTTPException) as exc:
-        verifier_etat_initial(reponse)
-    assert exc.value.status_code == 409
+    for statut in ("VALIDÉE", "REJETÉE", "CORRIGÉE"):
+        reponse = make_reponse(statut=statut)
+        with pytest.raises(HTTPException) as exc:
+            verifier_etat_initial(reponse)
+        assert exc.value.status_code == 409
 
 
 def test_verifier_etat_initial_autorise_en_attente():
@@ -93,8 +93,8 @@ def test_check_reponse_write_sans_ticket_renvoie_409():
 def test_etats_finaux_complets():
     from app.services.reponse_service import ETATS_FINAUX
 
-    # MODIFICATION : "VALIDÉE" -> "CANONIQUE"
-    assert "CANONIQUE" in ETATS_FINAUX
+    assert "VALIDÉE" in ETATS_FINAUX
     assert "REJETÉE" in ETATS_FINAUX
     assert "CORRIGÉE" in ETATS_FINAUX
+    assert "CANONIQUE" not in ETATS_FINAUX  # CANONIQUE est un booléen, pas un statut
     assert "EN_ATTENTE" not in ETATS_FINAUX

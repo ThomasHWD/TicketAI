@@ -1,5 +1,9 @@
+import logging
+
 from app.config import settings
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 # Initialisation du client configuré pour Albert
 client = OpenAI(base_url=settings.albert_llm_url, api_key=settings.albert_api_key)
@@ -14,7 +18,7 @@ def embed_texts(texts: list[str], is_query: bool = False) -> list[dict]:
     for i in range(0, len(texts), MAX_BATCH_SIZE):
         batch = texts[i : i + MAX_BATCH_SIZE]
 
-        print(f"[EMBEDDING] Envoi d'un lot de {len(batch)} textes à l'API Albert ({i + len(batch)}/{len(texts)})...")
+        logger.debug("Envoi d'un lot de %d textes à l'API Albert (%d/%d)", len(batch), i + len(batch), len(texts))
 
         response = client.embeddings.create(
             model=settings.albert_embeddings_model_name,
