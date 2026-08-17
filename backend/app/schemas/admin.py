@@ -31,6 +31,7 @@ class HealthResponse(BaseModel):
     albert_reranker: ServiceStatus
     celery_ingestion: ServiceStatus
     celery_questions: ServiceStatus
+    celery_beat: ServiceStatus
     stats: FunctionalStats
 
 

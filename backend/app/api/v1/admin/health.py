@@ -87,6 +87,17 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
     cel_ing, workers_ing = celery_status_and_count("queue_ingestion", celery_queues_info)
     cel_q, workers_q = celery_status_and_count("queue_questions", celery_queues_info)
 
+    cel_beat = ServiceStatus(status="error", detail="Beat non démarré")
+    try:
+        from app.workers.auto_cloture import BEAT_HEARTBEAT_KEY, BEAT_STARTED_KEY
+        r_beat = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=2)
+        if r_beat.get(BEAT_HEARTBEAT_KEY):
+            cel_beat = ServiceStatus(status="ok")
+        elif r_beat.get(BEAT_STARTED_KEY):
+            cel_beat = ServiceStatus(status="ok", detail="Démarré, en attente de la première exécution (02h00)")
+    except Exception as e:
+        cel_beat = ServiceStatus(status="error", detail=str(e))
+
     nb_documents = db.query(distinct(ReponseChunk.doc_id)).count()
     nb_reponses_validees = db.query(Reponse).filter(Reponse.statut == "VALIDÉE").count()
     tickets_echoues = db.query(Ticket).filter(Ticket.statut_job == "ÉCHOUÉ").count()
@@ -133,6 +144,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
         albert_reranker=al_rer,
         celery_ingestion=cel_ing,
         celery_questions=cel_q,
+        celery_beat=cel_beat,
         stats=FunctionalStats(
             nb_documents=nb_documents,
             nb_reponses_validees=nb_reponses_validees,

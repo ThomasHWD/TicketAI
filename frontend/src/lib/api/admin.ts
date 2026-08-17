@@ -64,6 +64,7 @@ export interface ServicesHealthData {
   albert_reranker: ServiceHealth;
   celery_ingestion: ServiceHealth;
   celery_questions: ServiceHealth;
+  celery_beat: ServiceHealth;
   stats: FunctionalStats;
 }
 
