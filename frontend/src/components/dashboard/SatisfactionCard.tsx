@@ -11,6 +11,7 @@ interface SatisfactionData {
 interface SatisfactionCardProps {
   data: SatisfactionData | null;
   loading?: boolean;
+  onVoirInsatisfaits?: () => void;
 }
 
 /**
@@ -18,7 +19,7 @@ interface SatisfactionCardProps {
  * La classe de couleur est posée sur le <svg> pour que currentColor
  * se résolve correctement dans les paths ET dans les stops du gradient.
  */
-function StarRating({ value, size = 15 }: { value: number; size?: number }) {
+export function StarRating({ value, size = 15 }: { value: number; size?: number }) {
   const instanceId = useId();
   const full = Math.floor(value);
   const frac = value - full; // 0.0 – 0.99
@@ -92,7 +93,7 @@ function SubMetric({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-export default function SatisfactionCard({ data, loading = false }: SatisfactionCardProps) {
+export default function SatisfactionCard({ data, loading = false, onVoirInsatisfaits }: SatisfactionCardProps) {
   const isEmpty = !data || (data.avg_qualite === null && data.avg_delai === null);
 
   const globalScore =
@@ -189,6 +190,16 @@ export default function SatisfactionCard({ data, loading = false }: Satisfaction
             <SubMetric label="Rapidité" value={data!.avg_delai} />
           </div>
         </div>
+      )}
+
+      {/* Bouton tickets insatisfaits */}
+      {!isEmpty && onVoirInsatisfaits && (
+        <button
+          onClick={onVoirInsatisfaits}
+          className="relative mt-3 w-full text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors text-center py-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20"
+        >
+          Voir les tickets insatisfaits →
+        </button>
       )}
     </div>
   );

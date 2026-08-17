@@ -18,6 +18,7 @@ import TicketsBarChart from "../../components/dashboard/TicketsBarChart";
 import RecentDocs from "../../components/dashboard/RecentDocs";
 import RecentTickets from "../../components/dashboard/RecentTickets";
 import SatisfactionCard from "../../components/dashboard/SatisfactionCard";
+import TicketsInsatisfaitsModal from "../../components/dashboard/TicketsInsatisfaitsModal";
 import TeamStatsPanel from "./TeamStats";
 import HorsDomaineCard from "../../components/dashboard/HorsDomaineCard";
 
@@ -47,6 +48,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [onglet, setOnglet] = useState<Onglet>("overview");
   const [refreshing, setRefreshing] = useState(false);
+  const [showInsatisfaits, setShowInsatisfaits] = useState(false);
   const [periode, setPeriode] = useState<Periode>("semaine");
   const [domaine, setDomaine] = useState<string>(
     userDomaines.length === 1 ? userDomaines[0] : "",
@@ -76,6 +78,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6 max-w-screen-xl mx-auto">
+      {showInsatisfaits && <TicketsInsatisfaitsModal onClose={() => setShowInsatisfaits(false)} periode={periode} domaine={filterDomaine} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-2">
@@ -234,7 +237,7 @@ export default function Dashboard() {
           {/* Donut + Docs */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <DonutChart data={stats?.repartition_statuts ?? []} loading={statsLoading} periode={periode} />
-            <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} />
+            <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} onVoirInsatisfaits={() => setShowInsatisfaits(true)} />
           </div>
 
           {/* Bar chart */}

@@ -17,6 +17,7 @@ import DonutChart from "../../components/dashboard/DonutChart";
 import BranchesDonut from "../../components/dashboard/BranchesDonut";
 import TicketsBarChart from "../../components/dashboard/TicketsBarChart";
 import SatisfactionCard from "../../components/dashboard/SatisfactionCard";
+import TicketsInsatisfaitsModal from "../../components/dashboard/TicketsInsatisfaitsModal";
 
 function formatDuration(seconds: number): string {
   if (seconds === 0) return "0s";
@@ -43,6 +44,7 @@ export default function AdminDashboard() {
   const [periode, setPeriode] = useState<Periode>("semaine");
   const [domaine, setDomaine] = useState<string>("");
   const [refreshing, setRefreshing] = useState(false);
+  const [showInsatisfaits, setShowInsatisfaits] = useState(false);
 
   const { data: allDomaines } = useQuery({
     queryKey: ["admin-domaines"],
@@ -79,6 +81,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6 space-y-6 max-w-screen-xl mx-auto">
+      {showInsatisfaits && <TicketsInsatisfaitsModal onClose={() => setShowInsatisfaits(false)} periode={periode} domaine={filterDomaine} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -231,7 +234,7 @@ export default function AdminDashboard() {
       />
 
       {/* Satisfaction */}
-      <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} />
+      <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} onVoirInsatisfaits={() => setShowInsatisfaits(true)} />
     </div>
   );
 }
