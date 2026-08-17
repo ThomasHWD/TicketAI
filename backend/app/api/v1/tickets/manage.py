@@ -461,7 +461,7 @@ async def verrouiller_ticket(ticket_id: str, current_user: BackofficeUser):
 
 
 @router.post("/tickets/{ticket_id}/heartbeat")
-async def heartbeat_ticket(ticket_id: str, current_user: CurrentUser):
+async def heartbeat_ticket(ticket_id: str, current_user: BackofficeUser):
     """Prolonge le bail tant que le validateur garde le ticket ouvert."""
     tid = parse_ticket_id(ticket_id)
     db = SessionLocal()

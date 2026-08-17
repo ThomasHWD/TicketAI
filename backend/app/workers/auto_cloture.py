@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
 import redis as redis_lib
@@ -8,6 +9,8 @@ from app.database import SessionLocal
 from app.models.ticket import Ticket
 from app.services.broadcast import broadcast_sync
 from app.workers.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 BEAT_HEARTBEAT_KEY = "ticketai:beat:heartbeat"
 BEAT_STARTED_KEY = "ticketai:beat:started"
@@ -59,5 +62,5 @@ def auto_cloture_job(self):
             broadcast_sync(f"sse:domain:{domaine}", "ticket_closed", {"ticket_id": ticket_id, "domaine": domaine})
 
     total = sum(len(v) for v in domaines.values())
-    print(f"[AUTO-CLÔTURE] {total} ticket(s) clôturé(s) automatiquement.")
+    logger.info("%d ticket(s) clôturé(s) automatiquement.", total)
     return {"clotures": total}

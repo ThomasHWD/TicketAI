@@ -7,17 +7,43 @@ défaut. Les rôles supérieurs (VALIDATEUR/ADMIN) sont attribués manuellement 
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import redis as redis_lib
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.security import CurrentUser, create_access_token
 from app.database import SessionLocal
 from app.models.groupe import user_groups
 from app.models.user import User
 from app.services import ldap_auth
 from app.services.ldap_auth import LdapIdentity
+
+_LOGIN_MAX_ATTEMPTS = 10
+_LOGIN_WINDOW_SECONDS = 60
+
+
+def _check_login_rate(ip: str) -> None:
+    """Limite à 10 tentatives de login par minute et par IP. Fail-open si Valkey est indisponible."""
+    try:
+        r = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=1)
+        key = f"rate:login:{ip}"
+        count = r.incr(key)
+        if count == 1:
+            r.expire(key, _LOGIN_WINDOW_SECONDS)
+        if count > _LOGIN_MAX_ATTEMPTS:
+            ttl = max(r.ttl(key), 1)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Trop de tentatives de connexion. Réessayez dans {ttl} secondes.",
+                headers={"Retry-After": str(ttl)},
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # Valkey indisponible → on laisse passer (fail-open)
 
 router = APIRouter()
 
@@ -73,8 +99,9 @@ def _serialize_user(user: User, db: Session | None = None) -> dict:
 
 
 @router.post("/auth/login")
-async def login(form: Annotated[OAuth2PasswordRequestForm, Depends()]):
+async def login(request: Request, form: Annotated[OAuth2PasswordRequestForm, Depends()]):
     """Authentifie via LDAP/AD puis renvoie un JWT et le profil utilisateur."""
+    _check_login_rate(request.client.host if request.client else "unknown")
     identity = ldap_auth.authenticate(form.username, form.password)
     if identity is None:
         raise HTTPException(
