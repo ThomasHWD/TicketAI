@@ -31,3 +31,7 @@ entities.json
 
 # Outil de revue design local
 .impeccable/
+
+# Celery Beat state
+celerybeat-schedule
+celerybeat.pid
