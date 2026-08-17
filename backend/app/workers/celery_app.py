@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from app.config import settings
 
@@ -12,6 +13,7 @@ celery_app = Celery(
         "app.workers.question",
         "app.workers.feedback",
         "app.workers.reverification",
+        "app.workers.auto_cloture",
     ],
 )
 
@@ -30,4 +32,10 @@ celery_app.conf.update(
     },
     task_default_queue="queue_questions",
     worker_pool="threads",
+    beat_schedule={
+        "auto-cloture-tickets": {
+            "task": "app.workers.auto_cloture.auto_cloture_job",
+            "schedule": crontab(hour=2, minute=0),
+        }
+    },
 )

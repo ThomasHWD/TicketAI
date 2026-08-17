@@ -68,6 +68,19 @@ services:
       VALKEY_HOST: valkey
     depends_on: *infra-deps
 
+  worker_beat:
+    build: ./backend
+    command: watchmedo auto-restart --directory=/app --pattern='*.py' --recursive -- celery -A app.workers.celery_app beat -l info
+    volumes:
+      - ./backend:/app
+    env_file: ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      DATABASE_URL: postgresql://user:test@postgres:5432/ticketai_db
+      QDRANT_HOST: qdrant
+      VALKEY_HOST: valkey
+    depends_on: *infra-deps
+
   frontend:
     image: node:22-alpine
     working_dir: /app
