@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Verrou de ticket (durée du bail en secondes, prolongé par heartbeat)
     lock_ttl_seconds: int = 300
 
+    # Fermeture automatique : délai en jours après validation avant auto-clôture
+    jours_auto_cloture: int = 7
+
     # Documents storage
     documents_storage_path: str
 
