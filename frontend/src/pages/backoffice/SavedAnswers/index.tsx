@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Archive,
@@ -14,23 +14,17 @@ import {
   getReponsesCanoniques,
   getReponsesObsoletes,
   getReponsesARelire,
-  confirmerActualite,
-  confirmerActualiteLot,
-  retirerReponse,
-  editerReponseCanonique,
-  supprimerReponseCanonique,
-  restaurerReponse,
 } from "../../../lib/api";
-import type { ReponseCanonique, ReponseSignalee } from "../../../types.ts";
+import type { ReponseCanonique, ReponseSignalee } from "../../../types";
 import DeleteModal from "./DeleteModal";
 import RetraitModal from "./RetraitModal";
 import TabARelire from "./TabARelire";
 import TabCanoniques from "./TabCanoniques";
 import TabObsoletes from "./TabObsoletes";
 import { contenuServi, grouper, LIMIT, type CibleSuppression, type Onglet } from "./utils";
+import { useSavedAnswersMutations } from "./useSavedAnswersMutations";
 
 export default function SavedAnswers() {
-  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [onglet, setOnglet] = useState<Onglet>(
     (searchParams.get("onglet") as Onglet | null) ?? "canoniques"
@@ -78,59 +72,17 @@ export default function SavedAnswers() {
   });
   const nbDocsARelire = compteurARelire?.nb_documents ?? 0;
 
-  const editMutation = useMutation({
-    mutationFn: ({ id, contenu }: { id: string; contenu: string }) =>
-      editerReponseCanonique(id, { contenu }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
-      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
-      setEditingId(null);
-      setDraft("");
-    },
-  });
-
-  const confirmMutation = useMutation({
-    mutationFn: (id: string) => confirmerActualite(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
-      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
-    },
-  });
-
-  const confirmLotMutation = useMutation({
-    mutationFn: ({ doc_id, version }: { doc_id: string; version: number }) =>
-      confirmerActualiteLot(doc_id, version),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
-      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
-    },
-  });
-
-  const retirerMutation = useMutation({
-    mutationFn: (id: string) => retirerReponse(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
-      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
-      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
-      setRetraitTarget(null);
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => supprimerReponseCanonique(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
-      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
-      setDeleteTarget(null);
-    },
-  });
-
-  const restoreMutation = useMutation({
-    mutationFn: (id: string) => restaurerReponse(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
-      queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
-    },
+  const {
+    editMutation,
+    confirmMutation,
+    confirmLotMutation,
+    retirerMutation,
+    deleteMutation,
+    restoreMutation,
+  } = useSavedAnswersMutations({
+    onEditSuccess: () => { setEditingId(null); setDraft(""); },
+    onRetirerSuccess: () => setRetraitTarget(null),
+    onDeleteSuccess: () => setDeleteTarget(null),
   });
 
   const requete =

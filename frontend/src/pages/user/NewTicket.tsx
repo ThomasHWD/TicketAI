@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Send, Loader2, CheckCircle2, AlertCircle, Plus } from "lucide-react";
 import { apiFetch, soumettreQuestion } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
-import type { Domaine } from "../../types.ts";
+import type { Domaine } from "../../types";
 
 async function fetchDomaines(): Promise<string[]> {
   const res = await apiFetch("/api/v1/tickets/domaines");

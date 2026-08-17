@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Bot, User } from "lucide-react";
 import { formatDate, reponseVisible } from "./utils";
-import type { TicketReponse } from "../../../types.ts";
+import type { TicketReponse } from "../../../types";
 
 function UserAvatar() {
   return (

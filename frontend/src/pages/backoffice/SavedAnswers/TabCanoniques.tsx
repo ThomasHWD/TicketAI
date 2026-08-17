@@ -1,6 +1,6 @@
 import { AlertTriangle, Check, Pencil, Trash2, X } from "lucide-react";
 import { formatDate } from "../../../lib/ticketStatus";
-import type { ReponseCanonique } from "../../../types.ts";
+import type { ReponseCanonique } from "../../../types";
 import ExpandableText from "./ExpandableText";
 import { contenuServi, depuis, type CibleSuppression } from "./utils";
 

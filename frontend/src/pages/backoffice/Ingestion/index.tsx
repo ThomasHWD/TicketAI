@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import FileDropzone from "../../../components/ui/FileDropzone";
 import { validateFile } from "../../../lib/documentUpload";
 import UpdateDocModal from "../UpdateDocModal";
-import type { Domaine, DocumentHomonyme, DocumentUploadResponse } from "../../../types.ts";
+import type { Domaine, DocumentHomonyme, DocumentUploadResponse } from "../../../types";
 import WriteMode from "./WriteMode";
 import PhaseResult from "./PhaseResult";
 
