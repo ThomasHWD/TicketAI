@@ -53,6 +53,7 @@ async def valider_reponse(reponse_id: str, current_user: BackofficeUser):
 
         if ticket:
             ticket.statut_ticket = "VALIDÉ"
+            ticket.validated_at = datetime.now(timezone.utc)
             liberer_verrou(ticket)
 
         reponse_source = None
@@ -164,6 +165,7 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest, current_us
 
         if ticket:
             ticket.statut_ticket = "VALIDÉ"
+            ticket.validated_at = datetime.now(timezone.utc)
             liberer_verrou(ticket)
 
         notifier_employe(db, ticket, reponse_id, current_user.id)

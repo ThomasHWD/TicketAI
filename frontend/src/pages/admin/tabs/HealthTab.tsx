@@ -5,7 +5,7 @@ import { getServicesHealth, type ServiceHealth } from "../../../lib/api";
 type InfraKey =
   | "postgres" | "qdrant" | "valkey"
   | "albert_embeddings" | "albert_llm" | "albert_reranker"
-  | "celery_ingestion" | "celery_questions";
+  | "celery_ingestion" | "celery_questions" | "celery_beat";
 
 const INFRA_SERVICES: { key: InfraKey; label: string }[] = [
   { key: "postgres",          label: "PostgreSQL" },
@@ -16,6 +16,7 @@ const INFRA_SERVICES: { key: InfraKey; label: string }[] = [
   { key: "albert_reranker",   label: "Albert — Reranker" },
   { key: "celery_ingestion",  label: "Celery — Ingestion" },
   { key: "celery_questions",  label: "Celery — Questions" },
+  { key: "celery_beat",       label: "Celery — Clôture auto" },
 ];
 
 function ServiceRow({ svc, label }: { svc: ServiceHealth; label: string }) {

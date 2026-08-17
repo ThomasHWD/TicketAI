@@ -60,6 +60,17 @@ services:
     depends_on: *infra-deps
     restart: unless-stopped
 
+  worker_beat:
+    build: ./backend
+    command: celery -A app.workers.celery_app beat -l info
+    env_file: ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      QDRANT_HOST: qdrant
+      VALKEY_HOST: valkey
+    depends_on: *infra-deps
+    restart: unless-stopped
+
   # Nginx embarqué dans l'image frontend (multi-stage build)
   # Sert le build React ET proxie /api vers backend
   frontend:

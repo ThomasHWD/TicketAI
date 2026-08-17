@@ -27,6 +27,7 @@ class Ticket(Base):
     erreur = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     processed_at = Column(DateTime(timezone=True), nullable=True)
+    validated_at = Column(DateTime(timezone=True), nullable=True)
     # Clôture par l'utilisateur (NULL = ouvert). Indépendant de statut_ticket.
     closed_at = Column(DateTime(timezone=True), nullable=True)
     note_qualite = Column(Integer, nullable=True)  # 1–5, note qualité réponse
