@@ -1,5 +1,5 @@
 import type { UseMutationResult } from "@tanstack/react-query";
-import type { ReponseSignalee } from "../../../types.ts";
+import type { ReponseSignalee } from "../../../types";
 
 type Props = {
   target: ReponseSignalee;

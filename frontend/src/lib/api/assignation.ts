@@ -1,5 +1,5 @@
 import { apiFetch, extractApiErrorDetail, BASE_URL } from "./client";
-import type { Ticket, WorkflowEvent } from "../../types.ts";
+import type { Ticket, WorkflowEvent } from "../../types";
 import type { UserSummary } from "../../types/index.tsx";
 
 export type MembreGroupe = Pick<UserSummary, "id" | "email" | "prenom" | "nom">;

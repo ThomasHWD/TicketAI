@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { getDocumentChunks } from "../../../lib/api";
-import type { IndexedDocument } from "../../../types.ts";
+import type { IndexedDocument } from "../../../types";
 
 const PER_PAGE = 3;
 

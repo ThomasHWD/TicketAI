@@ -8,7 +8,7 @@ import type {
   IndexedDocumentsResponse,
   DocumentChunksResponse,
   UpdateImpact,
-} from "../../types.ts";
+} from "../../types";
 
 /**
  * Un document du même nom existe déjà dans ce domaine.

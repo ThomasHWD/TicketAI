@@ -12,7 +12,7 @@ import { confirmDocumentUpdate, previewDocumentUpdate } from "../../../lib/api";
 import FileDropzone from "../../../components/ui/FileDropzone";
 import { validateFile } from "../../../lib/documentUpload";
 import { useJobs } from "../../../context/JobsContext";
-import type { UpdateImpact } from "../../../types.ts";
+import type { UpdateImpact } from "../../../types";
 import EcranImpact from "./EcranImpact";
 
 export interface DocCible {

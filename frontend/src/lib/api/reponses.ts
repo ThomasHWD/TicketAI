@@ -10,7 +10,7 @@ import type {
   RejeterPayload,
   CorrigerPayload,
   Domaine,
-} from "../../types.ts";
+} from "../../types";
 
 export async function getReponsesEnAttente(domaine?: Domaine): Promise<ReponseEnAttente[]> {
   const params = domaine ? `?domaine=${domaine}` : "";

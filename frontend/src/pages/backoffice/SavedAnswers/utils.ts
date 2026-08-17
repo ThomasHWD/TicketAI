@@ -1,4 +1,4 @@
-import type { ReponseSignalee } from "../../../types.ts";
+import type { ReponseSignalee } from "../../../types";
 
 export function contenuServi(r: { contenu: string; contenu_corrige: string | null }): string {
   return r.contenu_corrige ?? r.contenu;

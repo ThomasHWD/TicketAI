@@ -1,4 +1,4 @@
-import type { StatutTicket } from "../types.ts";
+import type { StatutTicket } from "../types";
 
 export function isProcessing(statutJob: string) {
   return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";
