@@ -1,10 +1,12 @@
 import asyncio
 import uuid
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
-from sqlalchemy import exists, or_
+from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import and_, exists, or_
 from sqlalchemy.orm import joinedload, selectinload
 
+from app.api.v1.stats._helpers import _get_period_bounds
 from app.core.permissions import check_domain_write, check_ticket_read, user_domaines
 from app.core.security import BackofficeUser, CurrentUser
 from app.database import SessionLocal
@@ -33,6 +35,8 @@ async def liste_tickets(
     closed: bool | None = None,
     search: str | None = None,
     disponibles: bool | None = None,
+    note_max: int | None = None,
+    periode: str | None = Query(default=None, pattern="^(semaine|mois|annee)$"),
 ):
     db = SessionLocal()
     try:
@@ -92,6 +96,16 @@ async def liste_tickets(
                         Ticket.question.ilike(pattern),
                     )
                 )
+        if note_max is not None:
+            query = query.filter(
+                or_(
+                    and_(Ticket.note_qualite.isnot(None), Ticket.note_qualite <= note_max),
+                    and_(Ticket.note_delai.isnot(None), Ticket.note_delai <= note_max),
+                )
+            )
+        if periode is not None:
+            curr_start, curr_end, _, _ = _get_period_bounds(periode, datetime.now(timezone.utc))
+            query = query.filter(Ticket.closed_at >= curr_start, Ticket.closed_at < curr_end)
         total = query.count()
         tickets = query.order_by(Ticket.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
         return {
