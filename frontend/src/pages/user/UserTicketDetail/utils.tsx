@@ -1,5 +1,5 @@
 import { Lock } from "lucide-react";
-import type { TicketReponse } from "../../../types.ts";
+import type { TicketReponse } from "../../../types";
 
 export type FilStatut = "closed" | "processing" | "answered" | "rejected";
 

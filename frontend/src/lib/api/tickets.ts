@@ -8,7 +8,7 @@ import type {
   SoumettreQuestionResponse,
   PoserSuiviPayload,
   CloturerPayload,
-} from "../../types.ts";
+} from "../../types";
 
 export async function soumettreQuestion(
   payload: SoumettreQuestionPayload,

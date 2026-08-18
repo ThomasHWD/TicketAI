@@ -191,6 +191,28 @@ def user_factory(db_session):
 
 
 @pytest.fixture
+def validator(db_session):
+    """Un validateur présent en base, membre du groupe "IT".
+
+    Son JWT sert d'identité pour les routes de validation.
+    """
+    import uuid
+
+    from app.models.groupe import Groupe
+    from app.models.user import User
+
+    user = User(email=f"{uuid.uuid4()}@test.local", role="VALIDATEUR")
+    db_session.add(user)
+    groupe = Groupe(nom="IT", domaine="IT")
+    db_session.add(groupe)
+    db_session.flush()
+    groupe.membres.append(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
 def auth_header():
     """Fabrique un header ``Authorization: Bearer <jwt>`` pour un User donné."""
     from app.core.security import create_access_token

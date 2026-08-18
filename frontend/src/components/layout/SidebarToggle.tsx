@@ -9,19 +9,21 @@ export default function SidebarToggle({ collapsed, onToggle }: SidebarToggleProp
   return (
     <button
       onClick={onToggle}
-      className={`absolute top-[30px] -translate-x-1/2 z-30
+      className={`absolute top-7 -translate-x-1/2 z-30
         flex items-center justify-center w-5 h-5 rounded-full
-        bg-white/70 dark:bg-gray-200/70
-        backdrop-blur-md
-        border border-gray-200 dark:border-white/15
-        shadow-md text-gray-400 dark:text-gray-500
-        hover:text-gray-700 dark:hover:text-green-200 hover:shadow-lg
-        transition-[left,color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
-        ${collapsed ? "left-16" : "left-60"}`}
+        bg-white dark:bg-[#1c1c1e]
+        border border-gray-200 dark:border-[#2a2a2d]
+        text-gray-400 dark:text-gray-500
+        hover:text-gray-700 dark:hover:text-gray-300
+        hover:border-gray-300 dark:hover:border-[#3a3a3d]
+        shadow-sm
+        transition-[left,border-color,color] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
+        ${collapsed ? "left-14" : "left-56"}`}
       title={collapsed ? "Déplier le menu" : "Replier le menu"}
       aria-label={collapsed ? "Déplier le menu latéral" : "Replier le menu latéral"}
     >
-      {collapsed ? <ChevronRight size={11} /> : <ChevronLeft size={11} />}
+      {collapsed ? <ChevronRight size={11} strokeWidth={2.5} /> : <ChevronLeft size={11} strokeWidth={2.5} />}
     </button>
   );
 }

@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Download, History, Loader2, RotateCcw, X } from "lucide-react";
 import { downloadDocumentVersion, getDocumentVersions, restoreDocumentVersion } from "../../lib/api";
 import { formatSize } from "../../lib/documentUpload";
-import type { DocumentVersion, UpdateImpact } from "../../types.ts";
+import type { DocumentVersion, UpdateImpact } from "../../types";
 import type { DocCible } from "./UpdateDocModal";
 
 function dateCourte(iso: string | null): string {

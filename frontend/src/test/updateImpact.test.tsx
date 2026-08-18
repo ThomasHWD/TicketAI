@@ -15,7 +15,7 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { JobsProvider } from "../context/JobsContext";
 import UpdateDocModal from "../pages/backoffice/UpdateDocModal";
-import type { ReponseARelire, UniteChangement, UpdateImpact } from "../types.ts";
+import type { ReponseARelire, UniteChangement, UpdateImpact } from "../types";
 
 function impact(overrides: Partial<UpdateImpact> = {}): UpdateImpact {
   return {

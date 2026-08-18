@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getTickets } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import type { Ticket } from "../../types.ts";
+import type { Ticket } from "../../types";
 
 function StatutBadge() {
   return (

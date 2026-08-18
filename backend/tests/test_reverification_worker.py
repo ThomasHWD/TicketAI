@@ -56,14 +56,14 @@ def lot(db_session, monkeypatch):
     version basculée, `changements` écrits, réponses flaguées `ANALYSE_EN_COURS`.
     """
     import app.services.obsolescence as obso
-    import app.services.reverification as service
+    import app.services.reverification_candidates as candidates
     import app.workers.reverification as worker
 
     monkeypatch.setattr(obso, "delete_response_point", lambda _id: None)
     monkeypatch.setattr(worker, "broadcast_sync", lambda *a, **k: None)
     # Le rappel vectoriel est hors sujet ici : on teste la politique du worker sur
     # un lot connu, pas la capacité de Qdrant à élargir le périmètre.
-    monkeypatch.setattr(service, "_voisines", lambda db, domaine, unites: [])
+    monkeypatch.setattr(candidates, "_voisines", lambda db, domaine, unites: [])
 
     doc_id = str(uuid.uuid4())
 
@@ -119,11 +119,11 @@ def lot(db_session, monkeypatch):
 
 def _repondre(monkeypatch, verdict: str, justification: str = "Le plafond passe de 200 a 300 euros."):
     """Bouchonne le tri et le jugement : toutes les réponses reçoivent `verdict`."""
-    import app.services.reverification as service
+    import app.services.reverification_scoring as scoring
 
-    monkeypatch.setattr(service, "rerank", lambda q, docs, top_k: [{**docs[0], "rerank_score": 0.9}])
+    monkeypatch.setattr(scoring, "rerank", lambda q, docs, top_k: [{**docs[0], "rerank_score": 0.9}])
     monkeypatch.setattr(
-        service,
+        scoring,
         "chat",
         lambda messages, **k: '{"verdict": "%s", "justification": "%s"}' % (verdict, justification),
     )
@@ -163,11 +163,11 @@ class TestPlafonds:
         """Quand tout a changé, il n'y a plus rien à discriminer : juger 200
         réponses contre 300 changements coûterait une fortune pour conclure « tout
         est suspect », ce qu'on sait déjà en comptant les unités."""
-        import app.services.reverification as service
+        import app.services.reverification_scoring as scoring
 
         reponses = lot(nb_reponses=3, nb_unites=41)
-        monkeypatch.setattr(service, "chat", _interdit)
-        monkeypatch.setattr(service, "rerank", _interdit)
+        monkeypatch.setattr(scoring, "chat", _interdit)
+        monkeypatch.setattr(scoring, "rerank", _interdit)
 
         bilan = reverification_job(doc_id=lot.doc_id, version=2, domaine=DOMAINE)
 
@@ -205,11 +205,11 @@ class TestReplis:
     def test_panne_albert_laisse_la_reponse_servie(self, lot, monkeypatch):
         """L'arbitrage produit, vérifié de bout en bout : sur panne, la réponse
         reste servie et part en relecture. Jamais de destruction automatique."""
-        import app.services.reverification as service
+        import app.services.reverification_scoring as scoring
 
         [r] = lot()
-        monkeypatch.setattr(service, "rerank", lambda q, docs, top_k: [{**docs[0], "rerank_score": 0.9}])
-        monkeypatch.setattr(service, "chat", _casse)
+        monkeypatch.setattr(scoring, "rerank", lambda q, docs, top_k: [{**docs[0], "rerank_score": 0.9}])
+        monkeypatch.setattr(scoring, "chat", _casse)
 
         bilan = reverification_job(doc_id=lot.doc_id, version=2, domaine=DOMAINE)
 
@@ -223,7 +223,7 @@ class TestReplis:
     def test_albert_injoignable_arrete_d_insister(self, lot, monkeypatch):
         """Après `MAX_ECHECS` échecs consécutifs, insister coûterait un timeout de
         60 s par candidate restante pour un résultat connu d'avance."""
-        import app.services.reverification as service
+        import app.services.reverification_scoring as scoring
 
         reponses = lot(nb_reponses=8)
         appels = []
@@ -232,8 +232,8 @@ class TestReplis:
             appels.append(1)
             raise RuntimeError("timeout")
 
-        monkeypatch.setattr(service, "rerank", lambda q, docs, top_k: [{**docs[0], "rerank_score": 0.9}])
-        monkeypatch.setattr(service, "chat", _compte)
+        monkeypatch.setattr(scoring, "rerank", lambda q, docs, top_k: [{**docs[0], "rerank_score": 0.9}])
+        monkeypatch.setattr(scoring, "chat", _compte)
 
         bilan = reverification_job(doc_id=lot.doc_id, version=2, domaine=DOMAINE)
 
@@ -247,10 +247,10 @@ class TestReplis:
         """Une v3 est passée entre-temps : elle a reflagué le même périmètre à son
         propre numéro et porte son propre job. Juger sur un diff périmé
         prononcerait des verdicts sur un texte qui n'est plus servi."""
-        import app.services.reverification as service
+        import app.services.reverification_scoring as scoring
 
         [r] = lot()
-        monkeypatch.setattr(service, "chat", _interdit)
+        monkeypatch.setattr(scoring, "chat", _interdit)
         doc = lot.db.query(Document).filter(Document.doc_id == lot.doc_id).one()
         doc.version = 3
         lot.db.commit()
@@ -267,10 +267,10 @@ class TestReplis:
         """`document_update_job` n'enfile qu'avec au moins une unité. Arriver ici
         sans unité signale une ligne de version tronquée, pas un document
         inchangé : se taire laisserait les réponses en analyse pour toujours."""
-        import app.services.reverification as service
+        import app.services.reverification_scoring as scoring
 
         [r] = lot(unites=[])
-        monkeypatch.setattr(service, "chat", _interdit)
+        monkeypatch.setattr(scoring, "chat", _interdit)
 
         bilan = reverification_job(doc_id=lot.doc_id, version=2, domaine=DOMAINE)
 
@@ -349,7 +349,7 @@ class TestBoutEnBout:
     @staticmethod
     def _verdicts(monkeypatch, table: dict[str, str]):
         """Le modèle répond selon la question posée — comme il le ferait vraiment."""
-        import app.services.reverification as service
+        import app.services.reverification_scoring as scoring
 
         def _chat(messages, **k):
             contenu = messages[1]["content"]
@@ -358,11 +358,11 @@ class TestBoutEnBout:
                     return '{"verdict": "%s", "justification": "Verdict sur %s."}' % (verdict, motif)
             return '{"verdict": "INTACTE", "justification": "Sans rapport."}'
 
-        monkeypatch.setattr(service, "rerank", lambda q, docs, top_k: [{**docs[0], "rerank_score": 0.9}])
-        monkeypatch.setattr(service, "chat", _chat)
+        monkeypatch.setattr(scoring, "rerank", lambda q, docs, top_k: [{**docs[0], "rerank_score": 0.9}])
+        monkeypatch.setattr(scoring, "chat", _chat)
 
     def test_une_obsolete_justifiee_une_relecture_zero_faux_positif(self, lot, monkeypatch, db_session):
-        import app.services.reverification as service
+        import app.services.reverification_candidates as candidates
 
         # Deux citantes : celle dont le plafond est faux, et une voisine de texte
         # dont le passage cité a bougé sans que le fond en souffre.
@@ -402,7 +402,7 @@ class TestBoutEnBout:
 
         # Le rappel vectoriel ne ramène que la non-citante : c'est ce que ferait
         # Qdrant sur l'article ajouté, et c'est le seul rapprochement pertinent.
-        monkeypatch.setattr(service, "_voisines", lambda db, domaine, unites: [non_citante])
+        monkeypatch.setattr(candidates, "_voisines", lambda db, domaine, unites: [non_citante])
         self._verdicts(
             monkeypatch,
             {

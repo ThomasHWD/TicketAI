@@ -15,7 +15,7 @@ import { apiFetch, listDocuments, deleteDocument, downloadDocument } from "../..
 import { useAuth } from "../../../lib/auth";
 import UpdateDocModal from "../UpdateDocModal";
 import DocHistoryModal from "../DocHistoryModal";
-import type { Domaine, IndexedDocument, UpdateImpact } from "../../../types.ts";
+import type { Domaine, IndexedDocument, UpdateImpact } from "../../../types";
 import ChunksModal from "./ChunksModal";
 import DeleteConfirm from "./DeleteConfirm";
 

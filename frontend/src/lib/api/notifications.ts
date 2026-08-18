@@ -1,5 +1,5 @@
 import { apiFetch, BASE_URL } from "./client";
-import type { Notification } from "../../types.ts";
+import type { Notification } from "../../types";
 
 export async function getNotifications(): Promise<Notification[]> {
   const res = await apiFetch(`${BASE_URL}/notifications`);
