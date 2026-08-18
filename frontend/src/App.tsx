@@ -24,8 +24,7 @@ const SavedAnswers = lazy(() => import("./pages/backoffice/SavedAnswers"));
 const NewTicket = lazy(() => import("./pages/user/NewTicket"));
 const UserTicketHistory = lazy(() => import("./pages/user/UserTicketHistory"));
 const UserTicketDetail = lazy(() => import("./pages/user/UserTicketDetail/UserTicketDetail"));
-const Ingestion = lazy(() => import("./pages/backoffice/Ingestion"));
-const AllDocs = lazy(() => import("./pages/backoffice/AllDocs"));
+const KnowledgeBase = lazy(() => import("./pages/backoffice/KnowledgeBase"));
 const TicketTracking = lazy(() => import("./pages/backoffice/TicketTracking"));
 const HorsDomaine = lazy(() => import("./pages/backoffice/HorsDomaine"));
 const AdminPage = lazy(() => import("./pages/admin/Groups"));
@@ -52,6 +51,12 @@ function Layout() {
       <JobTracker />
     </div>
   );
+}
+
+/** Redirection vers la base de connaissances, `?q=` compris. */
+function RedirigerVersBase() {
+  const { search } = useLocation();
+  return <Navigate to={`/base-de-connaissances${search}`} replace />;
 }
 
 /** Barrière d'authentification : redirige vers /login si non connecté. */
@@ -105,8 +110,11 @@ export default function App() {
               <Route path="/tickets" element={<TicketsList />} />
               <Route path="/tickets/:id" element={<TicketDetail />} />
               <Route path="/reponses-enregistrees" element={<SavedAnswers />} />
-              <Route path="/Documentations" element={<Ingestion />} />
-              <Route path="/documents-indexes" element={<AllDocs />} />
+              <Route path="/base-de-connaissances" element={<KnowledgeBase />} />
+              {/* Anciennes pages « Indexation » et « Documents indexés », désormais fusionnées.
+                  Les liens externes (favoris, `?q=` du tableau de bord) doivent continuer à tomber juste. */}
+              <Route path="/Documentations" element={<RedirigerVersBase />} />
+              <Route path="/documents-indexes" element={<RedirigerVersBase />} />
               <Route path="/mon-suivi" element={<TicketTracking />} />
               <Route path="/angles-morts" element={<HorsDomaine />} />
             </Route>
@@ -122,7 +130,7 @@ export default function App() {
           <Route element={<AdminRoute />}>
             <Route element={<Layout />}>
               <Route path="/admin" element={<AdminPage />} />
-              <Route path="/admin/documents" element={<AllDocs />} />
+              <Route path="/admin/documents" element={<KnowledgeBase />} />
               <Route path="/admin/config" element={<SiteConfigPage />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
