@@ -3,7 +3,7 @@ import { AlertCircle, Bot, Check, Pencil, Sparkles, ThumbsUp, X } from "lucide-r
 import { corrigerReponse, validerReponse, LockConflictError } from "../../../lib/api";
 import UserAvatar from "../../../components/ui/UserAvatar";
 import { getValidatorId } from "../../../lib/currentUser";
-import type { TicketReponse, StatutReponse } from "../../../types.ts";
+import type { TicketReponse, StatutReponse } from "../../../types";
 import { formatDate, BotAvatar } from "./utils";
 
 export const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {

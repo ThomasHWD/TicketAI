@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Lock, UserCheck } from "lucide-react";
 import { getTickets } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import type { Ticket, StatutTicket } from "../../types.ts";
+import type { Ticket, StatutTicket } from "../../types";
 
 function isLocked(t: Ticket): boolean {
   return !!(t.lock_expires_at && new Date(t.lock_expires_at) > new Date());

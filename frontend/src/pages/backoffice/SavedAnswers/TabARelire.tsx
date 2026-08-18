@@ -8,7 +8,7 @@ import {
   Pencil,
   X,
 } from "lucide-react";
-import type { ReponseSignalee } from "../../../types.ts";
+import type { ReponseSignalee } from "../../../types";
 import ExpandableText from "./ExpandableText";
 import MotifSignalement from "./MotifSignalement";
 import SensDuChangement from "./SensDuChangement";

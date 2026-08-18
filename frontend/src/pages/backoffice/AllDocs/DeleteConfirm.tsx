@@ -1,5 +1,5 @@
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
-import type { IndexedDocument } from "../../../types.ts";
+import type { IndexedDocument } from "../../../types";
 
 type Props = {
   doc: IndexedDocument;
