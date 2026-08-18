@@ -60,14 +60,14 @@ AUTRE = Unite("AJOUT", None, "Les frais de transport sont rembourses a 50 pour c
 class TestUnitesPertinentes:
     def test_une_seule_unite_n_appelle_pas_le_reranker(self, monkeypatch):
         """Trier un élément n'apprend rien et coûte un aller-retour réseau."""
-        import app.services.reverification as module
+        import app.services.reverification_scoring as module
 
         monkeypatch.setattr(module, "rerank", _interdit)
 
         assert unites_pertinentes("Q ?", [UNITE]) == ([UNITE], True)
 
     def test_ecarte_les_unites_sous_le_seuil(self, monkeypatch):
-        import app.services.reverification as module
+        import app.services.reverification_scoring as module
 
         monkeypatch.setattr(
             module,
@@ -85,7 +85,7 @@ class TestUnitesPertinentes:
 
     def test_reranker_qui_leve_fait_juger_quand_meme(self, monkeypatch):
         """Une panne du trieur ne doit pas ressembler à « rien à signaler »."""
-        import app.services.reverification as module
+        import app.services.reverification_scoring as module
 
         def _casse(*a, **k):
             raise RuntimeError("502 Bad Gateway")
@@ -103,7 +103,7 @@ class TestUnitesPertinentes:
         pas de branche `else`). Lue comme « aucune unité pertinente », cette liste
         vide sortirait silencieusement toute la base du pipeline le jour d'un
         changement de format d'API."""
-        import app.services.reverification as module
+        import app.services.reverification_scoring as module
 
         monkeypatch.setattr(module, "rerank", lambda q, docs, top_k: [])
 
@@ -114,7 +114,7 @@ class TestUnitesPertinentes:
 
     def test_repli_plafonne_le_nombre_d_unites(self, monkeypatch):
         """Sans tri, on ne peut pas choisir — mais on ne dilue pas le prompt."""
-        import app.services.reverification as module
+        import app.services.reverification_scoring as module
 
         monkeypatch.setattr(module, "rerank", lambda q, docs, top_k: [])
         beaucoup = [Unite("AJOUT", None, f"Article {i} du reglement interieur.") for i in range(10)]
@@ -182,7 +182,7 @@ class TestJuger:
     def test_le_prompt_montre_l_avant_et_l_apres(self, monkeypatch):
         """Le modèle juge le diff, pas l'état du document : c'est ce qui rend la
         question fermée et vérifiable."""
-        import app.services.reverification as module
+        import app.services.reverification_scoring as module
 
         vus = {}
 
@@ -206,14 +206,14 @@ class TestJuger:
     def test_le_prompt_interdit_de_rediger_une_correction(self):
         """Arbitrage produit : le retrait est sec. Une correction rédigée par le
         modèle serait relue comme une proposition validée par la machine."""
-        import app.services.reverification as module
+        import app.services.reverification_scoring as module
 
         assert "Ne rédige jamais de correction" in module.PROMPT_SYSTEME
 
     def test_panne_http_remonte(self, monkeypatch):
         """`juger` ne décide pas quoi faire d'une panne : l'appelant a des options
         qu'une simple hésitation du modèle n'appelle pas (réessayer, s'arrêter)."""
-        import app.services.reverification as module
+        import app.services.reverification_scoring as module
 
         def _casse(*a, **k):
             raise RuntimeError("timeout")
