@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReponseCanonique, ReponseSignalee } from "../../../types";
@@ -39,7 +39,7 @@ export default function SavedAnswers() {
   const error = requete.error;
   const total = requete.data?.total ?? 0;
   const totalPages = Math.ceil(total / LIMIT);
-  const groupes = grouper(aRelire.data?.items ?? []);
+  const groupes = useMemo(() => grouper(aRelire.data?.items ?? []), [aRelire.data]);
 
   const q = searchQuery.trim().toLowerCase();
   const canoniquesItems = (canoniques.data?.items ?? []).filter(
@@ -73,8 +73,16 @@ export default function SavedAnswers() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Réponses Enregistrées</h1>
+    <div className="p-6 space-y-5">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-50 tracking-tight">
+          Réponses enregistrées
+        </h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Base de connaissances validée — gère les réponses canoniques, les signalements de mise à jour et les retraits de service.
+        </p>
+      </div>
 
       <div className="glass-card rounded-2xl overflow-hidden">
         <SavedAnswersHeader
@@ -145,14 +153,29 @@ export default function SavedAnswers() {
         )}
 
         {!loading && total > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-white/10 text-sm text-gray-500 dark:text-gray-400">
-            <span>{(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} sur {total}</span>
+          <div className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100 dark:border-white/8">
+            <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+              {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} sur {total}
+            </span>
             <div className="flex items-center gap-1">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                <ChevronLeft size={16} />
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                aria-label="Page précédente"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={15} />
               </button>
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                <ChevronRight size={16} />
+              <span className="px-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                aria-label="Page suivante"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight size={15} />
               </button>
             </div>
           </div>

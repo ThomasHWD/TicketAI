@@ -7,7 +7,7 @@ export default function ExpandableText({ text }: { text: string }) {
   return (
     <div>
       <p
-        className={`text-sm leading-relaxed whitespace-pre-wrap text-gray-600 dark:text-gray-300 ${
+        className={`text-sm leading-relaxed whitespace-pre-wrap text-gray-500 dark:text-gray-400 ${
           !expanded && long ? "line-clamp-3" : ""
         }`}
       >
@@ -17,9 +17,9 @@ export default function ExpandableText({ text }: { text: string }) {
         <button
           onClick={() => setExpanded((e) => !e)}
           aria-expanded={expanded}
-          className="mt-1 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+          className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
         >
-          {expanded ? "Réduire ↑" : "Voir tout ↓"}
+          {expanded ? "Réduire" : "Voir tout"}
         </button>
       )}
     </div>
