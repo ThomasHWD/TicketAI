@@ -4,7 +4,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   EyeOff,
+  FileText,
+  Loader2,
   Pencil,
   X,
 } from "lucide-react";
@@ -57,70 +60,100 @@ export default function TabARelire({
   onDraftChange,
   onRetrait,
 }: Props) {
+  if (loading) {
+    return (
+      <div className="divide-y divide-gray-100 dark:divide-white/5">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="px-5 py-5 space-y-3 animate-pulse">
+            <div className="h-4 w-1/3 rounded bg-amber-100/80 dark:bg-amber-500/10" />
+            <div className="space-y-2 pl-2">
+              <div className="h-3 w-2/3 rounded bg-gray-100 dark:bg-white/8" />
+              <div className="h-3 w-full rounded bg-gray-100 dark:bg-white/5" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="px-5 py-12 text-center text-sm text-red-500 dark:text-red-400">
+        {error instanceof Error ? error.message : "Erreur de chargement"}
+      </p>
+    );
+  }
+
+  if (total === 0) {
+    return (
+      <div className="px-5 py-16 text-center space-y-1">
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Aucune réponse à relire</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">Toutes les réponses sont à jour.</p>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="divide-y divide-gray-200 dark:divide-white/5">
-        {loading && (
-          <p className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">Chargement…</p>
-        )}
-        {error && (
-          <p className="px-6 py-12 text-center text-red-600 dark:text-red-400">
-            {error instanceof Error ? error.message : "Erreur de chargement"}
-          </p>
-        )}
-        {!loading && !error && total === 0 && (
-          <p className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-            Aucune réponse à relire
-          </p>
-        )}
-
-        {!loading &&
-          groupes.map((g) => {
-            const ouvert = !groupesReplies.has(g.cle);
-            return (
-              <section key={g.cle} className="px-6 py-5 space-y-4">
-                <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-400/10 px-4 py-3.5 space-y-2.5">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <button
-                      onClick={() => onToggleGroupe(g.cle)}
-                      className="min-w-0 flex-1 text-left"
-                      aria-expanded={ouvert}
-                    >
-                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-300 truncate flex items-center gap-1.5">
-                        {g.filename ?? "Document inconnu"}
+      <div className="divide-y divide-gray-100 dark:divide-white/5">
+        {groupes.map((g) => {
+          const ouvert = !groupesReplies.has(g.cle);
+          return (
+            <section key={g.cle} className="px-5 py-4 space-y-3">
+              {/* Group header */}
+              <div className="rounded-xl border border-amber-200/70 dark:border-amber-500/20 bg-amber-50/50 dark:bg-amber-400/5 overflow-hidden">
+                {/* Header bar */}
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <button
+                    onClick={() => onToggleGroupe(g.cle)}
+                    className="min-w-0 flex-1 flex items-center gap-2.5 text-left"
+                    aria-expanded={ouvert}
+                  >
+                    <FileText size={14} className="shrink-0 text-amber-500" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-amber-900 dark:text-amber-200 truncate">
+                          {g.filename ?? "Document inconnu"}
+                        </span>
                         {g.version !== null && (
-                          <span className="font-normal text-amber-900/70 dark:text-amber-200/70">
+                          <span className="shrink-0 px-1.5 py-px rounded text-xs font-medium bg-amber-200/60 text-amber-800 dark:bg-amber-400/20 dark:text-amber-300">
                             v{g.version}
                           </span>
                         )}
-                        {ouvert ? (
-                          <ChevronUp size={14} className="shrink-0 text-amber-700/60 dark:text-amber-300/60" />
-                        ) : (
-                          <ChevronDown size={14} className="shrink-0 text-amber-700/60 dark:text-amber-300/60" />
+                        {g.document_supprime && (
+                          <span className="shrink-0 px-1.5 py-px rounded text-xs font-medium bg-gray-200/80 text-gray-600 dark:bg-white/10 dark:text-gray-400">
+                            supprimé
+                          </span>
                         )}
-                      </p>
-                      <p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-200/80">
+                      </div>
+                      <p className="text-xs text-amber-800/70 dark:text-amber-300/60 mt-0.5">
                         {g.reponses.length} réponse{g.reponses.length > 1 ? "s" : ""} sur cette page
-                        {g.document_supprime && " — document supprimé depuis"}
                       </p>
-                    </button>
-                    {g.doc_id !== null && g.version !== null && (
-                      <button
-                        onClick={() =>
-                          confirmLotMutation.mutate({ doc_id: g.doc_id!, version: g.version! })
-                        }
-                        disabled={confirmLotMutation.isPending}
-                        className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <CheckCircle2 size={15} />
-                        Tout confirmer
-                      </button>
+                    </div>
+                    {ouvert ? (
+                      <ChevronUp size={13} className="shrink-0 text-amber-600/50 dark:text-amber-400/50 ml-auto" />
+                    ) : (
+                      <ChevronDown size={13} className="shrink-0 text-amber-600/50 dark:text-amber-400/50 ml-auto" />
                     )}
-                  </div>
+                  </button>
 
-                  {ouvert && (
-                    estRaisonDeGroupe(g.raison) ? (
-                      <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                  {g.doc_id !== null && g.version !== null && (
+                    <button
+                      onClick={() => confirmLotMutation.mutate({ doc_id: g.doc_id!, version: g.version! })}
+                      disabled={confirmLotMutation.isPending}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <CheckCircle2 size={13} />
+                      Tout confirmer
+                    </button>
+                  )}
+                </div>
+
+                {/* Diff section */}
+                {ouvert && (
+                  <div className="border-t border-amber-200/50 dark:border-amber-500/15 px-4 py-3 space-y-3">
+                    {estRaisonDeGroupe(g.raison) ? (
+                      <p className="text-xs text-amber-800/80 dark:text-amber-200/70">
                         {RAISONS[g.raison!]} Ces réponses sont signalées par précaution.
                       </p>
                     ) : g.changements ? (
@@ -137,121 +170,135 @@ export default function TabARelire({
                         />
                       </>
                     ) : (
-                      <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                      <p className="text-xs text-amber-800/70 dark:text-amber-200/60">
                         Le détail de cette mise à jour n'a pas été conservé.
                       </p>
-                    )
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
-                <ul className="space-y-2">
-                  {g.reponses.map((r) => {
-                    const isEditing = editingId === r.reponse_id;
-                    return (
-                      <li
-                        key={r.reponse_id}
-                        className="rounded-xl border border-gray-200 dark:border-white/10 px-4 py-3 space-y-2"
-                      >
-                        <div className="flex items-start gap-2">
-                          <p className="flex-1 min-w-0 text-sm font-medium text-gray-800 dark:text-gray-100">
-                            {r.question}
-                          </p>
+              {/* Response items */}
+              <ul className="space-y-1.5">
+                {g.reponses.map((r) => {
+                  const isEditing = editingId === r.reponse_id;
+                  const enAnalyse = r.a_relire_raison === EN_ANALYSE;
+                  return (
+                    <li
+                      key={r.reponse_id}
+                      className={`group rounded-xl border px-4 py-3 space-y-2 transition-colors ${
+                        enAnalyse
+                          ? "border-gray-200/70 dark:border-white/8 bg-gray-50/50 dark:bg-white/[0.02]"
+                          : "border-gray-200/70 dark:border-white/8 hover:border-gray-200 dark:hover:border-white/12"
+                      }`}
+                    >
+                      {/* Question + badges */}
+                      <div className="flex items-start gap-2">
+                        <p className={`flex-1 min-w-0 text-sm font-semibold leading-snug ${
+                          enAnalyse
+                            ? "text-gray-500 dark:text-gray-400"
+                            : "text-gray-900 dark:text-gray-50"
+                        }`}>
+                          {r.question}
+                        </p>
+                        <div className="flex items-center gap-1.5 shrink-0 pt-px">
                           {r.canonique && (
-                            <span className="shrink-0 px-1.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                            <span className="px-1.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                               canonique
                             </span>
                           )}
-                          <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                          <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
                             {r.nb_validations} val.
                           </span>
                         </div>
+                      </div>
 
-                        {isEditing ? (
-                          <textarea
-                            value={draft}
-                            onChange={(e) => onDraftChange(e.target.value)}
-                            rows={6}
-                            autoFocus
-                            className="w-full rounded-xl border border-gray-200 dark:border-white/15 bg-white/70 dark:bg-white/5 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                          />
-                        ) : (
-                          <ExpandableText text={contenuServi(r)} />
-                        )}
+                      {/* Content */}
+                      {isEditing ? (
+                        <textarea
+                          value={draft}
+                          onChange={(e) => onDraftChange(e.target.value)}
+                          rows={6}
+                          autoFocus
+                          className="w-full rounded-xl border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 px-3 py-2.5 text-sm text-gray-800 dark:text-gray-100 leading-relaxed resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                        />
+                      ) : (
+                        <ExpandableText text={contenuServi(r)} />
+                      )}
 
-                        <MotifSignalement reponse={r} />
+                      <MotifSignalement reponse={r} />
 
-                        {r.a_relire_raison === EN_ANALYSE ? (
-                          <p className="text-right text-xs text-gray-400 dark:text-gray-500">
-                            Résultat dans quelques minutes.
-                          </p>
-                        ) : (
-                          <div className="flex items-center justify-end gap-1.5">
-                            {isEditing ? (
-                              <>
-                                <button
-                                  onClick={() => onSave(r.reponse_id)}
-                                  disabled={!draft.trim() || isPendingEdit}
-                                  title="Enregistrer"
-                                  aria-label="Enregistrer"
-                                  className="p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <Check size={16} />
-                                </button>
-                                <button
-                                  onClick={onCancel}
-                                  title="Annuler"
-                                  aria-label="Annuler"
-                                  className="p-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                                >
-                                  <X size={16} />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => confirmMutation.mutate(r.reponse_id)}
-                                  disabled={confirmMutation.isPending}
-                                  title="Toujours d'actualité : lever le signalement"
-                                  aria-label="Toujours d'actualité"
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  <CheckCircle2 size={15} />
-                                  Toujours d'actualité
-                                </button>
-                                <button
-                                  onClick={() => onEdit(r)}
-                                  title="Modifier"
-                                  aria-label="Modifier la réponse"
-                                  className="p-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                                >
-                                  <Pencil size={16} />
-                                </button>
-                                <button
-                                  onClick={() => onRetrait(r)}
-                                  title="Retirer du service"
-                                  aria-label="Retirer la réponse du service"
-                                  className="p-1.5 rounded-lg border border-amber-200 dark:border-amber-500/25 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
-                                >
-                                  <EyeOff size={16} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            );
-          })}
-
-        {(confirmMutation.isError || confirmLotMutation.isError) && (
-          <p className="px-6 py-3 text-sm text-red-600 dark:text-red-400">
-            Erreur de confirmation : le signalement n'a pas été levé.
-          </p>
-        )}
+                      {/* Actions */}
+                      {enAnalyse ? (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                          <Loader2 size={12} className="animate-spin shrink-0" />
+                          <Clock size={12} className="shrink-0" />
+                          Résultat dans quelques minutes
+                        </div>
+                      ) : (
+                        <div className={`flex items-center justify-end gap-1.5 transition-opacity duration-150 ${isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+                          {isEditing ? (
+                            <>
+                              <button
+                                onClick={() => onSave(r.reponse_id)}
+                                disabled={!draft.trim() || isPendingEdit}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <Check size={12} />
+                                Enregistrer
+                              </button>
+                              <button
+                                onClick={onCancel}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-50 dark:hover:bg-white/8 transition-colors"
+                              >
+                                <X size={12} />
+                                Annuler
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => confirmMutation.mutate(r.reponse_id)}
+                                disabled={confirmMutation.isPending}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <CheckCircle2 size={12} />
+                                Toujours d'actualité
+                              </button>
+                              <button
+                                onClick={() => onEdit(r)}
+                                aria-label="Modifier la réponse"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/12 text-gray-500 dark:text-gray-400 text-xs font-medium hover:text-gray-700 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-white/8 transition-colors"
+                              >
+                                <Pencil size={12} />
+                                Modifier
+                              </button>
+                              <button
+                                onClick={() => onRetrait(r)}
+                                aria-label="Retirer la réponse du service"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
+                              >
+                                <EyeOff size={12} />
+                                Retirer
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
       </div>
+
+      {(confirmMutation.isError || confirmLotMutation.isError) && (
+        <p className="px-5 py-3 text-xs text-red-500 dark:text-red-400 border-t border-gray-100 dark:border-white/8">
+          Erreur de confirmation — le signalement n'a pas été levé.
+        </p>
+      )}
     </>
   );
 }
