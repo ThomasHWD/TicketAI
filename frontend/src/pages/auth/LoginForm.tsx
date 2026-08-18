@@ -17,7 +17,6 @@ export default function LoginForm({ onLogin, theme }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,17 +83,6 @@ export default function LoginForm({ onLogin, theme }: LoginFormProps) {
             )}
           </button>
         </span>
-      </label>
-
-      {/* Rester connecté */}
-      <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13.5, color: theme.sub, cursor: "pointer" }}>
-        <input
-          type="checkbox"
-          checked={rememberMe}
-          onChange={(e) => setRememberMe(e.target.checked)}
-          style={{ width: 16, height: 16, accentColor: "#2FE272", cursor: "pointer" }}
-        />
-        Rester connecté
       </label>
 
       {/* Erreur */}
