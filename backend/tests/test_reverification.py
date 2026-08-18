@@ -29,12 +29,12 @@ from app.services.reverification import (
     VERDICT_INCERTAIN,
     VERDICT_INTACTE,
     Candidate,
-    _lire_verdict,
     decider,
     juger,
     signaler_sans_juger,
     unites_pertinentes,
 )
+from app.services.reverification_scoring import _lire_verdict
 
 # Valeurs épinglées volontairement plutôt qu'importées : ces chaînes sont écrites
 # telles quelles en base (`String(30)`) et lues par le front pour choisir un badge.
