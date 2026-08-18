@@ -19,7 +19,6 @@ import { JobsProvider } from "./context/JobsContext";
 const Dashboard = lazy(() => import("./pages/backoffice/Dashboard"));
 const UserDashboard = lazy(() => import("./pages/user/UserDashboard"));
 const TicketsList = lazy(() => import("./pages/backoffice/TicketsList"));
-const ClosedTicketsList = lazy(() => import("./pages/backoffice/ClosedTicketsList"));
 const TicketDetail = lazy(() => import("./pages/backoffice/TicketDetail/TicketDetail"));
 const SavedAnswers = lazy(() => import("./pages/backoffice/SavedAnswers"));
 const NewTicket = lazy(() => import("./pages/user/NewTicket"));
@@ -105,7 +104,6 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/tickets" element={<TicketsList />} />
               <Route path="/tickets/:id" element={<TicketDetail />} />
-              <Route path="/tickets-clotures" element={<ClosedTicketsList />} />
               <Route path="/reponses-enregistrees" element={<SavedAnswers />} />
               <Route path="/Documentations" element={<Ingestion />} />
               <Route path="/documents-indexes" element={<AllDocs />} />
