@@ -1,204 +1,475 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Lock, UserCheck } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Lock,
+  UserCheck,
+  Search,
+  ArrowUpDown,
+  Inbox,
+} from "lucide-react";
 import { getTickets } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import type { Ticket, StatutTicket } from "../../types";
+
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 function isLocked(t: Ticket): boolean {
   return !!(t.lock_expires_at && new Date(t.lock_expires_at) > new Date());
 }
 
-// Job en cours (question initiale OU précision fraîchement soumise) → « en cours ».
 function isProcessing(statutJob: string) {
   return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";
 }
 
-function statutLabel(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean, reponseSource: string | null) {
-  if (closed) return "Clôturé";
-  if (processing) return "En cours";
-  if (canonique) return "Canonique";
-  if (statut === "VALIDÉ") return "Validée";
-  if (statut === "RÉPONDU") return reponseSource === "HORS_DOMAINE" ? "Hors domaine" : "Suggestion";
-  if (statut === "REJETÉ") return "Rejetée";
-  return "Nouvelle";
+function formatDateShort(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  if (diffDays === 0) {
+    return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(d);
+  }
+  if (diffDays < 7) return `il y a ${diffDays}j`;
+  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short" }).format(d);
 }
 
-function statutClass(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean, reponseSource: string | null) {
-  if (closed) return "bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/10";
-  if (processing) return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
-  if (statut === "REJETÉ") return "bg-red-500/10 text-red-700 border-red-300/50 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
-  if (canonique) return "bg-emerald-500/10 text-emerald-700 border-emerald-300/50 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
-  if (statut === "VALIDÉ") return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
-  if (statut === "RÉPONDU" && reponseSource === "HORS_DOMAINE") return "bg-purple-500/10 text-purple-700 border-purple-300/50 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/20";
-  if (statut === "RÉPONDU") return "bg-amber-500/10 text-amber-700 border-amber-300/50 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20";
-  return "bg-blue-500/10 text-blue-700 border-blue-300/50 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
+function formatDateFull(iso: string | null) {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  }).format(new Date(iso));
 }
 
-function StatutBadge({ statut, canonique, closed, processing, reponseSource }: { statut: StatutTicket; canonique: boolean; closed: boolean; processing: boolean; reponseSource: string | null }) {
+type FilterView = "tous" | "en_attente" | "en_cours" | "hors_domaine";
+
+// Client-side predicate applied on the fetched page
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function matchesFilter(t: any, filter: FilterView): boolean {
+  if (filter === "tous") return true;
+  // En attente : nouvelle (pas encore de réponse) OU suggestion non canonique en attente de validation
+  if (filter === "en_attente")
+    return t.statut_ticket === "NOUVEAU" ||
+      (t.statut_ticket === "RÉPONDU" && !t.canonique && t.reponse_source !== "HORS_DOMAINE");
+  // En cours : réponse canonique OU réponse validée par un humain
+  if (filter === "en_cours")
+    return t.canonique === true || t.statut_ticket === "VALIDÉ";
+  if (filter === "hors_domaine")
+    return t.statut_ticket === "RÉPONDU" && t.reponse_source === "HORS_DOMAINE";
+  return true;
+}
+
+// Server-side statut param when the filter maps 1-to-1
+function serverStatut(_filter: FilterView): string | undefined {
+  return undefined; // all filters need client-side discrimination, fetch unfiltered
+}
+
+const FILTER_TABS: { value: FilterView; label: string }[] = [
+  { value: "tous",        label: "Tous" },
+  { value: "en_attente",  label: "En attente" },
+  { value: "en_cours",    label: "En cours" },
+  { value: "hors_domaine", label: "Hors domaine" },
+];
+
+interface StatutMeta {
+  label: string;
+  badgeClass: string;
+}
+
+function getStatutMeta(
+  statut: StatutTicket,
+  canonique: boolean,
+  closed: boolean,
+  processing: boolean,
+  reponseSource: string | null,
+): StatutMeta {
+  if (closed) return {
+    label: "Clôturé",
+    badgeClass: "bg-gray-100 text-gray-500 border-gray-200 dark:bg-white/10 dark:text-gray-400 dark:border-white/10",
+  };
+  if (processing) return {
+    label: "En cours",
+    badgeClass: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
+  };
+  if (canonique) return {
+    label: "Canonique",
+    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
+  };
+  if (statut === "VALIDÉ") return {
+    label: "Validée",
+    badgeClass: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
+  };
+  if (statut === "RÉPONDU" && reponseSource === "HORS_DOMAINE") return {
+    label: "Hors domaine",
+    badgeClass: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/20",
+  };
+  if (statut === "RÉPONDU") return {
+    label: "Suggestion",
+    badgeClass: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+  };
+  if (statut === "REJETÉ") return {
+    label: "Rejetée",
+    badgeClass: "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20",
+  };
+  return {
+    label: "Nouvelle",
+    badgeClass: "bg-gray-50 text-gray-500 border-gray-200 dark:bg-white/5 dark:text-gray-400 dark:border-white/10",
+  };
+}
+
+// ─── sub-components ──────────────────────────────────────────────────────────
+
+function StatusBadge({ statut, canonique, closed, processing, reponseSource }: {
+  statut: StatutTicket;
+  canonique: boolean;
+  closed: boolean;
+  processing: boolean;
+  reponseSource: string | null;
+}) {
+  const meta = getStatutMeta(statut, canonique, closed, processing, reponseSource);
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${statutClass(statut, canonique, closed, processing, reponseSource)}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
-      {statutLabel(statut, canonique, closed, processing, reponseSource)}
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${meta.badgeClass}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" aria-hidden="true" />
+      {meta.label}
     </span>
   );
 }
 
-function formatDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
+
+function EmptyState({ hasFilters }: { hasFilters: boolean }) {
+  return (
+    <tr>
+      <td colSpan={4}>
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+          <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center">
+            <Inbox size={18} className="text-gray-400 dark:text-gray-500" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {hasFilters ? "Aucun résultat" : "Aucun ticket ouvert"}
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              {hasFilters ? "Essayez d'autres filtres." : "Tous les tickets ont été traités."}
+            </p>
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
 }
 
+// ─── main component ──────────────────────────────────────────────────────────
 
-const LIMIT = 10;
+const LIMIT = 25;
 
 export default function TicketsList() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
   const { userDomaines } = useAuth();
 
-  const { data, isLoading: loading, error } = useQuery({
-    queryKey: ["tickets", "open", page, userDomaines],
-    queryFn: () => getTickets({ page, limit: LIMIT, closed: false, domaines: userDomaines, disponibles: true }),
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filter, setFilter] = useState<FilterView>("tous");
+  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset page on filter/search change
+  useEffect(() => { setPage(1); }, [debouncedSearch, filter]);
+
+  // Requête de comptage : un seul appel large pour calculer les bulles de chaque tab
+  const { data: countData } = useQuery({
+    queryKey: ["tickets", "counts", userDomaines],
+    queryFn: () => getTickets({ limit: 200, closed: false, domaines: userDomaines, disponibles: true }),
+    staleTime: 30_000,
+  });
+
+  const tabCounts = useMemo(() => {
+    const items = countData?.items ?? [];
+    return {
+      tous: countData?.total ?? 0,
+      en_attente: items.filter((t) => matchesFilter(t, "en_attente")).length,
+      en_cours: items.filter((t) => matchesFilter(t, "en_cours")).length,
+      hors_domaine: items.filter((t) => matchesFilter(t, "hors_domaine")).length,
+    } satisfies Record<FilterView, number>;
+  }, [countData]);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["tickets", "open", page, userDomaines, debouncedSearch, filter],
+    queryFn: () => getTickets({
+      page,
+      limit: LIMIT,
+      closed: false,
+      domaines: userDomaines,
+      disponibles: true,
+      search: debouncedSearch || undefined,
+      statut: serverStatut(filter),
+    }),
     placeholderData: (prev) => prev,
   });
 
-  const tickets = data?.items ?? [];
+  const tickets: Ticket[] = data?.items ?? [];
   const total = data?.total ?? 0;
-
   const totalPages = Math.ceil(total / LIMIT);
-  const from = (page - 1) * LIMIT + 1;
+  const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
   const to = Math.min(page * LIMIT, total);
 
+  // Client-side filter (for views that can't be fully pushed to the server)
+  // then sort
+  const filtered = tickets.filter((t) => matchesFilter(t, filter));
+  const sorted = sortDir === "asc"
+    ? [...filtered].sort((a, b) =>
+        new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime()
+      )
+    : filtered;
+
+  const hasFilters = !!debouncedSearch || filter !== "tous";
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Tickets</h1>
+    <div className="p-6 space-y-5">
+      {/* ── Page header ───────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
+          Tickets
+        </h1>
+        {total > 0 && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 tabular-nums">
+            {total}
+          </span>
+        )}
       </div>
 
-      {/* Card */}
-      <div className="glass-card rounded-2xl overflow-hidden">
-        {/* Card header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-white/10">
-          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-            Dernières questions
-          </h2>
-          <button
-            onClick={() => navigate("/nouveau-ticket")}
-            className="flex items-center gap-1.5 text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-          >
-            Créer un ticket
-            <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 dark:text-gray-300 text-xs font-bold" aria-hidden="true">+</span>
-          </button>
+      {/* ── Toolbar : filtres | recherche + tri ───────────────────────────── */}
+      <div className="flex items-center gap-2">
+        {/* Filtres statut */}
+        <nav className="flex items-center gap-1 flex-1" aria-label="Filtres par statut">
+          {FILTER_TABS.map((tab) => {
+            const count = tabCounts[tab.value];
+            const active = filter === tab.value;
+            return (
+              <button
+                key={tab.value}
+                onClick={() => setFilter(tab.value)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-700 dark:hover:text-gray-200"
+                }`}
+              >
+                {tab.label}
+                {count > 0 && (
+                  <span
+                    className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xs font-semibold tabular-nums leading-none ${
+                      active
+                        ? "bg-white/20 text-white dark:bg-black/20 dark:text-gray-900"
+                        : "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Séparateur */}
+        <div className="w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
+
+        {/* Recherche */}
+        <div className="relative shrink-0">
+          <Search
+            size={14}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
+          />
+          <input
+            type="search"
+            placeholder="Rechercher…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 transition-shadow"
+          />
         </div>
 
-        {/* Table */}
+        {/* Tri */}
+        <button
+          onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border border-gray-200 dark:border-white/10"
+          aria-label={`Trier par date : ${sortDir === "desc" ? "plus récent" : "plus ancien"}`}
+        >
+          <ArrowUpDown size={12} aria-hidden="true" />
+          {sortDir === "desc" ? "Plus récent" : "Plus ancien"}
+        </button>
+      </div>
+
+      {/* ── Table ─────────────────────────────────────────────────────────── */}
+      <div className="glass-card rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-green-100 dark:bg-emerald-400/10 text-green-700 dark:text-emerald-300 text-left">
-                <th className="px-6 py-3 font-medium">Objet</th>
-                <th className="px-6 py-3 font-medium">Créée le</th>
-                <th className="px-6 py-3 font-medium">Statut</th>
+              <tr className="border-b border-gray-100 dark:border-white/5">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide w-full">
+                  Objet
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">
+                  Créé
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                  Statut
+                </th>
+                <th className="px-5 py-3 w-8 hidden sm:table-cell" aria-hidden="true" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-white/5">
-              {loading && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    Chargement…
+
+            <tbody className="divide-y divide-gray-50 dark:divide-white/[0.04]">
+              {/* Loading skeleton */}
+              {isLoading && Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  <td className="px-5 py-3.5">
+                    <div className="h-3.5 bg-gray-100 dark:bg-white/5 rounded w-3/4" />
                   </td>
+                  <td className="px-5 py-3.5 hidden sm:table-cell">
+                    <div className="h-3 bg-gray-100 dark:bg-white/5 rounded w-16" />
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <div className="h-5 bg-gray-100 dark:bg-white/5 rounded-full w-20" />
+                  </td>
+                  <td className="px-5 py-3.5 hidden sm:table-cell" />
                 </tr>
-              )}
-              {error && (
+              ))}
+
+              {/* Error */}
+              {!isLoading && error && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-red-600 dark:text-red-400">
+                  <td colSpan={4} className="px-5 py-10 text-center text-sm text-red-500 dark:text-red-400">
                     {error instanceof Error ? error.message : "Erreur de chargement"}
                   </td>
                 </tr>
               )}
-              {!loading && !error && tickets.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    Aucun ticket
-                  </td>
-                </tr>
+
+              {/* Empty */}
+              {!isLoading && !error && sorted.length === 0 && (
+                <EmptyState hasFilters={hasFilters} />
               )}
-              {!loading && tickets.map((t) => {
+
+              {/* Rows */}
+              {!isLoading && !error && sorted.map((t: Ticket) => {
                 const locked = isLocked(t);
+                const processing = isProcessing(t.statut_job);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const tx = t as any;
+                const title: string = tx.objet ?? t.question;
+                const closed = !!tx.closed_at;
+                const reponseSource: string | null = tx.reponse_source ?? null;
+                const assignedNom: string | null = tx.assigned_to_nom_complet ?? tx.assigned_to_email ?? null;
+                const lockedEmail: string = t.locked_by_email ?? "un validateur";
+
                 return (
-                <tr
-                  key={t.id}
-                  className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer focus-within:bg-gray-50 dark:focus-within:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
-                  onClick={() => navigate(`/tickets/${t.id}`)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
-                  tabIndex={0}
-                  role="link"
-                  aria-label={`Voir le ticket : ${t.objet ?? t.question}${locked ? ` (pris en charge par ${t.locked_by_email ?? "un validateur"})` : ""}`}
-                >
-                  <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {locked && (
+                  <tr
+                    key={t.id}
+                    className="group hover:bg-gray-50/70 dark:hover:bg-white/[0.03] transition-colors cursor-pointer focus-within:bg-gray-50/70 dark:focus-within:bg-white/[0.03]"
+                    onClick={() => navigate(`/tickets/${t.id}`)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`Voir le ticket : ${title}${locked ? ` (pris en charge par ${lockedEmail})` : ""}`}
+                  >
+                    {/* Objet */}
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {locked && (
+                          <span
+                            className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-50 text-amber-500 ring-1 ring-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20"
+                            title={`Pris en charge par ${lockedEmail}`}
+                          >
+                            <Lock size={9} aria-hidden="true" />
+                          </span>
+                        )}
                         <span
-                          className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 text-amber-500 ring-1 ring-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20"
-                          title={`Pris en charge par ${t.locked_by_email ?? "un validateur"}`}
+                          className="truncate text-gray-800 dark:text-gray-200 font-medium text-sm"
+                          title={title}
                         >
-                          <Lock size={11} aria-hidden="true" />
+                          {title}
                         </span>
-                      )}
-                      <span className="truncate max-w-xs" title={t.objet ?? t.question}>{t.objet ?? t.question}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    {formatDate(t.created_at)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <StatutBadge statut={t.statut_ticket as StatutTicket} canonique={t.canonique} closed={!!t.closed_at} processing={isProcessing(t.statut_job)} reponseSource={t.reponse_source ?? null} />
-                      {t.assigned_to && (
-                        <span
-                          className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/20"
-                          title={`Assigné à ${t.assigned_to_nom_complet ?? t.assigned_to_email ?? "un validateur"}`}
-                        >
-                          <UserCheck size={10} aria-hidden="true" />
-                          {t.assigned_to_nom_complet ?? t.assigned_to_email ?? "Assigné"}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                        {assignedNom && (
+                          <span
+                            className="shrink-0 hidden lg:inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/20"
+                            title={`Assigné à ${assignedNom}`}
+                          >
+                            <UserCheck size={9} aria-hidden="true" />
+                            {assignedNom}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Date */}
+                    <td
+                      className="px-5 py-3.5 text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap hidden sm:table-cell"
+                      title={formatDateFull(t.created_at)}
+                    >
+                      {formatDateShort(t.created_at)}
+                    </td>
+
+                    {/* Statut */}
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <StatusBadge
+                        statut={t.statut_ticket as StatutTicket}
+                        canonique={t.canonique}
+                        closed={closed}
+                        processing={processing}
+                        reponseSource={reponseSource}
+                      />
+                    </td>
+
+                    {/* Arrow */}
+                    <td className="px-5 py-3.5 hidden sm:table-cell">
+                      <ChevronRight
+                        size={14}
+                        className="text-gray-300 dark:text-gray-600 group-hover:text-gray-400 dark:group-hover:text-gray-400 transition-colors"
+                        aria-hidden="true"
+                      />
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination */}
-        {!loading && total > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-white/10 text-sm text-gray-500 dark:text-gray-400">
-            <span>{from}–{to} sur {total}</span>
+        {/* ── Pagination ─────────────────────────────────────────────────── */}
+        {!isLoading && total > 0 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-white/5">
+            <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+              {from}–{to} sur {total} ticket{total > 1 ? "s" : ""}
+            </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Page précédente"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={14} />
               </button>
+              <span className="text-xs text-gray-400 dark:text-gray-500 px-1.5 tabular-nums">
+                {page}/{totalPages}
+              </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Page suivante"
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={14} />
               </button>
             </div>
           </div>
