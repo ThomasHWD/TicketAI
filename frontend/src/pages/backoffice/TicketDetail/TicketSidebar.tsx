@@ -14,7 +14,6 @@ export function ticketStatutLabel(
   closed: boolean,
   processing: boolean,
   failed: boolean,
-  reponseSource: string | null,
 ) {
   if (closed) return "Clôturé";
   if (failed) return "Échec";
@@ -31,7 +30,6 @@ function ticketStatutClass(
   closed: boolean,
   processing: boolean,
   failed: boolean,
-  reponseSource: string | null,
 ) {
   if (closed) return "bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/15";
   if (failed) return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
@@ -48,21 +46,19 @@ export function StatutBadge({
   closed,
   processing,
   failed,
-  reponseSource,
 }: {
   statut: StatutTicket;
   canonique: boolean;
   closed: boolean;
   processing: boolean;
   failed: boolean;
-  reponseSource: string | null;
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique, closed, processing, failed, reponseSource)}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${ticketStatutClass(statut, canonique, closed, processing, failed)}`}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" aria-hidden="true" />
-      {ticketStatutLabel(statut, canonique, closed, processing, failed, reponseSource)}
+      {ticketStatutLabel(statut, canonique, closed, processing, failed)}
     </span>
   );
 }
@@ -131,7 +127,6 @@ export default function TicketSidebar({
                   closed={!!ticket.closed_at}
                   processing={processing}
                   failed={failed}
-                  reponseSource={ticket.reponse_source ?? null}
                 />
               </dd>
             </div>
