@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import admin, auth, documents, notifications, reponses, sse, stats, suggestions, tickets
 from app.services.qdrant import init_collection
@@ -17,6 +18,14 @@ app = FastAPI(
     description="API de gestion de tickets grâce à l'IA",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:4173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

@@ -4,6 +4,7 @@ Aucun décorateur Celery ici : ce module est importé par le worker,
 et non l'inverse, pour briser la dépendance circulaire.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -14,6 +15,8 @@ from app.models.reponse import Reponse
 from app.models.ticket import Ticket
 from app.services.broadcast import broadcast_sync
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 SEUIL_COSINUS = settings.seuil_cosinus
 SEUIL_SUGGESTION = SEUIL_COSINUS - 0.05
@@ -199,7 +202,7 @@ def servir_reutilisation(
     contenu = reponse_liee.contenu_corrige or reponse_liee.contenu
 
     if autoriser_canonique and reponse_liee.canonique and score_liee >= SEUIL_COSINUS:
-        print(f"[QUESTION] ✅ Réponse canonique {reponse_liee.id}")
+        logger.info("Réponse canonique servie : %s (score=%.3f)", reponse_liee.id, score_liee)
         ticket = upsert_ticket(
             db,
             job_id,
@@ -263,7 +266,7 @@ def servir_reutilisation(
             "top_score_cosinus": score_liee,
         }
 
-    print(f"[QUESTION] 💡 Suggestion via réponse validée {reponse_liee.id}")
+    logger.info("Suggestion via réponse validée %s (score=%.3f)", reponse_liee.id, score_liee)
     ticket = upsert_ticket(
         db,
         job_id,

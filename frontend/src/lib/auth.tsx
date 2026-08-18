@@ -61,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return res.json() as Promise<AuthUser>;
     },
     enabled: !!token,
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {

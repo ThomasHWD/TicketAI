@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
@@ -30,6 +31,8 @@ from app.services.reponse_service import (
     verifier_verrou,
 )
 from app.workers.feedback import feedback_job
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -126,7 +129,7 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest, current_user
     finally:
         db.close()
 
-    print(f"[VALIDATION] ❌ Réponse {reponse_id} rejetée par {current_user.id}")
+    logger.info("Réponse %s rejetée par %s", reponse_id, current_user.id)
     if domaine:
         await broadcast_async(
             f"sse:domain:{domaine}", "reponse_rejected", {"ticket_id": ticket_id_str, "domaine": domaine}
@@ -176,7 +179,7 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest, current_us
     finally:
         db.close()
 
-    print(f"[CORRECTION] ✏️  Réponse {reponse_id} corrigée et en cours d'indexation dans Qdrant.")
+    logger.info("Réponse %s corrigée et en cours d'indexation dans Qdrant.", reponse_id)
     feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
     if domaine:
         await broadcast_async(

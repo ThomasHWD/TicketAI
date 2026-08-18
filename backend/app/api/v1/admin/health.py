@@ -12,7 +12,7 @@ from sqlalchemy import distinct, text
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.security import AdminUser
+from app.core.security import AdminUser, CurrentUser
 from app.database import SessionLocal
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
@@ -315,8 +315,8 @@ def delete_document_incident(task_id: str, _: AdminUser):
 
 
 @router.get("/config")
-def get_config(db: DB):
-    """Retourne toute la configuration du site (accessible à tout utilisateur authentifié)."""
+def get_config(current_user: CurrentUser, db: DB):
+    """Retourne la configuration du site (tout utilisateur authentifié)."""
     rows = db.query(SiteConfig).all()
     result = dict(_CONFIG_DEFAULTS)
     for row in rows:

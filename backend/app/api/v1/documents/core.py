@@ -127,8 +127,10 @@ async def list_documents(
     db: DB,
     domaine: str | None = None,
     domaines: str | None = None,
+    limit: int = 500,
 ):
-    """Liste des documents indexés, non paginée (filtrage côté client)."""
+    """Liste des documents indexés (filtrage côté client, cap à 500 par défaut)."""
+    limit = min(limit, 1000)
     q = db.query(Document).filter(Document.statut.in_(STATUTS_VIVANTS))
 
     if domaines:
@@ -141,7 +143,7 @@ async def list_documents(
             return {"total": 0, "items": []}
         q = q.filter(Document.domaine.in_(allowed))
 
-    docs = q.order_by(Document.updated_at.desc()).all()
+    docs = q.order_by(Document.updated_at.desc()).limit(limit).all()
 
     nb_versions = (
         dict(

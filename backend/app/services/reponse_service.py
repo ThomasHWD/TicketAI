@@ -7,7 +7,7 @@ from app.models.reponse import Reponse
 from app.models.ticket import Ticket
 from fastapi import HTTPException
 
-ETATS_FINAUX = {"REJETÉE", "CORRIGÉE", "CANONIQUE"}
+ETATS_FINAUX = {"VALIDÉE", "REJETÉE", "CORRIGÉE"}
 
 
 def notifier_employe(db, ticket: Ticket, reponse_id: str, validator_id: uuid.UUID) -> None:
