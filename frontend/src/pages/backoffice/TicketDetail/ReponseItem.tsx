@@ -7,15 +7,15 @@ import type { TicketReponse, StatutReponse } from "../../../types";
 import { formatDate, BotAvatar } from "./utils";
 
 export const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
-  SUGGESTION:    { label: "Suggestion",   icon: Sparkles },
-  CANONIQUE:     { label: "Canonique",    icon: Bot },
-  HORS_DOMAINE:  { label: "Hors domaine", icon: AlertCircle },
+  SUGGESTION:   { label: "Suggestion",   icon: Sparkles },
+  CANONIQUE:    { label: "Canonique",    icon: Bot },
+  HORS_DOMAINE: { label: "Hors domaine", icon: AlertCircle },
 };
 
 export function reponseStatutLabel(statut: StatutReponse, canonique: boolean) {
   if (statut === "VALIDÉE" || statut === "CORRIGÉE") return canonique ? "Canonique" : "Validée";
   if (statut === "REJETÉE") return "Rejetée";
-  if (statut === "EN_ATTENTE") return "En attente";
+  if (statut === "EN_ATTENTE") return "Suggestion";
   return statut;
 }
 
@@ -48,6 +48,7 @@ export default function ReponseItem({
   const [draft, setDraft] = useState(isHorsDomaine ? "" : reponse.contenu);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const sourceInfo = SOURCE_LABEL[reponse.source];
   const isPending = reponse.statut === "EN_ATTENTE";
   const isCanonique = reponse.canonique;
@@ -56,8 +57,8 @@ export default function ReponseItem({
     ? "TicketAI"
     : (reponse.validator_nom_complet ?? reponse.validator_email ?? "Validateur");
   const authorClass = showBot
-    ? "text-emerald-700 dark:text-emerald-400"
-    : "text-violet-700 dark:text-violet-300";
+    ? "text-sm font-semibold text-emerald-700 dark:text-emerald-400"
+    : "text-sm font-semibold text-violet-700 dark:text-violet-300";
 
   function handleError(e: unknown) {
     if (e instanceof LockConflictError) { onLockConflict(e.message); return; }
@@ -84,41 +85,48 @@ export default function ReponseItem({
   function handleCancel() { setDraft(reponse.contenu); setEditing(false); setError(null); }
 
   return (
-    <li className="px-5 py-4 space-y-3 animate-in fade-in slide-in-from-bottom-1 duration-300">
+    <article className="glass-card rounded-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-300">
+
+      {/* Follow-up question from user */}
       {reponse.question_suivi && (
-        <div className="flex gap-3 items-start">
-          <UserAvatar name={userEmail ?? "?"} size={36} />
-          <div className="flex-1 min-w-0 space-y-1.5">
-            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">Précision de l'utilisateur</span>
-            <div className="bg-emerald-50 dark:bg-emerald-500/[0.08] border border-emerald-100 dark:border-emerald-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
-              <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-                {reponse.question_suivi}
-              </p>
-            </div>
+        <div className="flex gap-3.5 items-start px-5 py-4 border-b border-gray-100 dark:border-white/[0.07] bg-gray-50/50 dark:bg-white/[0.02]">
+          <UserAvatar name={userEmail ?? "?"} size={32} />
+          <div className="flex-1 min-w-0 space-y-1">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Précision de l'utilisateur</span>
+            <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+              {reponse.question_suivi}
+            </p>
           </div>
         </div>
       )}
 
-      <div className="flex gap-3 items-start">
+      {/* Main response */}
+      <div className="flex gap-3.5 items-start px-5 py-4">
         {showBot ? (
           <BotAvatar pulse={isPending} />
         ) : (
           <UserAvatar name={reponse.validator_nom_complet ?? reponse.validator_email ?? "Validateur"} size={36} />
         )}
-        <div className="flex-1 min-w-0 space-y-2">
+
+        <div className="flex-1 min-w-0 space-y-3">
+          {/* Author row */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-semibold ${authorClass}`}>{authorLabel}</span>
+            <span className={authorClass}>{authorLabel}</span>
             <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(reponse.created_at)}</span>
-            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${reponseStatutClass(reponse.statut, reponse.canonique)}`}>
-              <span className="w-1 h-1 rounded-full bg-current" />
+            <span
+              className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${reponseStatutClass(reponse.statut, reponse.canonique)}`}
+            >
+              <span className="w-1 h-1 rounded-full bg-current" aria-hidden="true" />
               {reponseStatutLabel(reponse.statut, reponse.canonique)}
             </span>
             {sourceInfo && reponse.source !== "CANONIQUE" && (
-              <span className={`text-xs flex items-center gap-1 ${
-                reponse.source === "HORS_DOMAINE"
-                  ? "text-purple-500 dark:text-purple-400 font-medium"
-                  : "text-gray-400 dark:text-gray-500"
-              }`}>
+              <span
+                className={`text-xs flex items-center gap-1 ${
+                  reponse.source === "HORS_DOMAINE"
+                    ? "text-purple-500 dark:text-purple-400 font-medium"
+                    : "text-gray-400 dark:text-gray-500"
+                }`}
+              >
                 <sourceInfo.icon size={11} aria-hidden="true" />
                 {sourceInfo.label}
               </span>
@@ -130,26 +138,36 @@ export default function ReponseItem({
             )}
           </div>
 
+          {/* Content */}
           {editing ? (
             <div className="space-y-3">
               <textarea
-                className="w-full text-sm text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y leading-relaxed min-h-[420px]"
+                className="w-full text-sm text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y leading-relaxed min-h-[420px] transition-shadow"
                 rows={18}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 disabled={loading}
                 autoFocus
-                placeholder={isHorsDomaine ? "Aucun document ne couvre ce sujet. Rédigez une réponse à partir de vos connaissances…" : undefined}
+                placeholder={
+                  isHorsDomaine
+                    ? "Aucun document ne couvre ce sujet. Rédigez une réponse à partir de vos connaissances…"
+                    : undefined
+                }
                 aria-label="Contenu corrigé"
               />
-              {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
+              {error && (
+                <p className="text-xs text-red-600 dark:text-red-400" role="alert">
+                  {error}
+                </p>
+              )}
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCorriger}
                   disabled={loading || !draft.trim()}
                   className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
                 >
-                  <Check size={14} aria-hidden="true" /> Valider la correction
+                  <Check size={14} aria-hidden="true" />
+                  Valider la correction
                 </button>
                 {!isHorsDomaine && (
                   <button
@@ -157,32 +175,33 @@ export default function ReponseItem({
                     disabled={loading}
                     className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
                   >
-                    <X size={14} aria-hidden="true" /> Annuler
+                    <X size={14} aria-hidden="true" />
+                    Annuler
                   </button>
                 )}
               </div>
             </div>
           ) : isHorsDomaine && !reponse.contenu_corrige ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500 italic px-1">
+            <p className="text-sm text-gray-400 dark:text-gray-500 italic">
               Sujet non couvert — une réponse manuelle est attendue.
             </p>
           ) : (
-            <div className="bg-white/90 dark:bg-white/[0.07] border border-gray-200/70 dark:border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-              <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-                {reponse.contenu_corrige ?? reponse.contenu}
-              </p>
-            </div>
+            <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+              {reponse.contenu_corrige ?? reponse.contenu}
+            </p>
           )}
 
+          {/* Action buttons */}
           {canAct && !editing && (
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-100 dark:border-white/[0.07] mt-1">
               {reponse.source !== "HORS_DOMAINE" && (
                 <button
                   onClick={handleValider}
                   disabled={loading}
                   className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
                 >
-                  <ThumbsUp size={14} aria-hidden="true" /> Valider
+                  <ThumbsUp size={14} aria-hidden="true" />
+                  Valider
                 </button>
               )}
               <button
@@ -190,13 +209,18 @@ export default function ReponseItem({
                 disabled={loading}
                 className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
               >
-                <Pencil size={14} aria-hidden="true" /> {isHorsDomaine ? "Rédiger une réponse" : "Corriger"}
+                <Pencil size={14} aria-hidden="true" />
+                {isHorsDomaine ? "Rédiger une réponse" : "Corriger"}
               </button>
-              {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
+              {error && (
+                <p className="text-xs text-red-600 dark:text-red-400" role="alert">
+                  {error}
+                </p>
+              )}
             </div>
           )}
         </div>
       </div>
-    </li>
+    </article>
   );
 }
