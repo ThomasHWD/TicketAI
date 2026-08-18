@@ -411,14 +411,14 @@ export default function TicketTracking() {
           error={tab === "participated" ? (participatedError as Error | null) : null}
           emptyIcon={tab === "assigned" ? UserCheck : Inbox}
           emptyTitle={
-            filter !== "all" || search
+            filter !== "tous" || search
               ? "Aucun ticket ne correspond à vos filtres."
               : tab === "assigned"
               ? "Aucun ticket ne vous est assigné."
               : "Vous n'avez encore participé à aucun ticket."
           }
           emptySubtitle={
-            filter !== "all" || search
+            filter !== "tous" || search
               ? "Essayez un filtre différent ou effacez la recherche."
               : tab === "assigned"
               ? "Les tickets assignés directement à votre compte apparaîtront ici."
