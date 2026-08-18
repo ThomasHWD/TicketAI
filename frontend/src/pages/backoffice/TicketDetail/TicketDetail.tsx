@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, Clock, Lock } from "lucide-react";
+import { ArrowLeft, Clock, Lock } from "lucide-react";
 import {
   getTicket,
   getReponsesByTicket,
@@ -16,7 +16,7 @@ import { useTicketLock } from "../../../hooks/useTicketLock";
 import { formatDate, BotAvatar } from "./utils";
 import ReponseItem from "./ReponseItem";
 import WorkflowModal from "./WorkflowModal";
-import TicketSidebar, { StatutBadge } from "./TicketSidebar";
+import TicketSidebar from "./TicketSidebar";
 
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>();
@@ -102,7 +102,6 @@ export default function TicketDetail() {
 
   const userEmail = ticket.user_email;
   const userName = ticket.user_nom_complet || userEmail;
-  const isProcessing = ticket.statut_job === "EN_ATTENTE" || ticket.statut_job === "EN_COURS";
 
   return (
     <>
