@@ -1,6 +1,7 @@
 from celery.result import AsyncResult
 from fastapi import APIRouter, Body, HTTPException
 
+from app.core.permissions import check_ticket_read
 from app.core.security import CurrentUser
 from app.database import SessionLocal
 from app.models.groupe import Groupe
@@ -159,6 +160,7 @@ async def statut_ticket(job_id: str, current_user: CurrentUser):
             try:
                 ticket = db.query(Ticket).filter(Ticket.id == uuid.UUID(ticket_id)).first()
                 if ticket:
+                    check_ticket_read(ticket, current_user)
                     reponse["statut_ticket"] = ticket.statut_ticket
                     reponse["ticket_id"] = ticket_id
             finally:

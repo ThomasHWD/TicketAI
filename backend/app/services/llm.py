@@ -1,5 +1,9 @@
+import logging
+
 import httpx
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def chat(
@@ -36,7 +40,7 @@ def chat(
     data = response.json()
     content = (data["choices"][0]["message"]["content"] or "").strip()
     if not content:
-        print(f"[LLM] réponse vide — body complet : {data}")
+        logger.warning("Réponse LLM vide — body complet : %s", data)
     return content
 
 

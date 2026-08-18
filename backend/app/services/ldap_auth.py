@@ -66,7 +66,8 @@ def _identity_from_entry(username: str, entry) -> LdapIdentity:
 
 
 def _search_filter(username: str) -> str:
-    return settings.ldap_user_search_filter.format(username=username)
+    from ldap3.utils.conv import escape_filter_chars
+    return settings.ldap_user_search_filter.format(username=escape_filter_chars(username))
 
 
 def _search_attributes() -> list[str]:

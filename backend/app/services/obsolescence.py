@@ -12,6 +12,7 @@ La logique de diff textuel (``Unite``, ``unites_de_changement``, etc.) vit dans
 obsolètes, signaler à relire, lever les drapeaux.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -324,4 +325,4 @@ def requeuer_en_attente(db: Session, reponses: list[Reponse]) -> None:
             objet=ticket.objet,
             retraiter=True,
         )
-        print(f"[REQUEUE] ticket {ticket.id} re-soumis au pipeline RAG")
+        logging.getLogger(__name__).info("Ticket %s re-soumis au pipeline RAG", ticket.id)
