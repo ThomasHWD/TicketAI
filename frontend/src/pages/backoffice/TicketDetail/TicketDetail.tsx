@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Lock } from "lucide-react";
+import { ArrowLeft, ChevronRight, Clock, Lock } from "lucide-react";
 import {
   getTicket,
   getReponsesByTicket,
@@ -16,7 +16,7 @@ import { useTicketLock } from "../../../hooks/useTicketLock";
 import { formatDate, BotAvatar } from "./utils";
 import ReponseItem from "./ReponseItem";
 import WorkflowModal from "./WorkflowModal";
-import TicketSidebar from "./TicketSidebar";
+import TicketSidebar, { StatutBadge } from "./TicketSidebar";
 
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>();
@@ -75,19 +75,25 @@ export default function TicketDetail() {
 
   const readOnly = !isMine;
 
-  if (loading)
-    return <div className="p-6 text-center text-gray-500 dark:text-gray-400" aria-live="polite">Chargement…</div>;
+  if (loading) {
+    return (
+      <div className="p-6 text-center text-sm text-gray-400 dark:text-gray-500" aria-live="polite">
+        Chargement…
+      </div>
+    );
+  }
 
   if (error || !ticket) {
     return (
-      <div className="p-6">
+      <div className="p-6 space-y-4">
         <button
           onClick={() => navigate(-1)}
-          className="group inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 dark:hover:border-emerald-400/20 shadow-sm transition-all duration-200 mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
         >
-          <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" /> Retour
+          <ArrowLeft size={14} aria-hidden="true" />
+          Retour aux tickets
         </button>
-        <p className="text-red-600 dark:text-red-400" role="alert">
+        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
           {error instanceof Error ? error.message : "Ticket introuvable"}
         </p>
       </div>
@@ -96,87 +102,95 @@ export default function TicketDetail() {
 
   const userEmail = ticket.user_email;
   const userName = ticket.user_nom_complet || userEmail;
+  const isProcessing = ticket.statut_job === "EN_ATTENTE" || ticket.statut_job === "EN_COURS";
 
   return (
     <>
-    <div className="p-6 space-y-4 max-w-6xl">
-      <button
-        onClick={() => navigate(-1)}
-        className="group inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 dark:hover:border-emerald-400/20 shadow-sm transition-all duration-200"
-        aria-label="Retour à la liste des tickets"
-      >
-        <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" />
-        Retour aux tickets
-      </button>
+      <div className="px-6 py-5 max-w-6xl space-y-5">
 
-      {!checking && readOnly && (
-        <div
-          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-400/10 dark:border-amber-400/20 dark:text-amber-300 text-sm"
-          role="status"
-        >
-          <Lock size={16} aria-hidden="true" />
-          <span>
-            {isAssigned ? "Ticket assigné à" : "Ticket en cours de traitement par"}{" "}
-            <span className="font-medium">{lockedByEmail ?? "un autre validateur"}</span>. Lecture seule.
-          </span>
-        </div>
-      )}
+        {/* Breadcrumb + Header */}
+        <header className="space-y-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="group inline-flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            aria-label="Retour à la liste des tickets"
+          >
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gray-100 dark:bg-white/10 group-hover:bg-gray-200 dark:group-hover:bg-white/15 transition-colors">
+              <ArrowLeft size={13} aria-hidden="true" />
+            </span>
+            Retour aux tickets
+          </button>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-50 leading-snug">
+            {ticket.objet ?? ticket.question}
+          </h1>
+        </header>
 
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">
-            {ticket.domaine}
-          </p>
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">{ticket.objet ?? ticket.question}</h1>
-        </div>
-      </div>
+        {/* Lock banner */}
+        {!checking && readOnly && (
+          <div
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-400/10 dark:border-amber-400/20 dark:text-amber-300 text-sm"
+            role="status"
+          >
+            <Lock size={14} aria-hidden="true" className="shrink-0" />
+            <span>
+              {isAssigned ? "Assigné à" : "En cours de traitement par"}{" "}
+              <span className="font-medium">{lockedByEmail ?? "un autre validateur"}</span>. Lecture seule.
+            </span>
+          </div>
+        )}
 
-      <div className="flex gap-5 items-start">
+        {/* Two-column body */}
+        <div className="flex gap-6 items-start">
 
-        {/* Fil de conversation */}
-        <div className="flex-1 min-w-0 space-y-4">
-          <div className="glass-card rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10">
-              <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Échange</h2>
-            </div>
-            <ul className="divide-y divide-gray-200 dark:divide-white/10" aria-label="Fil de conversation">
+          {/* Thread */}
+          <div className="flex-1 min-w-0 space-y-3">
 
-              <li className="px-5 py-4 animate-in fade-in slide-in-from-bottom-1 duration-300">
-                <div className="flex gap-3 items-start">
-                  <UserAvatar name={userName ?? "?"} size={36} />
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
-                        {userName ?? "Utilisateur"}
-                      </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(ticket.created_at)}</span>
-                    </div>
-                    <div className="bg-emerald-50 dark:bg-emerald-500/[0.08] border border-emerald-100 dark:border-emerald-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
-                      <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-                        {ticket.question}
-                      </p>
+            {/* Original question */}
+            <article
+              className="glass-card rounded-2xl p-5 animate-in fade-in slide-in-from-bottom-1 duration-300"
+              aria-label="Question originale"
+            >
+              <div className="flex gap-3.5 items-start">
+                <UserAvatar name={userName ?? "?"} size={36} />
+                <div className="flex-1 min-w-0 space-y-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                      {userName ?? "Utilisateur"}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {formatDate(ticket.created_at)}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded-full">
+                      Demande
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+                    {ticket.question}
+                  </p>
+                </div>
+              </div>
+            </article>
+
+            {/* Responses */}
+            {reponses.length === 0 ? (
+              <article
+                className="glass-card rounded-2xl p-5 animate-in fade-in slide-in-from-bottom-1 duration-300"
+                aria-label="Réponse en cours"
+              >
+                <div className="flex gap-3.5 items-start">
+                  <BotAvatar pulse />
+                  <div className="flex-1 space-y-1">
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">TicketAI</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Clock size={13} className="text-blue-400" aria-hidden="true" />
+                      <p className="text-sm text-blue-600 dark:text-blue-300">Réponse en cours de génération…</p>
                     </div>
                   </div>
                 </div>
-              </li>
-
-              {reponses.length === 0 ? (
-                <li className="px-5 py-4">
-                  <div className="flex gap-3 items-start">
-                    <BotAvatar pulse />
-                    <div className="flex-1 space-y-1.5">
-                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">TicketAI</span>
-                      <div className="bg-blue-50/60 dark:bg-blue-500/[0.07] border border-blue-100 dark:border-blue-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Clock size={13} className="text-blue-500" aria-hidden="true" />
-                          <p className="text-sm text-blue-700 dark:text-blue-300">Réponse en cours de génération…</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              ) : (
-                reponses.map((r) => (
+              </article>
+            ) : (
+              <div className="space-y-3" role="feed" aria-label="Fil de réponses">
+                {reponses.map((r) => (
                   <ReponseItem
                     key={r.id}
                     reponse={r}
@@ -185,32 +199,31 @@ export default function TicketDetail() {
                     onChanged={refresh}
                     onLockConflict={refresh}
                   />
-                ))
-              )}
-            </ul>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Sidebar */}
+          <TicketSidebar
+            ticket={ticket}
+            isMine={isMine}
+            assignLoading={assignLoading}
+            assignError={assignError}
+            selectedAssignee={selectedAssignee}
+            currentUserId={currentUser?.id}
+            validateurs={validateursQuery.data ?? []}
+            onShowWorkflow={() => setShowWorkflow(true)}
+            onAssign={() => handleAssignAction(() => assignTicket(ticket.id, selectedAssignee))}
+            onUnassign={() => handleAssignAction(() => unassignTicket(ticket.id))}
+            onSelectedAssigneeChange={setSelectedAssignee}
+          />
         </div>
-
-        {/* Colonne latérale */}
-        <TicketSidebar
-          ticket={ticket}
-          isMine={isMine}
-          assignLoading={assignLoading}
-          assignError={assignError}
-          selectedAssignee={selectedAssignee}
-          currentUserId={currentUser?.id}
-          validateurs={validateursQuery.data ?? []}
-          onShowWorkflow={() => setShowWorkflow(true)}
-          onAssign={() => handleAssignAction(() => assignTicket(ticket.id, selectedAssignee))}
-          onUnassign={() => handleAssignAction(() => unassignTicket(ticket.id))}
-          onSelectedAssigneeChange={setSelectedAssignee}
-        />
       </div>
-    </div>
 
-    {showWorkflow && id && (
-      <WorkflowModal ticketId={id} onClose={() => setShowWorkflow(false)} />
-    )}
+      {showWorkflow && id && (
+        <WorkflowModal ticketId={id} onClose={() => setShowWorkflow(false)} />
+      )}
     </>
   );
 }

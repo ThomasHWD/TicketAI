@@ -47,7 +47,14 @@ def serialize_ticket(ticket: Ticket) -> dict:
         "assigned_to": str(ticket.assigned_to) if ticket.assigned_to else None,
         "assigned_to_email": ticket.assignee.email if ticket.assignee else None,
         "assigned_to_nom_complet": full_name(ticket.assignee),
-        "reponse_source": next((r.source for r in ticket.reponses if not r.obsolete), None),
+        "reponse_source": next(
+            (
+                r.source
+                for r in sorted(ticket.reponses, key=lambda r: r.created_at or 0, reverse=True)
+                if not r.obsolete
+            ),
+            None,
+        ),
     }
 
 
