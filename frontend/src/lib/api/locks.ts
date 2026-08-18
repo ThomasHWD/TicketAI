@@ -1,5 +1,5 @@
 import { apiFetch, BASE_URL } from "./client";
-import type { LockState } from "../../types.ts";
+import type { LockState } from "../../types";
 
 export class LockConflictError extends Error {
   lockedByEmail: string | null;

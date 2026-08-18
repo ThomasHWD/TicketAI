@@ -1,4 +1,4 @@
-import type { UniteChangement } from "../../../types.ts";
+import type { UniteChangement } from "../../../types";
 
 const LIBELLE_SENS: Record<UniteChangement["sens"], string> = {
   AJOUT: "Ajouté",

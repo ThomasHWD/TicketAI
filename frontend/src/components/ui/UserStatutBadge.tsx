@@ -1,5 +1,5 @@
 import { isProcessing, statutLabel, statutClass } from "../../lib/ticketStatus";
-import type { Ticket, StatutTicket } from "../../types.ts";
+import type { Ticket, StatutTicket } from "../../types";
 
 export default function UserStatutBadge({ ticket: t }: { ticket: Ticket }) {
   const processing = isProcessing(t.statut_job);

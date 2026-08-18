@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bot, History, Loader2, Lock, MessageCircle, Pencil, Plus, ThumbsUp, UserMinus, UserPlus, X } from "lucide-react";
 import { getTicketWorkflow } from "../../../lib/api";
-import type { WorkflowEvent, WorkflowEventType } from "../../../types.ts";
+import type { WorkflowEvent, WorkflowEventType } from "../../../types";
 import { formatDate } from "./utils";
 
 const EVENT_CONFIG: Record<WorkflowEventType, {

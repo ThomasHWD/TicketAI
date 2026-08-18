@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { X, Frown } from "lucide-react";
 import { getTickets } from "../../lib/api/tickets";
 import { StarRating } from "./SatisfactionCard";
-import type { Ticket } from "../../types.ts";
+import type { Ticket } from "../../types";
 
 interface Props {
   onClose: () => void;

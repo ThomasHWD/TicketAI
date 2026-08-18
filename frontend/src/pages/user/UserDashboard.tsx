@@ -13,7 +13,7 @@ import { getTickets } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
 import { isProcessing, statutLabel, formatDate } from "../../lib/ticketStatus";
 import UserStatutBadge from "../../components/ui/UserStatutBadge";
-import type { Ticket, StatutTicket } from "../../types.ts";
+import type { Ticket, StatutTicket } from "../../types";
 
 function userLabel(t: Ticket) {
   return statutLabel(

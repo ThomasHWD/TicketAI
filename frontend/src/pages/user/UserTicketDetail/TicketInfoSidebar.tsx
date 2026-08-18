@@ -1,5 +1,5 @@
 import { FilBadge, formatDate, type FilStatut } from "./utils";
-import type { Ticket } from "../../../types.ts";
+import type { Ticket } from "../../../types";
 
 interface TicketInfoSidebarProps {
   ticket: Ticket;

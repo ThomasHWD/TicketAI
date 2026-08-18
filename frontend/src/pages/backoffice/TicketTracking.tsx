@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import { getParticipatedTickets, getMyAssignedTickets } from "../../lib/api";
-import type { Ticket, StatutTicket } from "../../types.ts";
+import type { Ticket, StatutTicket } from "../../types";
 
 function isProcessing(statutJob: string) {
   return statutJob === "EN_ATTENTE" || statutJob === "EN_COURS";

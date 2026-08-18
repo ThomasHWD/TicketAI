@@ -47,7 +47,7 @@ def env(tmp_path, monkeypatch, db_session):
     tester les deux workers enchaînés sans infrastructure Celery/Valkey.
     """
     import app.services.obsolescence as obso
-    import app.services.reverification as service
+    import app.services.reverification_candidates as candidates
     import app.workers.document_update as maj
     import app.workers.reverification as worker
     from app.config import settings
@@ -57,7 +57,7 @@ def env(tmp_path, monkeypatch, db_session):
     monkeypatch.setattr(worker, "broadcast_sync", lambda *a, **k: None)
     monkeypatch.setattr(obso, "delete_response_point", lambda _id: None)
     # Seules les citantes ; les voisines sont hors périmètre de ces tests.
-    monkeypatch.setattr(service, "_voisines", lambda db, domaine, unites: [])
+    monkeypatch.setattr(candidates, "_voisines", lambda db, domaine, unites: [])
     # Évite toute connexion au broker Celery/Valkey quand une EN_ATTENTE est périmée.
     monkeypatch.setattr(maj, "requeuer_en_attente", lambda db, reponses: None)
 
@@ -237,15 +237,15 @@ class TestBoutEnBoutComplet:
 
     @staticmethod
     def _patcher_albert(monkeypatch, verdict: str) -> None:
-        import app.services.reverification as service
+        import app.services.reverification_scoring as scoring
 
         monkeypatch.setattr(
-            service,
+            scoring,
             "rerank",
             lambda q, docs, top_k: [{**docs[0], "rerank_score": 0.9}],
         )
         monkeypatch.setattr(
-            service,
+            scoring,
             "chat",
             lambda messages, **k: '{"verdict": "%s", "justification": "Test."}' % verdict,
         )

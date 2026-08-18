@@ -1,4 +1,4 @@
-import type { ReponseARelire } from "../../../types.ts";
+import type { ReponseARelire } from "../../../types";
 
 export default function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
   return (

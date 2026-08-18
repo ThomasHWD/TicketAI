@@ -1,6 +1,6 @@
 import { AlertTriangle, RotateCcw, Trash2 } from "lucide-react";
 import { formatDate } from "../../../lib/ticketStatus";
-import type { ReponseObsolete } from "../../../types.ts";
+import type { ReponseObsolete } from "../../../types";
 import ExpandableText from "./ExpandableText";
 import { contenuServi, depuis, type CibleSuppression } from "./utils";
 
