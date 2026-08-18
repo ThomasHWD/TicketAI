@@ -6,7 +6,7 @@ import { getTickets } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
 import { formatDate } from "../../lib/ticketStatus";
 import UserStatutBadge from "../../components/ui/UserStatutBadge";
-import type { Ticket } from "../../types.ts";
+import type { Ticket } from "../../types";
 
 const LIMIT = 10;
 

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Copy, AlertTriangle, XCircle, ArrowRight, RefreshCw, Database } from "lucide-react";
-import type { DocumentHomonyme, DocumentUploadResponse } from "../../../types.ts";
+import type { DocumentHomonyme, DocumentUploadResponse } from "../../../types";
 
 type Props = {
   phase: "duplicate" | "homonyme" | "error";

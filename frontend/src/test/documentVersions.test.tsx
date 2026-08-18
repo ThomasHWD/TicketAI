@@ -9,7 +9,7 @@ import {
   restoreDocumentVersion,
 } from "../lib/api/documents";
 import DocHistoryModal from "../pages/backoffice/DocHistoryModal";
-import type { DocumentVersion } from "../types.ts";
+import type { DocumentVersion } from "../types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

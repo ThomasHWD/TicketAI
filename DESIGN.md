@@ -1,6 +1,6 @@
 ---
 name: TicketAI
-description: Emerald-glass helpdesk backoffice floating over a living aurora — a RAG answer-validation workspace.
+description: Clean, precision-desk helpdesk backoffice — a RAG answer-validation workspace with an opaque neutral chrome and emerald-accent content glass.
 colors:
   emerald-primary: "#10b981"
   emerald-deep: "#059669"
@@ -115,29 +115,45 @@ components:
     rounded: "{rounded.full}"
     padding: "2px 10px"
   nav-item-active:
-    backgroundColor: "{colors.green-active-bg}"
-    textColor: "{colors.green-active-ink}"
+    backgroundColor: "{colors.emerald-tint-bg}"
+    textColor: "#15803d"
     rounded: "{rounded.lg}"
-    padding: "8px 12px"
+    padding: "7px 10px"
+  chrome-sidebar:
+    backgroundColor: "#ffffff"
+    darkBackgroundColor: "#111113"
+    borderColor: "#e5e7eb"
+    darkBorderColor: "#1f1f1f"
+    width: "224px"
+    collapsedWidth: "56px"
+  chrome-topbar:
+    backgroundColor: "#ffffff"
+    darkBackgroundColor: "#111113"
+    borderColor: "#e5e7eb"
+    darkBorderColor: "#1f1f1f"
+    height: "56px"
+  page-background:
+    backgroundColor: "#f9fafb"
+    darkBackgroundColor: "#0d0d0d"
 ---
 
 # Design System: TicketAI
 
 ## 1. Overview
 
-**Creative North Star: "The Aurora Desk"**
+**Creative North Star: "The Precision Desk"**
 
-TicketAI is a human-in-the-loop workspace where validators review AI-drafted helpdesk answers before they ship. The identity is carried by a single living element: an animated WebGL aurora (emerald simplex-noise, rendered in `Aurora.tsx`) that sits fixed behind the entire app. Everything else — the sidebar, the topbar, every content panel — is a sheet of frosted glass laid over that aurora, letting emerald light bleed up from beneath. The aurora is the brand; the glass is the desk.
+TicketAI is a human-in-the-loop workspace where validators review AI-drafted helpdesk answers before they ship. The layout chrome — sidebar, topbar, page background — is opaque, neutral, and razor-clean (Vercel / Linear register): solid white in light mode, near-black `#111113` in dark mode, separated by a single `1px` border. Content panels (cards, modals, tables) use frosted glass (`glass-card`) over the `#f9fafb` / `#0d0d0d` page background, giving depth without distracting chrome.
 
-The register is product-first, French-language, information-dense. Emerald is the one true accent — it marks primary actions, the current nav item, canonical answers, and the aurora itself, and it appears nowhere as decoration. Neutrals do the heavy lifting: a full gray ramp for text and lines in light mode, and near-black `#05070f` translucency layering in dark mode. The system explicitly rejects the flat opaque-card SaaS dashboard look: surfaces here are never solid white boxes with hard shadows — they are translucent, blurred, and border-defined, so the atmosphere behind them is always faintly present.
+Emerald is the one true accent — it marks primary actions, the active nav item, canonical answers, and success states. It never appears as decoration. Neutrals carry the text hierarchy; Geist Variable is the typeface throughout.
 
 Density and calm coexist. Tables run wide and compact; forms and detail panels breathe. The tool should feel trustworthy enough that a validator signs off on an answer without second-guessing the interface.
 
 **Key Characteristics:**
-- One accent (emerald), one atmosphere (aurora), one surface material (frosted glass).
-- Fixed rem type scale, single system-sans family, tight hierarchy.
-- Translucency + backdrop-blur instead of heavy shadows for depth.
-- Class-toggled dark mode with a near-black night palette; no FOUC (theme applied pre-render).
+- Two-layer material system: opaque chrome (sidebar, topbar) + frosted-glass content panels.
+- One accent (emerald): primary actions, active nav, canonical / success, focus rings.
+- Geist Variable, fixed rem type scale, single family, tight hierarchy.
+- Class-toggled dark mode; sidebar and topbar shift from white to `#111113`.
 - Standardized semantic state colors mapped to business statuses.
 
 ## 2. Colors
@@ -160,7 +176,8 @@ A restrained emerald-on-neutral palette where the only saturated hue is the bran
 - **Line** (`#e5e7eb` / gray-200): Borders and dividers; panels use `gray-200/70` (70% opacity) so the aurora shows through the edge.
 - **Surface Subtle** (`#f9fafb` / gray-50): Inset fields, quiet fills inside panels.
 - **Surface Base** (`#ffffff`): Panels render as `white/80`–`white/90` — never fully opaque.
-- **Night** (`#05070f`): Dark-mode canvas. Dark surfaces are `white/5`; dark borders are `white/10`.
+- **Chrome BG dark** (`#111113`): Sidebar and topbar background in dark mode.
+- **Page BG dark** (`#0d0d0d`): Content area background in dark mode. Dark chrome borders are `#1f1f1f`; dark dividers are `#1a1a1a`.
 
 ### State (semantic signals, mapped to business status)
 - **Info** (`#2563eb` on `#eff6ff`): Validated (`VALIDÉ`) tickets and answers.
@@ -170,9 +187,9 @@ A restrained emerald-on-neutral palette where the only saturated hue is the bran
 - Success/Canonical reuses **Emerald** (`emerald-50`/`emerald-600`), tying canonical answers to the brand.
 
 ### Named Rules
-**The One Emerald Rule.** Emerald is reserved for primary action, current selection, canonical/success state, and the aurora. It is never used as a decorative fill, gradient, or background band. If green appears and it is not one of those four things, it is wrong.
+**The One Emerald Rule.** Emerald is reserved for primary action, current selection, canonical/success state, and focus rings. It is never used as a decorative fill, gradient, or background band. If green appears and it is not one of those four things, it is wrong.
 
-**The Translucent Surface Rule.** No content surface is solid `#ffffff`. Every panel is `white/80` + `backdrop-blur-xl`; every dark surface is `white/5`. The aurora must always be faintly readable behind the chrome.
+**The Two-Layer Rule.** Chrome surfaces (sidebar, topbar) are opaque and flat. Content surfaces (cards, modals, panels) are frosted glass (`glass-card`). Never apply glassmorphism to chrome; never make content panels opaque solid white.
 
 ## 3. Typography
 
@@ -198,14 +215,14 @@ A restrained emerald-on-neutral palette where the only saturated hue is the bran
 
 ## 4. Elevation
 
-This system is nearly flat. Depth is created by **translucency and backdrop-blur layering over the aurora**, not by drop shadows. Panels carry only a whisper of shadow (`shadow-sm shadow-gray-900/5`) to lift the frosted glass a hair off the background; there is no deep, dark, or layered shadow vocabulary. In dark mode there are effectively no shadows at all — separation comes from `white/5` fills against the `#05070f` night.
+Depth comes from two sources: the border between opaque chrome and frosted-glass content panels, and the `glass-card` blur over the `#f9fafb` / `#0d0d0d` page background. There is no deep shadow vocabulary.
 
 ### Shadow Vocabulary
-- **Panel lift** (`box-shadow: 0 1px 2px 0 rgba(17,24,39,0.05)`): The only structural shadow. Applied to every glass panel and the floating back-button. Barely visible by design.
-- **Accent glow** (`box-shadow: 0 1px 3px 0 rgba(167,243,208,0.5)`): `shadow-emerald-200` under the primary "Add Ticket" CTA only — a soft emerald halo that ties the button to the aurora.
+- **Panel lift** (`box-shadow: 0 1px 2px 0 rgba(17,24,39,0.05)`): The only structural shadow. Applied to `glass-card` panels. Barely visible by design.
+- **Chrome border**: A `1px` `#e5e7eb` / `#1f1f1f` border separates sidebar from content and topbar from main — this is the elevation signal for chrome, not shadow.
 
 ### Named Rules
-**The Frosted-Depth Rule.** Depth is `backdrop-blur-xl` + translucency, never a dark shadow. If a surface needs to feel lifted, increase blur or opacity contrast — do not reach for `shadow-lg`. A hard drop shadow here reads as a foreign opaque card and breaks the aurora.
+**The No-Chrome-Shadow Rule.** The sidebar and topbar carry no drop shadow — only a `1px` border. Depth inside content surfaces comes from `backdrop-blur` + translucency (`glass-card`), not from heavy shadows. Do not add `shadow-lg` to chrome elements.
 
 ## 5. Components
 
@@ -237,29 +254,30 @@ Consistency is absolute: the same button shape, the same panel material, the sam
 - **Select:** identical border/radius/focus treatment as text inputs for a single form-control vocabulary.
 
 ### Navigation
-- **Sidebar:** Glass aside (`bg-white/90` + `backdrop-blur-xl`), collapsible `w-60` ↔ `w-16` with a `duration-300 cubic-bezier(0.4,0,0.2,1)` width transition; labels fade + slide out on collapse. Logo crossfades between full and small mark.
-- **Nav item:** `rounded-lg` `px-3 py-2 text-sm`. **Active:** `bg-green-100 text-green-700 font-medium` (dark `bg-emerald-400/15 text-emerald-300`). **Inactive:** `text-gray-600 hover:bg-gray-100`.
-- **Topbar:** `h-20` glass bar, `backdrop-blur-xl`, `border-b border-gray-200/70`. Holds a `bg-gray-50` search field with a `⌘/` `<kbd>`, icon buttons, a theme toggle (Sun/Moon), and the user chip.
-
-### Aurora (signature component)
-The defining element. A fixed, full-viewport WebGL2 canvas (`Aurora.tsx`) rendering an emerald simplex-noise aurora with color stops `#10b981 → #34d399 → #059669`. It sits at `-z-10` behind everything, overlaid by a legibility veil (`bg-gradient-to-b from-transparent via-white/45 to-white/80`; dark mode a flat `#05070f/50`). It degrades gracefully to a static gradient where WebGL2 is unavailable. This is the brand — treat it as load-bearing identity, not decoration to be removed.
+- **Sidebar:** Opaque aside (`bg-white dark:bg-[#111113]`), `border-r border-gray-200 dark:border-[#1f1f1f]`, collapsible `w-56` ↔ `w-14` with a `duration-300 cubic-bezier(0.4,0,0.2,1)` width transition; labels fade out on collapse. Logo mark stays fixed at `w-7 h-7`; wordmark fades.
+- **Nav item (text-sm):** `rounded-md px-2.5 py-[7px] mx-2`. **Active:** `bg-emerald-50 text-emerald-700 font-medium` (dark `bg-emerald-500/[0.08] text-emerald-400`). **Inactive:** `text-gray-600 hover:bg-gray-100 hover:text-gray-900` (dark `text-gray-400 hover:bg-white/[0.05] hover:text-gray-200`). Collapsed icon-only: `w-9 h-9 rounded-md justify-center mx-auto`.
+- **Section labels:** `text-xs font-semibold uppercase tracking-[0.06em] text-gray-400`; hidden on collapse.
+- **Topbar:** `h-14` opaque bar, `bg-white dark:bg-[#111113]`, `border-b border-gray-200 dark:border-[#1f1f1f]`. Icon buttons use `p-1.5 rounded-md text-gray-500 hover:bg-gray-100`; primary CTA is `bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3 py-1.5 rounded-md`.
+- **SidebarToggle:** `w-5 h-5 rounded-full bg-white dark:bg-[#1c1c1e]`, `border border-gray-200 dark:border-[#2a2a2d]`, `shadow-sm`; positioned at `top-7` at `left-56` / `left-14`.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** keep emerald to the four sanctioned roles (primary action, current selection, canonical/success, aurora). See The One Emerald Rule.
-- **Do** render every content surface as frosted glass: `white/80` + `backdrop-blur-xl` + `border-gray-200/70` + `shadow-sm`. Same material everywhere.
-- **Do** use the emerald focus ring (`focus:ring-2 focus:ring-emerald-500`) on every interactive control.
+- **Do** keep emerald to the sanctioned roles: primary action, active nav, canonical/success state, focus rings. See The One Emerald Rule.
+- **Do** keep chrome (sidebar, topbar) fully opaque and flat — no blur, no glass, no translucency.
+- **Do** render content panels as frosted glass: `glass-card` (`white/76` + `backdrop-blur-xl` + border) over `#f9fafb` / `#0d0d0d` background.
+- **Do** use the emerald focus ring (`focus-visible:ring-2 focus-visible:ring-emerald-500`) on every interactive control.
 - **Do** map status to the standardized semantic triad (emerald / blue / yellow / red) and always pair a light and a `/10` dark variant.
-- **Do** use fixed rem type sizes and the single system-sans family; create hierarchy with weight and the gray ramp.
-- **Do** provide light and dark variants for every color — dark mode is a first-class class-toggled theme, not an afterthought.
-- **Do** keep transitions to `transition-colors` (~150–250ms); reserve the `duration-300` choreography for the sidebar collapse only.
+- **Do** use fixed rem type sizes (Tailwind's `text-xs` / `text-sm` / `text-base` / `text-lg` / `text-2xl`) and Geist Variable throughout.
+- **Do** provide light and dark variants for every color — dark mode is a first-class class-toggled theme.
+- **Do** keep transitions to `transition-colors duration-150`; reserve `duration-300` for the sidebar collapse only.
 
 ### Don't:
-- **Don't** ship a solid opaque `#ffffff` card with a hard drop shadow — it reads as a foreign SaaS card and breaks the aurora. Frosted glass only.
-- **Don't** reach for `shadow-lg`/deep shadows for depth; use `backdrop-blur` + translucency (The Frosted-Depth Rule).
+- **Don't** apply glassmorphism (`backdrop-blur`, translucent bg) to the sidebar or topbar — those are opaque chrome.
+- **Don't** ship a solid opaque `#ffffff` card with a hard drop shadow in the content area — use `glass-card`.
+- **Don't** reach for `shadow-lg`/deep shadows; chrome depth comes from a `1px` border, content depth from `glass-card` blur.
 - **Don't** use emerald as a decorative fill, gradient text, or background band. No `background-clip: text` gradients anywhere.
-- **Don't** use `border-left`/`border-right` colored side-stripes on panels, alerts, or list items; use the full border + `bg-current` dot pattern already established in the pills.
+- **Don't** use colored `border-left`/`border-right` side-stripes on panels, alerts, or list items.
 - **Don't** introduce a second font family or a display face for UI labels, buttons, or data.
 - **Don't** use `clamp()`/fluid type in the app UI; headings stay at fixed rem steps.
 - **Don't** invent new status colors or one-off accent hues; extend the existing semantic vocabulary instead.

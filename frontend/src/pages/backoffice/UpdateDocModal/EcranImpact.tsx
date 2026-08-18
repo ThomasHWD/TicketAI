@@ -1,5 +1,5 @@
 import { AlertTriangle, Archive, CheckCircle2, FilePlus2 } from "lucide-react";
-import type { UpdateImpact } from "../../../types.ts";
+import type { UpdateImpact } from "../../../types";
 import LigneARelire from "./LigneARelire";
 import LigneUnite from "./LigneUnite";
 

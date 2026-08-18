@@ -1,6 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { RAISONS, estRaisonDeGroupe } from "./utils";
-import type { ReponseSignalee } from "../../../types.ts";
+import type { ReponseSignalee } from "../../../types";
 
 export default function MotifSignalement({ reponse }: { reponse: ReponseSignalee }) {
   const raison = reponse.a_relire_raison;
