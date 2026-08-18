@@ -41,7 +41,7 @@ export default function RecentDocs({ docs, loading = false }: RecentDocsProps) {
           Derniers documents
         </h3>
         <Link
-          to="/documents-indexes"
+          to="/base-de-connaissances"
           className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
         >
           Tous →

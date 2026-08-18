@@ -24,8 +24,7 @@ export const navMain: NavItem[] = [
   { to: "/mon-suivi", icon: MessagesSquare, label: "Mon suivi" },
   { to: "/reponses-enregistrees", icon: MessageSquare, label: "Réponses enregistrées" },
   { to: "/angles-morts", icon: BookX, label: "Angles morts" },
-  { to: "/Documentations", icon: BookText, label: "Documentations" },
-  { to: "/documents-indexes", icon: File, label: "Documents indexés" },
+  { to: "/base-de-connaissances", icon: BookText, label: "Base de connaissances" },
 ];
 
 export const navSettings: NavItem[] = [
