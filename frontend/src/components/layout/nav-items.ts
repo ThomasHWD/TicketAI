@@ -1,5 +1,4 @@
 import {
-  ArchiveX,
   BookText,
   BookX,
   File,
@@ -22,7 +21,6 @@ export interface NavItem {
 export const navMain: NavItem[] = [
   { to: "/", icon: LayoutDashboard, label: "Tableau de bord" },
   { to: "/tickets", icon: TicketMinus, label: "Tickets" },
-  { to: "/tickets-clotures", icon: ArchiveX, label: "Tickets clôturés" },
   { to: "/mon-suivi", icon: MessagesSquare, label: "Mon suivi" },
   { to: "/reponses-enregistrees", icon: MessageSquare, label: "Réponses enregistrées" },
   { to: "/angles-morts", icon: BookX, label: "Angles morts" },

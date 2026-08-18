@@ -45,21 +45,19 @@ function formatDateFull(iso: string | null) {
   }).format(new Date(iso));
 }
 
-type FilterView = "tous" | "en_attente" | "en_cours" | "hors_domaine";
+type FilterView = "tous" | "en_attente" | "en_cours" | "clotures";
 
 // Client-side predicate applied on the fetched page
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function matchesFilter(t: any, filter: FilterView): boolean {
-  if (filter === "tous") return true;
+  if (filter === "tous" || filter === "clotures") return true;
   // En attente : nouvelle (pas encore de réponse) OU suggestion non canonique en attente de validation
   if (filter === "en_attente")
     return t.statut_ticket === "NOUVEAU" ||
-      (t.statut_ticket === "RÉPONDU" && !t.canonique && t.reponse_source !== "HORS_DOMAINE");
+      (t.statut_ticket === "RÉPONDU" && !t.canonique);
   // En cours : réponse canonique OU réponse validée par un humain
   if (filter === "en_cours")
     return t.canonique === true || t.statut_ticket === "VALIDÉ";
-  if (filter === "hors_domaine")
-    return t.statut_ticket === "RÉPONDU" && t.reponse_source === "HORS_DOMAINE";
   return true;
 }
 
@@ -71,8 +69,8 @@ function serverStatut(_filter: FilterView): string | undefined {
 const FILTER_TABS: { value: FilterView; label: string }[] = [
   { value: "tous",        label: "Tous" },
   { value: "en_attente",  label: "En attente" },
-  { value: "en_cours",    label: "En cours" },
-  { value: "hors_domaine", label: "Hors domaine" },
+  { value: "en_cours",    label: "Répondus" },
+  { value: "clotures",    label: "Clôturés" },
 ];
 
 interface StatutMeta {
@@ -140,7 +138,7 @@ function StatusBadge({ statut, canonique, closed, processing, reponseSource }: {
 }
 
 
-function EmptyState({ hasFilters }: { hasFilters: boolean }) {
+function EmptyState({ hasFilters, isClosed }: { hasFilters: boolean; isClosed: boolean }) {
   return (
     <tr>
       <td colSpan={4}>
@@ -150,10 +148,10 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
           </div>
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {hasFilters ? "Aucun résultat" : "Aucun ticket ouvert"}
+              {hasFilters ? "Aucun résultat" : isClosed ? "Aucun ticket clôturé" : "Aucun ticket ouvert"}
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-              {hasFilters ? "Essayez d'autres filtres." : "Tous les tickets ont été traités."}
+              {hasFilters ? "Essayez d'autres filtres." : isClosed ? "Aucun ticket n'a encore été clôturé." : "Tous les tickets ont été traités."}
             </p>
           </div>
         </div>
@@ -198,18 +196,20 @@ export default function TicketsList() {
       tous: countData?.total ?? 0,
       en_attente: items.filter((t) => matchesFilter(t, "en_attente")).length,
       en_cours: items.filter((t) => matchesFilter(t, "en_cours")).length,
-      hors_domaine: items.filter((t) => matchesFilter(t, "hors_domaine")).length,
+      clotures: 0,
     } satisfies Record<FilterView, number>;
   }, [countData]);
 
+  const isClosed = filter === "clotures";
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["tickets", "open", page, userDomaines, debouncedSearch, filter],
+    queryKey: ["tickets", isClosed ? "closed" : "open", page, userDomaines, debouncedSearch, filter],
     queryFn: () => getTickets({
       page,
       limit: LIMIT,
-      closed: false,
+      closed: isClosed,
       domaines: userDomaines,
-      disponibles: true,
+      disponibles: isClosed ? undefined : true,
       search: debouncedSearch || undefined,
       statut: serverStatut(filter),
     }),
@@ -357,7 +357,7 @@ export default function TicketsList() {
 
               {/* Empty */}
               {!isLoading && !error && sorted.length === 0 && (
-                <EmptyState hasFilters={hasFilters} />
+                <EmptyState hasFilters={hasFilters} isClosed={isClosed} />
               )}
 
               {/* Rows */}
