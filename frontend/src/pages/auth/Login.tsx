@@ -254,7 +254,7 @@ export default function Login() {
 
             <div style={{ marginBottom: 32 }}>
               <h1 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-.02em", color: theme.text }}>
-                Bon retour 👋
+                Accès à votre compte
               </h1>
               <p style={{ margin: "10px 0 0", fontSize: 15, color: theme.sub }}>
                 Connectez-vous pour gérer vos tickets.
