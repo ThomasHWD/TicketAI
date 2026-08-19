@@ -48,6 +48,7 @@ export interface FunctionalStats {
   tickets_echoues: number;
   tickets_bloques: number;
   documents_echoues: number;
+  reponses_a_relire: number;
   celery_pending_ingestion: number | null;
   celery_pending_questions: number | null;
   celery_workers_ingestion: number | null;

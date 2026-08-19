@@ -15,6 +15,7 @@ class FunctionalStats(BaseModel):
     tickets_echoues: int = 0
     tickets_bloques: int = 0
     documents_echoues: int = 0
+    reponses_a_relire: int = 0
     celery_pending_ingestion: int | None = None
     celery_pending_questions: int | None = None
     celery_workers_ingestion: int | None = None

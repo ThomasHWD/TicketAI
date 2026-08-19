@@ -42,31 +42,38 @@ export default function SiteConfigPage() {
 
   return (
     <div className="px-6 py-8 max-w-5xl mx-auto">
-      <h1 className="text-xl font-semibold text-white drop-shadow mb-6">
-        Administration
-      </h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+          Administration
+        </h1>
+      </div>
 
-      <div className="flex items-center gap-1 border-b border-white/30 mb-6">
+      <div className="flex items-stretch border-b border-gray-100 dark:border-white/8 mb-6">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
+            type="button"
             onClick={() => setTab(id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={`relative flex items-center gap-2 px-0.5 mr-6 py-3 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${
               tab === id
-                ? "border-white text-white drop-shadow"
-                : "border-transparent text-white/60 hover:text-white/90 drop-shadow"
+                ? "text-gray-900 dark:text-gray-50"
+                : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
             }`}
           >
-            <span className="relative">
-              <Icon size={14} />
-              {id === "incidents" && hasIncidents && (
-                <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-red-500" />
-              )}
-              {id === "suggestions" && nbNonLues > 0 && (
-                <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-amber-400" />
-              )}
-            </span>
+            <Icon size={14} aria-hidden="true" />
             {label}
+            {id === "incidents" && hasIncidents && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" aria-label="Incidents actifs" />
+            )}
+            {id === "suggestions" && nbNonLues > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" aria-label={`${nbNonLues} non lue${nbNonLues > 1 ? "s" : ""}`} />
+            )}
+            {tab === id && (
+              <span
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full"
+                aria-hidden="true"
+              />
+            )}
           </button>
         ))}
       </div>
