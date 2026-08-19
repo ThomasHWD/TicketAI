@@ -1,4 +1,4 @@
-import { ChevronRight, Loader2, Users } from "lucide-react";
+import { ChevronRight, Loader2, Plus, Users } from "lucide-react";
 import type { Groupe } from "../../../types/index.tsx";
 import { domainColor } from "./utils";
 import CreateGroupForm from "./CreateGroupForm";
@@ -11,6 +11,7 @@ type Props = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   showCreate: boolean;
+  onToggleCreate: () => void;
   form: FormState;
   onFormChange: (f: FormState) => void;
   onFormSubmit: (e: React.FormEvent) => void;
@@ -26,6 +27,7 @@ export default function GroupList({
   selectedId,
   onSelect,
   showCreate,
+  onToggleCreate,
   form,
   onFormChange,
   onFormSubmit,
@@ -41,12 +43,26 @@ export default function GroupList({
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
             Groupes
+            {groupes.length > 0 && (
+              <span className="ml-2 font-medium normal-case tracking-normal text-gray-400 dark:text-gray-500">
+                {groupes.length}
+              </span>
+            )}
           </span>
-          {groupes.length > 0 && (
-            <span className="text-[11px] tabular-nums font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-white/8 px-1.5 py-0.5 rounded-md">
-              {groupes.length}
-            </span>
-          )}
+          <button
+            onClick={onToggleCreate}
+            title={showCreate ? "Annuler" : "Nouveau groupe"}
+            className={`p-1 rounded-md transition-colors ${
+              showCreate
+                ? "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8"
+                : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-400/10"
+            }`}
+          >
+            <Plus
+              size={14}
+              className={`transition-transform duration-150 ${showCreate ? "rotate-45" : ""}`}
+            />
+          </button>
         </div>
       </div>
 
@@ -78,7 +94,7 @@ export default function GroupList({
             </div>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Aucun groupe</p>
             <p className="text-xs text-gray-400 dark:text-gray-600 mt-1 leading-relaxed">
-              Créez votre premier groupe<br />avec le bouton ci-dessus.
+              Utilisez le <Plus size={10} className="inline" /> ci-dessus pour en créer un.
             </p>
           </div>
         ) : (

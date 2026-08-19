@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
 import { setChefGroupe } from "../../../lib/api";
 import type { Groupe, MembreSummary, UserSummary } from "../../../types/index.tsx";
 import {
@@ -113,26 +112,10 @@ export default function GroupsPage() {
   return (
     <div className="flex flex-col h-full px-6 pt-6 pb-4 gap-4">
       {/* Page header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-            Groupes &amp; gestionnaires
-          </h1>
-        </div>
-        <button
-          onClick={handleToggleCreate}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors shrink-0 ${
-            showCreate
-              ? "border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/8"
-              : "border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/8 shadow-sm"
-          }`}
-        >
-          <Plus
-            size={15}
-            className={`transition-transform duration-150 ${showCreate ? "rotate-45" : ""}`}
-          />
-          {showCreate ? "Annuler" : "Nouveau groupe"}
-        </button>
+      <div className="shrink-0">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          Groupes &amp; gestionnaires
+        </h1>
       </div>
 
       {/* 2-column split layout — fills remaining height */}
@@ -149,6 +132,7 @@ export default function GroupsPage() {
             setSearch("");
           }}
           showCreate={showCreate}
+          onToggleCreate={handleToggleCreate}
           form={form}
           onFormChange={setForm}
           onFormSubmit={handleCreate}
