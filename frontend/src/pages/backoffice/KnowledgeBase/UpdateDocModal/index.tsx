@@ -140,7 +140,7 @@ export default function UpdateDocModal({
               <div className="flex-1">
                 <button
                   type="button"
-                  disabled={!file}
+                  disabled={!file || !description?.trim()}
                   onClick={() => {
                     if (!file) return;
                     setEtape("analyse");
@@ -243,7 +243,7 @@ export default function UpdateDocModal({
               htmlFor="maj-description"
               className="text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Description
+              Description <span className="text-red-500" aria-hidden="true">*</span>
             </label>
             <input
               id="maj-description"
@@ -252,7 +252,11 @@ export default function UpdateDocModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Résumez brièvement le contenu du document…"
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-white/12 dark:bg-white/5 dark:text-gray-100 dark:placeholder:text-gray-600"
+              required
             />
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              Obligatoire — sert à retrouver le document dans la liste.
+            </p>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Le document conservera son identifiant ; l'ancienne version sera archivée et restera

@@ -170,6 +170,7 @@ export default function IngestionDrawer({
   const pretAEnvoyer =
     !occupe &&
     !!domaine &&
+    description.trim().length > 0 &&
     (mode === "upload"
       ? !!file && !fileError
       : titre.trim().length > 0 && contenu.trim().length >= MIN_CARACTERES);
@@ -464,7 +465,7 @@ export default function IngestionDrawer({
 
         <div className="space-y-1.5">
           <label htmlFor="ing-description" className={LABEL}>
-            Description
+            Description <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
             id="ing-description"
@@ -474,9 +475,10 @@ export default function IngestionDrawer({
             disabled={occupe}
             placeholder="Résumez brièvement le contenu du document…"
             className={CHAMP}
+            required
           />
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            Sert à retrouver le document dans la liste — elle n'est pas indexée.
+            Obligatoire — sert à retrouver le document dans la liste (non indexée).
           </p>
         </div>
       </div>
