@@ -26,7 +26,6 @@ const UserTicketHistory = lazy(() => import("./pages/user/UserTicketHistory"));
 const UserTicketDetail = lazy(() => import("./pages/user/UserTicketDetail/UserTicketDetail"));
 const KnowledgeBase = lazy(() => import("./pages/backoffice/KnowledgeBase"));
 const TicketTracking = lazy(() => import("./pages/backoffice/TicketTracking"));
-const HorsDomaine = lazy(() => import("./pages/backoffice/HorsDomaine"));
 const AdminPage = lazy(() => import("./pages/admin/Groups"));
 const SiteConfigPage = lazy(() => import("./pages/admin/SiteConfig"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -116,7 +115,8 @@ export default function App() {
               <Route path="/Documentations" element={<RedirigerVersBase />} />
               <Route path="/documents-indexes" element={<RedirigerVersBase />} />
               <Route path="/mon-suivi" element={<TicketTracking />} />
-              <Route path="/angles-morts" element={<HorsDomaine />} />
+              {/* /angles-morts est désormais un onglet de la base de connaissances */}
+              <Route path="/angles-morts" element={<Navigate to="/base-de-connaissances?onglet=angles-morts" replace />} />
             </Route>
           </Route>
           <Route element={<Layout />}>
