@@ -8,14 +8,14 @@ from uuid import UUID
 import redis as redis_lib
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
-from sqlalchemy import distinct, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.security import AdminUser, CurrentUser
 from app.database import SessionLocal
+from app.models.document import Document
 from app.models.reponse import Reponse
-from app.models.reponse_chunk import ReponseChunk
 from app.models.site_config import SiteConfig
 from app.models.ticket import Ticket
 from app.schemas.admin import (
@@ -98,8 +98,9 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
     except Exception as e:
         cel_beat = ServiceStatus(status="error", detail=str(e))
 
-    nb_documents = db.query(distinct(ReponseChunk.doc_id)).count()
-    nb_reponses_validees = db.query(Reponse).filter(Reponse.statut == "VALIDÉE").count()
+    nb_documents = db.query(Document).filter(Document.statut != "SUPPRIMÉ").count()
+    nb_reponses_validees = db.query(Reponse).filter(Reponse.canonique).count()
+    reponses_a_relire = db.query(Reponse).filter(Reponse.a_relire).count()
     tickets_echoues = db.query(Ticket).filter(Ticket.statut_job == "ÉCHOUÉ").count()
     seuil = datetime.now(timezone.utc) - timedelta(minutes=10)
     tickets_bloques = db.query(Ticket).filter(Ticket.statut_job == "EN_COURS", Ticket.created_at < seuil).count()
@@ -148,6 +149,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
         stats=FunctionalStats(
             nb_documents=nb_documents,
             nb_reponses_validees=nb_reponses_validees,
+            reponses_a_relire=reponses_a_relire,
             tickets_echoues=tickets_echoues,
             tickets_bloques=tickets_bloques,
             documents_echoues=documents_echoues,
