@@ -47,23 +47,19 @@ function formatDateFull(iso: string | null) {
 
 type FilterView = "tous" | "en_attente" | "en_cours" | "clotures";
 
-// Client-side predicate applied on the fetched page
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function matchesFilter(t: any, filter: FilterView): boolean {
   if (filter === "tous" || filter === "clotures") return true;
-  // En attente : nouvelle (pas encore de réponse) OU suggestion non canonique en attente de validation
   if (filter === "en_attente")
     return t.statut_ticket === "NOUVEAU" ||
       (t.statut_ticket === "RÉPONDU" && !t.canonique);
-  // En cours : réponse canonique OU réponse validée par un humain
   if (filter === "en_cours")
     return t.canonique === true || t.statut_ticket === "VALIDÉ";
   return true;
 }
 
-// Server-side statut param when the filter maps 1-to-1
 function serverStatut(_filter: FilterView): string | undefined {
-  return undefined; // all filters need client-side discrimination, fetch unfiltered
+  return undefined;
 }
 
 const FILTER_TABS: { value: FilterView; label: string }[] = [
@@ -76,6 +72,7 @@ const FILTER_TABS: { value: FilterView; label: string }[] = [
 interface StatutMeta {
   label: string;
   badgeClass: string;
+  dotClass?: string;
 }
 
 function getStatutMeta(
@@ -92,6 +89,7 @@ function getStatutMeta(
   if (processing) return {
     label: "En cours",
     badgeClass: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
+    dotClass: "animate-pulse",
   };
   if (canonique) return {
     label: "Canonique",
@@ -115,7 +113,7 @@ function getStatutMeta(
   };
   return {
     label: "Nouvelle",
-    badgeClass: "bg-gray-50 text-gray-500 border-gray-200 dark:bg-white/5 dark:text-gray-400 dark:border-white/10",
+    badgeClass: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20",
   };
 }
 
@@ -130,27 +128,26 @@ function StatusBadge({ statut, canonique, closed, processing, reponseSource }: {
 }) {
   const meta = getStatutMeta(statut, canonique, closed, processing, reponseSource);
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${meta.badgeClass}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" aria-hidden="true" />
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap ${meta.badgeClass}`}>
+      <span className={`w-1.5 h-1.5 rounded-full bg-current shrink-0 ${meta.dotClass ?? ""}`} aria-hidden="true" />
       {meta.label}
     </span>
   );
 }
 
-
 function EmptyState({ hasFilters, isClosed }: { hasFilters: boolean; isClosed: boolean }) {
   return (
     <tr>
       <td colSpan={4}>
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-          <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center">
-            <Inbox size={18} className="text-gray-400 dark:text-gray-500" />
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center shadow-sm">
+            <Inbox size={20} className="text-gray-400 dark:text-gray-500" />
           </div>
-          <div>
+          <div className="space-y-1">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {hasFilters ? "Aucun résultat" : isClosed ? "Aucun ticket clôturé" : "Aucun ticket ouvert"}
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               {hasFilters ? "Essayez d'autres filtres." : isClosed ? "Aucun ticket n'a encore été clôturé." : "Tous les tickets ont été traités."}
             </p>
           </div>
@@ -164,6 +161,8 @@ function EmptyState({ hasFilters, isClosed }: { hasFilters: boolean; isClosed: b
 
 const LIMIT = 25;
 
+const SKELETON_WIDTHS = ["w-3/4", "w-2/3", "w-4/5", "w-1/2", "w-3/5", "w-5/6"];
+
 export default function TicketsList() {
   const navigate = useNavigate();
   const { userDomaines } = useAuth();
@@ -174,16 +173,13 @@ export default function TicketsList() {
   const [filter, setFilter] = useState<FilterView>("tous");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
 
-  // Debounce search
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(t);
   }, [search]);
 
-  // Reset page on filter/search change
   useEffect(() => { setPage(1); }, [debouncedSearch, filter]);
 
-  // Requête de comptage : un seul appel large pour calculer les bulles de chaque tab
   const { data: countData } = useQuery({
     queryKey: ["tickets", "counts", userDomaines],
     queryFn: () => getTickets({ limit: 200, closed: false, domaines: userDomaines, disponibles: true }),
@@ -222,8 +218,6 @@ export default function TicketsList() {
   const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
   const to = Math.min(page * LIMIT, total);
 
-  // Client-side filter (for views that can't be fully pushed to the server)
-  // then sort
   const filtered = tickets.filter((t) => matchesFilter(t, filter));
   const sorted = sortDir === "asc"
     ? [...filtered].sort((a, b) =>
@@ -241,16 +235,16 @@ export default function TicketsList() {
           Tickets
         </h1>
         {total > 0 && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 tabular-nums">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 tabular-nums border border-gray-200/60 dark:border-white/[0.08]">
             {total}
           </span>
         )}
       </div>
 
       {/* ── Toolbar : filtres | recherche + tri ───────────────────────────── */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {/* Filtres statut */}
-        <nav className="flex items-center gap-1 flex-1" aria-label="Filtres par statut">
+        <nav className="flex items-center gap-1 flex-1 min-w-0" aria-label="Filtres par statut">
           {FILTER_TABS.map((tab) => {
             const count = tabCounts[tab.value];
             const active = filter === tab.value;
@@ -258,18 +252,18 @@ export default function TicketsList() {
               <button
                 key={tab.value}
                 onClick={() => setFilter(tab.value)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 border-b-2 text-sm font-medium transition-colors duration-150 ${
                   active
-                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-700 dark:hover:text-gray-200"
+                    ? "border-emerald-500 text-gray-900 dark:text-gray-100"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-white/20"
                 }`}
               >
                 {tab.label}
                 {count > 0 && (
                   <span
-                    className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xs font-semibold tabular-nums leading-none ${
+                    className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold tabular-nums leading-none ${
                       active
-                        ? "bg-white/20 text-white dark:bg-black/20 dark:text-gray-900"
+                        ? "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300"
                         : "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400"
                     }`}
                   >
@@ -287,7 +281,7 @@ export default function TicketsList() {
         {/* Recherche */}
         <div className="relative shrink-0">
           <Search
-            size={14}
+            size={13}
             className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
           />
           <input
@@ -302,7 +296,7 @@ export default function TicketsList() {
         {/* Tri */}
         <button
           onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
-          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border border-gray-200 dark:border-white/10"
+          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5"
           aria-label={`Trier par date : ${sortDir === "desc" ? "plus récent" : "plus ancien"}`}
         >
           <ArrowUpDown size={12} aria-hidden="true" />
@@ -315,7 +309,7 @@ export default function TicketsList() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 dark:border-white/5">
+              <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50/60 dark:bg-white/[0.02]">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide w-full">
                   Objet
                 </th>
@@ -331,18 +325,21 @@ export default function TicketsList() {
 
             <tbody className="divide-y divide-gray-50 dark:divide-white/[0.04]">
               {/* Loading skeleton */}
-              {isLoading && Array.from({ length: 5 }).map((_, i) => (
+              {isLoading && Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="px-5 py-3.5">
-                    <div className="h-3.5 bg-gray-100 dark:bg-white/5 rounded w-3/4" />
+                  <td className="px-5 py-4">
+                    <div className="space-y-1.5">
+                      <div className={`h-3.5 bg-gray-100 dark:bg-white/5 rounded ${SKELETON_WIDTHS[i % SKELETON_WIDTHS.length]}`} />
+                      <div className="h-2.5 bg-gray-50 dark:bg-white/[0.03] rounded w-1/3" />
+                    </div>
                   </td>
-                  <td className="px-5 py-3.5 hidden sm:table-cell">
+                  <td className="px-5 py-4 hidden sm:table-cell">
                     <div className="h-3 bg-gray-100 dark:bg-white/5 rounded w-16" />
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-4">
                     <div className="h-5 bg-gray-100 dark:bg-white/5 rounded-full w-20" />
                   </td>
-                  <td className="px-5 py-3.5 hidden sm:table-cell" />
+                  <td className="px-5 py-4 hidden sm:table-cell" />
                 </tr>
               ))}
 
@@ -371,11 +368,12 @@ export default function TicketsList() {
                 const reponseSource: string | null = tx.reponse_source ?? null;
                 const assignedNom: string | null = tx.assigned_to_nom_complet ?? tx.assigned_to_email ?? null;
                 const lockedEmail: string = t.locked_by_email ?? "un validateur";
+                const userEmail: string | null = t.user_email;
 
                 return (
                   <tr
                     key={t.id}
-                    className="group hover:bg-gray-50/70 dark:hover:bg-white/[0.03] transition-colors cursor-pointer focus-within:bg-gray-50/70 dark:focus-within:bg-white/[0.03]"
+                    className="group hover:bg-gray-50/80 dark:hover:bg-white/[0.03] transition-colors duration-100 cursor-pointer focus-within:bg-gray-50/80 dark:focus-within:bg-white/[0.03]"
                     onClick={() => navigate(`/tickets/${t.id}`)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
                     tabIndex={0}
@@ -383,7 +381,7 @@ export default function TicketsList() {
                     aria-label={`Voir le ticket : ${title}${locked ? ` (pris en charge par ${lockedEmail})` : ""}`}
                   >
                     {/* Objet */}
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-2 min-w-0">
                         {locked && (
                           <span
@@ -393,12 +391,19 @@ export default function TicketsList() {
                             <Lock size={9} aria-hidden="true" />
                           </span>
                         )}
-                        <span
-                          className="truncate text-gray-800 dark:text-gray-200 font-medium text-sm"
-                          title={title}
-                        >
-                          {title}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span
+                            className="block truncate text-gray-800 dark:text-gray-200 font-medium text-sm group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors duration-100"
+                            title={title}
+                          >
+                            {title}
+                          </span>
+                          {userEmail && (
+                            <span className="block truncate text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                              {userEmail}
+                            </span>
+                          )}
+                        </div>
                         {assignedNom && (
                           <span
                             className="shrink-0 hidden lg:inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/20"
@@ -413,14 +418,14 @@ export default function TicketsList() {
 
                     {/* Date */}
                     <td
-                      className="px-5 py-3.5 text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap hidden sm:table-cell"
+                      className="px-5 py-4 text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap hidden sm:table-cell"
                       title={formatDateFull(t.created_at)}
                     >
                       {formatDateShort(t.created_at)}
                     </td>
 
                     {/* Statut */}
-                    <td className="px-5 py-3.5 whitespace-nowrap">
+                    <td className="px-5 py-4 whitespace-nowrap">
                       <StatusBadge
                         statut={t.statut_ticket as StatutTicket}
                         canonique={t.canonique}
@@ -431,10 +436,10 @@ export default function TicketsList() {
                     </td>
 
                     {/* Arrow */}
-                    <td className="px-5 py-3.5 hidden sm:table-cell">
+                    <td className="px-5 py-4 hidden sm:table-cell">
                       <ChevronRight
                         size={14}
-                        className="text-gray-300 dark:text-gray-600 group-hover:text-gray-400 dark:group-hover:text-gray-400 transition-colors"
+                        className="text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all duration-150"
                         aria-hidden="true"
                       />
                     </td>
@@ -447,7 +452,7 @@ export default function TicketsList() {
 
         {/* ── Pagination ─────────────────────────────────────────────────── */}
         {!isLoading && total > 0 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-white/5">
+          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/40 dark:bg-white/[0.01]">
             <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
               {from}–{to} sur {total} ticket{total > 1 ? "s" : ""}
             </span>
@@ -460,8 +465,8 @@ export default function TicketsList() {
               >
                 <ChevronLeft size={14} />
               </button>
-              <span className="text-xs text-gray-400 dark:text-gray-500 px-1.5 tabular-nums">
-                {page}/{totalPages}
+              <span className="text-xs text-gray-500 dark:text-gray-400 px-2 tabular-nums font-medium">
+                {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

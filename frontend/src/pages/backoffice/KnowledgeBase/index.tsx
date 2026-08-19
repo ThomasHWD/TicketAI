@@ -249,9 +249,9 @@ export default function KnowledgeBase() {
       onClick={() => setDrawerOuvert(true)}
       disabled={!peutAjouter}
       title={peutAjouter ? undefined : "Aucun domaine ne vous est attribué."}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-white/10 px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
     >
-      <Plus size={15} />
+      <Plus size={13} />
       Ajouter un document
     </button>
   );
@@ -268,7 +268,6 @@ export default function KnowledgeBase() {
             Les documents internes sur lesquels le moteur s'appuie pour répondre. Chaque version est archivée, et toute mise à jour fait relire les réponses concernées.
           </p>
         </div>
-        {boutonAjouter}
       </div>
 
       <div className="glass-card overflow-hidden rounded-2xl">
@@ -305,6 +304,8 @@ export default function KnowledgeBase() {
 
           {/* Contrôles contextuels (droite) */}
           <div className="ml-auto flex items-center gap-3 py-2">
+            {boutonAjouter}
+            <span aria-hidden="true" className="h-4 w-px bg-gray-200 dark:bg-white/10" />
             {onglet === "documents" && (
               <>
                 <div className="relative">
@@ -363,6 +364,7 @@ export default function KnowledgeBase() {
                         termes.length && docs.length !== total ? ` sur ${total}` : ""
                       }`}
                 </span>
+
               </>
             )}
 
