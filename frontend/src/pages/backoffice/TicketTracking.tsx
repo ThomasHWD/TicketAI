@@ -351,9 +351,6 @@ export default function TicketTracking() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Mon suivi</h1>
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            Tickets qui vous sont assignés et tickets auxquels vous avez contribué.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <CounterChip icon={UserCheck} label="assignés" count={assignedTickets.length} accent={assignedTickets.length > 0} />
