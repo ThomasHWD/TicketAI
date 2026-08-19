@@ -20,23 +20,21 @@ import SatisfactionCard from "../../components/dashboard/SatisfactionCard";
 import TicketsInsatisfaitsModal from "../../components/dashboard/TicketsInsatisfaitsModal";
 
 function formatDuration(seconds: number): string {
-  if (seconds === 0) return "0s";
+  if (seconds === 0) return "—";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
   const parts: string[] = [];
   if (h > 0) parts.push(`${h}h`);
   if (m > 0) parts.push(`${m}min`);
-  if (s > 0 || parts.length === 0) parts.push(`${s}s`);
-  return parts.join(" ");
+  return parts.length > 0 ? parts.join(" ") : "< 1 min";
 }
 
 type Periode = "semaine" | "mois" | "annee";
 
 const PERIODES: { value: Periode; label: string }[] = [
-  { value: "semaine", label: "Cette semaine" },
-  { value: "mois", label: "Ce mois" },
-  { value: "annee", label: "Cette année" },
+  { value: "semaine", label: "Semaine" },
+  { value: "mois", label: "Mois" },
+  { value: "annee", label: "Année" },
 ];
 
 export default function AdminDashboard() {
@@ -80,161 +78,192 @@ export default function AdminDashboard() {
     (health?.stats.documents_echoues ?? 0);
 
   return (
-    <div className="p-6 space-y-6 max-w-screen-xl mx-auto">
-      {showInsatisfaits && <TicketsInsatisfaitsModal onClose={() => setShowInsatisfaits(false)} periode={periode} domaine={filterDomaine} />}
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={async () => {
-              setRefreshing(true);
-              await queryClient.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
-              await queryClient.invalidateQueries({ queryKey: ["admin-health"] });
-              setRefreshing(false);
-            }}
-            className="p-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
-            title="Rafraîchir"
-          >
-            <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
-          </button>
-        </div>
+    <div className="min-h-full flex flex-col">
+      {showInsatisfaits && (
+        <TicketsInsatisfaitsModal
+          onClose={() => setShowInsatisfaits(false)}
+          periode={periode}
+          domaine={filterDomaine}
+        />
+      )}
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Sélecteur domaine */}
-          {(allDomaines?.length ?? 0) > 0 && (
-            <div className="relative">
-              <select
-                value={domaine}
-                onChange={(e) => setDomaine(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 text-sm rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
-              >
-                <option value="">Tous les domaines</option>
-                {allDomaines?.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+      {/* ── Page header ─────────────────────────────────────────────── */}
+      <div className="border-b border-gray-100 dark:border-white/8 px-6 py-5 shrink-0">
+        <div className="max-w-screen-xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+              Dashboard
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 capitalize">
+              {new Date().toLocaleDateString("fr-FR", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Sélecteur domaine */}
+            {(allDomaines?.length ?? 0) > 0 && (
+              <div className="relative">
+                <select
+                  value={domaine}
+                  onChange={(e) => setDomaine(e.target.value)}
+                  className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 cursor-pointer"
+                >
+                  <option value="">Tous les domaines</option>
+                  {allDomaines?.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={12}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                />
+              </div>
+            )}
+
+            {/* Sélecteur de période */}
+            <div className="flex items-center bg-gray-100 dark:bg-white/8 rounded-lg p-0.5 gap-0.5">
+              {PERIODES.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => setPeriode(p.value)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    periode === p.value
+                      ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-100 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* Sélecteur période */}
-          <div className="flex rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 p-0.5">
-            {PERIODES.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriode(p.value)}
-                className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
-                  periode === p.value
-                    ? "bg-emerald-500 text-white shadow-sm"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+            {/* Rafraîchir */}
+            <button
+              onClick={async () => {
+                setRefreshing(true);
+                await queryClient.invalidateQueries({ queryKey: ["admin-dashboard-stats"] });
+                await queryClient.invalidateQueries({ queryKey: ["admin-health"] });
+                setRefreshing(false);
+              }}
+              className="p-1.5 rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
+              title="Rafraîchir"
+            >
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Bannière incidents */}
-      {totalIncidents > 0 && (
-        <div className="flex items-center gap-2 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3.5 py-2.5 text-sm text-amber-700 dark:text-amber-300">
-          <AlertTriangle size={14} className="shrink-0" />
-          <span>
-            {totalIncidents} incident{totalIncidents > 1 ? "s détectés" : " détecté"} —{" "}
-            <Link
-              to="/admin/config"
-              className="underline underline-offset-2 hover:opacity-75 font-medium"
-            >
-              Voir l'onglet Santé
-            </Link>
-          </span>
+      {/* ── Content ──────────────────────────────────────────────────── */}
+      <div className="max-w-screen-xl mx-auto w-full px-6 py-6 space-y-5 flex-1">
+
+        {/* Bannière incidents */}
+        {totalIncidents > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3.5 py-2.5 text-sm text-amber-700 dark:text-amber-300">
+            <AlertTriangle size={14} className="shrink-0" />
+            <span>
+              {totalIncidents} incident{totalIncidents > 1 ? "s détectés" : " détecté"} —{" "}
+              <Link
+                to="/admin/config"
+                className="underline underline-offset-2 hover:opacity-75 font-medium"
+              >
+                Voir l'onglet Santé
+              </Link>
+            </span>
+          </div>
+        )}
+
+        {/* KPI — 6 cartes */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+          <StatCard
+            title="Nouveaux tickets"
+            value={stats?.stats_cartes.nouveaux.valeur ?? 0}
+            variation={stats?.stats_cartes.nouveaux.variation ?? 0}
+            hausse={stats?.stats_cartes.nouveaux.hausse ?? true}
+            icon={Lightbulb}
+            iconColor="text-blue-500"
+            loading={statsLoading}
+          />
+          <StatCard
+            title="En cours"
+            value={stats?.stats_cartes.en_cours.valeur ?? 0}
+            variation={stats?.stats_cartes.en_cours.variation ?? 0}
+            hausse={stats?.stats_cartes.en_cours.hausse ?? true}
+            icon={Clock}
+            iconColor="text-amber-500"
+            loading={statsLoading}
+          />
+          <StatCard
+            title="Autonomie"
+            value={stats?.stats_cartes.repondu_canonique.valeur ?? 0}
+            variation={stats?.stats_cartes.repondu_canonique.variation ?? 0}
+            hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true}
+            icon={CheckCircle}
+            iconColor="text-emerald-500"
+            loading={statsLoading}
+            suffix="%"
+            subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} réponses auto`}
+            variationUnit=" pts"
+          />
+          <StatCard
+            title="Clôturés"
+            value={stats?.stats_cartes.tickets_clotures.valeur ?? 0}
+            variation={stats?.stats_cartes.tickets_clotures.variation ?? 0}
+            hausse={stats?.stats_cartes.tickets_clotures.hausse ?? true}
+            icon={Archive}
+            iconColor="text-violet-500"
+            loading={statsLoading}
+          />
+          <StatCard
+            title="Délai 1ère réponse"
+            value={stats?.stats_cartes.temps_premiere_reponse.valeur ?? 0}
+            variation={stats?.stats_cartes.temps_premiere_reponse.variation ?? 0}
+            hausse={stats?.stats_cartes.temps_premiere_reponse.hausse ?? true}
+            icon={Clock}
+            iconColor="text-orange-500"
+            formatter={formatDuration}
+            loading={statsLoading}
+          />
+          <StatCard
+            title="Délai clôture"
+            value={stats?.stats_cartes.temps_cloture.valeur ?? 0}
+            variation={stats?.stats_cartes.temps_cloture.variation ?? 0}
+            hausse={stats?.stats_cartes.temps_cloture.hausse ?? true}
+            icon={Timer}
+            iconColor="text-rose-500"
+            formatter={formatDuration}
+            loading={statsLoading}
+          />
         </div>
-      )}
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          title="Nouveaux tickets"
-          value={stats?.stats_cartes.nouveaux.valeur ?? 0}
-          variation={stats?.stats_cartes.nouveaux.variation ?? 0}
-          hausse={stats?.stats_cartes.nouveaux.hausse ?? true}
-          icon={Lightbulb}
-          iconColor="text-blue-500"
-          loading={statsLoading}
-        />
-        <StatCard
-          title="En cours"
-          value={stats?.stats_cartes.en_cours.valeur ?? 0}
-          variation={stats?.stats_cartes.en_cours.variation ?? 0}
-          hausse={stats?.stats_cartes.en_cours.hausse ?? true}
-          icon={Clock}
-          iconColor="text-amber-500"
-          loading={statsLoading}
-        />
-        <StatCard
-          title="Taux d'autonomie"
-          value={stats?.stats_cartes.repondu_canonique.valeur ?? 0}
-          variation={stats?.stats_cartes.repondu_canonique.variation ?? 0}
-          hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true}
-          icon={CheckCircle}
-          iconColor="text-emerald-500"
-          loading={statsLoading}
-          suffix="%"
-          subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} réponses automatiques`}
-          variationUnit=" pts"
-        />
-        <StatCard
-          title="Clôturés"
-          value={stats?.stats_cartes.tickets_clotures.valeur ?? 0}
-          variation={stats?.stats_cartes.tickets_clotures.variation ?? 0}
-          hausse={stats?.stats_cartes.tickets_clotures.hausse ?? true}
-          icon={Archive}
-          iconColor="text-violet-500"
-          loading={statsLoading}
-        />
+        {/* Section analytique : LineChart (2/3) + Satisfaction (1/3) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <TicketsBarChart
+              nouveaux={stats?.tickets_par_jour ?? []}
+              traitement={stats?.traitement_par_jour ?? []}
+              loading={statsLoading}
+              periode={periode}
+            />
+          </div>
+          <SatisfactionCard
+            data={stats?.satisfaction ?? null}
+            loading={statsLoading}
+            onVoirInsatisfaits={() => setShowInsatisfaits(true)}
+          />
+        </div>
+
+        {/* Répartitions : statuts + branches */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <DonutChart data={stats?.repartition_statuts ?? []} loading={statsLoading} periode={periode} />
+          <BranchesDonut data={stats?.repartition_branches ?? []} loading={statsLoading} />
+        </div>
       </div>
-
-      {/* Délais de traitement */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatCard
-          title="Délai moyen avant 1ère réponse"
-          value={stats?.stats_cartes.temps_premiere_reponse.valeur ?? 0}
-          variation={stats?.stats_cartes.temps_premiere_reponse.variation ?? 0}
-          hausse={stats?.stats_cartes.temps_premiere_reponse.hausse ?? true}
-          icon={Clock}
-          iconColor="text-orange-500"
-          formatter={formatDuration}
-          loading={statsLoading}
-        />
-        <StatCard
-          title="Délai moyen avant clôture"
-          value={stats?.stats_cartes.temps_cloture.valeur ?? 0}
-          variation={stats?.stats_cartes.temps_cloture.variation ?? 0}
-          hausse={stats?.stats_cartes.temps_cloture.hausse ?? true}
-          icon={Timer}
-          iconColor="text-rose-500"
-          formatter={formatDuration}
-          loading={statsLoading}
-        />
-      </div>
-
-      {/* Donut statuts + Donut branches */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <DonutChart data={stats?.repartition_statuts ?? []} loading={statsLoading} periode={periode} />
-        <BranchesDonut data={stats?.repartition_branches ?? []} loading={statsLoading} />
-      </div>
-
-      {/* Bar chart */}
-      <TicketsBarChart
-        nouveaux={stats?.tickets_par_jour ?? []}
-        traitement={stats?.traitement_par_jour ?? []}
-        loading={statsLoading}
-        periode={periode}
-      />
-
-      {/* Satisfaction */}
-      <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} onVoirInsatisfaits={() => setShowInsatisfaits(true)} />
     </div>
   );
 }

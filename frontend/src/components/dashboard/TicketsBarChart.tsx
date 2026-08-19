@@ -43,14 +43,13 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
 
   if (loading) {
     return (
-      <div className="glass-card p-5 rounded-2xl animate-pulse">
-        <div className="h-5 bg-gray-200 dark:bg-white/10 rounded w-1/3 mb-4" />
-        <div className="h-44 bg-gray-200 dark:bg-white/10 rounded" />
+      <div className="glass-card p-5 rounded-2xl animate-pulse h-full">
+        <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-2/5 mb-6" />
+        <div className="h-56 bg-gray-200 dark:bg-white/10 rounded" />
       </div>
     );
   }
 
-  // Fusionner les deux séries sur la même clé date
   const chartData = nouveaux.map((d, i) => ({
     label: formatDate(d.date, periode),
     nouveaux: d.count,
@@ -60,11 +59,11 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
   const xInterval = periode === "semaine" ? 0 : periode === "annee" ? 0 : 4;
 
   return (
-    <div className="glass-card p-5 rounded-2xl space-y-3">
-      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+    <div className="glass-card p-5 rounded-2xl h-full flex flex-col">
+      <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-5 shrink-0">
         {TITRE[periode]}
       </h3>
-      <div className="h-52">
+      <div className="flex-1 min-h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
             <CartesianGrid
