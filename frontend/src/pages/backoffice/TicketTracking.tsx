@@ -163,15 +163,19 @@ function FilterBar({
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 border-b-2 -mb-px text-xs font-medium transition-colors ${
               filter === f.key
-                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5"
+                ? "border-emerald-500 text-gray-900 dark:text-gray-100"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-white/20"
             }`}
           >
             {f.label}
             {counts[f.key] > 0 && f.key !== "tous" && (
-              <span className={`text-[10px] font-semibold tabular-nums leading-none ${filter === f.key ? "opacity-60" : "opacity-50"}`}>
+              <span className={`inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-semibold tabular-nums leading-none ${
+                filter === f.key
+                  ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300"
+                  : "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400"
+              }`}>
                 {counts[f.key]}
               </span>
             )}

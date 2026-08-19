@@ -120,7 +120,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         {/* Backoffice nav */}
         {userDomaines.length > 0 && (
           <nav className="flex flex-col gap-0.5 px-1.5">
-            <SectionLabel label="Principal" collapsed={collapsed} />
+            <SectionLabel label="Gestion tickets" collapsed={collapsed} />
             {navMain.map((item) => (
               <NavItem
                 key={item.to}

@@ -61,7 +61,7 @@ function Tab({
         </span>
       )}
       {active && (
-        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-gray-900 dark:bg-gray-50 rounded-full" />
+        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500 rounded-full" />
       )}
     </button>
   );
