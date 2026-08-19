@@ -59,6 +59,21 @@ def lister_suggestions(_admin: AdminUser):
         db.close()
 
 
+@router.delete("/{suggestion_id}", status_code=204)
+def supprimer_suggestion(suggestion_id: str, _admin: AdminUser):
+    db = SessionLocal()
+    try:
+        s = db.query(Suggestion).filter(Suggestion.id == suggestion_id).first()
+        if not s:
+            raise HTTPException(404, "Suggestion introuvable")
+        if not s.lu:
+            raise HTTPException(409, "Seules les suggestions lues peuvent être supprimées")
+        db.delete(s)
+        db.commit()
+    finally:
+        db.close()
+
+
 @router.patch("/{suggestion_id}/lu")
 def marquer_lu(suggestion_id: str, _admin: AdminUser):
     db = SessionLocal()

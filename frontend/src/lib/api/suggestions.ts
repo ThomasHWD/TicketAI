@@ -29,3 +29,8 @@ export async function toggleSuggestionLu(id: string): Promise<{ lu: boolean }> {
   if (!res.ok) throw new Error("Erreur");
   return res.json();
 }
+
+export async function supprimerSuggestion(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE_URL}/suggestions/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Erreur lors de la suppression");
+}
