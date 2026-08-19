@@ -14,7 +14,6 @@ import {
 } from "./api";
 import { normalize } from "./utils";
 import GroupList from "./GroupList";
-import CreateGroupForm from "./CreateGroupForm";
 import GroupeDetailPanel, { EmptyDetailPanel } from "./GroupeDetailPanel";
 import ConfirmDeleteGroupe from "./ConfirmDeleteGroupe";
 import ConfirmRetireMembre from "./ConfirmRetireMembre";
@@ -102,37 +101,45 @@ export default function GroupsPage() {
     setForm({ nom: "", domaine: "" });
   }
 
+  function handleToggleCreate() {
+    if (showCreate) {
+      handleCancelCreate();
+    } else {
+      setShowCreate(true);
+      setCreateError(null);
+    }
+  }
+
   return (
-    <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
-          Groupes &amp; gestionnaires
-        </h1>
+    <div className="flex flex-col h-full px-6 pt-6 pb-4 gap-4">
+      {/* Page header */}
+      <div className="flex items-center justify-between shrink-0">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            Groupes &amp; gestionnaires
+          </h1>
+        </div>
         <button
-          onClick={() => {
-            setShowCreate((v) => !v);
-            setCreateError(null);
-          }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-medium transition-colors shadow-sm shrink-0"
+          onClick={handleToggleCreate}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors shrink-0 ${
+            showCreate
+              ? "border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/8"
+              : "border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/8 shadow-sm"
+          }`}
         >
-          <Plus size={15} />
-          Nouveau groupe
+          <Plus
+            size={15}
+            className={`transition-transform duration-150 ${showCreate ? "rotate-45" : ""}`}
+          />
+          {showCreate ? "Annuler" : "Nouveau groupe"}
         </button>
       </div>
 
-      {showCreate && (
-        <CreateGroupForm
-          form={form}
-          onChange={setForm}
-          onSubmit={handleCreate}
-          onCancel={handleCancelCreate}
-          isPending={createMut.isPending}
-          error={createError}
-          domaines={domaines}
-        />
-      )}
-
-      <div className="flex gap-4 items-start">
+      {/* 2-column split layout — fills remaining height */}
+      <div
+        className="flex-1 min-h-0 grid gap-4"
+        style={{ gridTemplateColumns: "280px 1fr" }}
+      >
         <GroupList
           groupes={groupes}
           isLoading={isLoading}
@@ -141,6 +148,14 @@ export default function GroupsPage() {
             setSelectedGroupeId(id);
             setSearch("");
           }}
+          showCreate={showCreate}
+          form={form}
+          onFormChange={setForm}
+          onFormSubmit={handleCreate}
+          onCancelCreate={handleCancelCreate}
+          isCreating={createMut.isPending}
+          createError={createError}
+          domaines={domaines}
         />
 
         {selectedGroupe ? (
@@ -160,6 +175,7 @@ export default function GroupsPage() {
         )}
       </div>
 
+      {/* Modals */}
       {confirmDeleteGroupe && (
         <ConfirmDeleteGroupe
           groupe={confirmDeleteGroupe}
