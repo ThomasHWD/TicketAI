@@ -130,7 +130,6 @@ export default function App() {
           <Route element={<AdminRoute />}>
             <Route element={<Layout />}>
               <Route path="/admin" element={<AdminPage />} />
-              <Route path="/admin/documents" element={<KnowledgeBase />} />
               <Route path="/admin/config" element={<SiteConfigPage />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
