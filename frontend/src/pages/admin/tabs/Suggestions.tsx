@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCheck, Circle, Loader2 } from "lucide-react";
-import { getSuggestions, toggleSuggestionLu } from "../../../lib/api";
+import { CheckCheck, Circle, Loader2, Trash2 } from "lucide-react";
+import { getSuggestions, supprimerSuggestion, toggleSuggestionLu } from "../../../lib/api";
 import type { SuggestionOut } from "../../../lib/api";
 
 function formatDate(iso: string) {
@@ -15,8 +15,14 @@ function formatDate(iso: string) {
 
 function SuggestionCard({ s }: { s: SuggestionOut }) {
   const qc = useQueryClient();
+
   const toggle = useMutation({
     mutationFn: () => toggleSuggestionLu(s.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-suggestions"] }),
+  });
+
+  const supprimer = useMutation({
+    mutationFn: () => supprimerSuggestion(s.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-suggestions"] }),
   });
 
@@ -41,15 +47,15 @@ function SuggestionCard({ s }: { s: SuggestionOut }) {
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap tabular-nums">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap tabular-nums mr-1">
               {formatDate(s.created_at)}
             </span>
             <button
               onClick={() => toggle.mutate()}
-              disabled={toggle.isPending}
+              disabled={toggle.isPending || supprimer.isPending}
               title={s.lu ? "Marquer comme non lu" : "Marquer comme lu"}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors disabled:opacity-40"
             >
               {toggle.isPending ? (
                 <Loader2 size={13} className="animate-spin" aria-hidden="true" />
@@ -59,6 +65,20 @@ function SuggestionCard({ s }: { s: SuggestionOut }) {
                 <CheckCheck size={13} aria-label="Marquer comme lu" />
               )}
             </button>
+            {s.lu && (
+              <button
+                onClick={() => supprimer.mutate()}
+                disabled={supprimer.isPending || toggle.isPending}
+                title="Supprimer"
+                className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-40"
+              >
+                {supprimer.isPending ? (
+                  <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Trash2 size={13} aria-label="Supprimer" />
+                )}
+              </button>
+            )}
           </div>
         </div>
 
