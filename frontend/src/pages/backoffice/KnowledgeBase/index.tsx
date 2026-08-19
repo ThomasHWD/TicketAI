@@ -221,7 +221,7 @@ export default function KnowledgeBase() {
             <EtatVide
               icon={FolderOpen}
               titre={`Aucun document indexé${domaine ? ` en ${domaine}` : ""}.`}
-              detail="Tant que la base est vide, le moteur n'a rien à citer : chaque question partira en génération libre, puis en validation humaine."
+              detail="Tant que la base est vide, le moteur n'a rien à citer : chaque question devra être rédigée manuellement."
               action={peutAjouter ? <div className="mt-1">{boutonAjouter}</div> : undefined}
             />
           )
