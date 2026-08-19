@@ -1,5 +1,6 @@
 import { Trash2, Users, X } from "lucide-react";
 import type { Groupe, MembreSummary, UserSummary } from "../../../types/index.tsx";
+import { domainColor } from "./utils";
 import CandidatsPanel from "./CandidatsPanel";
 import MembresPanel from "./MembresPanel";
 
@@ -26,42 +27,51 @@ export default function GroupeDetailPanel({
   onChef,
   onRetirer,
 }: Props) {
+  const color = domainColor(groupe.domaine);
+
   return (
-    <div
-      className="glass-card rounded-2xl overflow-hidden flex-1 flex flex-col"
-      style={{ minHeight: "480px" }}
-    >
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-white/10">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-600 shrink-0">
-            <span className="text-xs font-bold text-white font-mono">
-              {groupe.domaine.slice(0, 2)}
+    <div className="glass-card rounded-2xl flex flex-col overflow-hidden">
+      {/* Panel header */}
+      <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-200/80 dark:border-white/10 shrink-0">
+        <div
+          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold ${color.bg} ${color.text}`}
+        >
+          {groupe.domaine.slice(0, 2).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate leading-5">
+            {groupe.nom}
+          </h3>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span
+              className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${color.bg} ${color.text}`}
+            >
+              {groupe.domaine}
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {groupe.nb_membres} membre{groupe.nb_membres !== 1 ? "s" : ""}
             </span>
           </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {groupe.nom}
-            </h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{groupe.domaine}</p>
-          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={onDelete}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-400/20 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 text-xs font-medium transition-colors"
           >
             <Trash2 size={12} />
             Supprimer
           </button>
+          <div className="w-px h-4 bg-gray-200 dark:bg-white/10 mx-0.5" />
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
           >
-            <X size={15} />
+            <X size={14} />
           </button>
         </div>
       </div>
 
+      {/* Sub-panel split */}
       <div className="flex flex-1 min-h-0 divide-x divide-gray-100 dark:divide-white/5">
         <MembresPanel groupe={groupe} onChef={onChef} onRetirer={onRetirer} />
         <CandidatsPanel
@@ -77,16 +87,17 @@ export default function GroupeDetailPanel({
 
 export function EmptyDetailPanel() {
   return (
-    <div
-      className="flex-1 flex items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 dark:border-white/10"
-      style={{ minHeight: "480px" }}
-    >
-      <div className="text-center">
-        <Users size={28} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+    <div className="glass-card rounded-2xl flex flex-col items-center justify-center">
+      <div className="text-center max-w-xs">
+        <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-white/8 flex items-center justify-center mx-auto mb-4">
+          <Users size={22} className="text-gray-300 dark:text-gray-600" />
+        </div>
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
           Sélectionnez un groupe
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">pour gérer ses membres</p>
+        <p className="text-xs text-gray-400 dark:text-gray-600 mt-1.5 leading-relaxed">
+          Choisissez un groupe dans la liste<br />pour gérer ses membres.
+        </p>
       </div>
     </div>
   );
