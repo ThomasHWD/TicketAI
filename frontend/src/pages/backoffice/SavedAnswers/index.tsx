@@ -80,7 +80,7 @@ export default function SavedAnswers() {
           Réponses enregistrées
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Base de connaissances validée — gère les réponses canoniques, les signalements de mise à jour et les retraits de service.
+          Base de connaissances validée — gère les réponses validées, les conflits de mise à jour et les retraits de service.
         </p>
       </div>
 

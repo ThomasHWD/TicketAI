@@ -8,7 +8,7 @@ import {
   getDocumentVersions,
   restoreDocumentVersion,
 } from "../lib/api/documents";
-import DocHistoryModal from "../pages/backoffice/DocHistoryModal";
+import DocHistoryModal from "../pages/backoffice/KnowledgeBase/DocHistoryModal";
 import type { DocumentVersion } from "../types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { JobsProvider } from "../context/JobsContext";
-import UpdateDocModal from "../pages/backoffice/UpdateDocModal";
+import UpdateDocModal from "../pages/backoffice/KnowledgeBase/UpdateDocModal";
 import type { ReponseARelire, UniteChangement, UpdateImpact } from "../types";
 
 function impact(overrides: Partial<UpdateImpact> = {}): UpdateImpact {
