@@ -1,21 +1,27 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Plus,
   ClipboardList,
   Clock,
-  CheckCircle,
+  Bell,
   Archive,
   ArrowRight,
-  Plus,
-  InboxIcon,
+  CheckCircle2,
+  HelpCircle,
+  ChevronRight,
 } from "lucide-react";
+
 import { getTickets } from "../../lib/api";
 import { getValidatorId } from "../../lib/currentUser";
+import { useAuth } from "../../lib/auth";
 import { isProcessing, statutLabel, formatDate } from "../../lib/ticketStatus";
-import UserStatutBadge from "../../components/ui/UserStatutBadge";
 import type { Ticket, StatutTicket } from "../../types";
 
-function userLabel(t: Ticket) {
+// Backend returns these runtime fields; types are incomplete.
+type TicketExt = Ticket & { closed_at?: string | null; objet?: string | null };
+
+function getLabel(t: TicketExt) {
   return statutLabel(
     t.statut_ticket as StatutTicket,
     t.canonique,
@@ -24,29 +30,47 @@ function userLabel(t: Ticket) {
   );
 }
 
+function displayText(t: TicketExt): string {
+  return t.objet ?? t.question;
+}
+
+// ─── Stat card ───────────────────────────────────────────────────────────────
+
+type StatColor = "gray" | "emerald" | "blue";
+
+const STAT_COLORS: Record<StatColor, { ring: string; bg: string; icon: string; value: string }> = {
+  gray:    { ring: "",                                          bg: "bg-gray-100 dark:bg-white/[0.08]",        icon: "text-gray-500 dark:text-gray-400",    value: "text-gray-800 dark:text-gray-100" },
+  emerald: { ring: "ring-1 ring-emerald-300/60 dark:ring-emerald-500/25", bg: "bg-emerald-50 dark:bg-emerald-500/15",    icon: "text-emerald-600 dark:text-emerald-400", value: "text-emerald-700 dark:text-emerald-300" },
+  blue:    { ring: "ring-1 ring-blue-200/60 dark:ring-blue-500/20",       bg: "bg-blue-50 dark:bg-blue-500/10",          icon: "text-blue-600 dark:text-blue-400",       value: "text-blue-700 dark:text-blue-300" },
+};
+
 function StatCard({
   icon: Icon,
   label,
   value,
-  colorClass,
-  bgClass,
+  color = "gray",
+  activeColor,
 }: {
   icon: React.ElementType;
   label: string;
   value: number | undefined;
-  colorClass: string;
-  bgClass: string;
+  color?: StatColor;
+  activeColor?: StatColor;
 }) {
+  const resolved: StatColor =
+    activeColor && typeof value === "number" && value > 0 ? activeColor : color;
+  const theme = STAT_COLORS[resolved];
+
   return (
-    <div className="glass-card rounded-2xl p-5 flex items-center gap-4">
-      <div className={`shrink-0 p-3 rounded-xl ${bgClass}`}>
-        <Icon size={20} className={colorClass} />
+    <div className={`glass-card rounded-2xl p-5 flex items-center gap-4 ${theme.ring}`}>
+      <div className={`shrink-0 p-3 rounded-xl ${theme.bg}`}>
+        <Icon size={20} className={theme.icon} />
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide truncate">
           {label}
         </p>
-        <p className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-0.5">
+        <p className={`text-2xl font-semibold mt-0.5 ${theme.value}`}>
           {value === undefined ? (
             <span className="inline-block w-8 h-6 bg-gray-200 dark:bg-white/10 animate-pulse rounded" />
           ) : (
@@ -58,8 +82,98 @@ function StatCard({
   );
 }
 
+// ─── Ticket row ──────────────────────────────────────────────────────────────
+
+function TicketRow({
+  ticket: t,
+  variant,
+  onClick,
+}: {
+  ticket: TicketExt;
+  variant: "reply" | "processing";
+  onClick: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Voir le ticket : ${displayText(t)}`}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="group flex items-center gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors cursor-pointer select-none"
+    >
+      <span
+        className={`shrink-0 w-2 h-2 rounded-full ${
+          variant === "reply"
+            ? "bg-emerald-500"
+            : "bg-blue-400 animate-pulse"
+        }`}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-snug">
+          {displayText(t)}
+        </p>
+        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+          <span className="font-medium">{t.domaine}</span>
+          <span className="mx-1.5 opacity-40">·</span>
+          {formatDate(t.created_at)}
+        </p>
+      </div>
+      <ChevronRight
+        size={16}
+        className="shrink-0 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors"
+      />
+    </div>
+  );
+}
+
+// ─── Skeleton rows (loading state) ───────────────────────────────────────────
+
+function SkeletonRows() {
+  return (
+    <div className="divide-y divide-gray-100 dark:divide-white/5">
+      {[58, 72, 44].map((w, i) => (
+        <div key={i} className="flex items-center gap-4 px-6 py-4">
+          <div className="shrink-0 w-2 h-2 rounded-full bg-gray-200 dark:bg-white/10 animate-pulse" />
+          <div className="flex-1 space-y-1.5">
+            <div
+              className="h-4 bg-gray-100 dark:bg-white/[0.08] rounded animate-pulse"
+              style={{ width: `${w}%` }}
+            />
+            <div className="h-3 w-28 bg-gray-50 dark:bg-white/[0.04] rounded animate-pulse" />
+          </div>
+          <div className="shrink-0 w-4 h-4 rounded bg-gray-50 dark:bg-white/[0.04] animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Shared page header ───────────────────────────────────────────────────────
+
+function PageHeader({ greeting }: { greeting: string }) {
+  return (
+    <div>
+      <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+        {greeting}
+      </h1>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Votre espace personnel TicketAI
+      </p>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function UserDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const userId = getValidatorId();
 
   const { data, isLoading } = useQuery({
@@ -67,211 +181,173 @@ export default function UserDashboard() {
     queryFn: () => getTickets({ userId, limit: 200 }),
   });
 
-  const tickets: Ticket[] = data?.items ?? [];
+  const tickets = (data?.items ?? []) as TicketExt[];
   const total = data?.total ?? 0;
-  const isEmpty = data !== undefined && total === 0;
+  const dataLoaded = data !== undefined;
+  const isEmpty = dataLoaded && total === 0;
 
-  const aConsulter = tickets.filter((t) => userLabel(t) === "Répondu");
-  const enCoursItems = tickets.filter((t) => userLabel(t) === "En cours de traitement");
+  const aConsulter = tickets.filter((t) => getLabel(t) === "Répondu");
+  const enCoursItems = tickets.filter((t) => getLabel(t) === "En cours de traitement");
   const clotures = tickets.filter((t) => !!t.closed_at);
 
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-          <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
-            Votre vue d'ensemble
-          </h1>
+  const greeting = user?.prenom ? `Bonjour, ${user.prenom}` : "Mon espace";
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={ClipboardList}
-          label="Questions posées"
-          value={data ? total : undefined}
-          colorClass="text-gray-600 dark:text-gray-300"
-          bgClass="bg-gray-100 dark:bg-white/10"
-        />
-        <StatCard
-          icon={Clock}
-          label="En cours de traitement"
-          value={data ? enCoursItems.length : undefined}
-          colorClass="text-blue-600 dark:text-blue-300"
-          bgClass="bg-blue-500/10 dark:bg-blue-500/10"
-        />
-        <StatCard
-          icon={CheckCircle}
-          label="Réponse disponible"
-          value={data ? aConsulter.length : undefined}
-          colorClass="text-emerald-600 dark:text-emerald-300"
-          bgClass="bg-emerald-500/10 dark:bg-emerald-500/10"
-        />
-        <StatCard
-          icon={Archive}
-          label="Clôturées"
-          value={data ? clotures.length : undefined}
-          colorClass="text-gray-500 dark:text-gray-400"
-          bgClass="bg-gray-100 dark:bg-white/10"
-        />
-      </div>
+  // ── État 4 — premier passage (aucun ticket) ───────────────────────────────
+  if (isEmpty) {
+    return (
+      <div className="p-6 space-y-8">
+        <PageHeader greeting={greeting} />
 
-      {/* Empty state */}
-      {isEmpty && (
-        <div className="glass-card rounded-2xl p-12 flex flex-col items-center gap-4 text-center">
-          <div className="p-4 rounded-2xl bg-emerald-500/10">
-            <InboxIcon size={32} className="text-emerald-500" />
+        <div className="glass-card rounded-2xl px-8 py-16 flex flex-col items-center text-center gap-6 max-w-lg mx-auto">
+          <div className="p-5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10">
+            <HelpCircle size={40} className="text-emerald-500" strokeWidth={1.5} />
           </div>
-          <div>
-            <p className="text-base font-medium text-gray-800 dark:text-gray-100">
-              Vous n'avez encore posé aucune question
-            </p>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Notre assistant IA peut vous aider sur vos sujets RH, IT ou Legal.
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+              Posez votre première question
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
+              Notre assistant IA vous répond en quelques instants sur vos sujets
+              RH, IT ou Juridique — avec relecture humaine pour les cas complexes.
             </p>
           </div>
           <button
             onClick={() => navigate("/nouveau-ticket")}
-            className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-colors"
           >
             <Plus size={16} />
             Poser ma première question
           </button>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Réponses à consulter */}
-      {!isEmpty && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
+  // ── États 1–3 (l'utilisateur a des tickets) ───────────────────────────────
+
+  const hasPendingReplies = aConsulter.length > 0;
+  const hasInProgress = enCoursItems.length > 0;
+
+  const sectionTitle =
+    hasInProgress && !hasPendingReplies
+      ? "En cours de traitement"
+      : "Réponses à consulter";
+
+  const sectionItems = hasPendingReplies
+    ? aConsulter
+    : hasInProgress
+      ? enCoursItems
+      : [];
+
+  const rowVariant: "reply" | "processing" = hasPendingReplies
+    ? "reply"
+    : "processing";
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* En-tête */}
+      <PageHeader greeting={greeting} />
+
+      {/* Grille de statistiques */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          icon={ClipboardList}
+          label="Questions posées"
+          value={data ? total : undefined}
+        />
+        <StatCard
+          icon={Clock}
+          label="En cours"
+          value={data ? enCoursItems.length : undefined}
+          activeColor="blue"
+        />
+        <StatCard
+          icon={Bell}
+          label="Réponse disponible"
+          value={data ? aConsulter.length : undefined}
+          activeColor="emerald"
+        />
+        <StatCard
+          icon={Archive}
+          label="Clôturées"
+          value={data ? clotures.length : undefined}
+        />
+      </div>
+
+      {/* Section principale */}
+      <div className="space-y-3">
+        {/* En-tête de section */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-              Réponses à consulter
+              {sectionTitle}
             </h2>
-            <button
-              onClick={() => navigate("/historique")}
-              className="inline-flex items-center gap-1 text-sm text-emerald-600 dark:text-emerald-400 hover:underline"
-            >
-              Voir tout l'historique
-              <ArrowRight size={14} />
-            </button>
-          </div>
-
-          <div className="glass-card rounded-2xl overflow-hidden">
-            {isLoading ? (
-              <div className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                Chargement…
-              </div>
-            ) : aConsulter.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-green-100 dark:bg-emerald-400/10 text-green-700 dark:text-emerald-300 text-left">
-                      <th className="px-6 py-3 font-medium">Objet</th>
-                      <th className="px-6 py-3 font-medium">Domaine</th>
-                      <th className="px-6 py-3 font-medium">Répondu le</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-white/5">
-                    {aConsulter.map((t) => (
-                      <tr
-                        key={t.id}
-                        className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/historique/${t.id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            navigate(`/historique/${t.id}`);
-                          }
-                        }}
-                        tabIndex={0}
-                        role="link"
-                        aria-label={`Consulter la réponse : ${t.objet ?? t.question}`}
-                      >
-                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                          <span className="block truncate max-w-xs" title={t.objet ?? t.question}>
-                            {t.objet ?? t.question}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
-                          {t.domaine}
-                        </td>
-                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          {formatDate(t.created_at)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : enCoursItems.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-green-100 dark:bg-emerald-400/10 text-green-700 dark:text-emerald-300 text-left">
-                      <th className="px-6 py-3 font-medium">Objet</th>
-                      <th className="px-6 py-3 font-medium">Domaine</th>
-                      <th className="px-6 py-3 font-medium">Posée le</th>
-                      <th className="px-6 py-3 font-medium">Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-white/5">
-                    {enCoursItems.map((t) => (
-                      <tr
-                        key={t.id}
-                        className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/historique/${t.id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            navigate(`/historique/${t.id}`);
-                          }
-                        }}
-                        tabIndex={0}
-                        role="link"
-                        aria-label={`Voir : ${t.objet ?? t.question}`}
-                      >
-                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                          <span className="block truncate max-w-xs" title={t.objet ?? t.question}>
-                            {t.objet ?? t.question}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
-                          {t.domaine}
-                        </td>
-                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          {formatDate(t.created_at)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <UserStatutBadge ticket={t} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="px-6 py-10 flex flex-col items-center gap-3 text-center">
-                <div className="p-3 rounded-xl bg-emerald-500/10">
-                  <CheckCircle size={22} className="text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Tout est à jour
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    Vous n'avez aucune demande en attente. Posez une nouvelle question ?
-                  </p>
-                </div>
-                <button
-                  onClick={() => navigate("/nouveau-ticket")}
-                  className="mt-1 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-colors"
-                >
-                  <Plus size={15} />
-                  Poser une question
-                </button>
-              </div>
+            {hasPendingReplies && (
+              <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[11px] font-semibold leading-none">
+                {aConsulter.length}
+              </span>
             )}
           </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/nouveau-ticket")}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+            >
+              <Plus size={14} />
+              Nouvelle question
+            </button>
+            <span className="w-px h-4 bg-gray-200 dark:bg-white/10" />
+            <button
+              onClick={() => navigate("/historique")}
+              className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            >
+              Historique
+              <ArrowRight size={13} />
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* Panneau */}
+        <div className="glass-card rounded-2xl overflow-hidden">
+          {isLoading ? (
+            <SkeletonRows />
+          ) : sectionItems.length > 0 ? (
+            // États 1 & 2 — liste de tickets
+            <div className="divide-y divide-gray-100 dark:divide-white/5">
+              {sectionItems.map((t) => (
+                <TicketRow
+                  key={t.id}
+                  ticket={t}
+                  variant={rowVariant}
+                  onClick={() => navigate(`/historique/${t.id}`)}
+                />
+              ))}
+            </div>
+          ) : (
+            // État 3 — tout est à jour
+            <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10">
+                <CheckCircle2 size={28} className="text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                  Tout est à jour
+                </p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Vous n'avez aucune demande en attente.
+                </p>
+              </div>
+              <button
+                onClick={() => navigate("/nouveau-ticket")}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              >
+                <Plus size={14} />
+                Poser une question
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
