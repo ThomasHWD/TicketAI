@@ -1,6 +1,5 @@
 import {
   BookText,
-  BookX,
   File,
   History,
   LayoutDashboard,
@@ -23,7 +22,6 @@ export const navMain: NavItem[] = [
   { to: "/tickets", icon: TicketMinus, label: "Tickets" },
   { to: "/mon-suivi", icon: MessagesSquare, label: "Mon suivi" },
   { to: "/reponses-enregistrees", icon: MessageSquare, label: "Réponses enregistrées" },
-  { to: "/angles-morts", icon: BookX, label: "Angles morts" },
   { to: "/base-de-connaissances", icon: BookText, label: "Base de connaissances" },
 ];
 
