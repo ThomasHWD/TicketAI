@@ -1,4 +1,5 @@
-import { AlertCircle, CheckCheck, Clock, Loader2, Send } from "lucide-react";
+import { useRef } from "react";
+import { AlertCircle, CheckCheck, Clock, Loader2, Send, X } from "lucide-react";
 import StarPicker from "../../../components/ui/StarPicker";
 
 interface ClotureMutation {
@@ -48,15 +49,24 @@ export default function TicketActions({
   suivi,
   canSubmitSuivi,
 }: TicketActionsProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handlePrecisionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setPrecision(e.target.value);
+    const ta = e.currentTarget;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
+  };
+
   if (closed) {
     return (
-      <div className="glass-card rounded-2xl p-6 flex items-center gap-3">
-        <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-400 shrink-0">
-          <CheckCheck size={18} aria-hidden="true" />
+      <div className="glass-card rounded-2xl px-5 py-4 flex items-center gap-3">
+        <span className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0">
+          <CheckCheck size={16} className="text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
         </span>
         <div>
-          <p className="text-sm font-medium text-gray-800 dark:text-gray-100">Demande clôturée</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Demande clôturée</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             Vous avez indiqué que cette réponse vous convenait.
           </p>
         </div>
@@ -67,116 +77,155 @@ export default function TicketActions({
   if (!hasVisibleAnswer) return null;
 
   return (
-    <div className="glass-card rounded-2xl p-6 space-y-5">
-      {suiviEnCours && (
-        <div className="flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
-          <Clock size={14} aria-hidden="true" />
-          Votre précision est en cours de traitement. Vous pourrez la clôturer ou en poser une
-          nouvelle une fois qu'elle sera traitée.
-        </div>
-      )}
-
-      {!showRating ? (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            Cette réponse vous convient-elle ?
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowRating(true)}
-            disabled={suiviEnCours}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <CheckCheck size={16} />
-            Oui, clôturer ma demande
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50/60 dark:bg-white/[0.03] p-4">
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            Évaluez votre expérience{" "}
-            <span className="font-normal text-gray-500 dark:text-gray-400">(facultatif)</span>
-          </p>
-          <StarPicker label="Qualité de la réponse" value={noteQualite} onChange={setNoteQualite} />
-          <StarPicker label="Rapidité de traitement" value={noteDelai} onChange={setNoteDelai} />
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => cloture.mutate(true)}
-              disabled={cloture.isPending}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {cloture.isPending ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <CheckCheck size={16} />
-              )}
-              Clôturer
-            </button>
-            <button
-              type="button"
-              onClick={() => cloture.mutate(false)}
-              disabled={cloture.isPending}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-white/15 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Ignorer et clôturer
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowRating(false)}
-              disabled={cloture.isPending}
-              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline underline-offset-2 disabled:opacity-40"
-            >
-              Annuler
-            </button>
-          </div>
-        </div>
-      )}
-
-      {cloture.isError && (
-        <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-          <AlertCircle size={16} />
-          {cloture.error instanceof Error ? cloture.error.message : "Une erreur est survenue"}
-        </div>
-      )}
-
-      <div className="border-t border-gray-200 dark:border-white/10 pt-5 space-y-3">
+    <div className="glass-card rounded-2xl overflow-hidden">
+      {/* Follow-up section */}
+      <div className="p-5 space-y-3">
         <label
           htmlFor="precision"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+          className="block text-sm font-semibold text-gray-900 dark:text-white"
         >
-          Sinon, apportez une précision
+          Apporter une précision
         </label>
+
+        {suiviEnCours && (
+          <div className="flex items-start gap-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-2.5 text-xs text-blue-700 dark:text-blue-300">
+            <Clock size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
+            <span>
+              Votre précision est en cours de traitement. Vous pourrez en poser une nouvelle une
+              fois qu'elle sera traitée.
+            </span>
+          </div>
+        )}
+
         <textarea
+          ref={textareaRef}
           id="precision"
           value={precision}
-          onChange={(e) => setPrecision(e.target.value)}
-          rows={3}
+          onChange={handlePrecisionChange}
           disabled={suiviEnCours}
           placeholder="Ex. : Et dans le cas d'un contrat à durée déterminée ?"
-          className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-white/5 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-800 dark:text-gray-100 bg-white dark:bg-white/[0.03] placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          style={{ minHeight: "80px", maxHeight: "200px" }}
+          aria-describedby={suivi.isError ? "suivi-error" : undefined}
         />
 
         {suivi.isError && (
-          <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-            <AlertCircle size={16} />
+          <div
+            id="suivi-error"
+            role="alert"
+            className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400"
+          >
+            <AlertCircle size={13} aria-hidden="true" />
             {suivi.error instanceof Error ? suivi.error.message : "Une erreur est survenue"}
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => suivi.mutate()}
-          disabled={!canSubmitSuivi}
-          className="inline-flex items-center gap-2 rounded-lg bg-white/60 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-200 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {suivi.isPending ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <Send size={16} />
-          )}
-          Envoyer la précision
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => suivi.mutate()}
+            disabled={!canSubmitSuivi}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {suivi.isPending ? (
+              <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+            ) : (
+              <Send size={15} aria-hidden="true" />
+            )}
+            Envoyer
+          </button>
+        </div>
+      </div>
+
+      {/* Closure section */}
+      <div className="border-t border-gray-100 dark:border-white/[0.06] px-5 py-4">
+        {!showRating ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Cette réponse vous convient-elle ?
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowRating(true)}
+              disabled={suiviEnCours}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-xs font-medium px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <CheckCheck size={13} aria-hidden="true" />
+              Clôturer le ticket
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Avant de partir…
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Comment évaluez-vous votre expérience ?{" "}
+                  <span className="italic">Facultatif.</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRating(false)}
+                aria-label="Annuler la clôture"
+                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 dark:hover:text-gray-200 transition-colors shrink-0"
+              >
+                <X size={15} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <StarPicker
+                label="Qualité de la réponse"
+                value={noteQualite}
+                onChange={setNoteQualite}
+              />
+              <StarPicker
+                label="Rapidité de traitement"
+                value={noteDelai}
+                onChange={setNoteDelai}
+              />
+            </div>
+
+            {cloture.isError && (
+              <div
+                role="alert"
+                className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400"
+              >
+                <AlertCircle size={13} aria-hidden="true" />
+                {cloture.error instanceof Error
+                  ? cloture.error.message
+                  : "Une erreur est survenue"}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              <button
+                type="button"
+                onClick={() => cloture.mutate(true)}
+                disabled={cloture.isPending}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {cloture.isPending ? (
+                  <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <CheckCheck size={15} aria-hidden="true" />
+                )}
+                Confirmer et clôturer
+              </button>
+              <button
+                type="button"
+                onClick={() => cloture.mutate(false)}
+                disabled={cloture.isPending}
+                className="inline-flex items-center rounded-lg border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Passer la notation
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
