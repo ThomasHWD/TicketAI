@@ -323,6 +323,7 @@ def get_config(current_user: CurrentUser, db: DB):
     result = dict(_CONFIG_DEFAULTS)
     for row in rows:
         result[row.key] = row.value
+    result["jours_auto_cloture"] = settings.jours_auto_cloture
     return result
 
 

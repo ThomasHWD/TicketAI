@@ -17,6 +17,7 @@ export interface BannerConfig {
 
 export interface SiteConfigData {
   banner: BannerConfig;
+  jours_auto_cloture: number;
 }
 
 export async function getSiteConfig(): Promise<SiteConfigData> {
