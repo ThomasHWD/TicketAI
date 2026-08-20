@@ -265,7 +265,7 @@ export default function UserTicketHistory() {
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
                   Posée le
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
                   Statut
                 </th>
               </tr>
@@ -330,7 +330,7 @@ export default function UserTicketHistory() {
                         {formatDate(t.created_at)}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 whitespace-nowrap">
                       <UserStatutBadge ticket={t} />
                     </td>
                   </tr>
