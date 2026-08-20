@@ -103,7 +103,8 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         <img
           src={TicketAIMark}
           alt="TicketAI"
-          className="shrink-0 w-13 h-13"
+          className={`shrink-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
+            ${collapsed ? "w-7 h-7" : "w-13 h-13"}`}
         />
         <span
           className={`text-base font-semibold tracking-[-0.01em] text-gray-900 dark:text-gray-100
