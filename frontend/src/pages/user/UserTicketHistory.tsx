@@ -27,9 +27,8 @@ function matchesTab(t: Ticket, tab: Tab): boolean {
   switch (tab) {
     case "toutes":        return true;
     case "cloturees":     return closed;
-    case "en_traitement": return !closed && (processing || t.statut_ticket === "NOUVEAU");
-    case "repondues":     return !closed && !processing &&
-      (t.statut_ticket === "VALIDÉ" || t.statut_ticket === "RÉPONDU" || t.canonique);
+    case "en_traitement": return !closed && (processing || t.statut_ticket === "NOUVEAU" || (t.statut_ticket === "RÉPONDU" && !t.canonique));
+    case "repondues":     return !closed && !processing && (t.statut_ticket === "VALIDÉ" || t.canonique);
   }
 }
 
