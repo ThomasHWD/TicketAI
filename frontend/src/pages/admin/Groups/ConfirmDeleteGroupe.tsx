@@ -10,8 +10,13 @@ type Props = {
 
 export default function ConfirmDeleteGroupe({ groupe, onConfirm, onCancel, isPending }: Props) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onCancel}>
-      <div className="absolute inset-0 bg-black/30 dark:bg-black/60 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Supprimer ce groupe">
+      <button
+        type="button"
+        aria-label="Fermer"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-default bg-black/30 dark:bg-black/60 backdrop-blur-sm"
+      />
       <div
         className="relative glass-card rounded-2xl w-full max-w-sm p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}

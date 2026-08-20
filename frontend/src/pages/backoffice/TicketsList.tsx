@@ -321,6 +321,7 @@ export default function TicketsList() {
           <input
             type="search"
             placeholder="Rechercher…"
+            aria-label="Rechercher un ticket"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 transition-shadow"

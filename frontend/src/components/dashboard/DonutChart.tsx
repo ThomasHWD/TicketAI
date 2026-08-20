@@ -22,7 +22,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
   const color = cfg?.color ?? DEFAULT_COLOR;
 
   return (
-    <div className="px-3 py-2 rounded-xl shadow-lg bg-white dark:bg-slate-800 border border-gray-100 dark:border-white/10 text-sm space-y-0.5 min-w-[140px]">
+    <div className="px-3 py-2 rounded-xl shadow-lg bg-white dark:bg-[#141416] border border-gray-100 dark:border-white/10 text-sm space-y-0.5 min-w-[140px]">
       <div className="flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-100">
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
         {cfg?.label ?? item.statut}

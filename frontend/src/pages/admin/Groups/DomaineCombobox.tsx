@@ -35,6 +35,12 @@ export default function DomaineCombobox({ value, onChange, existing }: Props) {
         type="text"
         value={value}
         placeholder="ex : RH"
+        aria-label="Domaine"
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+        aria-controls="domaine-listbox"
+        aria-haspopup="listbox"
         onFocus={() => setOpen(true)}
         onChange={(e) => {
           onChange(e.target.value.toUpperCase());
@@ -47,6 +53,9 @@ export default function DomaineCombobox({ value, onChange, existing }: Props) {
         (matches.length > 0 || canCreate) &&
         createPortal(
           <ul
+            id="domaine-listbox"
+            role="listbox"
+            aria-label="Domaines disponibles"
             style={{
               position: "fixed",
               top: inputRect.bottom + 4,
@@ -59,6 +68,9 @@ export default function DomaineCombobox({ value, onChange, existing }: Props) {
             {matches.map((d) => (
               <li
                 key={d}
+                role="option"
+                aria-selected={false}
+                aria-disabled={true}
                 className="flex items-center justify-between px-3 py-2.5 text-sm text-gray-400 dark:text-gray-500 select-none cursor-not-allowed"
               >
                 <span className="font-mono">{d}</span>
@@ -68,7 +80,7 @@ export default function DomaineCombobox({ value, onChange, existing }: Props) {
               </li>
             ))}
             {canCreate && (
-              <li>
+              <li role="option" aria-selected={false}>
                 <button
                   type="button"
                   onMouseDown={() => {

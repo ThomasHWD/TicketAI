@@ -111,6 +111,7 @@ export default function AdminDashboard() {
                 <select
                   value={domaine}
                   onChange={(e) => setDomaine(e.target.value)}
+                  aria-label="Domaine"
                   className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 cursor-pointer"
                 >
                   <option value="">Tous les domaines</option>

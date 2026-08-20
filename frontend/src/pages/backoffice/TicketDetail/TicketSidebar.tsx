@@ -229,6 +229,7 @@ export default function TicketSidebar({
                     value={selectedAssignee}
                     onChange={(e) => onSelectedAssigneeChange(e.target.value)}
                     disabled={assignLoading}
+                    aria-label="Assigner à"
                     className="w-full text-xs text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-40"
                   >
                     <option value="">Assigner à…</option>
