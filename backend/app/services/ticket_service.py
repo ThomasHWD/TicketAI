@@ -41,6 +41,7 @@ def serialize_ticket(ticket: Ticket) -> dict:
         "canonique": ticket.canonique,
         "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
         "closed_at": ticket.closed_at.isoformat() if ticket.closed_at else None,
+        "validated_at": ticket.validated_at.isoformat() if ticket.validated_at else None,
         "note_qualite": ticket.note_qualite,
         "note_delai": ticket.note_delai,
         **lock_info(ticket),

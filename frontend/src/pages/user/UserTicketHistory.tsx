@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Inbox, Plus, Search, X } from "lucide-react";
 import { getTickets } from "../../lib/api";
+import { getSiteConfig } from "../../lib/api/admin";
 import { getValidatorId } from "../../lib/currentUser";
 import { formatDate } from "../../lib/ticketStatus";
 import UserStatutBadge from "../../components/ui/UserStatutBadge";
@@ -35,6 +36,45 @@ function matchesTab(t: Ticket, tab: Tab): boolean {
 function matchesSearch(t: Ticket, q: string): boolean {
   if (!q) return true;
   return (t.objet ?? t.question).toLowerCase().includes(q.toLowerCase());
+}
+
+// ─── auto-cloture countdown ──────────────────────────────────────────────────
+
+function clotureLabel(remaining: number, dateMs: number): string {
+  if (remaining <= 0) return "Clôture auto imminente";
+  if (remaining < 3_600_000) return "Clôture auto dans moins d'1 h";
+  if (remaining < 86_400_000) {
+    const h = Math.floor(remaining / 3_600_000);
+    return `Clôture auto dans ${h} h`;
+  }
+  if (remaining < 2 * 86_400_000) return "Clôture auto demain";
+  return `Clôture auto le ${new Date(dateMs).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
+}
+
+function AutoClotureTimer({ ticket, joursConfig }: { ticket: Ticket; joursConfig: number }) {
+  const eligible =
+    ticket.statut_ticket === "VALIDÉ" && !ticket.closed_at && !!ticket.validated_at;
+  if (!eligible) return null;
+
+  const dateClotureMs = new Date(ticket.validated_at!).getTime() + joursConfig * 86_400_000;
+  const remaining = dateClotureMs - Date.now();
+  const isUrgent = remaining < 86_400_000;
+  const isWarning = remaining < 2 * 86_400_000;
+
+  return (
+    <span
+      title={`Clôture automatique le ${new Date(dateClotureMs).toLocaleDateString("fr-FR")}`}
+      className={`block text-[11px] leading-none mt-1.5 tabular-nums ${
+        isUrgent
+          ? "font-medium text-red-500 dark:text-red-400"
+          : isWarning
+          ? "text-amber-500 dark:text-amber-400"
+          : "text-gray-400 dark:text-gray-500"
+      }`}
+    >
+      {clotureLabel(remaining, dateClotureMs)}
+    </span>
+  );
 }
 
 // ─── sub-components ──────────────────────────────────────────────────────────
@@ -143,6 +183,13 @@ export default function UserTicketHistory() {
     queryFn: () => getTickets({ limit: 200, userId }),
     staleTime: 30_000,
   });
+
+  const { data: siteConfig } = useQuery({
+    queryKey: ["site-config"],
+    queryFn: getSiteConfig,
+    staleTime: 5 * 60_000,
+  });
+  const joursAutoCloture = siteConfig?.jours_auto_cloture ?? 7;
 
   const allTickets: Ticket[] = data?.items ?? [];
 
@@ -333,7 +380,10 @@ export default function UserTicketHistory() {
                       </span>
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap">
-                      <UserStatutBadge ticket={t} />
+                      <div className="flex flex-col items-start gap-0.5">
+                        <UserStatutBadge ticket={t} />
+                        <AutoClotureTimer ticket={t} joursConfig={joursAutoCloture} />
+                      </div>
                     </td>
                   </tr>
                 ))}

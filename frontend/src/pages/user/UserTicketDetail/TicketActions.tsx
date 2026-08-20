@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { AlertCircle, CheckCheck, Clock, Loader2, Send, X } from "lucide-react";
+import { AlertCircle, CheckCheck, Loader2, Send, X } from "lucide-react";
 import StarPicker from "../../../components/ui/StarPicker";
 
 interface ClotureMutation {
@@ -19,7 +19,6 @@ interface SuiviMutation {
 interface TicketActionsProps {
   closed: boolean;
   hasVisibleAnswer: boolean;
-  suiviEnCours: boolean;
   cloture: ClotureMutation;
   showRating: boolean;
   setShowRating: (v: boolean) => void;
@@ -36,7 +35,6 @@ interface TicketActionsProps {
 export default function TicketActions({
   closed,
   hasVisibleAnswer,
-  suiviEnCours,
   cloture,
   showRating,
   setShowRating,
@@ -87,24 +85,13 @@ export default function TicketActions({
           Apporter une précision
         </label>
 
-        {suiviEnCours && (
-          <div className="flex items-start gap-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-2.5 text-xs text-blue-700 dark:text-blue-300">
-            <Clock size={13} className="shrink-0 mt-0.5" aria-hidden="true" />
-            <span>
-              Votre précision est en cours de traitement. Vous pourrez en poser une nouvelle une
-              fois qu'elle sera traitée.
-            </span>
-          </div>
-        )}
-
         <textarea
           ref={textareaRef}
           id="precision"
           value={precision}
           onChange={handlePrecisionChange}
-          disabled={suiviEnCours}
           placeholder="Ex. : Et dans le cas d'un contrat à durée déterminée ?"
-          className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-800 dark:text-gray-100 bg-white dark:bg-white/[0.03] placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-800 dark:text-gray-100 bg-white dark:bg-white/[0.03] placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none overflow-hidden transition-colors"
           style={{ minHeight: "80px", maxHeight: "200px" }}
           aria-describedby={suivi.isError ? "suivi-error" : undefined}
         />
@@ -147,8 +134,7 @@ export default function TicketActions({
             <button
               type="button"
               onClick={() => setShowRating(true)}
-              disabled={suiviEnCours}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-xs font-medium px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-xs font-medium px-3 py-1.5 transition-colors"
             >
               <CheckCheck size={13} aria-hidden="true" />
               Clôturer le ticket

@@ -6,6 +6,15 @@ import type { Ticket } from "../../../types";
 interface TicketInfoSidebarProps {
   ticket: Ticket;
   filStatut: FilStatut;
+  joursAutoCloture: number;
+}
+
+function clotureValue(remaining: number, dateMs: number): string {
+  if (remaining <= 0) return "Imminente";
+  if (remaining < 3_600_000) return "Dans moins d'1 h";
+  if (remaining < 86_400_000) return `Dans ${Math.floor(remaining / 3_600_000)} h`;
+  if (remaining < 2 * 86_400_000) return "Demain";
+  return new Date(dateMs).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 }
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
@@ -37,9 +46,18 @@ function StarDisplay({ value }: { value: number }) {
   );
 }
 
-export default function TicketInfoSidebar({ ticket, filStatut }: TicketInfoSidebarProps) {
+export default function TicketInfoSidebar({ ticket, filStatut, joursAutoCloture }: TicketInfoSidebarProps) {
   const closed = !!ticket.closed_at;
   const hasRatings = ticket.note_qualite !== null || ticket.note_delai !== null;
+
+  const showCountdown =
+    ticket.statut_ticket === "VALIDÉ" && !closed && !!ticket.validated_at;
+  const dateClotureMs = showCountdown
+    ? new Date(ticket.validated_at!).getTime() + joursAutoCloture * 86_400_000
+    : null;
+  const remaining = dateClotureMs !== null ? dateClotureMs - Date.now() : null;
+  const isUrgent = remaining !== null && remaining < 86_400_000;
+  const isWarning = remaining !== null && remaining < 2 * 86_400_000;
 
   return (
     <div className="w-full lg:w-72 shrink-0">
@@ -60,6 +78,23 @@ export default function TicketInfoSidebar({ ticket, filStatut }: TicketInfoSideb
           <InfoRow label="Statut">
             <FilBadge statut={filStatut} />
           </InfoRow>
+
+          {showCountdown && remaining !== null && dateClotureMs !== null && (
+            <InfoRow label="Clôture automatique prévue">
+              <span
+                role="status"
+                className={`text-sm tabular-nums ${
+                  isUrgent
+                    ? "font-medium text-red-600 dark:text-red-400"
+                    : isWarning
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-gray-800 dark:text-gray-100"
+                }`}
+              >
+                {clotureValue(remaining, dateClotureMs)}
+              </span>
+            </InfoRow>
+          )}
 
           {closed && (
             <InfoRow label="Clôturée le">{formatDate(ticket.closed_at)}</InfoRow>
@@ -88,7 +123,7 @@ export default function TicketInfoSidebar({ ticket, filStatut }: TicketInfoSideb
 
         <div className="pt-4 border-t border-gray-100 dark:border-white/[0.06]">
           <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Référence</dt>
-          <dd className="text-xs text-gray-400 dark:text-gray-500 font-mono break-all leading-relaxed">
+          <dd className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate" title={ticket.id}>
             {ticket.id}
           </dd>
         </div>
