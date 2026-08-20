@@ -9,10 +9,11 @@ import {
   Search,
   ArrowUpDown,
   Inbox,
+  Layers,
 } from "lucide-react";
 import { getTickets } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import type { Ticket, StatutTicket } from "../../types";
+import type { Ticket, StatutTicket, Domaine } from "../../types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -135,10 +136,18 @@ function StatusBadge({ statut, canonique, closed, processing, reponseSource }: {
   );
 }
 
-function EmptyState({ hasFilters, isClosed }: { hasFilters: boolean; isClosed: boolean }) {
+function DomaineBadge({ domaine }: { domaine: string }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-white/10 dark:text-slate-300 dark:border-white/10 whitespace-nowrap">
+      {domaine}
+    </span>
+  );
+}
+
+function EmptyState({ hasFilters, isClosed, colSpan }: { hasFilters: boolean; isClosed: boolean; colSpan: number }) {
   return (
     <tr>
-      <td colSpan={4}>
+      <td colSpan={colSpan}>
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
           <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center shadow-sm">
             <Inbox size={20} className="text-gray-400 dark:text-gray-500" />
@@ -167,22 +176,28 @@ export default function TicketsList() {
   const navigate = useNavigate();
   const { userDomaines } = useAuth();
 
+  const multiDomain = userDomaines.length > 1;
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<FilterView>("tous");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const [domainFilter, setDomainFilter] = useState<string>("tous");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, filter]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, filter, domainFilter]);
+
+  const queryDomaines = domainFilter === "tous" ? userDomaines : undefined;
+  const queryDomaine = domainFilter !== "tous" ? domainFilter as Domaine : undefined;
 
   const { data: countData } = useQuery({
-    queryKey: ["tickets", "counts", userDomaines],
-    queryFn: () => getTickets({ limit: 200, closed: false, domaines: userDomaines, disponibles: true }),
+    queryKey: ["tickets", "counts", userDomaines, domainFilter],
+    queryFn: () => getTickets({ limit: 200, closed: false, domaines: queryDomaines, domaine: queryDomaine, disponibles: true }),
     staleTime: 30_000,
   });
 
@@ -199,12 +214,13 @@ export default function TicketsList() {
   const isClosed = filter === "clotures";
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["tickets", isClosed ? "closed" : "open", page, userDomaines, debouncedSearch, filter],
+    queryKey: ["tickets", isClosed ? "closed" : "open", page, userDomaines, domainFilter, debouncedSearch, filter],
     queryFn: () => getTickets({
       page,
       limit: LIMIT,
       closed: isClosed,
-      domaines: userDomaines,
+      domaines: queryDomaines,
+      domaine: queryDomaine,
       disponibles: isClosed ? undefined : true,
       search: debouncedSearch || undefined,
       statut: serverStatut(filter),
@@ -278,6 +294,24 @@ export default function TicketsList() {
         {/* Séparateur */}
         <div className="w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
 
+        {/* Filtre domaine — uniquement si plusieurs groupes */}
+        {multiDomain && (
+          <div className="relative shrink-0 inline-flex items-center gap-1.5">
+            <Layers size={12} className="absolute left-2.5 text-gray-400 dark:text-gray-500 pointer-events-none" aria-hidden="true" />
+            <select
+              value={domainFilter}
+              onChange={(e) => setDomainFilter(e.target.value)}
+              className="pl-7 pr-6 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 appearance-none transition-shadow"
+              aria-label="Filtrer par domaine"
+            >
+              <option value="tous">Tous les domaines</option>
+              {userDomaines.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Recherche */}
         <div className="relative shrink-0">
           <Search
@@ -316,6 +350,11 @@ export default function TicketsList() {
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">
                   Créé
                 </th>
+                {multiDomain && (
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">
+                    Domaine
+                  </th>
+                )}
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
                   Statut
                 </th>
@@ -336,6 +375,11 @@ export default function TicketsList() {
                   <td className="px-5 py-4 hidden sm:table-cell">
                     <div className="h-3 bg-gray-100 dark:bg-white/5 rounded w-16" />
                   </td>
+                  {multiDomain && (
+                    <td className="px-5 py-4 hidden md:table-cell">
+                      <div className="h-5 bg-gray-100 dark:bg-white/5 rounded w-12" />
+                    </td>
+                  )}
                   <td className="px-5 py-4">
                     <div className="h-5 bg-gray-100 dark:bg-white/5 rounded-full w-20" />
                   </td>
@@ -354,7 +398,7 @@ export default function TicketsList() {
 
               {/* Empty */}
               {!isLoading && !error && sorted.length === 0 && (
-                <EmptyState hasFilters={hasFilters} isClosed={isClosed} />
+                <EmptyState hasFilters={hasFilters} isClosed={isClosed} colSpan={multiDomain ? 5 : 4} />
               )}
 
               {/* Rows */}
@@ -423,6 +467,13 @@ export default function TicketsList() {
                     >
                       {formatDateShort(t.created_at)}
                     </td>
+
+                    {/* Domaine */}
+                    {multiDomain && (
+                      <td className="px-5 py-4 hidden md:table-cell">
+                        <DomaineBadge domaine={t.domaine} />
+                      </td>
+                    )}
 
                     {/* Statut */}
                     <td className="px-5 py-4 whitespace-nowrap">
