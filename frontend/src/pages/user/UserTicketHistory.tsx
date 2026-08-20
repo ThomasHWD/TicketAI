@@ -173,24 +173,15 @@ export default function UserTicketHistory() {
     <div className="p-6 space-y-5">
 
       {/* ── Page header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
-            Mon historique
-          </h1>
-          {!isLoading && allTickets.length > 0 && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 tabular-nums border border-gray-200/60 dark:border-white/[0.08]">
-              {allTickets.length}
-            </span>
-          )}
-        </div>
-        <button
-          onClick={() => navigate("/nouveau-ticket")}
-          className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3 py-1.5 rounded-md transition-colors shrink-0"
-        >
-          <Plus size={14} aria-hidden="true" />
-          Nouvelle question
-        </button>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
+          Mon historique
+        </h1>
+        {!isLoading && allTickets.length > 0 && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 tabular-nums border border-gray-200/60 dark:border-white/[0.08]">
+            {allTickets.length}
+          </span>
+        )}
       </div>
 
       {/* ── Toolbar : onglets | recherche ───────────────────────────────── */}
@@ -247,6 +238,18 @@ export default function UserTicketHistory() {
             </button>
           )}
         </div>
+
+        {/* Séparateur */}
+        <div className="w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
+
+        {/* CTA */}
+        <button
+          onClick={() => navigate("/nouveau-ticket")}
+          className="inline-flex items-center gap-1.5 shrink-0 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <Plus size={14} aria-hidden="true" />
+          Nouvelle question
+        </button>
       </div>
 
       {/* ── Table ───────────────────────────────────────────────────────── */}
