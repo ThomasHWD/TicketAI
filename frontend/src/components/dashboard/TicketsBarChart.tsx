@@ -6,8 +6,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  Legend,
 } from "recharts";
+import { useTheme } from "../../hooks/useTheme";
 
 interface DayData {
   date: string;
@@ -39,7 +39,8 @@ const TITRE: Record<Periode, string> = {
 };
 
 export default function TicketsBarChart({ nouveaux, traitement, loading = false, periode = "mois" }: TicketsLineChartProps) {
-  const isDark = document.documentElement.classList.contains("dark");
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   if (loading) {
     return (
@@ -60,9 +61,21 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
 
   return (
     <div className="glass-card p-5 rounded-2xl h-full flex flex-col">
-      <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-5 shrink-0">
-        {TITRE[periode]}
-      </h3>
+      <div className="flex items-center justify-between mb-5 shrink-0">
+        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {TITRE[periode]}
+        </h3>
+        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: isDark ? "#60a5fa" : "#3b82f6" }} />
+            À traiter
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: isDark ? "#34d399" : "#10b981" }} />
+            En traitement
+          </span>
+        </div>
+      </div>
       <div className="flex-1 min-h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
@@ -96,15 +109,9 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formatter={(value: any, name: any) => [
                 value,
-                name === "nouveaux" ? "Nouveaux tickets" : "Tickets en traitement",
+                name === "nouveaux" ? "À traiter" : "En traitement",
               ]}
               labelStyle={{ fontWeight: 600, marginBottom: 4 }}
-            />
-            <Legend
-              formatter={(value) =>
-                value === "nouveaux" ? "Nouveaux tickets" : "Tickets en traitement"
-              }
-              wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
             />
             <Line
               type="monotone"

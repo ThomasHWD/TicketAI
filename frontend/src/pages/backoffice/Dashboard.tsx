@@ -1,17 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle,
   Archive,
+  Activity,
   Clock,
-  Lightbulb,
   ChevronDown,
+  ChevronUp,
   UsersRound,
   RefreshCw,
   Timer,
+  AlertTriangle,
+  ClipboardList,
+  CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
-import { getDashboardStats, listDocuments } from "../../lib/api";
+import { getDashboardStats, listDocuments, getTickets } from "../../lib/api";
 import StatCard from "../../components/dashboard/StatCard";
 import DonutChart from "../../components/dashboard/DonutChart";
 import TicketsBarChart from "../../components/dashboard/TicketsBarChart";
@@ -74,10 +79,12 @@ export default function Dashboard() {
   const [domaine, setDomaine] = useState<string>(
     userDomaines.length === 1 ? userDomaines[0] : "",
   );
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [analyticsOpen, setAnalyticsOpen] = useState(() => localStorage.getItem("dashboard-analytics") !== "0");
 
   const filterDomaine = domaine || undefined;
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsError, dataUpdatedAt: statsUpdatedAt } = useQuery({
     queryKey: ["dashboard-stats", filterDomaine, periode],
     queryFn: () => getDashboardStats(filterDomaine, periode),
     staleTime: 60_000,
@@ -85,7 +92,11 @@ export default function Dashboard() {
     enabled: onglet === "overview",
   });
 
-  const { data: docsData, isLoading: docsLoading } = useQuery({
+  useEffect(() => {
+    if (statsUpdatedAt > 0) setLastUpdated(new Date(statsUpdatedAt));
+  }, [statsUpdatedAt]);
+
+  const { data: docsData, isLoading: docsLoading, isError: docsError } = useQuery({
     queryKey: ["dashboard-docs", filterDomaine],
     queryFn: () =>
       listDocuments(
@@ -97,6 +108,42 @@ export default function Dashboard() {
     enabled: onglet === "overview",
   });
 
+  const { data: pendingData, isLoading: pendingLoading, isError: pendingError } = useQuery({
+    queryKey: ["dashboard-pending", filterDomaine],
+    queryFn: () =>
+      getTickets({
+        statut: "RÉPONDU",
+        limit: 1,
+        domaines: filterDomaine
+          ? [filterDomaine]
+          : userDomaines.length > 0
+            ? userDomaines
+            : undefined,
+      }),
+    staleTime: 30_000,
+    enabled: onglet === "overview",
+  });
+
+  const pendingCount = pendingData?.total ?? 0;
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["dashboard-stats", filterDomaine, periode] }),
+      queryClient.refetchQueries({ queryKey: ["dashboard-docs", filterDomaine] }),
+      queryClient.refetchQueries({ queryKey: ["dashboard-pending", filterDomaine] }),
+    ]);
+    setRefreshing(false);
+    setLastUpdated(new Date());
+  }
+
+  function formatLastUpdated(d: Date): string {
+    const mins = Math.floor((Date.now() - d.getTime()) / 60_000);
+    if (mins < 1) return "à l'instant";
+    if (mins === 1) return "il y a 1 min";
+    return `il y a ${mins} min`;
+  }
+
   return (
     <div className="min-h-full flex flex-col">
       {showInsatisfaits && (
@@ -107,12 +154,12 @@ export default function Dashboard() {
         />
       )}
 
-      {/* ── Page header ─────────────────────────────────────────────── */}
+      {/* ── En-tête ──────────────────────────────────────────────────── */}
       <div className="border-b border-gray-100 dark:border-white/8 px-6 py-5 shrink-0">
         <div className="max-w-screen-xl mx-auto flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-              Dashboard
+              Tableau de bord
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 capitalize">
               {new Date().toLocaleDateString("fr-FR", {
@@ -152,6 +199,7 @@ export default function Dashboard() {
                 <button
                   key={p.value}
                   onClick={() => setPeriode(p.value)}
+                  aria-pressed={periode === p.value}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                     periode === p.value
                       ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-100 shadow-sm"
@@ -163,19 +211,23 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Rafraîchir */}
-            <button
-              onClick={async () => {
-                setRefreshing(true);
-                await queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-                await queryClient.invalidateQueries({ queryKey: ["dashboard-docs"] });
-                setRefreshing(false);
-              }}
-              className="p-1.5 rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
-              title="Rafraîchir"
-            >
-              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            </button>
+            {/* Rafraîchir + timestamp */}
+            <div className="flex items-center gap-2">
+              {lastUpdated && !refreshing && (
+                <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
+                  Mis à jour {formatLastUpdated(lastUpdated)}
+                </span>
+              )}
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-1.5 rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Rafraîchir les données"
+                title="Rafraîchir"
+              >
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -195,110 +247,209 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Content ──────────────────────────────────────────────────── */}
+      {/* ── Contenu ──────────────────────────────────────────────────── */}
       <div className="max-w-screen-xl mx-auto w-full px-6 py-6 space-y-5 flex-1">
         {onglet === "overview" && (
           <>
-            {/* KPI — 6 cartes */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-              <StatCard
-                title="Nouveaux tickets"
-                value={stats?.stats_cartes.nouveaux.valeur ?? 0}
-                variation={stats?.stats_cartes.nouveaux.variation ?? 0}
-                hausse={stats?.stats_cartes.nouveaux.hausse ?? true}
-                icon={Lightbulb}
-                iconColor="text-blue-500"
-                loading={statsLoading}
-              />
-              <StatCard
-                title="En cours"
-                value={stats?.stats_cartes.en_cours.valeur ?? 0}
-                variation={stats?.stats_cartes.en_cours.variation ?? 0}
-                hausse={stats?.stats_cartes.en_cours.hausse ?? true}
-                icon={Clock}
-                iconColor="text-amber-500"
-                loading={statsLoading}
-              />
-              <StatCard
-                title="Autonomie"
-                value={stats?.stats_cartes.repondu_canonique.valeur ?? 0}
-                variation={stats?.stats_cartes.repondu_canonique.variation ?? 0}
-                hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true}
-                icon={CheckCircle}
-                iconColor="text-emerald-500"
-                loading={statsLoading}
-                suffix="%"
-                subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} réponses auto`}
-                variationUnit=" pts"
-              />
-              <StatCard
-                title="Clôturés"
-                value={stats?.stats_cartes.tickets_clotures.valeur ?? 0}
-                variation={stats?.stats_cartes.tickets_clotures.variation ?? 0}
-                hausse={stats?.stats_cartes.tickets_clotures.hausse ?? true}
-                icon={Archive}
-                iconColor="text-violet-500"
-                loading={statsLoading}
-              />
-              <StatCard
-                title="Délai 1ère réponse"
-                value={stats?.stats_cartes.temps_premiere_reponse.valeur ?? 0}
-                variation={stats?.stats_cartes.temps_premiere_reponse.variation ?? 0}
-                hausse={stats?.stats_cartes.temps_premiere_reponse.hausse ?? true}
-                icon={Clock}
-                iconColor="text-orange-500"
-                formatter={formatDuration}
-                loading={statsLoading}
-              />
-              <StatCard
-                title="Délai clôture"
-                value={stats?.stats_cartes.temps_cloture.valeur ?? 0}
-                variation={stats?.stats_cartes.temps_cloture.variation ?? 0}
-                hausse={stats?.stats_cartes.temps_cloture.hausse ?? true}
-                icon={Timer}
-                iconColor="text-rose-500"
-                formatter={formatDuration}
-                loading={statsLoading}
-              />
-            </div>
+            {/* ── Hero file d'attente ───────────────────────────────────── */}
+            {pendingLoading ? (
+              <div className="glass-card rounded-xl px-6 py-5 animate-pulse flex items-center gap-6">
+                <div className="h-10 w-14 bg-gray-200 dark:bg-white/10 rounded" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-4 w-52 bg-gray-200 dark:bg-white/10 rounded" />
+                  <div className="h-3 w-32 bg-gray-200 dark:bg-white/10 rounded" />
+                </div>
+                <div className="h-9 w-48 bg-gray-200 dark:bg-white/10 rounded-lg ml-auto" />
+              </div>
+            ) : pendingError ? (
+              <div className="glass-card rounded-xl px-6 py-4 flex items-center gap-3 border border-red-200 dark:border-red-500/20">
+                <AlertTriangle size={16} className="text-red-500 shrink-0" />
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex-1">
+                  Impossible de charger la file d'attente.
+                </p>
+                <button
+                  onClick={() => queryClient.refetchQueries({ queryKey: ["dashboard-pending", filterDomaine] })}
+                  className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
+                >
+                  Réessayer
+                </button>
+              </div>
+            ) : pendingCount === 0 ? (
+              <div className="glass-card rounded-xl px-6 py-3.5 flex items-center gap-3 ring-1 ring-emerald-300/50 dark:ring-emerald-500/25">
+                <CheckCircle2 size={15} className="text-emerald-500 dark:text-emerald-400 shrink-0" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  File vide —{" "}
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                    aucun ticket en attente
+                  </span>{" "}
+                  de validation.
+                </span>
+              </div>
+            ) : (
+              <Link
+                to="/tickets"
+                state={{ filter: "en_attente", domaine: filterDomaine ?? "tous" }}
+                className="glass-card rounded-xl px-6 py-5 flex items-center gap-5 ring-1 ring-amber-300/50 dark:ring-amber-500/25 hover:shadow-md transition-shadow group"
+              >
+                <div className="flex items-baseline gap-3 shrink-0">
+                  <span className="text-5xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-gray-100 leading-none">
+                    {pendingCount}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">
+                      tickets en attente de validation
+                    </p>
+                  </div>
+                </div>
+                <div className="ml-auto flex items-center gap-2 shrink-0">
+                  <span className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 group-hover:bg-emerald-700 text-white text-sm font-medium transition-colors">
+                    <ClipboardList size={14} />
+                    Commencer la validation
+                  </span>
+                </div>
+              </Link>
+            )}
 
-            {/* Section analytique : BarChart (2/3) + panel droit (1/3) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2">
-                <TicketsBarChart
-                  nouveaux={stats?.tickets_par_jour ?? []}
-                  traitement={stats?.traitement_par_jour ?? []}
+            {/* ── KPI analytiques — 5 cartes ou erreur ─────────────────── */}
+            {statsError ? (
+              <div className="glass-card rounded-xl p-5 flex items-center gap-3">
+                <AlertTriangle size={16} className="text-red-500 shrink-0" />
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex-1">
+                  Impossible de charger les statistiques. Vérifiez la connexion au serveur.
+                </p>
+                <button
+                  onClick={() => queryClient.refetchQueries({ queryKey: ["dashboard-stats", filterDomaine, periode] })}
+                  className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
+                >
+                  Réessayer
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-0.5">
+                  Statistiques · {PERIODES.find((p) => p.value === periode)?.label}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+                  <StatCard
+                    title="En cours"
+                    value={stats?.stats_cartes.en_cours.valeur ?? 0}
+                    variation={stats?.stats_cartes.en_cours.variation ?? 0}
+                    hausse={stats?.stats_cartes.en_cours.hausse ?? true}
+                    icon={Activity}
+                    iconColor="text-amber-500"
+                    iconBg="bg-amber-50 dark:bg-amber-500/10"
+                    loading={statsLoading}
+                    featured
+                  />
+                  <StatCard
+                    title="Réponses auto"
+                    value={stats?.stats_cartes.repondu_canonique.valeur ?? 0}
+                    variation={stats?.stats_cartes.repondu_canonique.variation ?? 0}
+                    hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true}
+                    icon={CheckCircle}
+                    iconColor="text-emerald-500"
+                    loading={statsLoading}
+                    suffix="%"
+                    subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} sans relecture humaine`}
+                    variationUnit=" pts"
+                  />
+                  <StatCard
+                    title="Clôturés"
+                    value={stats?.stats_cartes.tickets_clotures.valeur ?? 0}
+                    variation={stats?.stats_cartes.tickets_clotures.variation ?? 0}
+                    hausse={stats?.stats_cartes.tickets_clotures.hausse ?? true}
+                    icon={Archive}
+                    iconColor="text-violet-500"
+                    loading={statsLoading}
+                  />
+                  <StatCard
+                    title="Délai 1ère réponse"
+                    value={stats?.stats_cartes.temps_premiere_reponse.valeur ?? 0}
+                    variation={stats?.stats_cartes.temps_premiere_reponse.variation ?? 0}
+                    hausse={stats?.stats_cartes.temps_premiere_reponse.hausse ?? true}
+                    icon={Clock}
+                    iconColor="text-orange-500"
+                    formatter={formatDuration}
+                    loading={statsLoading}
+                    positiveIsUp={false}
+                  />
+                  <StatCard
+                    title="Délai clôture"
+                    value={stats?.stats_cartes.temps_cloture.valeur ?? 0}
+                    variation={stats?.stats_cartes.temps_cloture.variation ?? 0}
+                    hausse={stats?.stats_cartes.temps_cloture.hausse ?? true}
+                    icon={Timer}
+                    iconColor="text-rose-500"
+                    formatter={formatDuration}
+                    loading={statsLoading}
+                    positiveIsUp={false}
+                  />
+                </div>
+                <HorsDomaineCard
+                  count={stats?.repartition_branches.find((b) => b.branche === "HORS_DOMAINE")?.count ?? 0}
+                  pct={stats?.repartition_branches.find((b) => b.branche === "HORS_DOMAINE")?.pct ?? 0}
                   loading={statsLoading}
-                  periode={periode}
                 />
               </div>
+            )}
 
-              <div className="flex flex-col gap-4">
-                <DonutChart
-                  data={stats?.repartition_statuts ?? []}
-                  loading={statsLoading}
-                  periode={periode}
-                />
-                <SatisfactionCard
-                  data={stats?.satisfaction ?? null}
-                  loading={statsLoading}
-                  onVoirInsatisfaits={() => setShowInsatisfaits(true)}
-                />
-              </div>
-            </div>
+            {/* Séparateur zones action / analytique */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = !analyticsOpen;
+                setAnalyticsOpen(next);
+                localStorage.setItem("dashboard-analytics", next ? "1" : "0");
+              }}
+              className="flex items-center gap-3 w-full group"
+            >
+              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8" />
+              <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 shrink-0 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
+                Analytiques
+                {analyticsOpen ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              </span>
+              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8" />
+            </button>
 
-            {/* Sujets hors domaine */}
-            <HorsDomaineCard
-              count={stats?.repartition_branches.find((b) => b.branche === "HORS_DOMAINE")?.count ?? 0}
-              pct={stats?.repartition_branches.find((b) => b.branche === "HORS_DOMAINE")?.pct ?? 0}
-              loading={statsLoading}
-            />
+            {analyticsOpen && (
+              <>
+                {/* Section analytique : BarChart (2/3) + panel droit (1/3) */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="lg:col-span-2">
+                    <TicketsBarChart
+                      nouveaux={stats?.tickets_par_jour ?? []}
+                      traitement={stats?.traitement_par_jour ?? []}
+                      loading={statsLoading}
+                      periode={periode}
+                    />
+                  </div>
 
-            {/* Flux récents */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <RecentTickets tickets={stats?.derniers_tickets ?? []} loading={statsLoading} />
-              <RecentDocs docs={docsData?.items ?? []} loading={docsLoading} />
-            </div>
+                  <div className="flex flex-col gap-4">
+                    <DonutChart
+                      data={stats?.repartition_statuts ?? []}
+                      loading={statsLoading}
+                      periode={periode}
+                    />
+                    <SatisfactionCard
+                      data={stats?.satisfaction ?? null}
+                      loading={statsLoading}
+                      onVoirInsatisfaits={() => setShowInsatisfaits(true)}
+                    />
+                  </div>
+                </div>
+
+                {/* Flux récents */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <RecentTickets tickets={stats?.derniers_tickets ?? []} loading={statsLoading} />
+                  <RecentDocs
+                    docs={docsData?.items ?? []}
+                    loading={docsLoading}
+                    error={docsError}
+                    onRetry={() => queryClient.refetchQueries({ queryKey: ["dashboard-docs", filterDomaine] })}
+                  />
+                </div>
+              </>
+            )}
           </>
         )}
 

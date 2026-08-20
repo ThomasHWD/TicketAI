@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, FileSearch, FolderOpen, Loader2, Plus, Search, X } from "lucide-react";
 import { deleteDocument, listDocuments } from "../../../lib/api";
@@ -191,6 +191,8 @@ type OngletId = typeof ONGLETS[number]["id"];
 export default function KnowledgeBase() {
   const queryClient = useQueryClient();
   const { isAdmin, visibles, inscriptibles } = useDomaines();
+  const location = useLocation();
+  const highlightDocId = (location.state as { highlight?: string } | null)?.highlight;
 
   const [searchParams, setSearchParams] = useSearchParams();
   const ongletParam = searchParams.get("onglet") as OngletId | null;
@@ -443,6 +445,7 @@ export default function KnowledgeBase() {
                 onMettreAJour: (doc) => setMaj({ doc }),
                 onSupprimer: setSuppression,
               }}
+              highlightDocId={highlightDocId}
             />
           )
         )}

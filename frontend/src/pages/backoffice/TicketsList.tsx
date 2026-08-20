@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronLeft,
@@ -174,16 +174,19 @@ const SKELETON_WIDTHS = ["w-3/4", "w-2/3", "w-4/5", "w-1/2", "w-3/5", "w-5/6"];
 
 export default function TicketsList() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { userDomaines } = useAuth();
 
   const multiDomain = userDomaines.length > 1;
 
+  const locationState = location.state as { filter?: FilterView; domaine?: string } | null;
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filter, setFilter] = useState<FilterView>("tous");
+  const [filter, setFilter] = useState<FilterView>(locationState?.filter ?? "tous");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
-  const [domainFilter, setDomainFilter] = useState<string>("tous");
+  const [domainFilter, setDomainFilter] = useState<string>(locationState?.domaine ?? "tous");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);

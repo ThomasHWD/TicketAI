@@ -1,4 +1,5 @@
 import type { RepartitionBranche } from "../../lib/api";
+import { useTheme } from "../../hooks/useTheme";
 
 const BRANCHE_CONFIG: Record<string, { label: string; color: string; darkColor: string }> = {
   CANONIQUE:    { label: "Canonique",      color: "#8b5cf6", darkColor: "#a78bfa" },
@@ -13,6 +14,9 @@ interface BranchesDonutProps {
 }
 
 export default function BranchesDonut({ data, loading = false }: BranchesDonutProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   if (loading) {
     return (
       <div className="glass-card p-5 rounded-2xl animate-pulse space-y-4">
@@ -30,7 +34,6 @@ export default function BranchesDonut({ data, loading = false }: BranchesDonutPr
     );
   }
 
-  const isDark = document.documentElement.classList.contains("dark");
   const total = data.reduce((s, d) => s + d.count, 0);
 
   return (

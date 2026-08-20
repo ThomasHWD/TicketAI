@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { BookX, CheckCircle2, ArrowRight } from "lucide-react";
+import { BookX, ArrowRight } from "lucide-react";
 
 interface HorsDomaineCardProps {
   count: number;
@@ -20,18 +20,7 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
     );
   }
 
-  if (count === 0) {
-    return (
-      <div className="glass-card rounded-xl px-4 py-2.5 flex items-center gap-3">
-        <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 shrink-0">
-          <CheckCircle2 size={12} className="text-emerald-500 dark:text-emerald-400" />
-        </div>
-        <span className="text-sm text-gray-500 dark:text-gray-400 flex-1">
-          Documentation complète — aucun sujet non couvert sur cette période.
-        </span>
-      </div>
-    );
-  }
+  if (count === 0) return null;
 
   return (
     <button
