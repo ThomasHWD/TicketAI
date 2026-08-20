@@ -36,9 +36,7 @@ async def liste_tickets(
     try:
         query = db.query(Ticket).options(selectinload(Ticket.reponses))
 
-        if current_user.role == "ADMIN":
-            pass
-        elif current_user.groupes:
+        if current_user.groupes:
             own_request = False
             if user_id:
                 try:

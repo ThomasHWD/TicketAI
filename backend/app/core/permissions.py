@@ -21,8 +21,6 @@ def check_ticket_read(ticket: Ticket, current_user: User) -> None:
 
     Admin = accès global. Backoffice = domaine du ticket. Lambda = propriétaire.
     """
-    if current_user.role == "ADMIN":
-        return
     if current_user.groupes:
         if ticket.user_id == current_user.id:
             return
