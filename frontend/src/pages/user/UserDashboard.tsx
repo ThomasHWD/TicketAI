@@ -207,8 +207,8 @@ export default function UserDashboard() {
               Posez votre première question
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
-              Notre assistant IA vous répond en quelques instants sur vos sujets
-              RH, IT ou Juridique — avec relecture humaine pour les cas complexes.
+              Vos questions seront traitées par nos équipes.
+              Suivez l'avancement de vos demandes dans votre espace personnel.
             </p>
           </div>
           <button
