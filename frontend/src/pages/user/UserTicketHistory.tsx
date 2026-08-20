@@ -245,9 +245,9 @@ export default function UserTicketHistory() {
         {/* CTA */}
         <button
           onClick={() => navigate("/nouveau-ticket")}
-          className="inline-flex items-center gap-1.5 shrink-0 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          className="inline-flex items-center gap-1.5 shrink-0 text-sm font-medium px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
         >
-          <Plus size={14} aria-hidden="true" />
+          <Plus size={14} className="text-emerald-500" aria-hidden="true" />
           Nouvelle question
         </button>
       </div>
