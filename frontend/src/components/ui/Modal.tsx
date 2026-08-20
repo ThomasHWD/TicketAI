@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 /**
@@ -24,6 +24,9 @@ export default function Modal({
   footer?: ReactNode;
   widthClass?: string;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -32,12 +35,39 @@ export default function Modal({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    const selector =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusables = el.querySelectorAll<HTMLElement>(selector);
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const prev = document.activeElement as HTMLElement | null;
+    first?.focus();
+
+    function trap(e: KeyboardEvent) {
+      if (e.key !== "Tab" || focusables.length === 0) return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    }
+
+    document.addEventListener("keydown", trap);
+    return () => {
+      document.removeEventListener("keydown", trap);
+      prev?.focus();
+    };
+  }, []);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-labelledby={titleId}
     >
       <button
         type="button"
@@ -47,6 +77,7 @@ export default function Modal({
       />
 
       <div
+        ref={dialogRef}
         className={`relative flex max-h-[86vh] w-full ${widthClass} flex-col overflow-hidden
           rounded-2xl border border-gray-200 bg-white shadow-2xl
           dark:border-white/10 dark:bg-[#141416]`}
@@ -58,7 +89,7 @@ export default function Modal({
                 {eyebrow}
               </p>
             )}
-            <h2 className="truncate text-base font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+            <h2 id={titleId} className="truncate text-base font-semibold tracking-tight text-gray-900 dark:text-gray-50">
               {title}
             </h2>
           </div>

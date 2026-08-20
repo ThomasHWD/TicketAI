@@ -189,6 +189,7 @@ function FilterBar({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher…"
+          aria-label="Rechercher un ticket"
           className="pl-7 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:placeholder:text-gray-500 w-44"
         />
       </div>
