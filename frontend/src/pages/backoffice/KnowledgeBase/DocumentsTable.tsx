@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Download,
   Eye,
@@ -44,14 +44,24 @@ function LigneDocument({
   doc,
   peutEcrire,
   actions,
+  highlightDocId,
 }: {
   doc: IndexedDocument;
   peutEcrire: boolean;
   actions: ActionsDocument;
+  highlightDocId?: string;
 }) {
   const [telechargement, setTelechargement] = useState(false);
   const [erreurTelechargement, setErreurTelechargement] = useState(false);
   const enMaj = doc.statut === "EN_MAJ";
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  const isHighlighted = doc.doc_id === highlightDocId;
+
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [isHighlighted]);
 
   async function telecharger() {
     setTelechargement(true);
@@ -94,7 +104,10 @@ function LigneDocument({
   ];
 
   return (
-    <tr className="group transition-colors hover:bg-gray-50/70 dark:hover:bg-white/[0.025]">
+    <tr
+      ref={rowRef}
+      className={`group transition-colors hover:bg-gray-50/70 dark:hover:bg-white/[0.025] ${isHighlighted ? "ring-1 ring-inset ring-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-500/8" : ""}`}
+    >
       <td className="px-5 py-3">
         <div className="flex items-start gap-2.5">
           <span className="mt-0.5">
@@ -164,11 +177,13 @@ export default function DocumentsTable({
   docs,
   estInscriptible,
   actions,
+  highlightDocId,
 }: {
   docs: IndexedDocument[];
   /** Un document n'est modifiable que par un membre de son domaine. */
   estInscriptible: (doc: IndexedDocument) => boolean;
   actions: ActionsDocument;
+  highlightDocId?: string;
 }) {
   return (
     <table className="w-full">
@@ -189,6 +204,7 @@ export default function DocumentsTable({
             doc={doc}
             peutEcrire={estInscriptible(doc)}
             actions={actions}
+            highlightDocId={highlightDocId}
           />
         ))}
       </tbody>

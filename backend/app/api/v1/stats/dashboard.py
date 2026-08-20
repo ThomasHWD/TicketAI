@@ -301,6 +301,18 @@ def get_dashboard_stats(
             .limit(5)
             .all()
         )
+        ticket_ids = [t.id for t in derniers_tickets_rows]
+        source_by_ticket: dict = {}
+        if ticket_ids:
+            reponse_source_rows = (
+                db.query(Reponse.ticket_id, Reponse.source)
+                .filter(Reponse.ticket_id.in_(ticket_ids))
+                .order_by(Reponse.ticket_id, Reponse.created_at.desc())
+                .all()
+            )
+            for row in reponse_source_rows:
+                if row.ticket_id not in source_by_ticket:
+                    source_by_ticket[row.ticket_id] = row.source
         derniers_tickets = [
             {
                 "id": str(t.id),
@@ -308,6 +320,7 @@ def get_dashboard_stats(
                 "domaine": t.domaine,
                 "statut_ticket": t.statut_ticket,
                 "statut_job": t.statut_job,
+                "branche": source_by_ticket.get(t.id),
                 "created_at": t.created_at.isoformat() if t.created_at else None,
             }
             for t in derniers_tickets_rows
