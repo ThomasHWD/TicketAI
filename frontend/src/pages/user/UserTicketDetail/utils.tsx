@@ -12,12 +12,12 @@ export const FIL_STATUT_META: Record<FilStatut, { label: string; className: stri
   answered: {
     label: "Répondu",
     className:
-      "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
   },
   processing: {
-    label: "En cours de traitement",
+    label: "En traitement",
     className:
-      "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
+      "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
   },
   rejected: {
     label: "Sans réponse",
@@ -33,9 +33,9 @@ export function FilBadge({ statut }: { statut: FilStatut }) {
       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${className}`}
     >
       {statut === "closed" ? (
-        <Lock size={11} aria-hidden="true" />
+        <Lock size={10} aria-hidden="true" />
       ) : (
-        <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
+        <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" aria-hidden="true" />
       )}
       {label}
     </span>

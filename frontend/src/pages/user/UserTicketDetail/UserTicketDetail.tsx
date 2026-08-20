@@ -10,6 +10,19 @@ import ConversationThread from "./ConversationThread";
 import TicketActions from "./TicketActions";
 import TicketInfoSidebar from "./TicketInfoSidebar";
 
+function LoadingSkeleton() {
+  return (
+    <div className="p-6 space-y-5 max-w-5xl animate-pulse" aria-hidden="true">
+      <div className="h-4 w-32 rounded-md bg-gray-100 dark:bg-white/5" />
+      <div className="space-y-2">
+        <div className="h-3 w-20 rounded bg-gray-100 dark:bg-white/5" />
+        <div className="h-6 w-2/3 rounded-lg bg-gray-100 dark:bg-white/5" />
+      </div>
+      <div className="glass-card rounded-2xl h-64" />
+    </div>
+  );
+}
+
 export default function UserTicketDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -35,7 +48,8 @@ export default function UserTicketDetail() {
   });
 
   const suivi = useMutation({
-    mutationFn: () => poserSuivi(id!, { question: precision.trim(), user_id: getValidatorId() }),
+    mutationFn: () =>
+      poserSuivi(id!, { question: precision.trim(), user_id: getValidatorId() }),
     onSuccess: () => {
       setPrecision("");
       setAwaitingCount(reponsesCountRef.current);
@@ -83,27 +97,26 @@ export default function UserTicketDetail() {
 
   const BackButton = (
     <button
-      onClick={() => navigate(-1)}
-      className="group inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-xl border border-white/60 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-emerald-50/70 hover:text-emerald-700 hover:border-emerald-200/60 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-400 dark:hover:border-emerald-400/20 shadow-sm transition-all duration-200"
+      onClick={() => navigate("/historique")}
+      className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors group"
       aria-label="Retour à mon historique"
     >
-      <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5" />
+      <ArrowLeft
+        size={15}
+        aria-hidden="true"
+        className="transition-transform duration-150 group-hover:-translate-x-0.5"
+      />
       Retour à l'historique
     </button>
   );
 
-  if (loading)
-    return (
-      <div className="p-6 text-center text-gray-500 dark:text-gray-400" aria-live="polite">
-        Chargement…
-      </div>
-    );
+  if (loading) return <LoadingSkeleton />;
 
   if (error || !ticket) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="p-6 space-y-4 max-w-5xl">
         {BackButton}
-        <p className="text-red-600 dark:text-red-400" role="alert">
+        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
           {error instanceof Error ? error.message : "Question introuvable"}
         </p>
       </div>
@@ -111,11 +124,12 @@ export default function UserTicketDetail() {
   }
 
   return (
-    <div className="p-6 space-y-4 max-w-6xl">
+    <div className="p-6 space-y-5 max-w-5xl">
       {BackButton}
 
+      {/* Page header */}
       <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
+        <div className="space-y-0.5 flex-1 min-w-0">
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             {ticket.domaine}
           </p>
@@ -123,11 +137,14 @@ export default function UserTicketDetail() {
             {ticket.objet ?? ticket.question}
           </h1>
         </div>
-        <FilBadge statut={filStatut} />
+        <div className="shrink-0 pt-1">
+          <FilBadge statut={filStatut} />
+        </div>
       </div>
 
-      <div className="flex gap-5 items-start">
-        <div className="flex-1 min-w-0 space-y-4">
+      {/* Content — conversation left, sidebar right */}
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
+        <div className="flex-1 min-w-0 space-y-4 w-full">
           <ConversationThread
             question={ticket.question}
             created_at={ticket.created_at}
