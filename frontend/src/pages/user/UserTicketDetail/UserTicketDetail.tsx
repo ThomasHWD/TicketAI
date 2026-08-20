@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { getTicket, getReponsesByTicket, poserSuivi, cloturerTicket } from "../../../lib/api";
+import { getSiteConfig } from "../../../lib/api/admin";
 import { useAuth } from "../../../lib/auth";
 import { getValidatorId } from "../../../lib/currentUser";
 import { deriveFilStatut, FilBadge } from "./utils";
@@ -40,6 +41,13 @@ export default function UserTicketDetail() {
     queryFn: () => getTicket(id!),
     enabled: !!id,
   });
+
+  const { data: siteConfig } = useQuery({
+    queryKey: ["site-config"],
+    queryFn: getSiteConfig,
+    staleTime: 5 * 60_000,
+  });
+  const joursAutoCloture = siteConfig?.jours_auto_cloture ?? 7;
 
   const reponsesQuery = useQuery({
     queryKey: ["ticket", id, "reponses"],
@@ -150,11 +158,10 @@ export default function UserTicketDetail() {
             created_at={ticket.created_at}
             reponses={reponses}
           />
-          {isOwner && (
+          {isOwner && !suiviEnCours && (
             <TicketActions
               closed={closed}
               hasVisibleAnswer={hasVisibleAnswer}
-              suiviEnCours={suiviEnCours}
               cloture={cloture}
               showRating={showRating}
               setShowRating={setShowRating}
@@ -169,7 +176,7 @@ export default function UserTicketDetail() {
             />
           )}
         </div>
-        <TicketInfoSidebar ticket={ticket} filStatut={filStatut} />
+        <TicketInfoSidebar ticket={ticket} filStatut={filStatut} joursAutoCloture={joursAutoCloture} />
       </div>
     </div>
   );

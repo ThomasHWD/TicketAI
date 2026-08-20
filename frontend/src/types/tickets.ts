@@ -22,6 +22,8 @@ export interface Ticket {
   created_at: string | null;
   // Clôture par l'utilisateur (null = ouvert).
   closed_at: string | null;
+  // Date de validation (point de départ du délai de clôture automatique).
+  validated_at: string | null;
   // Notes de satisfaction (1–5), collectées à la clôture (null si non renseignées).
   note_qualite: number | null;
   note_delai: number | null;
