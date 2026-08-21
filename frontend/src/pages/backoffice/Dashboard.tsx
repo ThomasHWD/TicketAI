@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   ClipboardList,
   CheckCircle2,
+  X,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { getDashboardStats, listDocuments, getTickets } from "../../lib/api";
@@ -85,6 +86,7 @@ export default function Dashboard() {
   const [showInsatisfaits, setShowInsatisfaits] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [analyticsOpen, setAnalyticsOpen] = useState(() => localStorage.getItem("dashboard-analytics") !== "0");
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => localStorage.getItem("onboarding-dashboard") === "1");
   const [searchParams, setSearchParams] = useSearchParams();
 
   const onglet = (searchParams.get("onglet") as Onglet) || "overview";
@@ -142,9 +144,9 @@ export default function Dashboard() {
     const sugg = items.filter((t) => t.branche === "SUGGESTION").length;
     const auto = items.filter((t) => t.branche === "CANONIQUE").length;
     const parts: string[] = [];
-    if (rag > 0) parts.push(`${rag} RAG`);
-    if (sugg > 0) parts.push(`${sugg} Sugg.`);
-    if (auto > 0) parts.push(`${auto} Auto`);
+    if (rag > 0) parts.push(`${rag} généré${rag > 1 ? "s" : ""} par IA`);
+    if (sugg > 0) parts.push(`${sugg} suggestion${sugg > 1 ? "s" : ""}`);
+    if (auto > 0) parts.push(`${auto} automatique${auto > 1 ? "s" : ""}`);
     return parts.length > 0 ? parts.join(" · ") : null;
   })();
   const isDataStale = lastUpdated != null && Date.now() - lastUpdated.getTime() > 2 * 60_000;
@@ -306,6 +308,7 @@ export default function Dashboard() {
             className="max-w-screen-xl mx-auto flex"
             role="tablist"
             aria-label="Vues du tableau de bord"
+            aria-orientation="horizontal"
             onKeyDown={(e) => {
               if (e.key === "ArrowRight" && onglet === "overview") {
                 setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("onglet", "equipe"); return next; }, { replace: true });
@@ -329,6 +332,27 @@ export default function Dashboard() {
       <div className="max-w-screen-xl mx-auto w-full px-6 py-6 space-y-5 flex-1">
         {onglet === "overview" && (
           <div id="tabpanel-overview" role="tabpanel" aria-labelledby="tab-overview" className="space-y-5">
+            {/* ── Onboarding (première visite) ─────────────────────────── */}
+            {!onboardingDismissed && (
+              <div role="note" className="glass-card rounded-2xl px-5 py-4 flex items-start gap-4 border border-emerald-200 dark:border-emerald-500/20">
+                <div className="flex-1 space-y-1">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Bienvenue dans votre tableau de bord</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    La <strong className="font-medium text-gray-700 dark:text-gray-300">file d'attente</strong> liste les tickets auxquels l'IA a répondu et qui attendent votre avis.
+                    Les tickets <strong className="font-medium">générés par IA</strong> et les <strong className="font-medium">suggestions</strong> nécessitent votre validation.
+                    Les tickets <strong className="font-medium">automatiques</strong> (canoniques) sont déjà validés — aucune action requise.
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setOnboardingDismissed(true); localStorage.setItem("onboarding-dashboard", "1"); }}
+                  className="shrink-0 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
+                  aria-label="Fermer le message d'accueil"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             {/* ── Hero file d'attente ───────────────────────────────────── */}
             {pendingLoading ? (
               <div className="glass-card rounded-2xl px-6 py-5 animate-pulse flex items-center gap-5">
@@ -381,17 +405,12 @@ export default function Dashboard() {
                       tickets en attente de validation
                     </p>
                     {pendingBranchSummary && (
-                      <div className="mt-0.5">
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
-                          {pendingBranchSummary}
-                          {pendingTruncated && (
-                            <span className="text-gray-400 dark:text-gray-500 ml-1">(100 premiers)</span>
-                          )}
-                        </p>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                          RAG = généré par IA · Sugg. = à vérifier · Auto = validé sans relecture
-                        </p>
-                      </div>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums mt-0.5">
+                        {pendingBranchSummary}
+                        {pendingTruncated && (
+                          <span className="text-gray-400 dark:text-gray-500 ml-1">(100 premiers)</span>
+                        )}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -508,8 +527,11 @@ export default function Dashboard() {
                   setAnalyticsOpen(next);
                   localStorage.setItem("dashboard-analytics", next ? "1" : "0");
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-white/8 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/14 hover:text-gray-700 dark:hover:text-gray-300 transition-colors shrink-0"
+                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-white/8 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/14 hover:text-gray-700 dark:hover:text-gray-300 transition-colors shrink-0"
               >
+                {(docsError || statsError) && !analyticsOpen && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" aria-label="Erreur dans les analytiques" />
+                )}
                 {analyticsOpen ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
                 {analyticsOpen ? "Masquer les analytiques" : "Afficher les analytiques"}
               </button>

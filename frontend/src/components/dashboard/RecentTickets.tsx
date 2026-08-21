@@ -66,25 +66,9 @@ export default function RecentTickets({ tickets, loading = false }: RecentTicket
   return (
     <div className="glass-card p-5 rounded-2xl space-y-3">
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-            Derniers tickets
-          </h3>
-          <div className="flex items-center gap-3 mt-0.5">
-            <span className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" aria-hidden="true" />
-              Auto = canonique
-            </span>
-            <span className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" aria-hidden="true" />
-              Sugg. = suggéré
-            </span>
-            <span className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" aria-hidden="true" />
-              RAG = généré par IA
-            </span>
-          </div>
-        </div>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+          Derniers tickets
+        </h3>
         <Link
           to="/tickets"
           className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"

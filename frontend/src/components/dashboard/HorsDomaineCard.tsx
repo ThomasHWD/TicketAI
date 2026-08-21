@@ -25,8 +25,8 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
       to="/angles-morts"
       className="glass-card rounded-2xl px-4 py-2.5 flex items-center gap-3 w-full hover:shadow-md transition-shadow group"
     >
-      <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-purple-50 dark:bg-purple-500/10 shrink-0">
-        <BookX size={12} className="text-purple-600 dark:text-purple-400" />
+      <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-500/10 shrink-0">
+        <BookX size={12} className="text-amber-600 dark:text-amber-400" />
       </div>
 
       <span className="text-sm text-gray-600 dark:text-gray-400 flex-1 min-w-0">
@@ -36,7 +36,7 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
         <span className="block text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">questions sans document correspondant</span>
       </span>
 
-      <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-purple-600 dark:text-purple-400 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors">
+      <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
         Voir le détail
         <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform duration-100" />
       </span>
