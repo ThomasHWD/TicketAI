@@ -73,7 +73,6 @@ export default function StatCard({
     <div
       role="group"
       aria-labelledby={titleId}
-      title={subtitle ? `${title} — ${subtitle}` : title}
       className={`glass-card p-4 rounded-2xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}
     >
       {/* Label */}
