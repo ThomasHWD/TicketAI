@@ -85,6 +85,11 @@ export default function SavedAnswers() {
         </p>
       </div>
 
+      {/* Persistent live region — toujours dans le DOM pour compatibilité SR legacy */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {loading ? "Chargement en cours…" : ""}
+      </div>
+
       <div className="glass-card rounded-2xl overflow-hidden">
         <SavedAnswersHeader
           onglet={onglet}

@@ -106,7 +106,7 @@ export default function SavedAnswersHeader({
   return (
     <>
       {/* Toolbar: tabs + search on one row */}
-      <div className="flex items-center justify-between gap-4 px-4 border-b border-gray-100 dark:border-white/8">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 border-b border-gray-100 dark:border-white/8">
         <div
           ref={tablistRef}
           className="flex items-center gap-0.5"
@@ -165,7 +165,7 @@ export default function SavedAnswersHeader({
                 onClick={() => onSearchChange("")}
                 aria-label="Effacer la recherche"
                 tabIndex={showSearch ? 0 : -1}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 transition-colors"
               >
                 <X size={12} aria-hidden="true" />
               </button>
