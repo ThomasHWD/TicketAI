@@ -24,10 +24,10 @@ const STATUT_META: Record<string, { prefix: string; label: string }> = {
   REJETÉ:  { prefix: "✕", label: "Rejeté" },
 };
 
-const BRANCHE_BADGE: Record<string, { label: string; className: string }> = {
-  CANONIQUE:  { label: "Auto",  className: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300" },
-  SUGGESTION: { label: "Sugg.", className: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300" },
-  LLM:        { label: "RAG",   className: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300" },
+const BRANCHE_BADGE: Record<string, { label: string; className: string; ariaLabel: string }> = {
+  CANONIQUE:  { label: "Auto",       className: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300", ariaLabel: "Réponse automatique (canonique)" },
+  SUGGESTION: { label: "Suggestion", className: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",          ariaLabel: "Réponse suggérée à vérifier" },
+  LLM:        { label: "IA",         className: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",              ariaLabel: "Réponse générée par IA" },
 };
 
 function StatutBadge({ statut }: { statut: string }) {
@@ -100,7 +100,10 @@ export default function RecentTickets({ tickets, loading = false }: RecentTicket
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   <span className="text-xs text-gray-500 dark:text-gray-400">{t.domaine}</span>
                   {t.branche && BRANCHE_BADGE[t.branche] && (
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${BRANCHE_BADGE[t.branche].className}`}>
+                    <span
+                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${BRANCHE_BADGE[t.branche].className}`}
+                      aria-label={BRANCHE_BADGE[t.branche].ariaLabel}
+                    >
                       {BRANCHE_BADGE[t.branche].label}
                     </span>
                   )}
