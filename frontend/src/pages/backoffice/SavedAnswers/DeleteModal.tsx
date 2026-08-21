@@ -35,14 +35,14 @@ export default function DeleteModal({ target, mutation, onClose }: Props) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Confirmer la suppression"
       onClick={() => !mutation.isPending && onClose()}
     >
       <div
         ref={panelRef}
-        className="w-full max-w-md rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-gray-950 shadow-[0_8px_48px_0_rgba(0,0,0,0.18)] overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-modal-title"
+        className="w-full max-w-md rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#141416] shadow-[0_8px_48px_0_rgba(0,0,0,0.18)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
@@ -53,7 +53,7 @@ export default function DeleteModal({ target, mutation, onClose }: Props) {
               <AlertTriangle size={15} className="text-red-500" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50">
+              <h3 id="delete-modal-title" className="text-sm font-semibold text-gray-900 dark:text-gray-50">
                 {target.obsolete
                   ? "Supprimer définitivement ?"
                   : "Supprimer cette réponse canonique ?"}
