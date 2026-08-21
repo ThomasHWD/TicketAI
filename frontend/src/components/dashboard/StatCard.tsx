@@ -12,6 +12,7 @@ interface StatCardProps {
   suffix?: string;
   subtitle?: string;
   variationUnit?: string;
+  variationLabel?: string;
   formatter?: (value: number) => string;
   positiveIsUp?: boolean;
   featured?: boolean;
@@ -29,6 +30,7 @@ export default function StatCard({
   suffix = "",
   subtitle,
   variationUnit = "%",
+  variationLabel,
   formatter,
   positiveIsUp = true,
   featured = false,
@@ -46,7 +48,8 @@ export default function StatCard({
     );
   }
 
-  const isNeutral = variation === 0;
+  const safeVariation = Number.isFinite(variation) ? variation : 0;
+  const isNeutral = safeVariation === 0;
   const TrendIcon = isNeutral ? Minus : hausse ? TrendingUp : TrendingDown;
   const isGood = positiveIsUp ? hausse : !hausse;
   const trendColor = isNeutral
@@ -73,7 +76,7 @@ export default function StatCard({
       title={subtitle ? `${title} — ${subtitle}` : title}
       className={`glass-card p-4 rounded-2xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}
     >
-      {/* Label — en haut pour contextualiser le chiffre immédiatement */}
+      {/* Label */}
       <p id={titleId} className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider leading-none">
         {title}
       </p>
@@ -90,26 +93,31 @@ export default function StatCard({
           )}
         </div>
         {subtitle && (
-          <p id={subtitleId} className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 leading-none">{subtitle}</p>
+          <p id={subtitleId} className="text-xs text-gray-400 dark:text-gray-500 mt-1 leading-snug">{subtitle}</p>
         )}
       </div>
 
-      {/* Icône + tendance — épinglés en bas */}
+      {/* Icône + tendance */}
       <div className="flex items-center justify-between mt-auto">
         <div className={`w-7 h-7 flex items-center justify-center rounded-lg ${iconBg ?? "bg-gray-50 dark:bg-white/8"} ${iconColor}`}>
           <Icon size={14} />
         </div>
-        <div
-          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${trendBg} ${trendColor}`}
-          aria-label={`Variation : ${isNeutral ? "Stable" : `${variation > 0 ? "+" : ""}${variation}${variationUnit}`}${!isNeutral && !positiveIsUp ? (isGood ? " (amélioration)" : " (dégradation)") : ""}`}
-          title={!isNeutral && !positiveIsUp ? (isGood ? "Amélioration" : "Dégradation") : undefined}
-        >
-          <TrendIcon size={9} />
-          <span>
-            {isNeutral
-              ? "Stable"
-              : `${variation > 0 ? "+" : ""}${variation}${variationUnit}`}
-          </span>
+        <div className="flex flex-col items-end gap-0.5">
+          <div
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${trendBg} ${trendColor}`}
+            aria-label={`Variation : ${isNeutral ? "Stable" : `${safeVariation > 0 ? "+" : ""}${safeVariation}${variationUnit}`}${!isNeutral && !positiveIsUp ? (isGood ? " (amélioration)" : " (dégradation)") : ""}`}
+            title={!isNeutral && !positiveIsUp ? (isGood ? "Amélioration" : "Dégradation") : undefined}
+          >
+            <TrendIcon size={9} />
+            <span>
+              {isNeutral
+                ? "Stable"
+                : `${safeVariation > 0 ? "+" : ""}${safeVariation}${variationUnit}`}
+            </span>
+          </div>
+          {variationLabel && !isNeutral && (
+            <span className="text-[9px] text-gray-400 dark:text-gray-500 tabular-nums">{variationLabel}</span>
+          )}
         </div>
       </div>
     </div>

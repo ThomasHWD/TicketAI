@@ -134,6 +134,7 @@ export default function Dashboard() {
 
   const pendingCount = pendingData?.total ?? 0;
   const pendingTruncated = pendingData != null && pendingData.total > pendingData.items.length;
+  const variationLabel = { semaine: "vs sem. préc.", mois: "vs mois préc.", annee: "vs an préc." }[periode];
   const pendingBranchSummary = (() => {
     const items = pendingData?.items as Array<{ branche?: string | null }> | undefined;
     if (!items?.length) return null;
@@ -204,7 +205,9 @@ export default function Dashboard() {
             {/* Sélecteur domaine (vue d'ensemble seulement, si plusieurs domaines) */}
             {onglet === "overview" && userDomaines.length > 1 && (
               <div className="relative">
+                <label htmlFor="domaine-select" className="sr-only">Filtrer par domaine</label>
                 <select
+                  id="domaine-select"
                   value={domaine}
                   onChange={(e) => {
                     const d = e.target.value;
@@ -299,7 +302,18 @@ export default function Dashboard() {
       {/* ── Tabs (chef seulement) ────────────────────────────────────── */}
       {isChef && (
         <div className="border-b border-gray-100 dark:border-white/8 px-6 shrink-0">
-          <div className="max-w-screen-xl mx-auto flex" role="tablist">
+          <div
+            className="max-w-screen-xl mx-auto flex"
+            role="tablist"
+            aria-label="Vues du tableau de bord"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight" && onglet === "overview") {
+                setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("onglet", "equipe"); return next; }, { replace: true });
+              } else if (e.key === "ArrowLeft" && onglet === "equipe") {
+                setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete("onglet"); return next; }, { replace: true });
+              }
+            }}
+          >
             <TabButton id="tab-overview" controls="tabpanel-overview" active={onglet === "overview"} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete("onglet"); return next; }, { replace: true })}>
               Vue d'ensemble
             </TabButton>
@@ -355,6 +369,7 @@ export default function Dashboard() {
               <Link
                 to="/tickets"
                 state={{ filter: "en_attente", domaine: filterDomaine ?? "tous" }}
+                aria-label={`${pendingCount} ticket${pendingCount > 1 ? "s" : ""} en attente de validation — accéder à la file`}
                 className="glass-card rounded-2xl px-6 py-5 flex items-center gap-5 ring-1 ring-amber-300/50 dark:ring-amber-500/25 hover:shadow-md transition-shadow group"
               >
                 <div className="flex items-baseline gap-3 shrink-0">
@@ -394,7 +409,7 @@ export default function Dashboard() {
               <div className="glass-card rounded-2xl p-5 flex items-center gap-3">
                 <AlertTriangle size={16} className="text-red-500 shrink-0" />
                 <p className="text-sm text-gray-600 dark:text-gray-400 flex-1">
-                  Impossible de charger les statistiques. Vérifiez la connexion au serveur.
+                  Impossible de charger les statistiques. Réessayez dans quelques instants.
                 </p>
                 <button
                   onClick={() => queryClient.refetchQueries({ queryKey: ["dashboard-stats", filterDomaine, periode] })}
@@ -405,9 +420,9 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
                   Indicateurs · {PERIODES.find((p) => p.value === periode)?.label}
-                </p>
+                </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
                   <StatCard
                     title="En cours"
@@ -419,6 +434,7 @@ export default function Dashboard() {
                     iconBg="bg-amber-50 dark:bg-amber-500/10"
                     loading={statsLoading}
                     subtitle="tickets ouverts sur la période"
+                    variationLabel={variationLabel}
                     featured
                   />
                   <StatCard
@@ -432,6 +448,7 @@ export default function Dashboard() {
                     suffix="%"
                     subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} tickets sans validation humaine`}
                     variationUnit=" pts"
+                    variationLabel={variationLabel}
                   />
                   <StatCard
                     title="Clôturés"
@@ -442,6 +459,7 @@ export default function Dashboard() {
                     iconColor="text-violet-500"
                     loading={statsLoading}
                     subtitle="validés ou rejetés sur la période"
+                    variationLabel={variationLabel}
                   />
                   <StatCard
                     title="Délai 1ère réponse"
@@ -454,6 +472,7 @@ export default function Dashboard() {
                     loading={statsLoading}
                     positiveIsUp={false}
                     subtitle="dépôt ticket → 1ère réponse IA"
+                    variationLabel={variationLabel}
                   />
                   <StatCard
                     title="Délai clôture"
@@ -466,6 +485,7 @@ export default function Dashboard() {
                     loading={statsLoading}
                     positiveIsUp={false}
                     subtitle="dépôt ticket → validation finale"
+                    variationLabel={variationLabel}
                   />
                 </div>
                 <HorsDomaineCard
@@ -496,12 +516,11 @@ export default function Dashboard() {
               <div className="flex-1 h-px bg-gray-100 dark:bg-white/8" />
             </div>
 
-            {analyticsOpen && (
-              <div id="analytics-section" className="space-y-4">
+            <div id="analytics-section" className="space-y-4" hidden={!analyticsOpen}>
                 {/* Tendances */}
-                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
                   Tendances
-                </p>
+                </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="lg:col-span-2">
                     <TicketsBarChart
@@ -527,9 +546,9 @@ export default function Dashboard() {
                 </div>
 
                 {/* Activité récente */}
-                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
                   Activité récente
-                </p>
+                </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <RecentTickets tickets={stats?.derniers_tickets ?? []} loading={statsLoading} />
                   <RecentDocs
@@ -539,8 +558,7 @@ export default function Dashboard() {
                     onRetry={() => queryClient.refetchQueries({ queryKey: ["dashboard-docs", filterDomaine] })}
                   />
                 </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
