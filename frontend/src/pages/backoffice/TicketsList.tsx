@@ -708,8 +708,7 @@ export default function TicketsList() {
                     }`}
                     onClick={() => { if (!locked) navigate(`/tickets/${t.id}`); }}
                     onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !locked) navigate(`/tickets/${t.id}`); }}
-                    tabIndex={0}
-                    aria-disabled={locked || undefined}
+                    tabIndex={locked ? -1 : 0}
                     aria-label={`${title}${locked ? ` — non disponible, pris en charge par ${lockedEmail}` : ""}`}
                   >
                     {/* Objet */}
