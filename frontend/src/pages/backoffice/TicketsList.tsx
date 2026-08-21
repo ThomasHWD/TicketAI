@@ -644,7 +644,7 @@ export default function TicketsList() {
               {!isLoading && error && errorMsg && (
                 <tr>
                   <td colSpan={colCount} className="px-5 py-12 text-center">
-                    <div className="flex flex-col items-center gap-4">
+                    <div className="flex flex-col items-center gap-4" role="alert">
                       <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-center justify-center shadow-sm">
                         <AlertTriangle size={20} className="text-red-500 dark:text-red-400" aria-hidden="true" />
                       </div>
@@ -706,10 +706,11 @@ export default function TicketsList() {
                         ? "cursor-default opacity-75 hover:opacity-90 hover:bg-amber-50/30 dark:hover:bg-amber-500/5"
                         : "cursor-pointer hover:bg-gray-50/80 dark:hover:bg-white/[0.03]"
                     }`}
-                    onClick={() => navigate(`/tickets/${t.id}`)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
+                    onClick={() => { if (!locked) navigate(`/tickets/${t.id}`); }}
+                    onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !locked) navigate(`/tickets/${t.id}`); }}
                     tabIndex={0}
-                    aria-label={`Voir le ticket : ${title}${locked ? ` — non disponible, pris en charge par ${lockedEmail}` : ""}`}
+                    aria-disabled={locked || undefined}
+                    aria-label={`${title}${locked ? ` — non disponible, pris en charge par ${lockedEmail}` : ""}`}
                   >
                     {/* Objet */}
                     <td className="px-5 py-4">
