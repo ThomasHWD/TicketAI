@@ -328,7 +328,7 @@ export default function Dashboard() {
       {/* ── Contenu ──────────────────────────────────────────────────── */}
       <div className="max-w-screen-xl mx-auto w-full px-6 py-6 space-y-5 flex-1">
         {onglet === "overview" && (
-          <div id="tabpanel-overview" role="tabpanel" aria-labelledby="tab-overview" className="contents">
+          <div id="tabpanel-overview" role="tabpanel" aria-labelledby="tab-overview" className="space-y-5">
             {/* ── Hero file d'attente ───────────────────────────────────── */}
             {pendingLoading ? (
               <div className="glass-card rounded-2xl px-6 py-5 animate-pulse flex items-center gap-5">
