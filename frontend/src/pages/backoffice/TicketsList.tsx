@@ -149,13 +149,13 @@ function getStatutMeta(
   };
 }
 
-function getErrorMessage(error: unknown): { title: string; detail: string } {
+function getErrorMessage(error: unknown): { title: string; detail: string; loginPath?: boolean } {
   if (typeof navigator !== "undefined" && !navigator.onLine) {
     return { title: "Pas de connexion", detail: "Vérifiez votre connexion internet et réessayez." };
   }
   if (error && typeof error === "object") {
     const status = (error as Record<string, unknown>).status;
-    if (status === 401 || status === 403) return { title: "Session expirée", detail: "Reconnectez-vous pour continuer." };
+    if (status === 401 || status === 403) return { title: "Session expirée", detail: "Votre session a expiré.", loginPath: true };
     if (typeof status === "number" && status >= 500) return { title: "Serveur temporairement indisponible", detail: "Réessayez dans quelques minutes." };
   }
   return { title: "Impossible de charger les tickets", detail: "Vérifiez votre connexion et réessayez." };
@@ -354,7 +354,7 @@ export default function TicketsList() {
 
   const isClosed = filter === "clotures";
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["tickets", isClosed ? "closed" : "open", page, userDomaines, domainFilter, debouncedSearch, filter],
     queryFn: () => getTickets({
       page,
@@ -383,6 +383,7 @@ export default function TicketsList() {
     : filtered;
 
   const errorMsg = error ? getErrorMessage(error) : null;
+  const isFetchingBg = isFetching && !isLoading;
   const hasFilters = !!debouncedSearch || filter !== "tous";
   const colCount = multiDomain ? 5 : 4;
 
@@ -650,12 +651,21 @@ export default function TicketsList() {
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{errorMsg.title}</p>
                         <p className="text-xs text-gray-400 dark:text-gray-500">{errorMsg.detail}</p>
                       </div>
-                      <button
-                        onClick={() => refetch()}
-                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-                      >
-                        Réessayer
-                      </button>
+                      {errorMsg.loginPath ? (
+                        <a
+                          href="/login"
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+                        >
+                          Se reconnecter
+                        </a>
+                      ) : (
+                        <button
+                          onClick={() => refetch()}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+                        >
+                          Réessayer
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -790,8 +800,13 @@ export default function TicketsList() {
         {/* Pagination */}
         {!isLoading && total > 0 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/40 dark:bg-white/[0.01]">
-            <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+            <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums flex items-center gap-2">
               {from}–{to} sur {total} ticket{total > 1 ? "s" : ""}
+              {isFetchingBg && (
+                <span className="text-gray-300 dark:text-gray-600 italic" aria-live="polite" aria-label="Actualisation en cours">
+                  Actualisation…
+                </span>
+              )}
             </span>
             <div className="flex items-center gap-1">
               <button
