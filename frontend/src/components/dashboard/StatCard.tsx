@@ -98,7 +98,7 @@ export default function StatCard({
       {/* Icône + tendance */}
       <div className="flex items-center justify-between mt-auto">
         <div className={`w-7 h-7 flex items-center justify-center rounded-lg ${iconBg ?? "bg-gray-50 dark:bg-white/8"} ${iconColor}`}>
-          <Icon size={14} />
+          <Icon size={14} aria-hidden="true" />
         </div>
         <div className="flex flex-col items-end gap-0.5">
           <div

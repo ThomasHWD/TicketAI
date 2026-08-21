@@ -134,7 +134,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const timestamps = [statsUpdatedAt, docsUpdatedAt, pendingUpdatedAt].filter(t => t > 0);
-    if (timestamps.length > 0) setLastUpdated(new Date(Math.min(...timestamps)));
+    if (timestamps.length > 0) setLastUpdated(new Date(Math.max(...timestamps)));
   }, [statsUpdatedAt, docsUpdatedAt, pendingUpdatedAt]);
 
   const pendingCount = pendingData?.total ?? 0;
@@ -152,7 +152,7 @@ export default function Dashboard() {
     if (auto > 0) parts.push(`${auto} automatique${auto > 1 ? "s" : ""}`);
     return parts.length > 0 ? parts.join(" · ") : null;
   })();
-  const isDataStale = lastUpdated != null && Date.now() - lastUpdated.getTime() > 2 * 60_000;
+  const isDataStale = [statsUpdatedAt, docsUpdatedAt, pendingUpdatedAt].some(t => t > 0 && Date.now() - t > 2 * 60_000);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -206,10 +206,10 @@ export default function Dashboard() {
               </h1>
               <button
                 onClick={() => { setOnboardingDismissed(false); localStorage.removeItem("onboarding-dashboard"); }}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
                 aria-label="Revoir le guide de démarrage"
               >
-                <HelpCircle size={12} aria-hidden="true" />
+                <HelpCircle size={13} aria-hidden="true" />
                 <span>Aide</span>
               </button>
             </div>
