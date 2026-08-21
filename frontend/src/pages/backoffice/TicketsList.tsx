@@ -72,10 +72,11 @@ const FILTER_TABS: { value: FilterView; label: string; title: string }[] = [
   { value: "clotures",   label: "Clôturés",   title: "Tickets fermés définitivement" },
 ];
 
-const TAB_HINTS: Partial<Record<FilterView, string>> = {
+const TAB_HINTS: Record<FilterView, string> = {
+  tous: "Vue complète — utilisez les onglets ou les raccourcis 1–4 pour filtrer par statut.",
   en_attente: "Ces tickets attendent votre validation — la réponse IA est prête à être vérifiée.",
   en_cours: "Tickets traités ou canoniques — aucune action requise de votre part.",
-  clotures: "Tickets fermés définitivement.",
+  clotures: "Tickets fermés définitivement — disponibles en consultation uniquement.",
 };
 
 const BRANCHE_CHIP: Record<string, { label: string; ariaLabel: string; className: string }> = {
@@ -595,9 +596,7 @@ export default function TicketsList() {
       </div>
 
       {/* Tab context hint */}
-      {TAB_HINTS[filter] && (
-        <p className="text-xs text-gray-400 dark:text-gray-500 -mt-2 px-1">{TAB_HINTS[filter]}</p>
-      )}
+      <p className="text-xs text-gray-400 dark:text-gray-500 -mt-2 px-1">{TAB_HINTS[filter]}</p>
 
       {/* ── Table ─────────────────────────────────────────────────────────── */}
       <div id="tickets-table" className="glass-card rounded-xl overflow-hidden" role="tabpanel" aria-labelledby={`filter-tab-${filter}`}>
