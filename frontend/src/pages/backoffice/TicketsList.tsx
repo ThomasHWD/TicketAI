@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   X,
+  Loader2,
 } from "lucide-react";
 import { getTickets } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
@@ -803,7 +804,8 @@ export default function TicketsList() {
             <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums flex items-center gap-2">
               {from}–{to} sur {total} ticket{total > 1 ? "s" : ""}
               {isFetchingBg && (
-                <span className="text-gray-300 dark:text-gray-600 italic" aria-live="polite" aria-label="Actualisation en cours">
+                <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400" aria-live="polite" aria-label="Actualisation en cours">
+                  <Loader2 size={11} className="animate-spin" aria-hidden="true" />
                   Actualisation…
                 </span>
               )}
