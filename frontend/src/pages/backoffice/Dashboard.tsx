@@ -81,6 +81,7 @@ export default function Dashboard() {
   const { userDomaines, isChef } = useAuth();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
   const [showInsatisfaits, setShowInsatisfaits] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [analyticsOpen, setAnalyticsOpen] = useState(() => localStorage.getItem("dashboard-analytics") !== "0");
@@ -148,13 +149,20 @@ export default function Dashboard() {
 
   async function handleRefresh() {
     setRefreshing(true);
+    setRefreshError(false);
     await Promise.all([
       queryClient.refetchQueries({ queryKey: ["dashboard-stats", filterDomaine, periode] }),
       queryClient.refetchQueries({ queryKey: ["dashboard-docs", filterDomaine] }),
       queryClient.refetchQueries({ queryKey: ["dashboard-pending", filterDomaine] }),
     ]);
     setRefreshing(false);
-    setLastUpdated(new Date());
+    const hadError = (
+      queryClient.getQueryState(["dashboard-stats", filterDomaine, periode])?.status === "error" ||
+      queryClient.getQueryState(["dashboard-docs", filterDomaine])?.status === "error" ||
+      queryClient.getQueryState(["dashboard-pending", filterDomaine])?.status === "error"
+    );
+    if (hadError) setRefreshError(true);
+    else setLastUpdated(new Date());
   }
 
   function formatLastUpdated(d: Date): string {
@@ -260,7 +268,10 @@ export default function Dashboard() {
 
             {/* Rafraîchir + timestamp */}
             <div className="flex items-center gap-2">
-              {lastUpdated && !refreshing && (
+              {refreshError && !refreshing && (
+                <span role="alert" className="text-xs text-red-500 dark:text-red-400">Échec du rafraîchissement</span>
+              )}
+              {lastUpdated && !refreshing && !refreshError && (
                 <span
                   role="status"
                   aria-live="polite"
@@ -305,13 +316,15 @@ export default function Dashboard() {
           <div id="tabpanel-overview" role="tabpanel" aria-labelledby="tab-overview" className="contents">
             {/* ── Hero file d'attente ───────────────────────────────────── */}
             {pendingLoading ? (
-              <div className="glass-card rounded-2xl px-6 py-5 animate-pulse flex items-center gap-6">
-                <div className="h-10 w-14 bg-gray-200 dark:bg-white/10 rounded" />
-                <div className="space-y-2 flex-1">
-                  <div className="h-4 w-52 bg-gray-200 dark:bg-white/10 rounded" />
-                  <div className="h-3 w-32 bg-gray-200 dark:bg-white/10 rounded" />
+              <div className="glass-card rounded-2xl px-6 py-5 animate-pulse flex items-center gap-5">
+                <div className="flex items-baseline gap-3 shrink-0">
+                  <div className="h-12 w-12 bg-gray-200 dark:bg-white/10 rounded" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-44 bg-gray-200 dark:bg-white/10 rounded" />
+                    <div className="h-3 w-28 bg-gray-200 dark:bg-white/10 rounded" />
+                  </div>
                 </div>
-                <div className="h-9 w-48 bg-gray-200 dark:bg-white/10 rounded-lg ml-auto" />
+                <div className="ml-auto h-9 w-48 bg-gray-200 dark:bg-white/10 rounded-lg shrink-0" />
               </div>
             ) : pendingError ? (
               <div className="glass-card rounded-2xl px-6 py-4 flex items-center gap-3 border border-red-200 dark:border-red-500/20">
@@ -388,7 +401,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
                   Indicateurs · {PERIODES.find((p) => p.value === periode)?.label}
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
@@ -401,6 +414,7 @@ export default function Dashboard() {
                     iconColor="text-amber-500"
                     iconBg="bg-amber-50 dark:bg-amber-500/10"
                     loading={statsLoading}
+                    subtitle="tickets ouverts sur la période"
                     featured
                   />
                   <StatCard
@@ -423,6 +437,7 @@ export default function Dashboard() {
                     icon={Archive}
                     iconColor="text-violet-500"
                     loading={statsLoading}
+                    subtitle="validés ou rejetés sur la période"
                   />
                   <StatCard
                     title="Délai 1ère réponse"
@@ -480,7 +495,7 @@ export default function Dashboard() {
             {analyticsOpen && (
               <div id="analytics-section" className="space-y-4">
                 {/* Tendances */}
-                <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
                   Tendances
                 </p>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -508,7 +523,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Activité récente */}
-                <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
                   Activité récente
                 </p>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, HelpCircle } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 interface TicketSummary {
   id: string;
@@ -52,16 +51,6 @@ interface RecentTicketsProps {
 }
 
 export default function RecentTickets({ tickets, loading = false }: RecentTicketsProps) {
-  const [showLegend, setShowLegend] = useState(false);
-
-  useEffect(() => {
-    if (!showLegend) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setShowLegend(false);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [showLegend]);
 
   if (loading) {
     return (
@@ -77,41 +66,23 @@ export default function RecentTickets({ tickets, loading = false }: RecentTicket
   return (
     <div className="glass-card p-5 rounded-2xl space-y-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+        <div>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
             Derniers tickets
           </h3>
-          <div className="relative">
-            <button
-              type="button"
-              aria-expanded={showLegend}
-              aria-describedby="branch-legend"
-              onClick={() => setShowLegend((v) => !v)}
-              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 rounded"
-            >
-              <HelpCircle size={12} />
-              <span className="sr-only">Légende des branches</span>
-            </button>
-            {showLegend && (
-              <div
-                id="branch-legend"
-                role="tooltip"
-                className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-10 w-52 bg-gray-900 dark:bg-gray-800 text-white text-[10px] rounded-lg p-2.5 shadow-lg space-y-1.5"
-              >
-                <p className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" aria-hidden="true" />
-                  Auto = validé automatiquement
-                </p>
-                <p className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" aria-hidden="true" />
-                  Sugg. = réponse suggérée
-                </p>
-                <p className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" aria-hidden="true" />
-                  RAG = généré par IA
-                </p>
-              </div>
-            )}
+          <div className="flex items-center gap-3 mt-0.5">
+            <span className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" aria-hidden="true" />
+              Auto = canonique
+            </span>
+            <span className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" aria-hidden="true" />
+              Sugg. = suggéré
+            </span>
+            <span className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" aria-hidden="true" />
+              RAG = généré par IA
+            </span>
           </div>
         </div>
         <Link
@@ -132,7 +103,7 @@ export default function RecentTickets({ tickets, loading = false }: RecentTicket
         </div>
       ) : (
         <div className="divide-y divide-gray-100 dark:divide-white/5">
-          {tickets.map((t) => (
+          {tickets.slice(0, 5).map((t) => (
             <Link
               key={t.id}
               to={`/tickets/${t.id}`}
