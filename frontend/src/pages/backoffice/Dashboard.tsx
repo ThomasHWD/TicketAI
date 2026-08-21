@@ -47,19 +47,25 @@ const PERIODES: { value: Periode; label: string }[] = [
 ];
 
 function TabButton({
+  id,
+  controls,
   active,
   onClick,
   children,
 }: {
+  id: string;
+  controls: string;
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
     <button
+      id={id}
       onClick={onClick}
       role="tab"
       aria-selected={active}
+      aria-controls={controls}
       className={`flex items-center gap-1.5 px-1 py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${
         active
           ? "border-emerald-500 text-gray-900 dark:text-gray-100"
@@ -215,12 +221,27 @@ export default function Dashboard() {
             )}
 
             {/* Sélecteur de période */}
-            <div role="radiogroup" aria-label="Période d'analyse" className="flex items-center bg-gray-100 dark:bg-white/8 rounded-lg p-0.5 gap-0.5">
+            <div
+              role="radiogroup"
+              aria-label="Période d'analyse"
+              className="flex items-center bg-gray-100 dark:bg-white/8 rounded-lg p-0.5 gap-0.5"
+              onKeyDown={(e) => {
+                const idx = PERIODES.findIndex((p) => p.value === periode);
+                if (e.key === "ArrowRight") {
+                  const next = PERIODES[(idx + 1) % PERIODES.length];
+                  setSearchParams((prev) => { const n = new URLSearchParams(prev); n.set("periode", next.value); return n; }, { replace: true });
+                } else if (e.key === "ArrowLeft") {
+                  const prev = PERIODES[(idx - 1 + PERIODES.length) % PERIODES.length];
+                  setSearchParams((p) => { const n = new URLSearchParams(p); n.set("periode", prev.value); return n; }, { replace: true });
+                }
+              }}
+            >
               {PERIODES.map((p) => (
                 <button
                   key={p.value}
                   role="radio"
                   aria-checked={periode === p.value}
+                  tabIndex={periode === p.value ? 0 : -1}
                   onClick={() => setSearchParams((prev) => {
                     const next = new URLSearchParams(prev);
                     next.set("periode", p.value);
@@ -243,7 +264,7 @@ export default function Dashboard() {
                 <span
                   role="status"
                   aria-live="polite"
-                  className={`text-xs hidden sm:inline ${isDataStale ? "text-amber-500 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}
+                  className={`text-xs ${isDataStale ? "text-amber-500 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}
                 >
                   {isDataStale && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1 align-middle animate-pulse" aria-hidden="true" />}
                   Mis à jour {formatLastUpdated(lastUpdated)}
@@ -267,10 +288,10 @@ export default function Dashboard() {
       {isChef && (
         <div className="border-b border-gray-100 dark:border-white/8 px-6 shrink-0">
           <div className="max-w-screen-xl mx-auto flex" role="tablist">
-            <TabButton active={onglet === "overview"} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete("onglet"); return next; }, { replace: true })}>
+            <TabButton id="tab-overview" controls="tabpanel-overview" active={onglet === "overview"} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete("onglet"); return next; }, { replace: true })}>
               Vue d'ensemble
             </TabButton>
-            <TabButton active={onglet === "equipe"} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("onglet", "equipe"); return next; }, { replace: true })}>
+            <TabButton id="tab-equipe" controls="tabpanel-equipe" active={onglet === "equipe"} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("onglet", "equipe"); return next; }, { replace: true })}>
               <UsersRound size={13} />
               Mon équipe
             </TabButton>
@@ -281,7 +302,7 @@ export default function Dashboard() {
       {/* ── Contenu ──────────────────────────────────────────────────── */}
       <div className="max-w-screen-xl mx-auto w-full px-6 py-6 space-y-5 flex-1">
         {onglet === "overview" && (
-          <div role="tabpanel" aria-label="Vue d'ensemble" className="contents">
+          <div id="tabpanel-overview" role="tabpanel" aria-labelledby="tab-overview" className="contents">
             {/* ── Hero file d'attente ───────────────────────────────────── */}
             {pendingLoading ? (
               <div className="glass-card rounded-2xl px-6 py-5 animate-pulse flex items-center gap-6">
@@ -437,23 +458,24 @@ export default function Dashboard() {
             )}
 
             {/* Séparateur zones action / analytique */}
-            <button
-              type="button"
-              aria-expanded={analyticsOpen}
-              onClick={() => {
-                const next = !analyticsOpen;
-                setAnalyticsOpen(next);
-                localStorage.setItem("dashboard-analytics", next ? "1" : "0");
-              }}
-              className="flex items-center gap-3 w-full group"
-            >
-              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8 group-hover:bg-gray-200 dark:group-hover:bg-white/12 transition-colors" />
-              <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors px-1">
-                {analyticsOpen ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8" />
+              <button
+                type="button"
+                aria-expanded={analyticsOpen}
+                aria-controls="analytics-section"
+                onClick={() => {
+                  const next = !analyticsOpen;
+                  setAnalyticsOpen(next);
+                  localStorage.setItem("dashboard-analytics", next ? "1" : "0");
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-white/8 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/14 hover:text-gray-700 dark:hover:text-gray-300 transition-colors shrink-0"
+              >
+                {analyticsOpen ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
                 {analyticsOpen ? "Masquer les analytiques" : "Afficher les analytiques"}
-              </span>
-              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8 group-hover:bg-gray-200 dark:group-hover:bg-white/12 transition-colors" />
-            </button>
+              </button>
+              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8" />
+            </div>
 
             {analyticsOpen && (
               <div id="analytics-section" className="space-y-4">
@@ -503,7 +525,11 @@ export default function Dashboard() {
           </div>
         )}
 
-        {onglet === "equipe" && isChef && <TeamStatsPanel periode={periode} />}
+        {onglet === "equipe" && isChef && (
+          <div id="tabpanel-equipe" role="tabpanel" aria-labelledby="tab-equipe">
+            <TeamStatsPanel periode={periode} />
+          </div>
+        )}
       </div>
     </div>
   );
