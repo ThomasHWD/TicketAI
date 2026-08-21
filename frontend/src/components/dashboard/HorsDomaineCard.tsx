@@ -24,6 +24,8 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
     <Link
       to="/angles-morts"
       className="glass-card rounded-2xl px-4 py-2.5 flex items-center gap-3 w-full hover:shadow-md transition-shadow group"
+      aria-label={`${count} sujet${count > 1 ? "s" : ""} non couvert${count > 1 ? "s" : ""} — voir les angles morts de la base de connaissances`}
+      title="Sujets abordés par des tickets mais sans document de référence dans la base de connaissances"
     >
       <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-500/10 shrink-0">
         <BookX size={12} className="text-amber-600 dark:text-amber-400" />
