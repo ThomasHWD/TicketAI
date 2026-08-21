@@ -116,7 +116,7 @@ export default function StatCard({
             </span>
           </div>
           {variationLabel && !isNeutral && (
-            <span className="text-[9px] text-gray-400 dark:text-gray-500 tabular-nums">{variationLabel}</span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">{variationLabel}</span>
           )}
         </div>
       </div>
