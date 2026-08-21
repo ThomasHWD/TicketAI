@@ -204,16 +204,14 @@ export default function Dashboard() {
               <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
                 Tableau de bord
               </h1>
-              {onboardingDismissed && (
-                <button
-                  onClick={() => { setOnboardingDismissed(false); localStorage.removeItem("onboarding-dashboard"); }}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
-                  aria-label="Revoir le guide de démarrage"
-                >
-                  <HelpCircle size={12} aria-hidden="true" />
-                  <span>Aide</span>
-                </button>
-              )}
+              <button
+                onClick={() => { setOnboardingDismissed(false); localStorage.removeItem("onboarding-dashboard"); }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
+                aria-label="Revoir le guide de démarrage"
+              >
+                <HelpCircle size={12} aria-hidden="true" />
+                <span>Aide</span>
+              </button>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 capitalize">
               {new Date().toLocaleDateString("fr-FR", {
@@ -361,8 +359,8 @@ export default function Dashboard() {
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Bienvenue dans votre tableau de bord</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                     La <strong className="font-medium text-gray-700 dark:text-gray-300">file d'attente</strong> liste les tickets auxquels l'IA a répondu et qui attendent votre avis.
-                    Les tickets <strong className="font-medium">générés par IA</strong> et les <strong className="font-medium">suggestions</strong> nécessitent votre validation.
-                    Les tickets <strong className="font-medium">automatiques</strong> (canoniques) sont déjà validés — aucune action requise.
+                    Les tickets <strong className="font-medium">IA</strong> et les <strong className="font-medium">Suggestion</strong> nécessitent votre validation.
+                    Les tickets <strong className="font-medium">Auto</strong> (canoniques) sont déjà validés — aucune action requise.
                   </p>
                 </div>
                 <button
