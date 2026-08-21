@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { BookX, ArrowRight } from "lucide-react";
 
 interface HorsDomaineCardProps {
@@ -8,8 +8,6 @@ interface HorsDomaineCardProps {
 }
 
 export default function HorsDomaineCard({ count, pct, loading = false }: HorsDomaineCardProps) {
-  const navigate = useNavigate();
-
   if (loading) {
     return (
       <div className="glass-card rounded-2xl px-4 py-2.5 animate-pulse flex items-center gap-3">
@@ -23,9 +21,9 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
   if (count === 0) return null;
 
   return (
-    <button
-      onClick={() => navigate("/angles-morts")}
-      className="glass-card rounded-2xl px-4 py-2.5 flex items-center gap-3 w-full text-left hover:shadow-md transition-shadow group"
+    <Link
+      to="/angles-morts"
+      className="glass-card rounded-2xl px-4 py-2.5 flex items-center gap-3 w-full hover:shadow-md transition-shadow group"
     >
       <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-purple-50 dark:bg-purple-500/10 shrink-0">
         <BookX size={12} className="text-purple-600 dark:text-purple-400" />
@@ -42,6 +40,6 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
         Voir le détail
         <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform duration-100" />
       </span>
-    </button>
+    </Link>
   );
 }

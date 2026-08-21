@@ -63,12 +63,18 @@ export default function StatCard({
   const displayValue = formatter
     ? formatter(value)
     : value.toLocaleString("fr-FR");
+  const titleId = `sc-title-${title.replace(/\s+/g, "-").toLowerCase()}`;
   const subtitleId = subtitle ? `sc-sub-${title.replace(/\s+/g, "-").toLowerCase()}` : undefined;
 
   return (
-    <div className={`glass-card p-4 rounded-2xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}>
+    <div
+      role="group"
+      aria-labelledby={titleId}
+      title={subtitle ? `${title} — ${subtitle}` : title}
+      className={`glass-card p-4 rounded-2xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}
+    >
       {/* Label — en haut pour contextualiser le chiffre immédiatement */}
-      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider leading-none">
+      <p id={titleId} className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider leading-none">
         {title}
       </p>
 
