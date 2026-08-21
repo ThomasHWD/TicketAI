@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -138,7 +138,7 @@ function StatusBadge({ statut, canonique, closed, processing, reponseSource }: {
 
 function DomaineBadge({ domaine }: { domaine: string }) {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-white/10 dark:text-slate-300 dark:border-white/10 whitespace-nowrap">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200 dark:bg-white/10 dark:text-gray-400 dark:border-white/10 whitespace-nowrap">
       {domaine}
     </span>
   );
@@ -150,7 +150,7 @@ function EmptyState({ hasFilters, isClosed, colSpan }: { hasFilters: boolean; is
       <td colSpan={colSpan}>
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
           <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center shadow-sm">
-            <Inbox size={20} className="text-gray-400 dark:text-gray-500" />
+            <Inbox size={20} className="text-gray-400 dark:text-gray-500" aria-hidden="true" />
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -210,8 +210,7 @@ export default function TicketsList() {
       tous: countData?.total ?? 0,
       en_attente: items.filter((t) => matchesFilter(t, "en_attente")).length,
       en_cours: items.filter((t) => matchesFilter(t, "en_cours")).length,
-      clotures: 0,
-    } satisfies Record<FilterView, number>;
+    } satisfies Partial<Record<FilterView, number>>;
   }, [countData]);
 
   const isClosed = filter === "clotures";
@@ -246,6 +245,24 @@ export default function TicketsList() {
 
   const hasFilters = !!debouncedSearch || filter !== "tous";
 
+  const colCount = multiDomain ? 5 : 4;
+
+  const handleFilterKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const tabs = FILTER_TABS.map((t) => t.value);
+    const currentIndex = tabs.indexOf(filter);
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      const next = tabs[(currentIndex + 1) % tabs.length];
+      setFilter(next);
+      document.getElementById(`filter-tab-${next}`)?.focus();
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      const prev = tabs[(currentIndex - 1 + tabs.length) % tabs.length];
+      setFilter(prev);
+      document.getElementById(`filter-tab-${prev}`)?.focus();
+    }
+  }, [filter]);
+
   return (
     <div className="p-6 space-y-5">
       {/* ── Page header ───────────────────────────────────────────────────── */}
@@ -262,23 +279,34 @@ export default function TicketsList() {
 
       {/* ── Toolbar : filtres | recherche + tri ───────────────────────────── */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Filtres statut */}
-        <nav className="flex items-center gap-1 flex-1 min-w-0" aria-label="Filtres par statut">
+        {/* Filtres statut — tablist ARIA */}
+        <div
+          className="flex items-center gap-1 flex-1 min-w-0"
+          role="tablist"
+          aria-label="Filtres par statut"
+          aria-orientation="horizontal"
+          onKeyDown={handleFilterKeyDown}
+        >
           {FILTER_TABS.map((tab) => {
-            const count = tabCounts[tab.value];
+            const count = tabCounts[tab.value as keyof typeof tabCounts];
             const active = filter === tab.value;
             return (
               <button
                 key={tab.value}
+                id={`filter-tab-${tab.value}`}
+                role="tab"
+                aria-selected={active}
+                aria-controls="tickets-table"
+                tabIndex={active ? 0 : -1}
                 onClick={() => setFilter(tab.value)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 border-b-2 text-sm font-medium transition-colors duration-150 ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] border-b-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 ${
                   active
                     ? "border-emerald-500 text-gray-900 dark:text-gray-100"
                     : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-white/20"
                 }`}
               >
                 {tab.label}
-                {count > 0 && (
+                {count !== undefined && count > 0 && (
                   <span
                     className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold tabular-nums leading-none ${
                       active
@@ -292,7 +320,7 @@ export default function TicketsList() {
               </button>
             );
           })}
-        </nav>
+        </div>
 
         {/* Séparateur */}
         <div className="w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
@@ -304,7 +332,7 @@ export default function TicketsList() {
             <select
               value={domainFilter}
               onChange={(e) => setDomainFilter(e.target.value)}
-              className="pl-7 pr-6 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 appearance-none transition-shadow"
+              className="pl-7 pr-6 py-1.5 min-h-[44px] text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 appearance-none transition-shadow"
               aria-label="Filtrer par domaine"
             >
               <option value="tous">Tous les domaines</option>
@@ -320,6 +348,7 @@ export default function TicketsList() {
           <Search
             size={13}
             className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
+            aria-hidden="true"
           />
           <input
             type="search"
@@ -327,14 +356,14 @@ export default function TicketsList() {
             aria-label="Rechercher un ticket"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 transition-shadow"
+            className="pl-8 pr-3 py-1.5 min-h-[44px] text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 transition-shadow"
           />
         </div>
 
         {/* Tri */}
         <button
           onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
-          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5"
+          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
           aria-label={`Trier par date : ${sortDir === "desc" ? "plus récent" : "plus ancien"}`}
         >
           <ArrowUpDown size={12} aria-hidden="true" />
@@ -343,7 +372,7 @@ export default function TicketsList() {
       </div>
 
       {/* ── Table ─────────────────────────────────────────────────────────── */}
-      <div className="glass-card rounded-xl overflow-hidden">
+      <div id="tickets-table" className="glass-card rounded-xl overflow-hidden" role="tabpanel" aria-label="Liste des tickets">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -394,7 +423,7 @@ export default function TicketsList() {
               {/* Error */}
               {!isLoading && error && (
                 <tr>
-                  <td colSpan={4} className="px-5 py-10 text-center text-sm text-red-500 dark:text-red-400">
+                  <td colSpan={colCount} className="px-5 py-10 text-center text-sm text-red-500 dark:text-red-400">
                     {error instanceof Error ? error.message : "Erreur de chargement"}
                   </td>
                 </tr>
@@ -402,7 +431,7 @@ export default function TicketsList() {
 
               {/* Empty */}
               {!isLoading && !error && sorted.length === 0 && (
-                <EmptyState hasFilters={hasFilters} isClosed={isClosed} colSpan={multiDomain ? 5 : 4} />
+                <EmptyState hasFilters={hasFilters} isClosed={isClosed} colSpan={colCount} />
               )}
 
               {/* Rows */}
@@ -425,7 +454,6 @@ export default function TicketsList() {
                     onClick={() => navigate(`/tickets/${t.id}`)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
                     tabIndex={0}
-                    role="link"
                     aria-label={`Voir le ticket : ${title}${locked ? ` (pris en charge par ${lockedEmail})` : ""}`}
                   >
                     {/* Objet */}
@@ -467,9 +495,10 @@ export default function TicketsList() {
                     {/* Date */}
                     <td
                       className="px-5 py-4 text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap hidden sm:table-cell"
-                      title={formatDateFull(t.created_at)}
                     >
-                      {formatDateShort(t.created_at)}
+                      <time dateTime={t.created_at ?? undefined} title={formatDateFull(t.created_at)}>
+                        {formatDateShort(t.created_at)}
+                      </time>
                     </td>
 
                     {/* Domaine */}
@@ -515,10 +544,10 @@ export default function TicketsList() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                 aria-label="Page précédente"
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft size={14} aria-hidden="true" />
               </button>
               <span className="text-xs text-gray-500 dark:text-gray-400 px-2 tabular-nums font-medium">
                 {page} / {totalPages}
@@ -526,10 +555,10 @@ export default function TicketsList() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                 aria-label="Page suivante"
               >
-                <ChevronRight size={14} />
+                <ChevronRight size={14} aria-hidden="true" />
               </button>
             </div>
           </div>
