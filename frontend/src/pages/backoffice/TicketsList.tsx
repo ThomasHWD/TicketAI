@@ -39,7 +39,7 @@ function formatDateShort(iso: string | null) {
   if (diffDays === 0) {
     return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(d);
   }
-  if (diffDays < 7) return `il y a ${diffDays}j`;
+  if (diffDays < 7) return `il y a ${diffDays} j`;
   return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short" }).format(d);
 }
 
@@ -64,21 +64,23 @@ function matchesFilter(t: any, filter: FilterView): boolean {
   return true;
 }
 
-function serverStatut(_filter: FilterView): string | undefined {
-  return undefined;
-}
-
 const FILTER_TABS: { value: FilterView; label: string; title: string }[] = [
   { value: "tous",       label: "Tous",       title: "Tous les tickets ouverts" },
   { value: "en_attente", label: "En attente", title: "Tickets en attente de votre validation" },
-  { value: "en_cours",   label: "Résolus",    title: "Tickets déjà répondus ou canoniques" },
+  { value: "en_cours",   label: "Traités",    title: "Tickets traités : canoniques et déjà validés" },
   { value: "clotures",   label: "Clôturés",   title: "Tickets fermés définitivement" },
 ];
+
+const TAB_HINTS: Partial<Record<FilterView, string>> = {
+  en_attente: "Ces tickets attendent votre validation — la réponse IA est prête à être vérifiée.",
+  en_cours: "Tickets traités ou canoniques — aucune action requise de votre part.",
+  clotures: "Tickets fermés définitivement.",
+};
 
 const BRANCHE_CHIP: Record<string, { label: string; ariaLabel: string; className: string }> = {
   LLM:        { label: "IA",         ariaLabel: "Réponse générée par IA — relecture obligatoire",  className: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300" },
   SUGGESTION: { label: "Suggestion", ariaLabel: "Réponse suggérée — vérification conseillée",       className: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300" },
-  CANONIQUE:  { label: "Auto",       ariaLabel: "Réponse automatique — aucune action requise",      className: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300" },
+  CANONIQUE:  { label: "Auto",       ariaLabel: "Réponse automatique — aucune action requise",      className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" },
 };
 
 const LEGEND_ITEMS = [
@@ -145,6 +147,18 @@ function getStatutMeta(
     title: "Nouveau ticket — réponse en cours de génération",
     badgeClass: "bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20",
   };
+}
+
+function getErrorMessage(error: unknown): { title: string; detail: string } {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return { title: "Pas de connexion", detail: "Vérifiez votre connexion internet et réessayez." };
+  }
+  if (error && typeof error === "object") {
+    const status = (error as Record<string, unknown>).status;
+    if (status === 401 || status === 403) return { title: "Session expirée", detail: "Reconnectez-vous pour continuer." };
+    if (typeof status === "number" && status >= 500) return { title: "Serveur temporairement indisponible", detail: "Réessayez dans quelques minutes." };
+  }
+  return { title: "Impossible de charger les tickets", detail: "Vérifiez votre connexion et réessayez." };
 }
 
 // ─── sub-components ──────────────────────────────────────────────────────────
@@ -261,6 +275,7 @@ export default function TicketsList() {
   }, [sortDir, setSearchParams]);
 
   const legendRef = useRef<HTMLDetailsElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // Close legend on outside click
   useEffect(() => {
@@ -273,25 +288,33 @@ export default function TicketsList() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // j/k keyboard navigation between rows
+  // keyboard shortcuts: / focus search · 1-4 switch tabs · j/k navigate rows
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA") return;
+      const inInput = target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA";
+      if (e.key === "/" && !inInput) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+      if (inInput) return;
+      if (e.key >= "1" && e.key <= "4") {
+        const idx = parseInt(e.key) - 1;
+        const tab = FILTER_TABS[idx];
+        if (tab) { e.preventDefault(); handleFilterChange(tab.value); document.getElementById(`filter-tab-${tab.value}`)?.focus(); }
+        return;
+      }
       const rows = Array.from(document.querySelectorAll<HTMLElement>('#tickets-table tbody tr[tabindex="0"]'));
       if (rows.length === 0) return;
       const activeIndex = rows.findIndex((r) => r === document.activeElement);
-      if (e.key === "j") {
-        e.preventDefault();
-        rows[Math.min(activeIndex + 1, rows.length - 1)]?.focus();
-      } else if (e.key === "k") {
-        e.preventDefault();
-        rows[Math.max(activeIndex - 1, 0)]?.focus();
-      }
+      if (e.key === "j") { e.preventDefault(); rows[Math.min(activeIndex + 1, rows.length - 1)]?.focus(); }
+      else if (e.key === "k") { e.preventDefault(); rows[Math.max(activeIndex - 1, 0)]?.focus(); }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [handleFilterChange]);
 
   const handleFilterKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     const tabs = FILTER_TABS.map((t) => t.value);
@@ -341,7 +364,7 @@ export default function TicketsList() {
       domaine: queryDomaine,
       disponibles: isClosed ? undefined : true,
       search: debouncedSearch || undefined,
-      statut: serverStatut(filter),
+      statut: undefined,
     }),
     placeholderData: (prev) => prev,
   });
@@ -359,6 +382,7 @@ export default function TicketsList() {
       )
     : filtered;
 
+  const errorMsg = error ? getErrorMessage(error) : null;
   const hasFilters = !!debouncedSearch || filter !== "tous";
   const colCount = multiDomain ? 5 : 4;
 
@@ -373,9 +397,14 @@ export default function TicketsList() {
 
       {/* ── Page header ───────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
-          Tickets
-        </h1>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
+            Tickets
+          </h1>
+          {!multiDomain && userDomaines.length > 0 && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{userDomaines[0]}</p>
+          )}
+        </div>
         {total > 0 && (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 tabular-nums border border-gray-200/60 dark:border-white/[0.08]">
             {total}
@@ -454,13 +483,23 @@ export default function TicketsList() {
         <div className="relative shrink-0">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" aria-hidden="true" />
           <input
-            type="search"
-            placeholder="Rechercher…"
+            ref={searchRef}
+            type="text"
+            placeholder="Rechercher… (/ pour cibler)"
             aria-label="Rechercher un ticket"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 min-h-[44px] text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 transition-shadow"
+            className="pl-8 pr-7 py-1.5 min-h-[44px] text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 transition-shadow"
           />
+          {search && (
+            <button
+              onClick={() => { setSearch(""); searchRef.current?.focus(); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400"
+              aria-label="Effacer la recherche"
+            >
+              <X size={12} aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         {/* Tri */}
@@ -512,20 +551,51 @@ export default function TicketsList() {
             <HelpCircle size={12} aria-hidden="true" />
             <span>Légende</span>
           </summary>
-          <div className="absolute right-0 top-full mt-1 z-20 glass-card rounded-xl p-3 w-56 space-y-2 border border-gray-100 dark:border-white/10 shadow-lg">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 pb-1 border-b border-gray-100 dark:border-white/5">
-              Signification des statuts
-            </p>
-            {LEGEND_ITEMS.map(({ color, label, desc }) => (
-              <div key={label} className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${color}`} aria-hidden="true" />
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto pl-2 text-right">{desc}</span>
+          <div className="absolute right-0 top-full mt-1 z-20 glass-card rounded-xl p-3 w-64 border border-gray-100 dark:border-white/10 shadow-lg space-y-3">
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 pb-1 border-b border-gray-100 dark:border-white/5">
+                Statut du ticket
+              </p>
+              {LEGEND_ITEMS.map(({ color, label, desc }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${color}`} aria-hidden="true" />
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto pl-2 text-right">{desc}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5 pt-2 border-t border-gray-100 dark:border-white/5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Branche IA</p>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 shrink-0">IA</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">Relecture obligatoire</span>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300 shrink-0">Suggestion</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">Vérification conseillée</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 shrink-0">Auto</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">Aucune action requise</span>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-gray-100 dark:border-white/5">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                Raccourcis :{" "}
+                <kbd className="font-mono bg-gray-100 dark:bg-white/10 px-0.5 rounded text-gray-600 dark:text-gray-300">j</kbd>
+                /<kbd className="font-mono bg-gray-100 dark:bg-white/10 px-0.5 rounded text-gray-600 dark:text-gray-300">k</kbd> naviguer ·{" "}
+                <kbd className="font-mono bg-gray-100 dark:bg-white/10 px-0.5 rounded text-gray-600 dark:text-gray-300">/</kbd> rechercher ·{" "}
+                <kbd className="font-mono bg-gray-100 dark:bg-white/10 px-0.5 rounded text-gray-600 dark:text-gray-300">1–4</kbd> onglets
+              </p>
+            </div>
           </div>
         </details>
       </div>
+
+      {/* Tab context hint */}
+      {TAB_HINTS[filter] && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 -mt-2 px-1">{TAB_HINTS[filter]}</p>
+      )}
 
       {/* ── Table ─────────────────────────────────────────────────────────── */}
       <div id="tickets-table" className="glass-card rounded-xl overflow-hidden" role="tabpanel" aria-labelledby={`filter-tab-${filter}`}>
@@ -569,7 +639,7 @@ export default function TicketsList() {
               ))}
 
               {/* Error */}
-              {!isLoading && error && (
+              {!isLoading && error && errorMsg && (
                 <tr>
                   <td colSpan={colCount} className="px-5 py-12 text-center">
                     <div className="flex flex-col items-center gap-4">
@@ -577,12 +647,8 @@ export default function TicketsList() {
                         <AlertTriangle size={20} className="text-red-500 dark:text-red-400" aria-hidden="true" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Impossible de charger les tickets
-                        </p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">
-                          Vérifiez votre connexion et réessayez.
-                        </p>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{errorMsg.title}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">{errorMsg.detail}</p>
                       </div>
                       <button
                         onClick={() => refetch()}
@@ -614,14 +680,25 @@ export default function TicketsList() {
                 const userEmail: string | null = t.user_email;
                 const branche: string | null = tx.branche ?? null;
 
+                const rowUrgencyBg =
+                  !locked && !processing && !closed && branche === "LLM"
+                    ? "bg-sky-50/25 dark:bg-sky-500/[0.04]"
+                    : !locked && !processing && !closed && branche === "SUGGESTION"
+                    ? "bg-amber-50/25 dark:bg-amber-500/[0.04]"
+                    : "";
+
                 return (
                   <tr
                     key={t.id}
-                    className="group hover:bg-gray-50/80 dark:hover:bg-white/[0.03] transition-colors duration-100 cursor-pointer focus-within:bg-gray-50/80 dark:focus-within:bg-white/[0.03]"
+                    className={`group transition-colors duration-100 focus-within:bg-gray-50/80 dark:focus-within:bg-white/[0.03] ${rowUrgencyBg} ${
+                      locked
+                        ? "cursor-default opacity-75 hover:opacity-90 hover:bg-amber-50/30 dark:hover:bg-amber-500/5"
+                        : "cursor-pointer hover:bg-gray-50/80 dark:hover:bg-white/[0.03]"
+                    }`}
                     onClick={() => navigate(`/tickets/${t.id}`)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") navigate(`/tickets/${t.id}`); }}
                     tabIndex={0}
-                    aria-label={`Voir le ticket : ${title}${locked ? ` (pris en charge par ${lockedEmail})` : ""}`}
+                    aria-label={`Voir le ticket : ${title}${locked ? ` — non disponible, pris en charge par ${lockedEmail}` : ""}`}
                   >
                     {/* Objet */}
                     <td className="px-5 py-4">
