@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { AlertTriangle, Archive, BadgeCheck, Search, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Onglet } from "./utils";
@@ -23,6 +24,8 @@ function Tab({
   label,
   badge,
   badgeVariant = "neutral",
+  tabIndex = 0,
+  onKeyDown,
 }: {
   active: boolean;
   onClick: () => void;
@@ -31,13 +34,17 @@ function Tab({
   label: string;
   badge?: number;
   badgeVariant?: "amber" | "neutral";
+  tabIndex?: number;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
       role="tab"
       aria-selected={active}
+      tabIndex={tabIndex}
       onClick={onClick}
-      className={`relative flex items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
+      onKeyDown={onKeyDown}
+      className={`relative flex items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
         active
           ? "text-gray-900 dark:text-gray-50"
           : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
@@ -61,11 +68,13 @@ function Tab({
         </span>
       )}
       {active && (
-        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500 rounded-full" />
+        <span className="absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500 rounded-full" aria-hidden="true" />
       )}
     </button>
   );
 }
+
+const ONGLETS: Onglet[] = ["canoniques", "a_relire", "obsoletes"];
 
 export default function SavedAnswersHeader({
   onglet,
@@ -80,18 +89,38 @@ export default function SavedAnswersHeader({
   onSearchChange,
 }: SavedAnswersHeaderProps) {
   const showSearch = onglet !== "a_relire";
+  const tablistRef = useRef<HTMLDivElement>(null);
+
+  function handleTabKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, idx: number) {
+    let next = idx;
+    if (e.key === "ArrowRight") { e.preventDefault(); next = (idx + 1) % ONGLETS.length; }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); next = (idx - 1 + ONGLETS.length) % ONGLETS.length; }
+    else if (e.key === "Home") { e.preventDefault(); next = 0; }
+    else if (e.key === "End") { e.preventDefault(); next = ONGLETS.length - 1; }
+    else return;
+    onOngletChange(ONGLETS[next]);
+    const buttons = tablistRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons?.[next]?.focus();
+  }
 
   return (
     <>
       {/* Toolbar: tabs + search on one row */}
       <div className="flex items-center justify-between gap-4 px-4 border-b border-gray-100 dark:border-white/8">
-        <div className="flex items-center gap-0.5" role="tablist">
+        <div
+          ref={tablistRef}
+          className="flex items-center gap-0.5"
+          role="tablist"
+          aria-label="Onglets — réponses enregistrées"
+        >
           <Tab
             active={onglet === "canoniques"}
             onClick={() => onOngletChange("canoniques")}
             Icon={BadgeCheck}
             iconActiveClass="text-emerald-500"
             label="Canoniques"
+            tabIndex={onglet === "canoniques" ? 0 : -1}
+            onKeyDown={(e) => handleTabKeyDown(e, 0)}
           />
           <Tab
             active={onglet === "a_relire"}
@@ -101,6 +130,8 @@ export default function SavedAnswersHeader({
             label="À relire"
             badge={nbDocsARelire}
             badgeVariant="amber"
+            tabIndex={onglet === "a_relire" ? 0 : -1}
+            onKeyDown={(e) => handleTabKeyDown(e, 1)}
           />
           <Tab
             active={onglet === "obsoletes"}
@@ -108,6 +139,8 @@ export default function SavedAnswersHeader({
             Icon={Archive}
             label="Obsolètes"
             badge={nbObsoletes}
+            tabIndex={onglet === "obsoletes" ? 0 : -1}
+            onKeyDown={(e) => handleTabKeyDown(e, 2)}
           />
         </div>
 
@@ -124,15 +157,17 @@ export default function SavedAnswersHeader({
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Chercher par question…"
               aria-label="Chercher par question"
-              className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-white/12 bg-gray-50 dark:bg-white/5 text-gray-800 dark:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 placeholder:text-gray-400 transition-colors"
+              tabIndex={showSearch ? 0 : -1}
+              className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-white/12 bg-gray-50 dark:bg-white/5 text-gray-800 dark:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 placeholder:text-gray-400 transition-colors"
             />
             {searchQuery && (
               <button
                 onClick={() => onSearchChange("")}
                 aria-label="Effacer la recherche"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                tabIndex={showSearch ? 0 : -1}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 transition-colors"
               >
-                <X size={12} />
+                <X size={12} aria-hidden="true" />
               </button>
             )}
           </div>

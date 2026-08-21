@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReponseCanonique, ReponseSignalee } from "../../../types";
@@ -39,6 +39,7 @@ export default function SavedAnswers() {
   const error = requete.error;
   const total = requete.data?.total ?? 0;
   const totalPages = Math.ceil(total / LIMIT);
+  useEffect(() => { if (totalPages > 0 && page > totalPages) setPage(totalPages); }, [totalPages, page]);
   const groupes = useMemo(() => grouper(aRelire.data?.items ?? []), [aRelire.data]);
 
   const q = searchQuery.trim().toLowerCase();
@@ -162,9 +163,9 @@ export default function SavedAnswers() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 aria-label="Page précédente"
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
-                <ChevronLeft size={15} />
+                <ChevronLeft size={15} aria-hidden="true" />
               </button>
               <span className="px-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
                 {page} / {totalPages}
@@ -173,9 +174,9 @@ export default function SavedAnswers() {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 aria-label="Page suivante"
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
-                <ChevronRight size={15} />
+                <ChevronRight size={15} aria-hidden="true" />
               </button>
             </div>
           </div>
