@@ -1,17 +1,20 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Lock,
   UserCheck,
   Search,
-  ArrowUpDown,
   Inbox,
   Layers,
   HelpCircle,
   CheckCircle2,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { getTickets } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
@@ -257,6 +260,39 @@ export default function TicketsList() {
     setSearchParams((prev) => { prev.set("sort", next); return prev; });
   }, [sortDir, setSearchParams]);
 
+  const legendRef = useRef<HTMLDetailsElement>(null);
+
+  // Close legend on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (legendRef.current && !legendRef.current.contains(e.target as Node)) {
+        legendRef.current.removeAttribute("open");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // j/k keyboard navigation between rows
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA") return;
+      const rows = Array.from(document.querySelectorAll<HTMLElement>('#tickets-table tbody tr[tabindex="0"]'));
+      if (rows.length === 0) return;
+      const activeIndex = rows.findIndex((r) => r === document.activeElement);
+      if (e.key === "j") {
+        e.preventDefault();
+        rows[Math.min(activeIndex + 1, rows.length - 1)]?.focus();
+      } else if (e.key === "k") {
+        e.preventDefault();
+        rows[Math.max(activeIndex - 1, 0)]?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const handleFilterKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     const tabs = FILTER_TABS.map((t) => t.value);
     const currentIndex = tabs.indexOf(filter);
@@ -430,16 +466,48 @@ export default function TicketsList() {
         {/* Tri */}
         <button
           onClick={handleSortToggle}
-          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] rounded-lg text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-          aria-label={`Trier par date : actuellement ${sortDir === "desc" ? "plus récent en premier" : "plus ancien en premier"}`}
+          className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] rounded-lg text-xs font-medium transition-colors border focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+            sortDir === "asc"
+              ? "bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-white/20"
+              : "bg-white dark:bg-white/5 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10"
+          }`}
+          aria-label={`Trier par date : ${sortDir === "desc" ? "plus récent en premier" : "plus ancien en premier"}`}
           aria-pressed={sortDir === "asc"}
         >
-          <ArrowUpDown size={12} aria-hidden="true" />
+          {sortDir === "desc"
+            ? <ChevronDown size={12} aria-hidden="true" />
+            : <ChevronUp size={12} aria-hidden="true" />
+          }
           {sortDir === "desc" ? "Plus récent" : "Plus ancien"}
         </button>
 
+        {/* Effacer les filtres */}
+        {hasFilters && (
+          <button
+            onClick={() => {
+              setSearch("");
+              handleFilterChange("tous");
+              handleDomainChange("tous");
+              setSearchParams({});
+            }}
+            className="shrink-0 inline-flex items-center gap-1 min-h-[44px] px-2 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-md"
+            aria-label="Effacer tous les filtres"
+          >
+            <X size={11} aria-hidden="true" />
+            Effacer
+          </button>
+        )}
+
         {/* Légende des statuts */}
-        <details className="relative shrink-0">
+        <details
+          ref={legendRef}
+          className="relative shrink-0"
+          onBlur={(e) => {
+            if (!legendRef.current?.contains(e.relatedTarget as Node)) {
+              legendRef.current?.removeAttribute("open");
+            }
+          }}
+        >
           <summary className="inline-flex items-center gap-1 min-h-[44px] px-2 text-xs text-gray-400 dark:text-gray-500 cursor-pointer list-none select-none hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-md">
             <HelpCircle size={12} aria-hidden="true" />
             <span>Légende</span>
@@ -503,14 +571,22 @@ export default function TicketsList() {
               {/* Error */}
               {!isLoading && error && (
                 <tr>
-                  <td colSpan={colCount} className="px-5 py-10 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Impossible de charger les tickets. Vérifiez votre connexion.
-                      </p>
+                  <td colSpan={colCount} className="px-5 py-12 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-center justify-center shadow-sm">
+                        <AlertTriangle size={20} className="text-red-500 dark:text-red-400" aria-hidden="true" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Impossible de charger les tickets
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          Vérifiez votre connexion et réessayez.
+                        </p>
+                      </div>
                       <button
                         onClick={() => refetch()}
-                        className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
                       >
                         Réessayer
                       </button>
