@@ -87,7 +87,7 @@ export default function Dashboard() {
   const [refreshError, setRefreshError] = useState(false);
   const [showInsatisfaits, setShowInsatisfaits] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [analyticsOpen, setAnalyticsOpen] = useState(() => localStorage.getItem("dashboard-analytics") !== "0");
+  const [analyticsOpen, setAnalyticsOpen] = useState(() => localStorage.getItem("dashboard-analytics") === "1");
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => localStorage.getItem("onboarding-dashboard") === "1");
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -181,6 +181,13 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-full flex flex-col">
+      <a
+        href="#queue-hero"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-white dark:focus:bg-gray-900 focus:text-emerald-700 dark:focus:text-emerald-400 focus:rounded-lg focus:shadow-lg focus:text-sm focus:font-medium focus:ring-2 focus:ring-emerald-400"
+      >
+        Aller à la file d'attente
+      </a>
+
       {showInsatisfaits && (
         <TicketsInsatisfaitsModal
           onClose={() => setShowInsatisfaits(false)}
@@ -370,7 +377,7 @@ export default function Dashboard() {
 
             {/* ── Hero file d'attente ───────────────────────────────────── */}
             {pendingLoading ? (
-              <div className="glass-card rounded-2xl px-6 py-5 animate-pulse flex items-center gap-5">
+              <div id="queue-hero" className="glass-card rounded-2xl px-6 py-5 animate-pulse flex items-center gap-5">
                 <div className="flex items-baseline gap-3 shrink-0">
                   <div className="h-12 w-12 bg-gray-200 dark:bg-white/10 rounded" />
                   <div className="space-y-2">
@@ -381,7 +388,7 @@ export default function Dashboard() {
                 <div className="ml-auto h-9 w-48 bg-gray-200 dark:bg-white/10 rounded-lg shrink-0" />
               </div>
             ) : pendingError ? (
-              <div className="glass-card rounded-2xl px-6 py-4 flex items-center gap-3 border border-red-200 dark:border-red-500/20">
+              <div id="queue-hero" className="glass-card rounded-2xl px-6 py-4 flex items-center gap-3 border border-red-200 dark:border-red-500/20">
                 <AlertTriangle size={16} className="text-red-500 shrink-0" />
                 <p className="text-sm text-gray-600 dark:text-gray-400 flex-1">
                   Impossible de charger la file d'attente.
@@ -394,7 +401,7 @@ export default function Dashboard() {
                 </button>
               </div>
             ) : pendingCount === 0 ? (
-              <div className="glass-card rounded-2xl px-6 py-3.5 flex items-center gap-3 ring-1 ring-emerald-300/50 dark:ring-emerald-500/25">
+              <div id="queue-hero" className="glass-card rounded-2xl px-6 py-3.5 flex items-center gap-3 ring-1 ring-emerald-300/50 dark:ring-emerald-500/25">
                 <CheckCircle2 size={15} className="text-emerald-500 dark:text-emerald-400 shrink-0" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   File vide —{" "}
@@ -406,6 +413,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <Link
+                id="queue-hero"
                 to="/tickets"
                 state={{ filter: "en_attente", domaine: filterDomaine ?? "tous" }}
                 aria-label={`${pendingCount} ticket${pendingCount > 1 ? "s" : ""} en attente de validation — accéder à la file`}
