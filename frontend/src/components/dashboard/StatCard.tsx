@@ -63,6 +63,7 @@ export default function StatCard({
   const displayValue = formatter
     ? formatter(value)
     : value.toLocaleString("fr-FR");
+  const subtitleId = subtitle ? `sc-sub-${title.replace(/\s+/g, "-").toLowerCase()}` : undefined;
 
   return (
     <div className={`glass-card p-4 rounded-2xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}>
@@ -73,14 +74,17 @@ export default function StatCard({
 
       {/* Valeur */}
       <div>
-        <div className={`font-bold tabular-nums tracking-tight text-gray-900 dark:text-gray-100 leading-none ${featured ? "text-3xl" : formatter ? "text-xl" : "text-2xl"}`}>
+        <div
+          aria-describedby={subtitleId}
+          className={`font-bold tabular-nums tracking-tight text-gray-900 dark:text-gray-100 leading-none ${featured ? "text-3xl" : formatter ? "text-xl" : "text-2xl"}`}
+        >
           {displayValue}
           {!formatter && suffix && (
             <span className="text-base font-normal text-gray-400 dark:text-gray-500 ml-0.5">{suffix}</span>
           )}
         </div>
         {subtitle && (
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 leading-none">{subtitle}</p>
+          <p id={subtitleId} className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 leading-none">{subtitle}</p>
         )}
       </div>
 

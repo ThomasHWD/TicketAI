@@ -53,7 +53,7 @@ export default function RecentDocs({ docs, loading = false, error = false, onRet
           to="/base-de-connaissances"
           className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
         >
-          Tous →
+          Voir tous →
         </Link>
       </div>
 

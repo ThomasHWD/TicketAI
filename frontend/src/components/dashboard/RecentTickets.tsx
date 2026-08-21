@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, HelpCircle } from "lucide-react";
 
@@ -53,6 +53,15 @@ interface RecentTicketsProps {
 
 export default function RecentTickets({ tickets, loading = false }: RecentTicketsProps) {
   const [showLegend, setShowLegend] = useState(false);
+
+  useEffect(() => {
+    if (!showLegend) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setShowLegend(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showLegend]);
 
   if (loading) {
     return (

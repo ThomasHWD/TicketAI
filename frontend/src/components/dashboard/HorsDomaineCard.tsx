@@ -12,7 +12,7 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
 
   if (loading) {
     return (
-      <div className="glass-card rounded-xl px-4 py-2.5 animate-pulse flex items-center gap-3">
+      <div className="glass-card rounded-2xl px-4 py-2.5 animate-pulse flex items-center gap-3">
         <div className="w-6 h-6 rounded-lg bg-gray-200 dark:bg-white/10 shrink-0" />
         <div className="h-3.5 w-48 bg-gray-200 dark:bg-white/10 rounded flex-1" />
         <div className="h-6 w-20 bg-gray-100 dark:bg-white/5 rounded-lg shrink-0" />
@@ -25,7 +25,7 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
   return (
     <button
       onClick={() => navigate("/angles-morts")}
-      className="glass-card rounded-xl px-4 py-2.5 flex items-center gap-3 w-full text-left hover:shadow-md transition-shadow group"
+      className="glass-card rounded-2xl px-4 py-2.5 flex items-center gap-3 w-full text-left hover:shadow-md transition-shadow group"
     >
       <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-purple-50 dark:bg-purple-500/10 shrink-0">
         <BookX size={12} className="text-purple-600 dark:text-purple-400" />

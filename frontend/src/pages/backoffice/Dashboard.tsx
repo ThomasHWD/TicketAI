@@ -74,13 +74,13 @@ function TabButton({
 export default function Dashboard() {
   const { userDomaines, isChef } = useAuth();
   const queryClient = useQueryClient();
-  const [onglet, setOnglet] = useState<Onglet>("overview");
   const [refreshing, setRefreshing] = useState(false);
   const [showInsatisfaits, setShowInsatisfaits] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [analyticsOpen, setAnalyticsOpen] = useState(() => localStorage.getItem("dashboard-analytics") !== "0");
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const onglet = (searchParams.get("onglet") as Onglet) || "overview";
   const periode = (searchParams.get("periode") as Periode) || "semaine";
   const domaine = searchParams.get("domaine") ?? (userDomaines.length === 1 ? userDomaines[0] : "");
   const filterDomaine = domaine || undefined;
@@ -215,16 +215,17 @@ export default function Dashboard() {
             )}
 
             {/* Sélecteur de période */}
-            <div className="flex items-center bg-gray-100 dark:bg-white/8 rounded-lg p-0.5 gap-0.5">
+            <div role="radiogroup" aria-label="Période d'analyse" className="flex items-center bg-gray-100 dark:bg-white/8 rounded-lg p-0.5 gap-0.5">
               {PERIODES.map((p) => (
                 <button
                   key={p.value}
+                  role="radio"
+                  aria-checked={periode === p.value}
                   onClick={() => setSearchParams((prev) => {
                     const next = new URLSearchParams(prev);
                     next.set("periode", p.value);
                     return next;
                   }, { replace: true })}
-                  aria-pressed={periode === p.value}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                     periode === p.value
                       ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-100 shadow-sm"
@@ -239,7 +240,11 @@ export default function Dashboard() {
             {/* Rafraîchir + timestamp */}
             <div className="flex items-center gap-2">
               {lastUpdated && !refreshing && (
-                <span className={`text-xs hidden sm:inline ${isDataStale ? "text-amber-500 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}>
+                <span
+                  role="status"
+                  aria-live="polite"
+                  className={`text-xs hidden sm:inline ${isDataStale ? "text-amber-500 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}
+                >
                   {isDataStale && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1 align-middle animate-pulse" aria-hidden="true" />}
                   Mis à jour {formatLastUpdated(lastUpdated)}
                 </span>
@@ -262,10 +267,10 @@ export default function Dashboard() {
       {isChef && (
         <div className="border-b border-gray-100 dark:border-white/8 px-6 shrink-0">
           <div className="max-w-screen-xl mx-auto flex" role="tablist">
-            <TabButton active={onglet === "overview"} onClick={() => setOnglet("overview")}>
+            <TabButton active={onglet === "overview"} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.delete("onglet"); return next; }, { replace: true })}>
               Vue d'ensemble
             </TabButton>
-            <TabButton active={onglet === "equipe"} onClick={() => setOnglet("equipe")}>
+            <TabButton active={onglet === "equipe"} onClick={() => setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("onglet", "equipe"); return next; }, { replace: true })}>
               <UsersRound size={13} />
               Mon équipe
             </TabButton>
@@ -276,7 +281,7 @@ export default function Dashboard() {
       {/* ── Contenu ──────────────────────────────────────────────────── */}
       <div className="max-w-screen-xl mx-auto w-full px-6 py-6 space-y-5 flex-1">
         {onglet === "overview" && (
-          <>
+          <div role="tabpanel" aria-label="Vue d'ensemble" className="contents">
             {/* ── Hero file d'attente ───────────────────────────────────── */}
             {pendingLoading ? (
               <div className="glass-card rounded-2xl px-6 py-5 animate-pulse flex items-center gap-6">
@@ -326,9 +331,14 @@ export default function Dashboard() {
                       tickets en attente de validation
                     </p>
                     {pendingBranchSummary && (
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 tabular-nums">
-                        {pendingBranchSummary}
-                      </p>
+                      <div className="mt-0.5">
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
+                          {pendingBranchSummary}
+                        </p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                          RAG = généré par IA · Sugg. = à vérifier · Auto = validé sans relecture
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -357,6 +367,9 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                  Indicateurs · {PERIODES.find((p) => p.value === periode)?.label}
+                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
                   <StatCard
                     title="En cours"
@@ -444,7 +457,10 @@ export default function Dashboard() {
 
             {analyticsOpen && (
               <div id="analytics-section" className="space-y-4">
-                {/* Section analytique : BarChart (2/3) + panel droit (1/3) */}
+                {/* Tendances */}
+                <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                  Tendances
+                </p>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="lg:col-span-2">
                     <TicketsBarChart
@@ -469,7 +485,10 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Flux récents */}
+                {/* Activité récente */}
+                <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                  Activité récente
+                </p>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <RecentTickets tickets={stats?.derniers_tickets ?? []} loading={statsLoading} />
                   <RecentDocs
@@ -481,7 +500,7 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {onglet === "equipe" && isChef && <TeamStatsPanel periode={periode} />}
