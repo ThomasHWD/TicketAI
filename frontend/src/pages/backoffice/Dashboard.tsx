@@ -68,7 +68,8 @@ function TabButton({
       role="tab"
       aria-selected={active}
       aria-controls={controls}
-      className={`flex items-center gap-1.5 px-1 py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${
+      tabIndex={active ? 0 : -1}
+      className={`flex items-center gap-1.5 px-1 py-3 mr-6 text-sm font-medium border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 ${
         active
           ? "border-emerald-500 text-gray-900 dark:text-gray-100"
           : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-white/20"
@@ -199,10 +200,11 @@ export default function Dashboard() {
               {onboardingDismissed && (
                 <button
                   onClick={() => { setOnboardingDismissed(false); localStorage.removeItem("onboarding-dashboard"); }}
-                  className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
                   aria-label="Revoir le guide de démarrage"
                 >
-                  <HelpCircle size={14} />
+                  <HelpCircle size={12} aria-hidden="true" />
+                  <span>Aide</span>
                 </button>
               )}
             </div>
