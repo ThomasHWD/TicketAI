@@ -10,6 +10,7 @@ import {
   Inbox,
   ClipboardList,
   X,
+  Loader2,
 } from "lucide-react";
 import { getParticipatedTickets, getMyAssignedTickets } from "../../lib/api";
 import type { Ticket, StatutTicket } from "../../types/tickets";
@@ -29,6 +30,20 @@ function formatDate(iso: string | null) {
   }).format(new Date(iso));
 }
 
+function getErrorMessage(error: unknown): { text: string; canRetry: boolean; canReload: boolean } {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return { text: "Pas de connexion internet. Vérifiez votre réseau.", canRetry: true, canReload: false };
+  }
+  if (error && typeof error === "object") {
+    const status = (error as Record<string, unknown>).status;
+    if (status === 401 || status === 403)
+      return { text: "Session expirée. Rechargez la page pour vous reconnecter.", canRetry: false, canReload: true };
+    if (typeof status === "number" && status >= 500)
+      return { text: "Serveur temporairement indisponible. Réessayez dans quelques instants.", canRetry: true, canReload: false };
+  }
+  return { text: "Impossible de charger les tickets. Vérifiez votre connexion.", canRetry: true, canReload: false };
+}
+
 // ─── status badge ────────────────────────────────────────────────────────────
 
 type BadgeVariant = "default" | "success" | "warn" | "danger" | "muted" | "processing";
@@ -42,7 +57,7 @@ function resolveVariant(
   if (closed) return { variant: "muted", label: "Clôturé" };
   if (processing) return { variant: "processing", label: "En cours" };
   if (canonique) return { variant: "success", label: "Canonique" };
-  if (statut === "VALIDÉ") return { variant: "default", label: "Validée" };
+  if (statut === "VALIDÉ") return { variant: "success", label: "Validée" };
   if (statut === "RÉPONDU") return { variant: "warn", label: "À valider" };
   if (statut === "REJETÉ") return { variant: "danger", label: "Rejetée" };
   return { variant: "default", label: "Nouvelle" };
@@ -113,7 +128,17 @@ function matchesSearch(t: Ticket, q: string): boolean {
 
 // ─── empty state ─────────────────────────────────────────────────────────────
 
-function EmptyState({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle: string }) {
+function EmptyState({
+  icon: Icon,
+  title,
+  subtitle,
+  onClear,
+}: {
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
+  onClear?: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
       <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
@@ -121,6 +146,14 @@ function EmptyState({ icon: Icon, title, subtitle }: { icon: React.ElementType; 
       </div>
       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</p>
       <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs">{subtitle}</p>
+      {onClear && (
+        <button
+          onClick={onClear}
+          className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-md px-1"
+        >
+          Effacer les filtres
+        </button>
+      )}
     </div>
   );
 }
@@ -176,13 +209,14 @@ function FilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-gray-100 dark:border-white/5">
-      <div role="tablist" aria-label="Filtrer par statut" className="flex items-center gap-1">
+      {/* radio semantics for exclusive filter selection without associated panels */}
+      <div role="radiogroup" aria-label="Filtrer par statut" className="flex items-center gap-1">
         {FILTERS.map((f, idx) => (
           <button
             key={f.key}
             ref={(el) => { filterBtnRefs.current[idx] = el; }}
-            role="tab"
-            aria-selected={filter === f.key}
+            role="radio"
+            aria-checked={filter === f.key}
             tabIndex={filter === f.key ? 0 : -1}
             onClick={() => setFilter(f.key)}
             onKeyDown={(e) => handleFilterKeyDown(e, idx)}
@@ -206,21 +240,28 @@ function FilterBar({
         ))}
       </div>
       <div className="relative ml-auto">
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" aria-hidden="true" />
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" aria-hidden="true" />
         <input
           ref={searchRef}
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && search) {
+              e.preventDefault();
+              setSearch("");
+              searchRef.current?.blur();
+            }
+          }}
           placeholder="Rechercher… (/ pour cibler)"
           aria-label="Rechercher un ticket"
-          className="pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:placeholder:text-gray-500 w-48"
+          className="pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:border-transparent dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:placeholder:text-gray-500 w-48"
         />
         {search && (
           <button
             onClick={() => { setSearch(""); searchRef.current?.focus(); }}
             aria-label="Effacer la recherche"
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <X size={12} aria-hidden="true" />
           </button>
@@ -313,6 +354,8 @@ function TicketTable({
   emptyIcon,
   emptyTitle,
   emptySubtitle,
+  onRetry,
+  onClear,
 }: {
   tickets: Ticket[];
   loading: boolean;
@@ -320,19 +363,45 @@ function TicketTable({
   emptyIcon: React.ElementType;
   emptyTitle: string;
   emptySubtitle: string;
+  onRetry?: () => void;
+  onClear?: () => void;
 }) {
   if (loading) return <SkeletonTable />;
 
   if (error) {
+    const { text, canRetry, canReload } = getErrorMessage(error);
     return (
-      <div role="alert" className="py-16 text-center text-sm text-red-500 dark:text-red-400">
-        {error instanceof Error ? error.message : "Erreur de chargement"}
+      <div role="alert" className="py-16 text-center space-y-3">
+        <p className="text-sm text-red-500 dark:text-red-400">{text}</p>
+        {canRetry && onRetry && (
+          <button
+            onClick={onRetry}
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 text-gray-700 dark:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          >
+            Réessayer
+          </button>
+        )}
+        {canReload && (
+          <button
+            onClick={() => window.location.reload()}
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          >
+            Recharger la page
+          </button>
+        )}
       </div>
     );
   }
 
   if (tickets.length === 0) {
-    return <EmptyState icon={emptyIcon} title={emptyTitle} subtitle={emptySubtitle} />;
+    return (
+      <EmptyState
+        icon={emptyIcon}
+        title={emptyTitle}
+        subtitle={emptySubtitle}
+        onClear={onClear}
+      />
+    );
   }
 
   return (
@@ -370,13 +439,25 @@ export default function TicketTracking() {
   const searchRef = useRef<HTMLInputElement>(null);
   const mainTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const { data: participatedData, isLoading: participatedLoading, error: participatedError } = useQuery({
+  const {
+    data: participatedData,
+    isLoading: participatedLoading,
+    isFetching: participatedFetching,
+    error: participatedError,
+    refetch: refetchParticipated,
+  } = useQuery({
     queryKey: ["tickets", "participated", page],
     queryFn: () => getParticipatedTickets(page),
     placeholderData: (prev) => prev,
   });
 
-  const { data: assignedTickets = [], isLoading: assignedLoading } = useQuery<Ticket[]>({
+  const {
+    data: assignedTickets = [],
+    isLoading: assignedLoading,
+    isFetching: assignedFetching,
+    error: assignedError,
+    refetch: refetchAssigned,
+  } = useQuery<Ticket[]>({
     queryKey: ["mes-assignations"],
     queryFn: getMyAssignedTickets,
   });
@@ -386,6 +467,13 @@ export default function TicketTracking() {
   const totalPages = Math.ceil(total / LIMIT);
   const from = (page - 1) * LIMIT + 1;
   const to = Math.min(page * LIMIT, total);
+
+  // reset page if data shrinks (e.g. background refetch returns fewer results)
+  useEffect(() => {
+    if (totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [totalPages, page]);
 
   const activeTickets = tab === "assigned" ? assignedTickets : participatedTickets;
   const filteredTickets = useMemo(
@@ -402,6 +490,23 @@ export default function TicketTracking() {
     }),
     [activeTickets],
   );
+
+  // tickets needing validation among assigned — always from assignedTickets, not the active tab
+  const assignedEnAttente = useMemo(
+    () => assignedTickets.filter((t) => matchesFilter(t, "en_attente")).length,
+    [assignedTickets],
+  );
+
+  const isFetchingBg = tab === "assigned"
+    ? (assignedFetching && !assignedLoading)
+    : (participatedFetching && !participatedLoading);
+
+  const hasActiveFilters = filter !== "tous" || !!search;
+
+  function handleClearFilters() {
+    setFilter("tous");
+    setSearch("");
+  }
 
   const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
     { key: "assigned", label: "Assignés à moi", icon: UserCheck },
@@ -429,7 +534,7 @@ export default function TicketTracking() {
     }
   }
 
-  // keyboard shortcuts: / → search, 1–4 → filters, j/k → row navigation
+  // global keyboard shortcuts: / → search, 1–4 → filters, j/k → row navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -467,7 +572,12 @@ export default function TicketTracking() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Mon suivi</h1>
         <div className="flex items-center gap-2">
-          <CounterChip icon={UserCheck} label="assignés" count={assignedTickets.length} accent={assignedTickets.length > 0} />
+          <CounterChip
+            icon={UserCheck}
+            label="à valider"
+            count={assignedEnAttente}
+            accent={assignedEnAttente > 0}
+          />
           <CounterChip icon={MessageSquare} label="participations" count={total} />
         </div>
       </div>
@@ -510,11 +620,24 @@ export default function TicketTracking() {
                 </span>
               )}
               {tab === key && (
-                <span className="absolute bottom-0 left-0 right-5 h-0.5 bg-emerald-500 rounded-full" aria-hidden="true" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full" aria-hidden="true" />
               )}
             </button>
           ))}
         </div>
+
+        {/* background refetch indicator — outside tablist to comply with ARIA tablist children rule */}
+        {isFetchingBg && (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-label="Actualisation en cours"
+            className="px-5 py-1.5 flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-white/5"
+          >
+            <Loader2 size={11} className="animate-spin" aria-hidden="true" />
+            Actualisation…
+          </div>
+        )}
 
         {/* tab panel */}
         <div
@@ -536,18 +659,20 @@ export default function TicketTracking() {
           <TicketTable
             tickets={filteredTickets}
             loading={tab === "assigned" ? assignedLoading : participatedLoading}
-            error={tab === "participated" ? (participatedError as Error | null) : null}
+            error={tab === "assigned" ? (assignedError as Error | null) : (participatedError as Error | null)}
+            onRetry={tab === "assigned" ? refetchAssigned : refetchParticipated}
+            onClear={hasActiveFilters ? handleClearFilters : undefined}
             emptyIcon={tab === "assigned" ? UserCheck : Inbox}
             emptyTitle={
-              filter !== "tous" || search
+              hasActiveFilters
                 ? "Aucun ticket ne correspond à vos filtres."
                 : tab === "assigned"
                 ? "Aucun ticket ne vous est assigné."
                 : "Vous n'avez encore participé à aucun ticket."
             }
             emptySubtitle={
-              filter !== "tous" || search
-                ? "Essayez un filtre différent ou effacez la recherche."
+              hasActiveFilters
+                ? "Modifiez vos critères ou effacez les filtres."
                 : tab === "assigned"
                 ? "Les tickets assignés directement à votre compte apparaîtront ici."
                 : "Les tickets sur lesquels vous avez commenté ou validé apparaîtront ici."
@@ -562,7 +687,7 @@ export default function TicketTracking() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                   aria-label="Page précédente"
                 >
                   <ChevronLeft size={14} aria-hidden="true" />
@@ -570,7 +695,7 @@ export default function TicketTracking() {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                   aria-label="Page suivante"
                 >
                   <ChevronRight size={14} aria-hidden="true" />
@@ -581,9 +706,9 @@ export default function TicketTracking() {
         </div>
       </div>
 
-      {/* keyboard hint */}
-      <p className="text-[11px] text-gray-400 dark:text-gray-600 text-right select-none" aria-hidden="true">
-        Raccourcis&nbsp;: <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> naviguer · <kbd className="font-mono">/</kbd> rechercher · <kbd className="font-mono">1–4</kbd> filtres
+      {/* keyboard hint — role="note" for AT discoverability */}
+      <p role="note" aria-label="Raccourcis clavier" className="text-[11px] text-gray-400 dark:text-gray-500 text-right select-none">
+        Raccourcis&nbsp;: <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> naviguer · <kbd className="font-mono">/</kbd> rechercher · <kbd className="font-mono">1–4</kbd> filtres · <kbd className="font-mono">Échap</kbd> quitter la recherche
       </p>
     </div>
   );
