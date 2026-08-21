@@ -52,6 +52,7 @@ export default function RecentDocs({ docs, loading = false, error = false, onRet
         <Link
           to="/base-de-connaissances"
           className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
+          aria-label="Voir tous les documents"
         >
           Voir tous →
         </Link>

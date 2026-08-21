@@ -133,6 +133,7 @@ export default function Dashboard() {
   });
 
   const pendingCount = pendingData?.total ?? 0;
+  const pendingTruncated = pendingData != null && pendingData.total > pendingData.items.length;
   const pendingBranchSummary = (() => {
     const items = pendingData?.items as Array<{ branche?: string | null }> | undefined;
     if (!items?.length) return null;
@@ -255,7 +256,7 @@ export default function Dashboard() {
                     next.set("periode", p.value);
                     return next;
                   }, { replace: true })}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 ${
                     periode === p.value
                       ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-100 shadow-sm"
                       : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
@@ -368,6 +369,9 @@ export default function Dashboard() {
                       <div className="mt-0.5">
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
                           {pendingBranchSummary}
+                          {pendingTruncated && (
+                            <span className="text-gray-400 dark:text-gray-500 ml-1">(100 premiers)</span>
+                          )}
                         </p>
                         <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                           RAG = généré par IA · Sugg. = à vérifier · Auto = validé sans relecture
@@ -426,7 +430,7 @@ export default function Dashboard() {
                     iconColor="text-emerald-500"
                     loading={statsLoading}
                     suffix="%"
-                    subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} sans relecture humaine`}
+                    subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} tickets sans validation humaine`}
                     variationUnit=" pts"
                   />
                   <StatCard
