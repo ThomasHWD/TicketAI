@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle,
@@ -58,6 +58,8 @@ function TabButton({
   return (
     <button
       onClick={onClick}
+      role="tab"
+      aria-selected={active}
       className={`flex items-center gap-1.5 px-1 py-3 mr-6 text-sm font-medium border-b-2 transition-colors ${
         active
           ? "border-emerald-500 text-gray-900 dark:text-gray-100"
@@ -75,13 +77,12 @@ export default function Dashboard() {
   const [onglet, setOnglet] = useState<Onglet>("overview");
   const [refreshing, setRefreshing] = useState(false);
   const [showInsatisfaits, setShowInsatisfaits] = useState(false);
-  const [periode, setPeriode] = useState<Periode>("semaine");
-  const [domaine, setDomaine] = useState<string>(
-    userDomaines.length === 1 ? userDomaines[0] : "",
-  );
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [analyticsOpen, setAnalyticsOpen] = useState(() => localStorage.getItem("dashboard-analytics") !== "0");
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  const periode = (searchParams.get("periode") as Periode) || "semaine";
+  const domaine = searchParams.get("domaine") ?? (userDomaines.length === 1 ? userDomaines[0] : "");
   const filterDomaine = domaine || undefined;
 
   const { data: stats, isLoading: statsLoading, isError: statsError, dataUpdatedAt: statsUpdatedAt } = useQuery({
@@ -113,7 +114,7 @@ export default function Dashboard() {
     queryFn: () =>
       getTickets({
         statut: "RÉPONDU",
-        limit: 1,
+        limit: 100,
         domaines: filterDomaine
           ? [filterDomaine]
           : userDomaines.length > 0
@@ -125,6 +126,19 @@ export default function Dashboard() {
   });
 
   const pendingCount = pendingData?.total ?? 0;
+  const pendingBranchSummary = (() => {
+    const items = pendingData?.items as Array<{ branche?: string | null }> | undefined;
+    if (!items?.length) return null;
+    const rag = items.filter((t) => t.branche === "LLM").length;
+    const sugg = items.filter((t) => t.branche === "SUGGESTION").length;
+    const auto = items.filter((t) => t.branche === "CANONIQUE").length;
+    const parts: string[] = [];
+    if (rag > 0) parts.push(`${rag} RAG`);
+    if (sugg > 0) parts.push(`${sugg} Sugg.`);
+    if (auto > 0) parts.push(`${auto} Auto`);
+    return parts.length > 0 ? parts.join(" · ") : null;
+  })();
+  const isDataStale = lastUpdated != null && Date.now() - lastUpdated.getTime() > 2 * 60_000;
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -177,7 +191,14 @@ export default function Dashboard() {
               <div className="relative">
                 <select
                   value={domaine}
-                  onChange={(e) => setDomaine(e.target.value)}
+                  onChange={(e) => {
+                    const d = e.target.value;
+                    setSearchParams((prev) => {
+                      const next = new URLSearchParams(prev);
+                      if (d) next.set("domaine", d); else next.delete("domaine");
+                      return next;
+                    }, { replace: true });
+                  }}
                   aria-label="Domaine"
                   className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 cursor-pointer"
                 >
@@ -198,7 +219,11 @@ export default function Dashboard() {
               {PERIODES.map((p) => (
                 <button
                   key={p.value}
-                  onClick={() => setPeriode(p.value)}
+                  onClick={() => setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.set("periode", p.value);
+                    return next;
+                  }, { replace: true })}
                   aria-pressed={periode === p.value}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                     periode === p.value
@@ -214,7 +239,8 @@ export default function Dashboard() {
             {/* Rafraîchir + timestamp */}
             <div className="flex items-center gap-2">
               {lastUpdated && !refreshing && (
-                <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
+                <span className={`text-xs hidden sm:inline ${isDataStale ? "text-amber-500 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}>
+                  {isDataStale && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1 align-middle animate-pulse" aria-hidden="true" />}
                   Mis à jour {formatLastUpdated(lastUpdated)}
                 </span>
               )}
@@ -235,7 +261,7 @@ export default function Dashboard() {
       {/* ── Tabs (chef seulement) ────────────────────────────────────── */}
       {isChef && (
         <div className="border-b border-gray-100 dark:border-white/8 px-6 shrink-0">
-          <div className="max-w-screen-xl mx-auto flex">
+          <div className="max-w-screen-xl mx-auto flex" role="tablist">
             <TabButton active={onglet === "overview"} onClick={() => setOnglet("overview")}>
               Vue d'ensemble
             </TabButton>
@@ -253,7 +279,7 @@ export default function Dashboard() {
           <>
             {/* ── Hero file d'attente ───────────────────────────────────── */}
             {pendingLoading ? (
-              <div className="glass-card rounded-xl px-6 py-5 animate-pulse flex items-center gap-6">
+              <div className="glass-card rounded-2xl px-6 py-5 animate-pulse flex items-center gap-6">
                 <div className="h-10 w-14 bg-gray-200 dark:bg-white/10 rounded" />
                 <div className="space-y-2 flex-1">
                   <div className="h-4 w-52 bg-gray-200 dark:bg-white/10 rounded" />
@@ -262,7 +288,7 @@ export default function Dashboard() {
                 <div className="h-9 w-48 bg-gray-200 dark:bg-white/10 rounded-lg ml-auto" />
               </div>
             ) : pendingError ? (
-              <div className="glass-card rounded-xl px-6 py-4 flex items-center gap-3 border border-red-200 dark:border-red-500/20">
+              <div className="glass-card rounded-2xl px-6 py-4 flex items-center gap-3 border border-red-200 dark:border-red-500/20">
                 <AlertTriangle size={16} className="text-red-500 shrink-0" />
                 <p className="text-sm text-gray-600 dark:text-gray-400 flex-1">
                   Impossible de charger la file d'attente.
@@ -275,7 +301,7 @@ export default function Dashboard() {
                 </button>
               </div>
             ) : pendingCount === 0 ? (
-              <div className="glass-card rounded-xl px-6 py-3.5 flex items-center gap-3 ring-1 ring-emerald-300/50 dark:ring-emerald-500/25">
+              <div className="glass-card rounded-2xl px-6 py-3.5 flex items-center gap-3 ring-1 ring-emerald-300/50 dark:ring-emerald-500/25">
                 <CheckCircle2 size={15} className="text-emerald-500 dark:text-emerald-400 shrink-0" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   File vide —{" "}
@@ -289,7 +315,7 @@ export default function Dashboard() {
               <Link
                 to="/tickets"
                 state={{ filter: "en_attente", domaine: filterDomaine ?? "tous" }}
-                className="glass-card rounded-xl px-6 py-5 flex items-center gap-5 ring-1 ring-amber-300/50 dark:ring-amber-500/25 hover:shadow-md transition-shadow group"
+                className="glass-card rounded-2xl px-6 py-5 flex items-center gap-5 ring-1 ring-amber-300/50 dark:ring-amber-500/25 hover:shadow-md transition-shadow group"
               >
                 <div className="flex items-baseline gap-3 shrink-0">
                   <span className="text-5xl font-bold tabular-nums tracking-tight text-gray-900 dark:text-gray-100 leading-none">
@@ -299,6 +325,11 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">
                       tickets en attente de validation
                     </p>
+                    {pendingBranchSummary && (
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 tabular-nums">
+                        {pendingBranchSummary}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -312,7 +343,7 @@ export default function Dashboard() {
 
             {/* ── KPI analytiques — 5 cartes ou erreur ─────────────────── */}
             {statsError ? (
-              <div className="glass-card rounded-xl p-5 flex items-center gap-3">
+              <div className="glass-card rounded-2xl p-5 flex items-center gap-3">
                 <AlertTriangle size={16} className="text-red-500 shrink-0" />
                 <p className="text-sm text-gray-600 dark:text-gray-400 flex-1">
                   Impossible de charger les statistiques. Vérifiez la connexion au serveur.
@@ -326,9 +357,6 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-0.5">
-                  Statistiques · {PERIODES.find((p) => p.value === periode)?.label}
-                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
                   <StatCard
                     title="En cours"
@@ -372,6 +400,7 @@ export default function Dashboard() {
                     formatter={formatDuration}
                     loading={statsLoading}
                     positiveIsUp={false}
+                    subtitle="dépôt ticket → 1ère réponse IA"
                   />
                   <StatCard
                     title="Délai clôture"
@@ -383,6 +412,7 @@ export default function Dashboard() {
                     formatter={formatDuration}
                     loading={statsLoading}
                     positiveIsUp={false}
+                    subtitle="dépôt ticket → validation finale"
                   />
                 </div>
                 <HorsDomaineCard
@@ -396,6 +426,7 @@ export default function Dashboard() {
             {/* Séparateur zones action / analytique */}
             <button
               type="button"
+              aria-expanded={analyticsOpen}
               onClick={() => {
                 const next = !analyticsOpen;
                 setAnalyticsOpen(next);
@@ -403,16 +434,16 @@ export default function Dashboard() {
               }}
               className="flex items-center gap-3 w-full group"
             >
-              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8" />
-              <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 shrink-0 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
-                Analytiques
-                {analyticsOpen ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8 group-hover:bg-gray-200 dark:group-hover:bg-white/12 transition-colors" />
+              <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors px-1">
+                {analyticsOpen ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+                {analyticsOpen ? "Masquer les analytiques" : "Afficher les analytiques"}
               </span>
-              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8" />
+              <div className="flex-1 h-px bg-gray-100 dark:bg-white/8 group-hover:bg-gray-200 dark:group-hover:bg-white/12 transition-colors" />
             </button>
 
             {analyticsOpen && (
-              <>
+              <div id="analytics-section" className="space-y-4">
                 {/* Section analytique : BarChart (2/3) + panel droit (1/3) */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <div className="lg:col-span-2">
@@ -448,7 +479,7 @@ export default function Dashboard() {
                     onRetry={() => queryClient.refetchQueries({ queryKey: ["dashboard-docs", filterDomaine] })}
                   />
                 </div>
-              </>
+              </div>
             )}
           </>
         )}

@@ -35,7 +35,7 @@ export default function StatCard({
 }: StatCardProps) {
   if (loading) {
     return (
-      <div className="glass-card p-4 rounded-xl animate-pulse space-y-3">
+      <div className="glass-card p-4 rounded-2xl animate-pulse space-y-3">
         <div className="h-3 bg-gray-200 dark:bg-white/10 rounded w-2/3" />
         <div className="h-7 bg-gray-200 dark:bg-white/10 rounded w-3/5" />
         <div className="flex items-center justify-between mt-auto">
@@ -65,7 +65,7 @@ export default function StatCard({
     : value.toLocaleString("fr-FR");
 
   return (
-    <div className={`glass-card p-4 rounded-xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}>
+    <div className={`glass-card p-4 rounded-2xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}>
       {/* Label — en haut pour contextualiser le chiffre immédiatement */}
       <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider leading-none">
         {title}
