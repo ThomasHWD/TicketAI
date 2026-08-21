@@ -62,7 +62,7 @@ export default function TabARelire({
 }: Props) {
   if (loading) {
     return (
-      <div className="divide-y divide-gray-100 dark:divide-white/5">
+      <div role="status" aria-busy="true" aria-live="polite" className="divide-y divide-gray-100 dark:divide-white/5">
         {[...Array(3)].map((_, i) => (
           <div key={i} className="px-5 py-5 space-y-3 animate-pulse">
             <div className="h-4 w-1/3 rounded bg-amber-100/80 dark:bg-amber-500/10" />
@@ -78,9 +78,11 @@ export default function TabARelire({
 
   if (error) {
     return (
-      <p className="px-5 py-12 text-center text-sm text-red-500 dark:text-red-400">
-        {error instanceof Error ? error.message : "Erreur de chargement"}
-      </p>
+      <div role="alert" className="px-5 py-12 text-center">
+        <p className="text-sm text-red-500 dark:text-red-400">
+          {error instanceof Error ? error.message : "Erreur de chargement"}
+        </p>
+      </div>
     );
   }
 
@@ -98,6 +100,7 @@ export default function TabARelire({
       <div className="divide-y divide-gray-100 dark:divide-white/5">
         {groupes.map((g) => {
           const ouvert = !groupesReplies.has(g.cle);
+          const diffId = `group-diff-${g.cle}`;
           return (
             <section key={g.cle} className="px-5 py-4 space-y-3">
               {/* Group header */}
@@ -106,8 +109,9 @@ export default function TabARelire({
                 <div className="flex items-center justify-between gap-3 px-4 py-3">
                   <button
                     onClick={() => onToggleGroupe(g.cle)}
-                    className="min-w-0 flex-1 flex items-center gap-2.5 text-left"
+                    className="min-w-0 flex-1 flex items-center gap-2.5 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
                     aria-expanded={ouvert}
+                    aria-controls={diffId}
                   >
                     <FileText size={14} className="shrink-0 text-amber-500" aria-hidden="true" />
                     <div className="min-w-0">
@@ -131,9 +135,9 @@ export default function TabARelire({
                       </p>
                     </div>
                     {ouvert ? (
-                      <ChevronUp size={13} className="shrink-0 text-amber-600/50 dark:text-amber-400/50 ml-auto" />
+                      <ChevronUp size={13} className="shrink-0 text-amber-600/50 dark:text-amber-400/50 ml-auto" aria-hidden="true" />
                     ) : (
-                      <ChevronDown size={13} className="shrink-0 text-amber-600/50 dark:text-amber-400/50 ml-auto" />
+                      <ChevronDown size={13} className="shrink-0 text-amber-600/50 dark:text-amber-400/50 ml-auto" aria-hidden="true" />
                     )}
                   </button>
 
@@ -141,41 +145,44 @@ export default function TabARelire({
                     <button
                       onClick={() => confirmLotMutation.mutate({ doc_id: g.doc_id!, version: g.version! })}
                       disabled={confirmLotMutation.isPending}
-                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      aria-label={`Tout confirmer pour ${g.filename ?? "ce document"}`}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                     >
-                      <CheckCircle2 size={13} />
+                      <CheckCircle2 size={13} aria-hidden="true" />
                       Tout confirmer
                     </button>
                   )}
                 </div>
 
-                {/* Diff section */}
-                {ouvert && (
-                  <div className="border-t border-amber-200/50 dark:border-amber-500/15 px-4 py-3 space-y-3">
-                    {estRaisonDeGroupe(g.raison) ? (
-                      <p className="text-xs text-amber-800/80 dark:text-amber-200/70">
-                        {RAISONS[g.raison!]} Ces réponses sont signalées par précaution.
-                      </p>
-                    ) : g.changements ? (
-                      <>
-                        <SensDuChangement
-                          titre="ajouté"
-                          total={g.changements.nb_ajoutes}
-                          extraits={g.changements.extraits_ajoutes}
-                        />
-                        <SensDuChangement
-                          titre="retiré"
-                          total={g.changements.nb_retires}
-                          extraits={g.changements.extraits_retires}
-                        />
-                      </>
-                    ) : (
-                      <p className="text-xs text-amber-800/70 dark:text-amber-200/60">
-                        Le détail de cette mise à jour n'a pas été conservé.
-                      </p>
-                    )}
-                  </div>
-                )}
+                {/* Diff section — always in DOM so aria-controls resolves */}
+                <div
+                  id={diffId}
+                  className="border-t border-amber-200/50 dark:border-amber-500/15 px-4 py-3 space-y-3"
+                  hidden={!ouvert}
+                >
+                  {estRaisonDeGroupe(g.raison) ? (
+                    <p className="text-xs text-amber-800/80 dark:text-amber-200/70">
+                      {RAISONS[g.raison!]} Ces réponses sont signalées par précaution.
+                    </p>
+                  ) : g.changements ? (
+                    <>
+                      <SensDuChangement
+                        titre="ajouté"
+                        total={g.changements.nb_ajoutes}
+                        extraits={g.changements.extraits_ajoutes}
+                      />
+                      <SensDuChangement
+                        titre="retiré"
+                        total={g.changements.nb_retires}
+                        extraits={g.changements.extraits_retires}
+                      />
+                    </>
+                  ) : (
+                    <p className="text-xs text-amber-800/70 dark:text-amber-200/60">
+                      Le détail de cette mise à jour n'a pas été conservé.
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Response items */}
@@ -231,27 +238,27 @@ export default function TabARelire({
                       {/* Actions */}
                       {enAnalyse ? (
                         <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
-                          <Loader2 size={12} className="animate-spin shrink-0" />
-                          <Clock size={12} className="shrink-0" />
+                          <Loader2 size={12} className="animate-spin shrink-0" aria-hidden="true" />
+                          <Clock size={12} className="shrink-0" aria-hidden="true" />
                           Résultat dans quelques minutes
                         </div>
                       ) : (
-                        <div className={`flex items-center justify-end gap-1.5 transition-opacity duration-150 ${isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+                        <div className={`flex items-center justify-end gap-1.5 transition-opacity duration-150 ${isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"}`}>
                           {isEditing ? (
                             <>
                               <button
                                 onClick={() => onSave(r.reponse_id)}
                                 disabled={!draft.trim() || isPendingEdit}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                               >
-                                <Check size={12} />
+                                <Check size={12} aria-hidden="true" />
                                 Enregistrer
                               </button>
                               <button
                                 onClick={onCancel}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-50 dark:hover:bg-white/8 transition-colors"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-50 dark:hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
                               >
-                                <X size={12} />
+                                <X size={12} aria-hidden="true" />
                                 Annuler
                               </button>
                             </>
@@ -260,25 +267,25 @@ export default function TabARelire({
                               <button
                                 onClick={() => confirmMutation.mutate(r.reponse_id)}
                                 disabled={confirmMutation.isPending}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                               >
-                                <CheckCircle2 size={12} />
+                                <CheckCircle2 size={12} aria-hidden="true" />
                                 Toujours d'actualité
                               </button>
                               <button
                                 onClick={() => onEdit(r)}
                                 aria-label="Modifier la réponse"
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/12 text-gray-500 dark:text-gray-400 text-xs font-medium hover:text-gray-700 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-white/8 transition-colors"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 dark:border-white/12 text-gray-500 dark:text-gray-400 text-xs font-medium hover:text-gray-700 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
                               >
-                                <Pencil size={12} />
+                                <Pencil size={12} aria-hidden="true" />
                                 Modifier
                               </button>
                               <button
                                 onClick={() => onRetrait(r)}
                                 aria-label="Retirer la réponse du service"
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-300 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
                               >
-                                <EyeOff size={12} />
+                                <EyeOff size={12} aria-hidden="true" />
                                 Retirer
                               </button>
                             </>
@@ -295,7 +302,7 @@ export default function TabARelire({
       </div>
 
       {(confirmMutation.isError || confirmLotMutation.isError) && (
-        <p className="px-5 py-3 text-xs text-red-500 dark:text-red-400 border-t border-gray-100 dark:border-white/8">
+        <p role="alert" className="px-5 py-3 text-xs text-red-500 dark:text-red-400 border-t border-gray-100 dark:border-white/8">
           Erreur de confirmation — le signalement n'a pas été levé.
         </p>
       )}

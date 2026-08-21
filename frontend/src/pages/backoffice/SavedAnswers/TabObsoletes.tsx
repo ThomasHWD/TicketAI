@@ -45,7 +45,7 @@ export default function TabObsoletes({
 
   if (loading) {
     return (
-      <div className="divide-y divide-gray-100 dark:divide-white/5">
+      <div role="status" aria-busy="true" aria-live="polite" className="divide-y divide-gray-100 dark:divide-white/5">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="px-5 py-4 space-y-2 animate-pulse">
             <div className="h-3.5 w-2/3 rounded bg-gray-100 dark:bg-white/8" />
@@ -59,9 +59,11 @@ export default function TabObsoletes({
 
   if (error) {
     return (
-      <p className="px-5 py-12 text-center text-sm text-red-500 dark:text-red-400">
-        {error instanceof Error ? error.message : "Erreur de chargement"}
-      </p>
+      <div role="alert" className="px-5 py-12 text-center">
+        <p className="text-sm text-red-500 dark:text-red-400">
+          {error instanceof Error ? error.message : "Erreur de chargement"}
+        </p>
+      </div>
     );
   }
 
@@ -139,20 +141,22 @@ export default function TabObsoletes({
             )}
 
             {/* Actions */}
-            <div className="mt-3 flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <div className="mt-3 flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
               <button
                 onClick={() => onRestore(r.reponse_id)}
                 disabled={isPendingRestore}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Restaurer la réponse"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
-                <RotateCcw size={12} />
+                <RotateCcw size={12} aria-hidden="true" />
                 Restaurer
               </button>
               <button
                 onClick={() => onDeleteTarget({ reponse_id: r.reponse_id, question: r.question, obsolete: true })}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-100 dark:border-red-500/15 text-red-500 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                aria-label="Supprimer la réponse définitivement"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-100 dark:border-red-500/15 text-red-500 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
               >
-                <Trash2 size={12} />
+                <Trash2 size={12} aria-hidden="true" />
                 Supprimer
               </button>
             </div>
@@ -161,7 +165,7 @@ export default function TabObsoletes({
       </div>
 
       {restoreError && (
-        <p className="px-5 py-3 text-xs text-red-500 dark:text-red-400 border-t border-gray-100 dark:border-white/8">
+        <p role="alert" className="px-5 py-3 text-xs text-red-500 dark:text-red-400 border-t border-gray-100 dark:border-white/8">
           {restoreError instanceof Error ? restoreError.message : "Erreur de restauration"}
         </p>
       )}

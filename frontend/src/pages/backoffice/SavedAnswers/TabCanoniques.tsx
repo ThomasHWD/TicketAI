@@ -41,7 +41,7 @@ export default function TabCanoniques({
 
   if (loading) {
     return (
-      <div className="divide-y divide-gray-100 dark:divide-white/5">
+      <div role="status" aria-busy="true" aria-live="polite" className="divide-y divide-gray-100 dark:divide-white/5">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="px-5 py-4 space-y-2 animate-pulse">
             <div className="h-3.5 w-2/3 rounded bg-gray-100 dark:bg-white/8" />
@@ -55,9 +55,11 @@ export default function TabCanoniques({
 
   if (error) {
     return (
-      <p className="px-5 py-12 text-center text-sm text-red-500 dark:text-red-400">
-        {error instanceof Error ? error.message : "Erreur de chargement"}
-      </p>
+      <div role="alert" className="px-5 py-12 text-center">
+        <p className="text-sm text-red-500 dark:text-red-400">
+          {error instanceof Error ? error.message : "Erreur de chargement"}
+        </p>
+      </div>
     );
   }
 
@@ -97,7 +99,7 @@ export default function TabCanoniques({
                   <button
                     onClick={onTabARelire}
                     title="Le document source a changé — voir l'onglet À relire"
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-400/25 transition-colors"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-400/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
                   >
                     <AlertTriangle size={10} aria-hidden="true" />
                     À relire
@@ -137,22 +139,22 @@ export default function TabCanoniques({
                 )}
               </div>
 
-              <div className={`flex items-center gap-1.5 transition-opacity duration-150 ${isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+              <div className={`flex items-center gap-1.5 transition-opacity duration-150 ${isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"}`}>
                 {isEditing ? (
                   <>
                     <button
                       onClick={() => onSave(r.reponse_id)}
                       disabled={!draft.trim() || isPendingEdit}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                     >
-                      <Check size={13} />
+                      <Check size={13} aria-hidden="true" />
                       Enregistrer
                     </button>
                     <button
                       onClick={onCancel}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-50 dark:hover:bg-white/8 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-50 dark:hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
                     >
-                      <X size={13} />
+                      <X size={13} aria-hidden="true" />
                       Annuler
                     </button>
                   </>
@@ -161,17 +163,17 @@ export default function TabCanoniques({
                     <button
                       onClick={() => onEdit(r)}
                       aria-label="Modifier la réponse"
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-white/12 text-gray-500 dark:text-gray-400 text-xs font-medium hover:text-gray-700 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-white/8 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 dark:border-white/12 text-gray-500 dark:text-gray-400 text-xs font-medium hover:text-gray-700 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
                     >
-                      <Pencil size={12} />
+                      <Pencil size={12} aria-hidden="true" />
                       Modifier
                     </button>
                     <button
                       onClick={() => onDeleteTarget({ reponse_id: r.reponse_id, question: r.question, obsolete: false })}
                       aria-label="Supprimer la réponse"
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-100 dark:border-red-500/15 text-red-500 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-100 dark:border-red-500/15 text-red-500 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={12} aria-hidden="true" />
                       Supprimer
                     </button>
                   </>
