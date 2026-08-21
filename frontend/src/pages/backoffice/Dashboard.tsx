@@ -15,6 +15,7 @@ import {
   ClipboardList,
   CheckCircle2,
   X,
+  HelpCircle,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { getDashboardStats, listDocuments, getTickets } from "../../lib/api";
@@ -102,11 +103,7 @@ export default function Dashboard() {
     enabled: onglet === "overview",
   });
 
-  useEffect(() => {
-    if (statsUpdatedAt > 0) setLastUpdated(new Date(statsUpdatedAt));
-  }, [statsUpdatedAt]);
-
-  const { data: docsData, isLoading: docsLoading, isError: docsError } = useQuery({
+  const { data: docsData, isLoading: docsLoading, isError: docsError, dataUpdatedAt: docsUpdatedAt } = useQuery({
     queryKey: ["dashboard-docs", filterDomaine],
     queryFn: () =>
       listDocuments(
@@ -118,7 +115,7 @@ export default function Dashboard() {
     enabled: onglet === "overview",
   });
 
-  const { data: pendingData, isLoading: pendingLoading, isError: pendingError } = useQuery({
+  const { data: pendingData, isLoading: pendingLoading, isError: pendingError, dataUpdatedAt: pendingUpdatedAt } = useQuery({
     queryKey: ["dashboard-pending", filterDomaine],
     queryFn: () =>
       getTickets({
@@ -133,6 +130,11 @@ export default function Dashboard() {
     staleTime: 30_000,
     enabled: onglet === "overview",
   });
+
+  useEffect(() => {
+    const timestamps = [statsUpdatedAt, docsUpdatedAt, pendingUpdatedAt].filter(t => t > 0);
+    if (timestamps.length > 0) setLastUpdated(new Date(Math.min(...timestamps)));
+  }, [statsUpdatedAt, docsUpdatedAt, pendingUpdatedAt]);
 
   const pendingCount = pendingData?.total ?? 0;
   const pendingTruncated = pendingData != null && pendingData.total > pendingData.items.length;
@@ -190,9 +192,20 @@ export default function Dashboard() {
       <div className="border-b border-gray-100 dark:border-white/8 px-6 py-5 shrink-0">
         <div className="max-w-screen-xl mx-auto flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-              Tableau de bord
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+                Tableau de bord
+              </h1>
+              {onboardingDismissed && (
+                <button
+                  onClick={() => { setOnboardingDismissed(false); localStorage.removeItem("onboarding-dashboard"); }}
+                  className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
+                  aria-label="Revoir le guide de démarrage"
+                >
+                  <HelpCircle size={14} />
+                </button>
+              )}
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 capitalize">
               {new Date().toLocaleDateString("fr-FR", {
                 weekday: "long",

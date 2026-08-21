@@ -70,8 +70,7 @@ export default function StatCard({
   const subtitleId = subtitle ? `sc-sub-${title.replace(/\s+/g, "-").toLowerCase()}` : undefined;
 
   return (
-    <div
-      role="group"
+    <article
       aria-labelledby={titleId}
       className={`glass-card p-4 rounded-2xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}
     >
@@ -105,20 +104,22 @@ export default function StatCard({
           <div
             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${trendBg} ${trendColor}`}
             aria-label={`Variation : ${isNeutral ? "Stable" : `${safeVariation > 0 ? "+" : ""}${safeVariation}${variationUnit}`}${!isNeutral && !positiveIsUp ? (isGood ? " (amélioration)" : " (dégradation)") : ""}`}
-            title={!isNeutral && !positiveIsUp ? (isGood ? "Amélioration" : "Dégradation") : undefined}
           >
-            <TrendIcon size={9} />
+            <TrendIcon size={9} aria-hidden="true" />
             <span>
               {isNeutral
                 ? "Stable"
                 : `${safeVariation > 0 ? "+" : ""}${safeVariation}${variationUnit}`}
             </span>
+            {!isNeutral && !positiveIsUp && (
+              <span className="sr-only">{isGood ? " — amélioration" : " — dégradation"}</span>
+            )}
           </div>
           {variationLabel && !isNeutral && (
             <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">{variationLabel}</span>
           )}
         </div>
       </div>
-    </div>
+    </article>
   );
 }
