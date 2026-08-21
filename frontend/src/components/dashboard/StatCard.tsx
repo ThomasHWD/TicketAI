@@ -94,7 +94,7 @@ export default function StatCard({
           <Icon size={14} />
         </div>
         <div
-          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tabular-nums ${trendBg} ${trendColor}`}
+          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${trendBg} ${trendColor}`}
           aria-label={`Variation : ${isNeutral ? "Stable" : `${variation > 0 ? "+" : ""}${variation}${variationUnit}`}${!isNeutral && !positiveIsUp ? (isGood ? " (amélioration)" : " (dégradation)") : ""}`}
           title={!isNeutral && !positiveIsUp ? (isGood ? "Amélioration" : "Dégradation") : undefined}
         >
