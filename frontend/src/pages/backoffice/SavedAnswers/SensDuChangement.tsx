@@ -23,13 +23,17 @@ export default function SensDuChangement({
         {extraits.map((extrait, i) => (
           <li
             key={i}
+            aria-label={`${isAdded ? "Ajouté" : "Retiré"} : ${extrait}`}
             className={`text-xs font-mono leading-relaxed rounded px-2.5 py-1.5 ${
               isAdded
                 ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200"
                 : "bg-red-50 text-red-900 dark:bg-red-500/10 dark:text-red-200"
             }`}
           >
-            <span className={`mr-1.5 select-none ${isAdded ? "text-emerald-500" : "text-red-400"}`}>
+            <span
+              aria-hidden="true"
+              className={`mr-1.5 select-none ${isAdded ? "text-emerald-500" : "text-red-400"}`}
+            >
               {isAdded ? "+" : "−"}
             </span>
             {extrait}

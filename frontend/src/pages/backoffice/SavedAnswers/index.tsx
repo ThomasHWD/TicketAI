@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReponseCanonique, ReponseSignalee } from "../../../types";
 import DeleteModal from "./DeleteModal";
 import RetraitModal from "./RetraitModal";
+import UnsavedDraftModal from "./UnsavedDraftModal";
 import SavedAnswersHeader from "./SavedAnswersHeader";
 import TabARelire from "./TabARelire";
 import TabCanoniques from "./TabCanoniques";
@@ -24,31 +25,40 @@ export default function SavedAnswers() {
   const [retraitTarget, setRetraitTarget] = useState<ReponseSignalee | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [groupesReplies, setGroupesReplies] = useState<Set<string>>(new Set());
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [editingOriginal, setEditingOriginal] = useState("");
+  const [pendingEdit, setPendingEdit] = useState<ReponseCanonique | ReponseSignalee | null>(null);
+
+  const showSuccess = useCallback((msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setSuccessMsg(msg);
+    toastTimer.current = setTimeout(() => setSuccessMsg(null), 3000);
+  }, []);
 
   const { canoniques, obsoletes, aRelire, nbObsoletes, nbDocsARelire, requete } =
-    useSavedAnswersData(onglet, page);
+    useSavedAnswersData(onglet, page, searchQuery);
 
   const { editMutation, confirmMutation, confirmLotMutation, retirerMutation, deleteMutation, restoreMutation } =
     useSavedAnswersMutations({
-      onEditSuccess: () => { setEditingId(null); setDraft(""); },
-      onRetirerSuccess: () => setRetraitTarget(null),
-      onDeleteSuccess: () => setDeleteTarget(null),
+      onEditSuccess: () => { setEditingId(null); setDraft(""); setEditingOriginal(""); showSuccess("Réponse modifiée."); },
+      onRetirerSuccess: () => { setRetraitTarget(null); showSuccess("Réponse retirée du service."); },
+      onDeleteSuccess: () => { setDeleteTarget(null); showSuccess("Réponse supprimée."); },
+      onConfirmSuccess: () => showSuccess("Réponse confirmée."),
+      onConfirmLotSuccess: () => showSuccess("Toutes les réponses confirmées."),
+      onRestoreSuccess: () => showSuccess("Réponse restaurée."),
     });
 
   const loading = requete.isLoading;
+  const isFetching = requete.isFetching && !requete.isLoading;
   const error = requete.error;
   const total = requete.data?.total ?? 0;
   const totalPages = Math.ceil(total / LIMIT);
   useEffect(() => { if (totalPages > 0 && page > totalPages) setPage(totalPages); }, [totalPages, page]);
   const groupes = useMemo(() => grouper(aRelire.data?.items ?? []), [aRelire.data]);
 
-  const q = searchQuery.trim().toLowerCase();
-  const canoniquesItems = (canoniques.data?.items ?? []).filter(
-    (r) => !q || r.question.toLowerCase().includes(q)
-  );
-  const obsoletesItems = (obsoletes.data?.items ?? []).filter(
-    (r) => !q || r.question.toLowerCase().includes(q)
-  );
+  const canoniquesItems = canoniques.data?.items ?? [];
+  const obsoletesItems = obsoletes.data?.items ?? [];
 
   function changerOnglet(cible: Onglet) {
     setOnglet(cible);
@@ -56,14 +66,31 @@ export default function SavedAnswers() {
     setSearchQuery("");
     setEditingId(null);
     setDraft("");
+    setEditingOriginal("");
+  }
+
+  function changerSearch(q: string) {
+    setSearchQuery(q);
+    setPage(1);
+  }
+
+  function commitEdit(r: ReponseCanonique | ReponseSignalee) {
+    const content = contenuServi(r);
+    setEditingId(r.reponse_id);
+    setDraft(content);
+    setEditingOriginal(content);
+    setPendingEdit(null);
   }
 
   function startEdit(r: ReponseCanonique | ReponseSignalee) {
-    setEditingId(r.reponse_id);
-    setDraft(contenuServi(r));
+    if (editingId !== null && draft !== editingOriginal) {
+      setPendingEdit(r);
+      return;
+    }
+    commitEdit(r);
   }
 
-  function cancelEdit() { setEditingId(null); setDraft(""); }
+  function cancelEdit() { setEditingId(null); setDraft(""); setEditingOriginal(""); }
   function saveEdit(id: string) { if (draft.trim()) editMutation.mutate({ id, contenu: draft }); }
   function toggleGroupe(cle: string) {
     setGroupesReplies((prev) => {
@@ -72,6 +99,8 @@ export default function SavedAnswers() {
       return next;
     });
   }
+  function collapseAll() { setGroupesReplies(new Set(groupes.map((g) => g.cle))); }
+  function expandAll() { setGroupesReplies(new Set()); }
 
   return (
     <div className="p-6 space-y-5">
@@ -87,7 +116,7 @@ export default function SavedAnswers() {
 
       {/* Persistent live region — toujours dans le DOM pour compatibilité SR legacy */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-        {loading ? "Chargement en cours…" : ""}
+        {loading && !successMsg ? "Chargement en cours…" : (successMsg ?? "")}
       </div>
 
       <div className="glass-card rounded-2xl overflow-hidden">
@@ -97,14 +126,22 @@ export default function SavedAnswers() {
           nbObsoletes={nbObsoletes}
           searchQuery={searchQuery}
           loading={loading}
+          isFetching={isFetching}
           error={error}
           total={total}
           canoniquesCount={canoniquesItems.length}
           onOngletChange={changerOnglet}
-          onSearchChange={setSearchQuery}
+          onSearchChange={changerSearch}
         />
 
-        {onglet === "canoniques" && (
+        <div
+          id="panel-canoniques"
+          role="tabpanel"
+          aria-labelledby="tab-canoniques"
+          tabIndex={onglet === "canoniques" ? 0 : -1}
+          hidden={onglet !== "canoniques"}
+          className="focus-visible:outline-none"
+        >
           <TabCanoniques
             items={canoniquesItems}
             loading={loading}
@@ -120,24 +157,18 @@ export default function SavedAnswers() {
             onDraftChange={setDraft}
             onDeleteTarget={setDeleteTarget}
             onTabARelire={() => changerOnglet("a_relire")}
+            onRetry={() => requete.refetch()}
           />
-        )}
+        </div>
 
-        {onglet === "obsoletes" && (
-          <TabObsoletes
-            items={obsoletesItems}
-            loading={loading}
-            error={error}
-            total={total}
-            searchQuery={searchQuery}
-            isPendingRestore={restoreMutation.isPending}
-            restoreError={restoreMutation.isError ? restoreMutation.error : null}
-            onRestore={(id) => restoreMutation.mutate(id)}
-            onDeleteTarget={setDeleteTarget}
-          />
-        )}
-
-        {onglet === "a_relire" && (
+        <div
+          id="panel-a_relire"
+          role="tabpanel"
+          aria-labelledby="tab-a_relire"
+          tabIndex={onglet === "a_relire" ? 0 : -1}
+          hidden={onglet !== "a_relire"}
+          className="focus-visible:outline-none"
+        >
           <TabARelire
             groupes={groupes}
             loading={loading}
@@ -150,16 +181,41 @@ export default function SavedAnswers() {
             confirmMutation={confirmMutation}
             confirmLotMutation={confirmLotMutation}
             onToggleGroupe={toggleGroupe}
+            onCollapseAll={collapseAll}
+            onExpandAll={expandAll}
+            onRetry={() => requete.refetch()}
             onEdit={startEdit}
             onSave={saveEdit}
             onCancel={cancelEdit}
             onDraftChange={setDraft}
             onRetrait={setRetraitTarget}
           />
-        )}
+        </div>
 
-        {!loading && total > 0 && (
-          <div className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100 dark:border-white/8">
+        <div
+          id="panel-obsoletes"
+          role="tabpanel"
+          aria-labelledby="tab-obsoletes"
+          tabIndex={onglet === "obsoletes" ? 0 : -1}
+          hidden={onglet !== "obsoletes"}
+          className="focus-visible:outline-none"
+        >
+          <TabObsoletes
+            items={obsoletesItems}
+            loading={loading}
+            error={error}
+            total={total}
+            searchQuery={searchQuery}
+            isPendingRestore={restoreMutation.isPending}
+            restoreError={restoreMutation.isError ? restoreMutation.error : null}
+            onRestore={(id) => restoreMutation.mutate(id)}
+            onDeleteTarget={setDeleteTarget}
+            onRetry={() => requete.refetch()}
+          />
+        </div>
+
+        {!loading && total > 0 && onglet !== "a_relire" && (
+          <nav aria-label="Pagination des réponses" className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100 dark:border-white/8">
             <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
               {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} sur {total}
             </span>
@@ -184,15 +240,31 @@ export default function SavedAnswers() {
                 <ChevronRight size={15} aria-hidden="true" />
               </button>
             </div>
-          </div>
+          </nav>
         )}
       </div>
 
+      {pendingEdit && (
+        <UnsavedDraftModal
+          onConfirm={() => commitEdit(pendingEdit)}
+          onCancel={() => setPendingEdit(null)}
+        />
+      )}
       {retraitTarget && (
         <RetraitModal target={retraitTarget} mutation={retirerMutation} onClose={() => setRetraitTarget(null)} />
       )}
       {deleteTarget && (
         <DeleteModal target={deleteTarget} mutation={deleteMutation} onClose={() => setDeleteTarget(null)} />
+      )}
+
+      {successMsg && (
+        <div
+          aria-hidden="true"
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-[0_4px_24px_0_rgba(0,0,0,0.18)]"
+        >
+          <CheckCircle2 size={15} aria-hidden="true" />
+          {successMsg}
+        </div>
       )}
     </div>
   );
