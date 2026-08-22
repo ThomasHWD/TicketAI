@@ -12,12 +12,18 @@ interface MutationCallbacks {
   onEditSuccess: () => void;
   onRetirerSuccess: () => void;
   onDeleteSuccess: () => void;
+  onConfirmSuccess?: () => void;
+  onConfirmLotSuccess?: () => void;
+  onRestoreSuccess?: () => void;
 }
 
 export function useSavedAnswersMutations({
   onEditSuccess,
   onRetirerSuccess,
   onDeleteSuccess,
+  onConfirmSuccess,
+  onConfirmLotSuccess,
+  onRestoreSuccess,
 }: MutationCallbacks) {
   const queryClient = useQueryClient();
 
@@ -36,6 +42,7 @@ export function useSavedAnswersMutations({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      onConfirmSuccess?.();
     },
   });
 
@@ -45,6 +52,7 @@ export function useSavedAnswersMutations({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      onConfirmLotSuccess?.();
     },
   });
 
@@ -72,6 +80,7 @@ export function useSavedAnswersMutations({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      onRestoreSuccess?.();
     },
   });
 
