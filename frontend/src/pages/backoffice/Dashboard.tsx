@@ -121,6 +121,7 @@ export default function Dashboard() {
     queryFn: () =>
       getTickets({
         statut: "RÉPONDU",
+        exclure_canonique: true,
         limit: 100,
         domaines: filterDomaine
           ? [filterDomaine]
@@ -141,15 +142,13 @@ export default function Dashboard() {
   const pendingTruncated = pendingData != null && pendingData.total > pendingData.items.length;
   const variationLabel = { semaine: "vs sem. préc.", mois: "vs mois préc.", annee: "vs an préc." }[periode];
   const pendingBranchSummary = (() => {
-    const items = pendingData?.items as Array<{ branche?: string | null }> | undefined;
+    const items = pendingData?.items;
     if (!items?.length) return null;
-    const rag = items.filter((t) => t.branche === "LLM").length;
-    const sugg = items.filter((t) => t.branche === "SUGGESTION").length;
-    const auto = items.filter((t) => t.branche === "CANONIQUE").length;
+    const rag = items.filter((t) => t.reponse_source === "LLM").length;
+    const sugg = items.filter((t) => t.reponse_source === "SUGGESTION").length;
     const parts: string[] = [];
     if (rag > 0) parts.push(`${rag} généré${rag > 1 ? "s" : ""} par IA`);
     if (sugg > 0) parts.push(`${sugg} suggestion${sugg > 1 ? "s" : ""}`);
-    if (auto > 0) parts.push(`${auto} automatique${auto > 1 ? "s" : ""}`);
     return parts.length > 0 ? parts.join(" · ") : null;
   })();
   const isDataStale = [statsUpdatedAt, docsUpdatedAt, pendingUpdatedAt].some(t => t > 0 && Date.now() - t > 2 * 60_000);
@@ -359,7 +358,7 @@ export default function Dashboard() {
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Bienvenue dans votre tableau de bord</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                     La <strong className="font-medium text-gray-700 dark:text-gray-300">file d'attente</strong> liste les tickets auxquels l'IA a répondu et qui attendent votre avis.
-                    Les tickets <strong className="font-medium">IA</strong> et les <strong className="font-medium">Suggestion</strong> nécessitent votre validation.
+                    Les tickets <strong className="font-medium">Hors Domaine</strong> et les <strong className="font-medium">Suggestions</strong> nécessitent votre validation.
                     Les tickets <strong className="font-medium">Auto</strong> (canoniques) sont déjà validés — aucune action requise.
                   </p>
                 </div>
@@ -498,7 +497,7 @@ export default function Dashboard() {
                     icon={Archive}
                     iconColor="text-violet-500"
                     loading={statsLoading}
-                    subtitle="validés ou rejetés sur la période"
+                    subtitle="validés sur la période"
                     variationLabel={variationLabel}
                   />
                   <StatCard
@@ -511,7 +510,7 @@ export default function Dashboard() {
                     formatter={formatDuration}
                     loading={statsLoading}
                     positiveIsUp={false}
-                    subtitle="dépôt ticket → 1ère réponse IA"
+                    subtitle="dépôt ticket → 1ère réponse humaine"
                     variationLabel={variationLabel}
                   />
                   <StatCard
@@ -524,7 +523,7 @@ export default function Dashboard() {
                     formatter={formatDuration}
                     loading={statsLoading}
                     positiveIsUp={false}
-                    subtitle="dépôt ticket → validation finale"
+                    subtitle="dépôt ticket → clotûre"
                     variationLabel={variationLabel}
                   />
                 </div>

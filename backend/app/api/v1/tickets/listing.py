@@ -31,6 +31,7 @@ async def liste_tickets(
     disponibles: bool | None = None,
     note_max: int | None = None,
     periode: str | None = Query(default=None, pattern="^(semaine|mois|annee)$"),
+    exclure_canonique: bool = False,
 ):
     db = SessionLocal()
     try:
@@ -95,6 +96,8 @@ async def liste_tickets(
                     and_(Ticket.note_delai.isnot(None), Ticket.note_delai <= note_max),
                 )
             )
+        if exclure_canonique:
+            query = query.filter(Ticket.canonique.is_(False))
         if periode is not None:
             curr_start, curr_end, _, _ = _get_period_bounds(periode, datetime.now(timezone.utc))
             query = query.filter(Ticket.closed_at >= curr_start, Ticket.closed_at < curr_end)
