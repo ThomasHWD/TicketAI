@@ -226,7 +226,7 @@ type OngletId = typeof ONGLETS[number]["id"];
  */
 export default function KnowledgeBase() {
   const queryClient = useQueryClient();
-  const { isAdmin, visibles, inscriptibles } = useDomaines();
+  const { visibles, inscriptibles } = useDomaines();
   const location = useLocation();
   const highlightDocId = (location.state as { highlight?: string } | null)?.highlight;
 
@@ -250,10 +250,10 @@ export default function KnowledgeBase() {
   const [filtreEnMaj, setFiltreEnMaj] = useState(false);
   const [docSupprime, setDocSupprime] = useState<string | null>(null);
 
-  const domainesFiltres = isAdmin ? [] : domaine ? [domaine] : inscriptibles;
+  const domainesFiltres = domaine ? [domaine] : inscriptibles;
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["documents", domaine, isAdmin ? "admin" : inscriptibles],
+    queryKey: ["documents", domaine, inscriptibles],
     queryFn: () => listDocuments(domaine, domainesFiltres.length ? domainesFiltres : undefined),
   });
 
