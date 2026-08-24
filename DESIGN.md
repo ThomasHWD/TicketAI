@@ -68,11 +68,20 @@ components:
     textColor: "#ffffff"
     rounded: "{rounded.md}"
     padding: "6px 12px"
+    note: "Page-level primary actions (e.g. nav bar, list toolbar). Exception: multi-step modal confirmation CTAs use button-primary-modal instead — see below."
   button-primary-hover:
     backgroundColor: "#047857"
     textColor: "#ffffff"
     rounded: "{rounded.md}"
     padding: "6px 12px"
+  button-primary-modal:
+    backgroundColor: "#111827"
+    darkBackgroundColor: "#ffffff"
+    textColor: "#ffffff"
+    darkTextColor: "#111827"
+    rounded: "{rounded.md}"
+    padding: "8px 16px"
+    note: "Confirmation CTAs inside multi-step modals (UpdateDocModal, IngestionDrawer). Uses neutral dark/white to avoid saturating the emerald accent in validation flows where the user has already committed intent."
   button-ghost:
     backgroundColor: "transparent"
     textColor: "{colors.ink-mid}"

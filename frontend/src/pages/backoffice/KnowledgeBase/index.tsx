@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, FileSearch, FolderOpen, Loader2, Plus, Search, X } from "lucide-react";
@@ -36,6 +36,8 @@ function formatDate(iso: string | null) {
 function AnglesMorts({ periode }: { periode: PeriodeId }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [toastVisible, setToastVisible] = useState(false);
+  const [erreurMasquer, setErreurMasquer] = useState<string | null>(null);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["angles-morts", periode],
@@ -45,13 +47,43 @@ function AnglesMorts({ periode }: { periode: PeriodeId }) {
 
   const { mutate: masquer } = useMutation({
     mutationFn: masquerAngleMort,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["angles-morts"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["angles-morts"] });
+      setErreurMasquer(null);
+      setToastVisible(true);
+      setTimeout(() => setToastVisible(false), 4000);
+    },
+    onError: () => setErreurMasquer("Impossible de marquer ce ticket comme traité. Réessayez."),
   });
 
   if (isLoading) return <AnglesMortsSkeleton />;
   if (data.length === 0) return <AnglesMortsEmptyState />;
 
   return (
+    <>
+    {toastVisible && (
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-md dark:border-white/12 dark:bg-[#1e1e21] dark:text-gray-300"
+      >
+        <CheckCircle2 size={13} className="text-emerald-500" aria-hidden="true" />
+        Ticket masqué de cette liste.
+      </div>
+    )}
+    {erreurMasquer && (
+      <div role="alert" className="mx-5 mt-3 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50/70 px-3 py-2 text-xs text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300">
+        <span>{erreurMasquer}</span>
+        <button
+          type="button"
+          onClick={() => setErreurMasquer(null)}
+          aria-label="Fermer"
+          className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
+        >
+          <X size={11} aria-hidden="true" />
+        </button>
+      </div>
+    )}
     <div className="divide-y divide-gray-100 dark:divide-white/[0.06]">
       {data.map((entry) => (
         <div key={entry.domaine}>
@@ -68,6 +100,7 @@ function AnglesMorts({ periode }: { periode: PeriodeId }) {
             {entry.questions.map((q) => (
               <li key={q.id} className="group flex items-stretch">
                 <button
+                  type="button"
                   onClick={() => navigate(`/tickets/${q.id}`)}
                   className="flex-1 min-w-0 flex items-center gap-4 pl-5 pr-3 py-3.5 text-left hover:bg-gray-50/70 dark:hover:bg-white/[0.03] transition-colors duration-75"
                 >
@@ -91,11 +124,13 @@ function AnglesMorts({ periode }: { periode: PeriodeId }) {
                   />
                 </button>
                 <button
+                  type="button"
                   onClick={() => masquer(q.id)}
+                  aria-label="Marquer comme traité"
                   title="Marquer comme traité"
-                  className="shrink-0 flex items-center justify-center w-10 border-l border-gray-100 dark:border-white/[0.05] text-gray-300 dark:text-white/20 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all duration-100"
+                  className="shrink-0 flex items-center justify-center w-10 border-l border-gray-100 dark:border-white/[0.05] text-gray-300 dark:text-white/20 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 opacity-40 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 transition-all duration-100"
                 >
-                  <X size={13} />
+                  <X size={13} aria-hidden="true" />
                 </button>
               </li>
             ))}
@@ -103,12 +138,13 @@ function AnglesMorts({ periode }: { periode: PeriodeId }) {
         </div>
       ))}
     </div>
+    </>
   );
 }
 
 function AnglesMortsSkeleton() {
   return (
-    <div className="animate-pulse divide-y divide-gray-100 dark:divide-white/[0.06]">
+    <div role="status" aria-label="Chargement des angles morts…" className="animate-pulse divide-y divide-gray-100 dark:divide-white/[0.06]">
       {[
         { rows: 4, widths: [72, 58, 85, 64] },
         { rows: 2, widths: [55, 78, 0, 0] },
@@ -211,6 +247,8 @@ export default function KnowledgeBase() {
   const [historique, setHistorique] = useState<IndexedDocument | null>(null);
   const [suppression, setSuppression] = useState<IndexedDocument | null>(null);
   const [maj, setMaj] = useState<CibleMaj | null>(null);
+  const [filtreEnMaj, setFiltreEnMaj] = useState(false);
+  const [docSupprime, setDocSupprime] = useState<string | null>(null);
 
   const domainesFiltres = isAdmin ? [] : domaine ? [domaine] : inscriptibles;
 
@@ -223,24 +261,45 @@ export default function KnowledgeBase() {
   const { data: anglesData = [] } = useQuery({
     queryKey: ["angles-morts", periode],
     queryFn: () => getHorsDomaine(periode),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
   const totalAngles = anglesData.reduce((sum, e) => sum + e.nb_tickets, 0);
 
   const supprimer = useMutation({
     mutationFn: (doc: IndexedDocument) => deleteDocument(doc.doc_id),
-    onSuccess: () => {
+    onSuccess: (_, doc) => {
       setSuppression(null);
       queryClient.invalidateQueries({ queryKey: ["documents"] });
+      setDocSupprime(doc.filename ?? "Document");
+      setTimeout(() => setDocSupprime(null), 4000);
     },
   });
 
-  const termes = recherche.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const docs = (data?.items ?? []).filter((d) => {
-    if (termes.length === 0) return true;
-    const foin = `${d.filename ?? ""} ${d.description ?? ""}`.toLowerCase();
-    return termes.every((t) => foin.includes(t));
-  });
+  const termes = useMemo(
+    () => recherche.trim().toLowerCase().split(/\s+/).filter(Boolean),
+    [recherche],
+  );
+  const docs = useMemo(
+    () =>
+      (data?.items ?? []).filter((d) => {
+        if (filtreEnMaj && d.statut !== "EN_MAJ") return false;
+        if (termes.length === 0) return true;
+        const foin = `${d.filename ?? ""} ${d.description ?? ""}`.toLowerCase();
+        return termes.every((t) => foin.includes(t));
+      }),
+    [data, termes, filtreEnMaj],
+  );
+
+  const actions = useMemo(
+    () => ({
+      onVoir: setConsultation,
+      onHistorique: setHistorique,
+      onMettreAJour: (doc: IndexedDocument) => setMaj({ doc }),
+      onSupprimer: setSuppression,
+    }),
+    [],
+  );
 
   const total = data?.total ?? 0;
   const peutAjouter = visibles.length > 0;
@@ -270,17 +329,31 @@ export default function KnowledgeBase() {
             Les documents internes sur lesquels le moteur s'appuie pour répondre. Chaque version est archivée, et toute mise à jour fait relire les réponses concernées.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setDrawerOuvert(true)}
+          disabled={!peutAjouter}
+          title={peutAjouter ? undefined : "Aucun domaine ne vous est attribué."}
+          className="inline-flex items-center gap-1.5 self-start rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Plus size={14} aria-hidden="true" />
+          Ajouter un document
+        </button>
       </div>
 
       <div className="glass-card overflow-hidden rounded-2xl">
         {/* Barre onglets + contrôles */}
-        <div className="flex flex-wrap items-stretch border-b border-gray-100 dark:border-white/8 px-4">
+        <div className="flex items-stretch border-b border-gray-100 dark:border-white/8 px-4 overflow-x-auto">
           {/* Onglets — underline style */}
-          <div className="flex items-stretch">
+          <div role="tablist" className="flex items-stretch">
             {ONGLETS.map((o) => (
               <button
                 key={o.id}
                 type="button"
+                role="tab"
+                id={`tab-${o.id}`}
+                aria-selected={onglet === o.id}
+                aria-controls={`panel-${o.id}`}
                 onClick={() => changerOnglet(o.id)}
                 className={`relative flex items-center gap-1.5 px-0.5 mr-6 py-3 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${
                   onglet === o.id
@@ -288,7 +361,11 @@ export default function KnowledgeBase() {
                     : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 }`}
               >
-                {o.label}
+                {o.id === "angles-morts" ? (
+                  <span title="Questions restées sans réponse satisfaisante depuis la base actuelle">
+                    {o.label}
+                  </span>
+                ) : o.label}
                 {o.id === "angles-morts" && totalAngles > 0 && (
                   <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold tabular-nums bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300">
                     {totalAngles > 99 ? "99+" : totalAngles}
@@ -306,8 +383,6 @@ export default function KnowledgeBase() {
 
           {/* Contrôles contextuels (droite) */}
           <div className="ml-auto flex items-center gap-3 py-2">
-            {boutonAjouter}
-            <span aria-hidden="true" className="h-4 w-px bg-gray-200 dark:bg-white/10" />
             {onglet === "documents" && (
               <>
                 <div className="relative">
@@ -339,7 +414,7 @@ export default function KnowledgeBase() {
                 {visibles.length > 1 && (
                   <>
                     <span aria-hidden="true" className="h-4 w-px bg-gray-200 dark:bg-white/10" />
-                    <div className="flex items-center gap-1">
+                    <div role="group" aria-label="Filtrer par domaine" className="flex items-center gap-1">
                       {([undefined, ...visibles] as Array<Domaine | undefined>).map((d) => (
                         <button
                           key={d ?? "tous"}
@@ -359,6 +434,24 @@ export default function KnowledgeBase() {
                   </>
                 )}
 
+                {(data?.items ?? []).some((d) => d.statut === "EN_MAJ") && (
+                  <>
+                    <span aria-hidden="true" className="h-4 w-px bg-gray-200 dark:bg-white/10" />
+                    <button
+                      type="button"
+                      aria-pressed={filtreEnMaj}
+                      onClick={() => setFiltreEnMaj((v) => !v)}
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                        filtreEnMaj
+                          ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300"
+                          : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      En cours de mise à jour
+                    </button>
+                  </>
+                )}
+
                 <span className="text-xs tabular-nums text-gray-400 dark:text-gray-500">
                   {isLoading
                     ? "…"
@@ -371,12 +464,14 @@ export default function KnowledgeBase() {
             )}
 
             {onglet === "angles-morts" && (
-              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.06]">
+              <div role="group" aria-label="Période d'analyse" className="flex items-center gap-0.5 p-0.5 rounded-lg bg-gray-100/80 dark:bg-white/[0.06] border border-gray-200/50 dark:border-white/[0.06]">
                 {PERIODES.map((p) => (
                   <button
                     key={p.value}
+                    type="button"
+                    aria-pressed={periode === p.value}
                     onClick={() => setPeriode(p.value)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
+                    className={`px-2.5 py-2 rounded-md text-xs font-medium transition-all duration-150 ${
                       periode === p.value
                         ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-100 shadow-sm"
                         : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
@@ -392,66 +487,67 @@ export default function KnowledgeBase() {
 
         {/* Contenu — Documents */}
         {onglet === "documents" && (
-          isLoading ? (
-            <div className="flex justify-center py-20">
-              <Loader2 size={20} className="animate-spin text-gray-400" />
-            </div>
-          ) : isError ? (
-            <EtatVide
-              icon={FileSearch}
-              titre="Impossible de charger les documents."
-              detail="La liste n'a pas pu être récupérée. Vérifiez votre connexion, puis réessayez."
-              action={
-                <button
-                  type="button"
-                  onClick={() => refetch()}
-                  className="mt-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/12 dark:text-gray-300 dark:hover:bg-white/5"
-                >
-                  Réessayer
-                </button>
-              }
-            />
-          ) : docs.length === 0 ? (
-            termes.length ? (
+          <div role="tabpanel" id="panel-documents" aria-labelledby="tab-documents">
+            {isLoading ? (
+              <div role="status" aria-label="Chargement des documents…" className="flex justify-center py-20">
+                <Loader2 size={20} className="animate-spin text-gray-400" aria-hidden="true" />
+              </div>
+            ) : isError ? (
               <EtatVide
                 icon={FileSearch}
-                titre="Aucun document ne correspond à la recherche."
-                detail="La recherche porte sur le nom du fichier et sa description, pas sur le contenu indexé."
+                titre="Impossible de charger les documents."
+                detail="La liste n'a pas pu être récupérée. Vérifiez votre connexion, puis réessayez."
                 action={
                   <button
                     type="button"
-                    onClick={() => setRecherche("")}
+                    onClick={() => refetch()}
                     className="mt-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/12 dark:text-gray-300 dark:hover:bg-white/5"
                   >
-                    Afficher tous les documents
+                    Réessayer
                   </button>
                 }
               />
+            ) : docs.length === 0 ? (
+              termes.length ? (
+                <EtatVide
+                  icon={FileSearch}
+                  titre="Aucun document ne correspond à la recherche."
+                  detail="La recherche porte sur le nom du fichier et sa description, pas sur le contenu indexé."
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => setRecherche("")}
+                      className="mt-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/12 dark:text-gray-300 dark:hover:bg-white/5"
+                    >
+                      Afficher tous les documents
+                    </button>
+                  }
+                />
+              ) : (
+                <EtatVide
+                  icon={FolderOpen}
+                  titre={`${domaine ? `Aucun document indexé en ${domaine}.` : "La base de connaissances est vide."}`}
+                  detail={domaine ? "Aucun document disponible dans ce domaine. Ajoutez-en un pour que l'IA puisse répondre aux questions de ce périmètre." : "Sans documents, l'IA répond en aveugle : aucune source citée, aucune réponse canonique possible. Ajoutez votre premier document pour activer la recherche sémantique."}
+                  action={peutAjouter ? <div className="mt-1">{boutonAjouter}</div> : undefined}
+                />
+              )
             ) : (
-              <EtatVide
-                icon={FolderOpen}
-                titre={`Aucun document indexé${domaine ? ` en ${domaine}` : ""}.`}
-                detail="Tant que la base est vide, le moteur n'a rien à citer : chaque question devra être rédigée manuellement."
-                action={peutAjouter ? <div className="mt-1">{boutonAjouter}</div> : undefined}
+              <DocumentsTable
+                docs={docs}
+                estInscriptible={(doc) => inscriptibles.includes(doc.domaine ?? "")}
+                actions={actions}
+                highlightDocId={highlightDocId}
               />
-            )
-          ) : (
-            <DocumentsTable
-              docs={docs}
-              estInscriptible={(doc) => inscriptibles.includes(doc.domaine ?? "")}
-              actions={{
-                onVoir: setConsultation,
-                onHistorique: setHistorique,
-                onMettreAJour: (doc) => setMaj({ doc }),
-                onSupprimer: setSuppression,
-              }}
-              highlightDocId={highlightDocId}
-            />
-          )
+            )}
+          </div>
         )}
 
         {/* Contenu — Angles morts (flat dans le glass-card parent) */}
-        {onglet === "angles-morts" && <AnglesMorts periode={periode} />}
+        {onglet === "angles-morts" && (
+          <div role="tabpanel" id="panel-angles-morts" aria-labelledby="tab-angles-morts">
+            <AnglesMorts periode={periode} />
+          </div>
+        )}
       </div>
 
       {drawerOuvert && (
@@ -505,6 +601,17 @@ export default function KnowledgeBase() {
             setSuppression(null);
           }}
         />
+      )}
+
+      {docSupprime && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 shadow-md dark:border-white/12 dark:bg-[#1e1e21] dark:text-gray-300"
+        >
+          <CheckCircle2 size={13} className="text-emerald-500" aria-hidden="true" />
+          <span className="max-w-[240px] truncate">{docSupprime}</span> supprimé de la base.
+        </div>
       )}
     </div>
   );
