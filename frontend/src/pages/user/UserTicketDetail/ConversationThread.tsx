@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { Bot, User, X } from "lucide-react";
 import { formatDate, reponseVisible } from "./utils";
+import { renderMarkdown } from "../../../components/ticket/utils";
 import type { TicketReponse } from "../../../types";
 
 function UserAvatar() {
@@ -150,7 +151,7 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
         </div>
         <div className="bg-white/90 dark:bg-white/[0.06] border border-gray-200/70 dark:border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
           <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap break-words">
-            {reponse.contenu_corrige ?? reponse.contenu}
+            {renderMarkdown(reponse.contenu_corrige ?? reponse.contenu)}
           </p>
         </div>
       </div>
