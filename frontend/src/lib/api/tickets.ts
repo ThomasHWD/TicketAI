@@ -60,6 +60,7 @@ export async function getTickets(params?: {
   disponibles?: boolean;
   noteMax?: number;
   periode?: string;
+  exclure_canonique?: boolean;
 }): Promise<TicketsResponse> {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
@@ -73,6 +74,7 @@ export async function getTickets(params?: {
   if (params?.disponibles) query.set("disponibles", "true");
   if (params?.noteMax !== undefined) query.set("note_max", String(params.noteMax));
   if (params?.periode) query.set("periode", params.periode);
+  if (params?.exclure_canonique) query.set("exclure_canonique", "true");
   const res = await apiFetch(`${BASE_URL}/tickets?${query}`);
   if (!res.ok) throw new Error("Erreur chargement tickets");
   return res.json();
