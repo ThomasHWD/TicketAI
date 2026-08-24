@@ -91,11 +91,6 @@ export default function RecentDocs({ docs, loading = false, error = false, onRet
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                   {doc.filename ?? "Document sans nom"}
                 </p>
-                {doc.domaine && (
-                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                    {doc.domaine}
-                  </span>
-                )}
               </div>
             </Link>
           ))}

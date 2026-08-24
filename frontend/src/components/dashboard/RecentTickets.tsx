@@ -19,7 +19,7 @@ const STATUT_STYLE: Record<string, string> = {
 
 const STATUT_META: Record<string, { prefix: string; label: string }> = {
   NOUVEAU: { prefix: "",   label: "Nouveau" },
-  RÉPONDU: { prefix: "→", label: "Répondu" },
+  RÉPONDU: { prefix: "→", label: "En attente" },
   VALIDÉ:  { prefix: "✓", label: "Validé" },
   REJETÉ:  { prefix: "✕", label: "Rejeté" },
 };
@@ -98,18 +98,9 @@ export default function RecentTickets({ tickets, loading = false }: RecentTicket
                   {t.objet}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{t.domaine}</span>
-                  {t.branche && BRANCHE_BADGE[t.branche] && (
-                    <span
-                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${BRANCHE_BADGE[t.branche].className}`}
-                      aria-label={BRANCHE_BADGE[t.branche].ariaLabel}
-                    >
-                      {BRANCHE_BADGE[t.branche].label}
-                    </span>
-                  )}
                   {t.created_at && (
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      · {new Date(t.created_at).toLocaleDateString("fr-FR")}
+                       {new Date(t.created_at).toLocaleDateString("fr-FR")}
                     </span>
                   )}
                 </div>
