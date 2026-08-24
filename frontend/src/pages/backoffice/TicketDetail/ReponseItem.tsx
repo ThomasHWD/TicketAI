@@ -5,6 +5,7 @@ import UserAvatar from "../../../components/ui/UserAvatar";
 import { getValidatorId } from "../../../lib/currentUser";
 import type { TicketReponse, StatutReponse } from "../../../types";
 import { formatDate, BotAvatar } from "./utils";
+import { renderMarkdown } from "../../../components/ticket/utils";
 
 export const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
   SUGGESTION:   { label: "Suggestion",   icon: Sparkles },
@@ -282,7 +283,7 @@ export default function ReponseItem({
             </p>
           ) : (
             <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-              {reponse.contenu_corrige ?? reponse.contenu}
+              {renderMarkdown(reponse.contenu_corrige ?? reponse.contenu)}
             </p>
           )}
 
