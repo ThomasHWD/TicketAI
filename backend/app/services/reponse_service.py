@@ -10,7 +10,13 @@ from fastapi import HTTPException
 ETATS_FINAUX = {"VALIDÉE", "REJETÉE", "CORRIGÉE"}
 
 
-def notifier_employe(db, ticket: Ticket, reponse_id: str, validator_id: uuid.UUID) -> None:
+def notifier_employe(
+    db,
+    ticket: Ticket,
+    reponse_id: str,
+    validator_id: uuid.UUID,
+    type: str = "REPONSE_VALIDEE",
+) -> None:
     """Crée une notification pour l'employé propriétaire du ticket, sauf auto-validation."""
     if not ticket or not ticket.user_id:
         return
@@ -21,7 +27,7 @@ def notifier_employe(db, ticket: Ticket, reponse_id: str, validator_id: uuid.UUI
             user_id=ticket.user_id,
             ticket_id=ticket.id,
             reponse_id=uuid.UUID(reponse_id),
-            type="REPONSE_VALIDEE",
+            type=type,
         )
     )
 
