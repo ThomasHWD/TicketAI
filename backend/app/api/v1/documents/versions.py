@@ -71,6 +71,7 @@ def previsualiser_maj(
             Document.content_hash == content_hash,
             Document.domaine == doc.domaine,
             Document.doc_id != doc_id,
+            Document.statut != "SUPPRIMÉ",
         )
         .first()
     )
