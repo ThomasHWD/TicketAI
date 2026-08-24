@@ -304,19 +304,6 @@ export default function KnowledgeBase() {
   const total = data?.total ?? 0;
   const peutAjouter = visibles.length > 0;
 
-  const boutonAjouter = (
-    <button
-      type="button"
-      onClick={() => setDrawerOuvert(true)}
-      disabled={!peutAjouter}
-      title={peutAjouter ? undefined : "Aucun domaine ne vous est attribué."}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-white/10 px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      <Plus size={13} />
-      Ajouter un document
-    </button>
-  );
-
   return (
     <div className="mx-auto max-w-6xl space-y-5 p-6">
       {/* En-tête */}
@@ -329,16 +316,6 @@ export default function KnowledgeBase() {
             Les documents internes sur lesquels le moteur s'appuie pour répondre. Chaque version est archivée, et toute mise à jour fait relire les réponses concernées.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setDrawerOuvert(true)}
-          disabled={!peutAjouter}
-          title={peutAjouter ? undefined : "Aucun domaine ne vous est attribué."}
-          className="inline-flex items-center gap-1.5 self-start rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Plus size={14} aria-hidden="true" />
-          Ajouter un document
-        </button>
       </div>
 
       <div className="glass-card overflow-hidden rounded-2xl">
@@ -410,6 +387,17 @@ export default function KnowledgeBase() {
                     </button>
                   )}
                 </div>
+                <span aria-hidden="true" className="h-4 w-px bg-gray-200 dark:bg-white/10" />
+                <button
+                  type="button"
+                  onClick={() => setDrawerOuvert(true)}
+                  disabled={!peutAjouter}
+                  title={peutAjouter ? undefined : "Aucun domaine ne vous est attribué."}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus size={13} className="text-emerald-500 dark:text-emerald-400" aria-hidden="true" />
+                  Ajouter un document
+                </button>
 
                 {visibles.length > 1 && (
                   <>
@@ -527,8 +515,7 @@ export default function KnowledgeBase() {
                 <EtatVide
                   icon={FolderOpen}
                   titre={`${domaine ? `Aucun document indexé en ${domaine}.` : "La base de connaissances est vide."}`}
-                  detail={domaine ? "Aucun document disponible dans ce domaine. Ajoutez-en un pour que l'IA puisse répondre aux questions de ce périmètre." : "Sans documents, l'IA répond en aveugle : aucune source citée, aucune réponse canonique possible. Ajoutez votre premier document pour activer la recherche sémantique."}
-                  action={peutAjouter ? <div className="mt-1">{boutonAjouter}</div> : undefined}
+                  detail={domaine ? "Aucun document disponible dans ce domaine. Ajoutez-en un pour que l'IA puisse répondre aux questions de ce périmètre." : "Sans documents, l'IA ne peut pas répondre : aucune source citée, aucune réponse automatique possible. Ajoutez votre premier document pour simplifier vos réponses."}
                 />
               )
             ) : (
