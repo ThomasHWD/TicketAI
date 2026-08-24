@@ -126,8 +126,15 @@ function LigneDocument({
               {doc.description || <span className="italic">Aucune description</span>}
             </p>
             {erreurTelechargement && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                Téléchargement impossible.
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
+                Téléchargement impossible.{" "}
+                <button
+                  type="button"
+                  onClick={telecharger}
+                  className="underline underline-offset-2 hover:no-underline"
+                >
+                  Réessayer
+                </button>
               </p>
             )}
           </div>
@@ -186,13 +193,15 @@ export default function DocumentsTable({
   highlightDocId?: string;
 }) {
   return (
+    <div className="overflow-x-auto">
     <table className="w-full">
+      <caption className="sr-only">Documents indexés</caption>
       <thead>
         <tr className="border-b border-gray-100 dark:border-white/8">
           <th className={TH}>Document</th>
           <th className={TH}>Domaine</th>
           <th className={TH}>Version</th>
-          <th className={TH}>Chunks</th>
+          <th className={TH} title="Passages de texte extraits et indexés pour la recherche IA">Passages</th>
           <th className={TH}>Mis à jour</th>
           <th className="w-12" />
         </tr>
@@ -209,5 +218,6 @@ export default function DocumentsTable({
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

@@ -21,7 +21,7 @@ export default function ChunksModal({
 }) {
   const [page, setPage] = useState(0);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["doc-chunks", doc.doc_id],
     queryFn: () => getDocumentChunks(doc.doc_id),
   });
@@ -53,8 +53,8 @@ export default function ChunksModal({
               <ChevronLeft size={14} />
               Précédent
             </button>
-            <span className="text-xs tabular-nums text-gray-400 dark:text-gray-500">
-              {page + 1} / {nbPages} · {chunks.length} chunks
+            <span aria-live="polite" className="text-xs tabular-nums text-gray-400 dark:text-gray-500">
+              {page + 1} / {nbPages} · {chunks.length} passage{chunks.length > 1 ? "s" : ""}
             </span>
             <button
               type="button"
@@ -74,12 +74,21 @@ export default function ChunksModal({
           <Loader2 size={20} className="animate-spin text-gray-400" />
         </div>
       ) : isError ? (
-        <p className="py-10 text-center text-sm text-red-600 dark:text-red-400">
-          Impossible de charger le contenu indexé.
-        </p>
+        <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Impossible de charger le contenu indexé.
+          </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/12 dark:text-gray-300 dark:hover:bg-white/5"
+          >
+            Réessayer
+          </button>
+        </div>
       ) : visibles.length === 0 ? (
         <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-          Aucun chunk trouvé.
+          Aucun passage indexé.
         </p>
       ) : (
         <div className="space-y-3">
@@ -90,7 +99,7 @@ export default function ChunksModal({
             >
               <div className="border-b border-gray-100 bg-gray-50/80 px-3 py-1.5 dark:border-white/8 dark:bg-white/[0.04]">
                 <span className="text-[11px] font-medium tabular-nums text-gray-400 dark:text-gray-500">
-                  Chunk {chunk.chunk_index + 1} sur {chunks.length}
+                  Passage {chunk.chunk_index + 1} sur {chunks.length}
                 </span>
               </div>
               <p className="whitespace-pre-wrap px-3.5 py-3 font-mono text-xs leading-relaxed text-gray-700 dark:text-gray-300">

@@ -72,11 +72,11 @@ function Alerte({
 }
 
 const BTN_ALERTE_PRIMAIRE =
-  "inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100";
+  "inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100";
 const BTN_ALERTE_SECONDAIRE =
-  "inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white/70 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10";
+  "inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white/70 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:border-white/15 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10";
 const BTN_ALERTE_DISCRET =
-  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-black/5 dark:text-gray-400 dark:hover:bg-white/10";
+  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:text-gray-400 dark:hover:bg-white/10";
 
 /**
  * Ajout d'un document, en panneau latéral : le tableau reste visible derrière,
@@ -273,7 +273,7 @@ export default function IngestionDrawer({
               onClick={() => !occupe && setMode(key)}
               disabled={occupe}
               aria-pressed={mode === key}
-              className={`flex items-center gap-1.5 rounded-[7px] px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+              className={`flex items-center gap-1.5 rounded-[7px] px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${
                 mode === key
                   ? "bg-white text-gray-900 shadow-sm dark:bg-white/10 dark:text-gray-100"
                   : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
@@ -436,13 +436,13 @@ export default function IngestionDrawer({
 
         {/* Métadonnées communes */}
         <div className="space-y-1.5">
-          <span className={LABEL}>Domaine</span>
+          <span id="dom-group-label" className={LABEL}>Domaine</span>
           {domaines.length === 0 ? (
             <p className="text-xs text-gray-400 dark:text-gray-500">
               Aucun domaine ne vous est attribué : demandez un rattachement à un administrateur.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-1.5 pt-0.5">
+            <div role="group" aria-labelledby="dom-group-label" className="flex flex-wrap gap-1.5 pt-0.5">
               {domaines.map((d) => (
                 <button
                   key={d}

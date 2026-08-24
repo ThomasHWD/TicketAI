@@ -52,7 +52,7 @@ function LigneVersion({
           ${
             v.courante
               ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
-              : "border-gray-200 bg-white text-gray-500 dark:border-white/12 dark:bg-[#1a1a1d] dark:text-gray-400"
+              : "border-gray-200 bg-white text-gray-500 dark:border-white/12 dark:bg-[#141416] dark:text-gray-400"
           }`}
       >
         v{v.version}
@@ -73,7 +73,7 @@ function LigneVersion({
               {dateCourte(v.created_at)}
               {v.auteur && ` · ${v.auteur}`}
               {v.taille_octets != null && ` · ${formatSize(v.taille_octets)}`}
-              {` · ${v.nb_chunks} chunk${v.nb_chunks > 1 ? "s" : ""}`}
+              {` · ${v.nb_chunks} passage${v.nb_chunks > 1 ? "s" : ""}`}
               {v.restauree_depuis != null && ` · restaurée depuis la v${v.restauree_depuis}`}
             </p>
           </div>
@@ -93,7 +93,7 @@ function LigneVersion({
               title={
                 v.fichier_disponible ? "Télécharger cette version" : "Fichier archivé introuvable"
               }
-              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/10 dark:hover:text-gray-200"
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:hover:bg-white/10 dark:hover:text-gray-200"
             >
               {downloading ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -112,7 +112,7 @@ function LigneVersion({
                     ? "Restaurer cette version"
                     : "Fichier archivé introuvable : restauration impossible"
                 }
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/12 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:border-white/12 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
               >
                 {enAttente ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -149,7 +149,7 @@ export default function DocHistoryModal({
   const [erreur, setErreur] = useState<string | null>(null);
 
   // Clé alignée sur l'invalidation `document_updated` de `useSSE`.
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["doc-versions", doc.doc_id],
     queryFn: () => getDocumentVersions(doc.doc_id),
   });
@@ -194,9 +194,18 @@ export default function DocHistoryModal({
           <Loader2 size={20} className="animate-spin text-gray-400" />
         </div>
       ) : isError ? (
-        <p className="py-10 text-center text-sm text-red-600 dark:text-red-400">
-          Impossible de charger l'historique.
-        </p>
+        <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Impossible de charger l'historique.
+          </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/12 dark:text-gray-300 dark:hover:bg-white/5"
+          >
+            Réessayer
+          </button>
+        </div>
       ) : (
         <ol className="space-y-0">
           {versions.map((v) => (
