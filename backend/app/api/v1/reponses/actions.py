@@ -118,9 +118,11 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest, current_user
         reponse.statut = "REJETÉE"
         reponse.validator_id = current_user.id
         reponse.validated_at = datetime.now(timezone.utc)
+        reponse.raison_rejet = payload.raison or None
 
         if ticket:
             ticket.statut_ticket = "REJETÉ"
+            ticket.closed_at = datetime.now(timezone.utc)
             liberer_verrou(ticket)
 
         domaine = ticket.domaine if ticket else None

@@ -19,6 +19,7 @@ interface SuiviMutation {
 interface TicketActionsProps {
   closed: boolean;
   hasVisibleAnswer: boolean;
+  rejected?: boolean;
   cloture: ClotureMutation;
   showRating: boolean;
   setShowRating: (v: boolean) => void;
@@ -35,6 +36,7 @@ interface TicketActionsProps {
 export default function TicketActions({
   closed,
   hasVisibleAnswer,
+  rejected = false,
   cloture,
   showRating,
   setShowRating,
@@ -57,6 +59,7 @@ export default function TicketActions({
   };
 
   if (closed) {
+    if (rejected) return null;
     return (
       <div className="glass-card rounded-2xl px-5 py-4 flex items-center gap-3">
         <span className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0">
@@ -72,7 +75,42 @@ export default function TicketActions({
     );
   }
 
-  if (!hasVisibleAnswer) return null;
+  if (!hasVisibleAnswer) {
+    if (!rejected) return null;
+    return (
+      <div className="glass-card rounded-2xl px-5 py-4 flex items-start gap-3">
+        <span className="w-9 h-9 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center shrink-0 mt-0.5">
+          <X size={16} className="text-red-500 dark:text-red-400" aria-hidden="true" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+            Aucune réponse disponible
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-3">
+            Le service d'assistance n'a pas pu apporter de réponse à votre demande. Vous pouvez clôturer cette question.
+          </p>
+          <button
+            type="button"
+            onClick={() => cloture.mutate(false)}
+            disabled={cloture.isPending}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40"
+          >
+            {cloture.isPending ? (
+              <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+            ) : (
+              <CheckCheck size={15} aria-hidden="true" />
+            )}
+            Clôturer la demande
+          </button>
+          {cloture.isError && (
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
+              {cloture.error instanceof Error ? cloture.error.message : "Une erreur est survenue"}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="glass-card rounded-2xl overflow-hidden">

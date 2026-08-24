@@ -72,6 +72,7 @@ export interface TicketReponse {
   nb_validations: number;
   canonique: boolean;
   score_similarite: number | null;
+  raison_rejet?: string | null;
   created_at: string | null;
 }
 

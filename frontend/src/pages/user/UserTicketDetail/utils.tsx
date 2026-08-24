@@ -20,7 +20,7 @@ export const FIL_STATUT_META: Record<FilStatut, { label: string; className: stri
       "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
   },
   rejected: {
-    label: "Sans réponse",
+    label: "Rejetée",
     className:
       "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20",
   },
@@ -62,9 +62,10 @@ export function deriveFilStatut(
   reponses: TicketReponse[],
   processing: boolean,
 ): FilStatut {
-  if (closed) return "closed";
+  const allRejected = reponses.length > 0 && reponses.every((r) => r.statut === "REJETÉE");
+  if (closed) return allRejected ? "rejected" : "closed";
   if (processing || reponses.some((r) => r.statut === "EN_ATTENTE")) return "processing";
   if (reponses.some(reponseVisible)) return "answered";
-  if (reponses.length > 0 && reponses.every((r) => r.statut === "REJETÉE")) return "rejected";
+  if (allRejected) return "rejected";
   return "processing";
 }

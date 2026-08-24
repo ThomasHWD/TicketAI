@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bot, History, Loader2, Lock, MessageCircle, Pencil, Plus, ThumbsUp, UserMinus, UserPlus, X } from "lucide-react";
 import { getTicketWorkflow } from "../../../lib/api";
@@ -64,31 +65,64 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
     queryFn: () => getTicketWorkflow(ticketId),
   });
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      prev?.focus();
+    };
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-black/40 dark:bg-black/70" />
 
       <div
-        className="relative glass-card rounded-2xl w-full max-w-md flex flex-col max-h-[82vh] shadow-2xl"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="workflow-modal-title"
+        className="relative bg-white dark:bg-[#141416] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md flex flex-col max-h-[82vh] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-200/80 dark:border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 dark:bg-white/10">
+            <div className="flex items-center justify-center w-7 h-7 rounded-md bg-gray-100 dark:bg-white/10">
               <History size={14} className="text-gray-500 dark:text-gray-400" aria-hidden="true" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-none">Historique</h2>
+              <h2 id="workflow-modal-title" className="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-none">Historique</h2>
               {events.length > 0 && (
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{events.length} événement{events.length > 1 ? "s" : ""}</p>
               )}
             </div>
           </div>
           <button
+            ref={closeRef}
             onClick={onClose}
             className="flex items-center justify-center w-7 h-7 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
             aria-label="Fermer"
@@ -101,7 +135,7 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
         <div className="overflow-y-auto px-5 py-5">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center gap-3 py-14">
-              <Loader2 size={20} className="animate-spin text-gray-300 dark:text-gray-600" aria-label="Chargement" />
+              <Loader2 size={20} className="animate-spin text-gray-300 dark:text-gray-600" aria-hidden="true" />
               <p className="text-xs text-gray-400 dark:text-gray-500">Chargement de l'historique…</p>
             </div>
           ) : error ? (
@@ -116,23 +150,23 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
           ) : events.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-10">Aucun événement enregistré.</p>
           ) : (
-            <ul aria-label="Historique du ticket">
-              {events.map((event, i) => {
+            <ul aria-label="Historique du ticket (du plus récent au plus ancien)">
+              {[...events].reverse().map((event, i, arr) => {
                 const config = EVENT_CONFIG[event.type];
                 const Icon = config.icon;
                 const actor = eventActor(event);
                 const isFirst = i === 0;
-                const isLast = i === events.length - 1;
+                const isLast = i === arr.length - 1;
+                const staggerDelay = Math.min(i, 5) * 35;
 
                 return (
                   <li
-                    key={i}
-                    className="flex gap-3.5 animate-in fade-in slide-in-from-bottom-1 duration-300"
-                    style={{ animationDelay: `${i * 35}ms`, animationFillMode: "both" }}
+                    key={`${event.type}-${event.at ?? i}`}
+                    className="flex gap-3.5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-300"
+                    style={{ animationDelay: `${staggerDelay}ms`, animationFillMode: "both" }}
                   >
                     {/* Colonne icône + ligne */}
                     <div className="flex flex-col items-center w-9 shrink-0">
-                      {/* Ligne au-dessus de l'icône */}
                       <div className={`flex-1 w-0.5 min-h-[10px] ${isFirst ? "" : "bg-gray-300 dark:bg-white/10"}`} aria-hidden="true" />
                       <div
                         className={`relative z-10 flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${config.bg} ring-1 ${config.ring} shadow-sm`}
@@ -140,7 +174,6 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
                       >
                         <Icon size={15} strokeWidth={2} className={config.iconColor} />
                       </div>
-                      {/* Ligne en-dessous de l'icône */}
                       <div className={`flex-1 w-0.5 min-h-[10px] ${isLast ? "" : "bg-gray-300 dark:bg-white/10"}`} aria-hidden="true" />
                     </div>
 
@@ -165,7 +198,6 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
                           )}
                         </div>
 
-                        {/* Raison du rejet */}
                         {event.type === "REJETE" && event.meta?.raison && (
                           <blockquote className="mt-2 pl-3 border-l-2 border-red-400/70 dark:border-red-500/50">
                             <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-3 italic">

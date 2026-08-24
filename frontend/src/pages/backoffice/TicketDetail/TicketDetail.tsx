@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock, Lock } from "lucide-react";
@@ -54,6 +54,26 @@ export default function TicketDetail() {
     staleTime: 60_000,
   });
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (e.altKey && e.key === "ArrowLeft" && !showWorkflow) { navigate(-1); return; }
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === "v" || e.key === "V") {
+        document.querySelector<HTMLButtonElement>('[data-action="valider"]')?.click();
+      }
+      if (e.key === "e" || e.key === "E") {
+        document.querySelector<HTMLButtonElement>('[data-action="corriger"]')?.click();
+      }
+      if (e.key === "r" || e.key === "R") {
+        document.querySelector<HTMLButtonElement>('[data-action="rejeter"]')?.click();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [navigate, showWorkflow]);
+
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["ticket", id] });
     queryClient.invalidateQueries({ queryKey: ["tickets"] });
@@ -67,7 +87,7 @@ export default function TicketDetail() {
       setSelectedAssignee("");
       refresh();
     } catch (e) {
-      setAssignError(e instanceof Error ? e.message : "Erreur");
+      setAssignError(e instanceof Error ? e.message : "Erreur lors de l'assignation. Réessayez.");
     } finally {
       setAssignLoading(false);
     }
@@ -105,7 +125,7 @@ export default function TicketDetail() {
 
   return (
     <>
-      <div className="px-6 py-5 max-w-6xl space-y-5">
+      <main className="px-6 py-5 max-w-6xl space-y-5">
 
         {/* Breadcrumb + Header */}
         <header className="space-y-3">
@@ -113,6 +133,7 @@ export default function TicketDetail() {
             onClick={() => navigate(-1)}
             className="group inline-flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
             aria-label="Retour à la liste des tickets"
+            title="Retour aux tickets (Alt + ←)"
           >
             <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gray-100 dark:bg-white/10 group-hover:bg-gray-200 dark:group-hover:bg-white/15 transition-colors">
               <ArrowLeft size={13} aria-hidden="true" />
@@ -139,14 +160,14 @@ export default function TicketDetail() {
         )}
 
         {/* Two-column body */}
-        <div className="flex gap-6 items-start">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
 
           {/* Thread */}
           <div className="flex-1 min-w-0 space-y-3">
 
             {/* Original question */}
             <article
-              className="glass-card rounded-2xl p-5 animate-in fade-in slide-in-from-bottom-1 duration-300"
+              className="glass-card rounded-2xl p-5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-300"
               aria-label="Question originale"
             >
               <div className="flex gap-3.5 items-start">
@@ -173,7 +194,7 @@ export default function TicketDetail() {
             {/* Responses */}
             {reponses.length === 0 ? (
               <article
-                className="glass-card rounded-2xl p-5 animate-in fade-in slide-in-from-bottom-1 duration-300"
+                className="glass-card rounded-2xl p-5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-300"
                 aria-label="Réponse en cours"
               >
                 <div className="flex gap-3.5 items-start">
@@ -188,7 +209,12 @@ export default function TicketDetail() {
                 </div>
               </article>
             ) : (
-              <div className="space-y-3" role="feed" aria-label="Fil de réponses">
+              <div
+                className="space-y-3"
+                role="feed"
+                aria-label="Fil de réponses"
+                aria-busy={reponsesQuery.isLoading}
+              >
                 {reponses.map((r) => (
                   <ReponseItem
                     key={r.id}
@@ -212,13 +238,15 @@ export default function TicketDetail() {
             selectedAssignee={selectedAssignee}
             currentUserId={currentUser?.id}
             validateurs={validateursQuery.data ?? []}
+            validateursLoading={validateursQuery.isLoading}
             onShowWorkflow={() => setShowWorkflow(true)}
             onAssign={() => handleAssignAction(() => assignTicket(ticket.id, selectedAssignee))}
             onUnassign={() => handleAssignAction(() => unassignTicket(ticket.id))}
             onSelectedAssigneeChange={setSelectedAssignee}
+            onClearAssignError={() => setAssignError(null)}
           />
         </div>
-      </div>
+      </main>
 
       {showWorkflow && id && (
         <WorkflowModal ticketId={id} onClose={() => setShowWorkflow(false)} />

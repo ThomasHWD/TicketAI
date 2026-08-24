@@ -12,7 +12,7 @@ export function statutLabel(
 ) {
   if (closed) return "Clôturé";
   if (processing) return "En cours de traitement";
-  if (statut === "REJETÉ") return "Sans réponse";
+  if (statut === "REJETÉ") return "Rejetée";
   if (statut === "VALIDÉ" || canonique) return "Répondu";
   return "En cours de traitement";
 }
