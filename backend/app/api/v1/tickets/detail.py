@@ -125,7 +125,8 @@ async def get_ticket_workflow(ticket_id: str, current_user: CurrentUser):
                         "at": reponse.validated_at.isoformat(),
                         "actor_email": reponse.validator.email if reponse.validator else None,
                         "actor_nom_complet": full_name(reponse.validator),
-                        "meta": {"raison": reponse.raison_rejet} if reponse.statut == "REJETÉE" and reponse.raison_rejet else {},
+                        "meta": {"raison": reponse.raison_rejet} if reponse.statut == "REJETÉE"\
+                            and reponse.raison_rejet else {},
                     }
                 )
 
