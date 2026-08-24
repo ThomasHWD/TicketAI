@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { Bot, User } from "lucide-react";
+import { Bot, User, X } from "lucide-react";
 import { formatDate, reponseVisible } from "./utils";
 import type { TicketReponse } from "../../../types";
 
@@ -89,6 +89,35 @@ function PendingAnswer({ date }: { date: string | null }) {
   );
 }
 
+function RejectedBubble({ reponse }: { reponse: TicketReponse }) {
+  return (
+    <li className="px-5 py-4 flex gap-3 animate-in fade-in slide-in-from-bottom-1 duration-200">
+      <span
+        className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 shrink-0 ring-2 ring-white dark:ring-black/20"
+        aria-hidden="true"
+      >
+        <X size={14} />
+      </span>
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-red-700 dark:text-red-400">Assistance</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(reponse.created_at)}</span>
+        </div>
+        <div className="bg-red-50/70 dark:bg-red-500/[0.07] border border-red-100 dark:border-red-500/20 rounded-2xl rounded-tl-sm px-4 py-3 space-y-1.5">
+          <p className="text-sm text-red-700 dark:text-red-300">
+            Cette réponse n'a pas pu être retenue par le service d'assistance.
+          </p>
+          {reponse.raison_rejet && (
+            <p className="text-xs text-red-600/80 dark:text-red-400/80 italic border-t border-red-100 dark:border-red-500/20 pt-1.5">
+              Motif : {reponse.raison_rejet}
+            </p>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
 function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
   if (!reponseVisible(reponse)) return <PendingAnswer date={reponse.created_at} />;
 
@@ -158,7 +187,11 @@ export default function ConversationThread({
               {r.question_suivi && (
                 <QuestionBubble text={r.question_suivi} date={r.created_at} precision />
               )}
-              <AnswerBubble reponse={r} />
+              {r.statut === "REJETÉE" ? (
+                <RejectedBubble reponse={r} />
+              ) : (
+                <AnswerBubble reponse={r} />
+              )}
             </Fragment>
           ))
         )}
