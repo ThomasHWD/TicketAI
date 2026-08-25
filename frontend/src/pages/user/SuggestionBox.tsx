@@ -13,8 +13,7 @@ function SuccessView({ onReset }: { onReset: () => void }) {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col items-center text-center gap-8 py-4 animate-in fade-in slide-in-from-bottom-3 duration-500">
-      {/* Illustrated checkmark with concentric rings */}
+    <div role="status" className="flex flex-col items-center text-center gap-8 py-4 animate-in fade-in slide-in-from-bottom-3 duration-500">
       <div className="relative flex items-center justify-center w-24 h-24">
         <div className="absolute inset-0 rounded-full border border-emerald-100 dark:border-emerald-500/15 scale-[1.55] opacity-50" />
         <div className="absolute inset-0 rounded-full border border-emerald-200/70 dark:border-emerald-500/20 scale-[1.28] opacity-70" />
@@ -41,13 +40,13 @@ function SuccessView({ onReset }: { onReset: () => void }) {
       <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
         <button
           onClick={onReset}
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-5 min-h-[44px] transition-colors"
         >
           Faire une autre suggestion
         </button>
         <button
           onClick={() => navigate("/mon-espace")}
-          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors px-2 py-1.5"
+          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors px-4 min-h-[44px]"
         >
           Retour à l'accueil
         </button>
@@ -61,6 +60,7 @@ function SuccessView({ onReset }: { onReset: () => void }) {
 export default function SuggestionBox() {
   const [contenu, setContenu] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const navigate = useNavigate();
 
   const submit = useMutation({
     mutationFn: () => soumettresuggestion(contenu.trim()),
@@ -69,8 +69,17 @@ export default function SuggestionBox() {
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setContenu(e.target.value);
     const ta = e.currentTarget;
-    ta.style.height = "auto";
-    ta.style.height = `${ta.scrollHeight}px`;
+    requestAnimationFrame(() => {
+      ta.style.height = "auto";
+      ta.style.height = `${ta.scrollHeight}px`;
+    });
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canSubmit) {
+      e.preventDefault();
+      submit.mutate();
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -86,8 +95,10 @@ export default function SuggestionBox() {
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   }
 
+  const trimmedLength = contenu.trim().length;
   const remaining = MAX_LENGTH - contenu.length;
-  const canSubmit = contenu.trim().length >= MIN_LENGTH && !submit.isPending;
+  const meetsMin = trimmedLength >= MIN_LENGTH;
+  const canSubmit = meetsMin && !submit.isPending;
 
   return (
     <div className="px-4 py-12 sm:py-16">
@@ -111,47 +122,51 @@ export default function SuggestionBox() {
             <SuccessView onReset={handleReset} />
           ) : (
             <form onSubmit={handleSubmit} noValidate className="space-y-5">
-              {/* Textarea */}
+
+              {/* Textarea block */}
               <div className="space-y-2">
                 <label
                   htmlFor="contenu"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
                   Votre message
+                  <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
+                  <span className="sr-only"> (obligatoire)</span>
                 </label>
+
                 <textarea
                   ref={textareaRef}
                   id="contenu"
                   value={contenu}
                   onChange={handleChange}
+                  onKeyDown={handleKeyDown}
                   disabled={submit.isPending}
+                  required
+                  aria-required="true"
+                  aria-invalid={submit.isError || undefined}
                   maxLength={MAX_LENGTH}
                   placeholder="Décrivez ce qui pourrait être amélioré sur le site…"
-                  className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-white/[0.03] placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
+                  className="w-full text-sm border border-gray-200 dark:border-white/15 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-white/[0.06] placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
                   style={{ minHeight: "140px" }}
-                  aria-describedby={
-                    submit.isError ? "suggestion-error" : "suggestion-counter"
-                  }
+                  aria-describedby="suggestion-counter suggestion-error"
                 />
 
-                {/* Counter + error */}
+                {/* Min-length signal + character counter */}
                 <div className="flex items-center justify-between gap-4">
-                  {submit.isError ? (
-                    <p
-                      id="suggestion-error"
-                      role="alert"
-                      className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400"
-                    >
-                      <AlertCircle size={13} aria-hidden="true" />
-                      Une erreur est survenue, veuillez réessayer.
-                    </p>
-                  ) : (
-                    <span />
-                  )}
+                  <p
+                    id="suggestion-min"
+                    className={`text-xs transition-colors duration-150 ${
+                      meetsMin
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-gray-400 dark:text-gray-500"
+                    }`}
+                  >
+                    {meetsMin ? "✓ Prêt à envoyer" : `${MIN_LENGTH} caractères minimum`}
+                  </p>
                   <p
                     id="suggestion-counter"
                     aria-live="polite"
-                    className={`text-xs tabular-nums ml-auto shrink-0 ${
+                    className={`text-xs tabular-nums shrink-0 ${
                       remaining < 100
                         ? "text-amber-600 dark:text-amber-400"
                         : "text-gray-400 dark:text-gray-500"
@@ -162,27 +177,69 @@ export default function SuggestionBox() {
                 </div>
               </div>
 
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold px-5 py-3 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {submit.isPending ? (
-                  <>
-                    <Loader2 size={15} className="animate-spin" aria-hidden="true" />
-                    Envoi en cours…
-                  </>
-                ) : (
-                  <>
-                    <SendHorizontal size={15} aria-hidden="true" />
-                    Envoyer ma suggestion
-                  </>
+              {/* Submit block — error banner sits just above the button */}
+              <div className="space-y-2">
+                {/* ARIA anchor always in DOM; visible error rendered separately below */}
+                <span
+                  id="suggestion-error"
+                  role="alert"
+                  aria-live="assertive"
+                  className="sr-only"
+                >
+                  {submit.isError &&
+                    "Une erreur est survenue, veuillez réessayer. Si le problème persiste, contactez le support IT."}
+                </span>
+
+                {submit.isError && (
+                  <p
+                    aria-hidden="true"
+                    className="flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400"
+                  >
+                    <AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      Une erreur est survenue, veuillez réessayer.{" "}
+                      <span className="opacity-80">
+                        Si le problème persiste, contactez le support IT.
+                      </span>
+                    </span>
+                  </p>
                 )}
-              </button>
+
+                <button
+                  type="submit"
+                  disabled={!canSubmit}
+                  aria-describedby={!meetsMin && !submit.isPending ? "suggestion-min" : undefined}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-5 min-h-[44px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {submit.isPending ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                      Envoi en cours…
+                    </>
+                  ) : (
+                    <>
+                      <SendHorizontal size={15} strokeWidth={2.2} aria-hidden="true" />
+                      Envoyer ma suggestion
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
           )}
         </div>
+
+        {/* ── Ghost back link — formulaire uniquement ───────────────────── */}
+        {!submit.isSuccess && (
+          <div className="text-center">
+            <button
+              onClick={() => navigate("/mon-espace")}
+              className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              Retour à l'accueil
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
