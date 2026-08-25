@@ -7,11 +7,15 @@ interface StatCardProps {
   hausse: boolean;
   icon: React.ElementType;
   iconColor?: string;
+  iconBg?: string;
   loading?: boolean;
   suffix?: string;
   subtitle?: string;
   variationUnit?: string;
+  variationLabel?: string;
   formatter?: (value: number) => string;
+  positiveIsUp?: boolean;
+  featured?: boolean;
 }
 
 export default function StatCard({
@@ -21,76 +25,101 @@ export default function StatCard({
   hausse,
   icon: Icon,
   iconColor = "text-emerald-500",
+  iconBg,
   loading = false,
   suffix = "",
   subtitle,
   variationUnit = "%",
+  variationLabel,
   formatter,
+  positiveIsUp = true,
+  featured = false,
 }: StatCardProps) {
   if (loading) {
     return (
-      <div className="glass-card p-4 rounded-xl animate-pulse space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="glass-card p-4 rounded-2xl animate-pulse space-y-3">
+        <div className="h-3 bg-gray-200 dark:bg-white/10 rounded w-2/3" />
+        <div className="h-7 bg-gray-200 dark:bg-white/10 rounded w-3/5" />
+        <div className="flex items-center justify-between mt-auto">
           <div className="w-7 h-7 bg-gray-200 dark:bg-white/10 rounded-lg" />
           <div className="h-4 w-12 bg-gray-200 dark:bg-white/10 rounded-full" />
         </div>
-        <div className="h-7 bg-gray-200 dark:bg-white/10 rounded w-3/5" />
-        <div className="h-3 bg-gray-200 dark:bg-white/10 rounded w-2/3" />
       </div>
     );
   }
 
-  const isNeutral = variation === 0;
+  const safeVariation = Number.isFinite(variation) ? variation : 0;
+  const isNeutral = safeVariation === 0;
   const TrendIcon = isNeutral ? Minus : hausse ? TrendingUp : TrendingDown;
+  const isGood = positiveIsUp ? hausse : !hausse;
   const trendColor = isNeutral
     ? "text-gray-400 dark:text-gray-500"
-    : hausse
+    : isGood
       ? "text-emerald-600 dark:text-emerald-400"
       : "text-red-500 dark:text-red-400";
   const trendBg = isNeutral
     ? "bg-gray-100 dark:bg-white/8"
-    : hausse
+    : isGood
       ? "bg-emerald-50 dark:bg-emerald-400/12"
       : "bg-red-50 dark:bg-red-400/12";
 
   const displayValue = formatter
     ? formatter(value)
     : value.toLocaleString("fr-FR");
+  const titleId = `sc-title-${title.replace(/\s+/g, "-").toLowerCase()}`;
+  const subtitleId = subtitle ? `sc-sub-${title.replace(/\s+/g, "-").toLowerCase()}` : undefined;
 
   return (
-    <div className="glass-card p-4 rounded-xl flex flex-col gap-3">
-      {/* Icon + trend */}
-      <div className="flex items-center justify-between">
-        <div className={`w-7 h-7 flex items-center justify-center rounded-lg bg-gray-50 dark:bg-white/8 ${iconColor}`}>
-          <Icon size={14} />
-        </div>
-        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tabular-nums ${trendBg} ${trendColor}`}>
-          <TrendIcon size={9} />
-          <span>
-            {isNeutral
-              ? "Stable"
-              : `${variation > 0 ? "+" : ""}${variation}${variationUnit}`}
-          </span>
-        </div>
-      </div>
+    <article
+      aria-labelledby={titleId}
+      className={`glass-card p-4 rounded-2xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}
+    >
+      {/* Label */}
+      <p id={titleId} className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider leading-none">
+        {title}
+      </p>
 
-      {/* Value */}
+      {/* Valeur */}
       <div>
-        <div className={`font-bold tabular-nums tracking-tight text-gray-900 dark:text-gray-100 leading-none ${formatter ? "text-xl" : "text-2xl"}`}>
+        <div
+          aria-describedby={subtitleId}
+          className={`font-bold tabular-nums tracking-tight text-gray-900 dark:text-gray-100 leading-none ${featured ? "text-3xl" : formatter ? "text-xl" : "text-2xl"}`}
+        >
           {displayValue}
           {!formatter && suffix && (
             <span className="text-base font-normal text-gray-400 dark:text-gray-500 ml-0.5">{suffix}</span>
           )}
         </div>
         {subtitle && (
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 leading-none">{subtitle}</p>
+          <p id={subtitleId} className="text-xs text-gray-400 dark:text-gray-500 mt-1 leading-snug">{subtitle}</p>
         )}
       </div>
 
-      {/* Label */}
-      <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider leading-none mt-auto">
-        {title}
-      </p>
-    </div>
+      {/* Icône + tendance */}
+      <div className="flex items-center justify-between mt-auto">
+        <div className={`w-7 h-7 flex items-center justify-center rounded-lg ${iconBg ?? "bg-gray-50 dark:bg-white/8"} ${iconColor}`}>
+          <Icon size={14} aria-hidden="true" />
+        </div>
+        <div className="flex flex-col items-end gap-0.5">
+          <div
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${trendBg} ${trendColor}`}
+            aria-label={`Variation : ${isNeutral ? "Stable" : `${safeVariation > 0 ? "+" : ""}${safeVariation}${variationUnit}`}${!isNeutral && !positiveIsUp ? (isGood ? " (amélioration)" : " (dégradation)") : ""}`}
+          >
+            <TrendIcon size={9} aria-hidden="true" />
+            <span>
+              {isNeutral
+                ? "Stable"
+                : `${safeVariation > 0 ? "+" : ""}${safeVariation}${variationUnit}`}
+            </span>
+            {!isNeutral && !positiveIsUp && (
+              <span className="sr-only">{isGood ? " — amélioration" : " — dégradation"}</span>
+            )}
+          </div>
+          {variationLabel && !isNeutral && (
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">{variationLabel}</span>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }

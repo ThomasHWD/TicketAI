@@ -54,7 +54,7 @@ export default function DeleteConfirm({
               {doc.filename ?? doc.doc_id}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-red-700/85 dark:text-red-300/85">
-              Ses {doc.nb_chunks} chunk{doc.nb_chunks > 1 ? "s" : ""} seront retirés de l'index, et
+              Ses {doc.nb_chunks} passage{doc.nb_chunks > 1 ? "s" : ""} seront retirés de l'index, et
               le fichier ainsi que ses {doc.nb_versions} version
               {doc.nb_versions > 1 ? "s" : ""} archivée{doc.nb_versions > 1 ? "s" : ""} seront
               effacés. Cette action est irréversible.

@@ -55,6 +55,7 @@ async def lister_reponses_en_attente(
 async def lister_reponses_canoniques(
     current_user: BackofficeUser,
     domaine: str | None = None,
+    q: str | None = None,
     page: int = 1,
     limit: int = 20,
 ):
@@ -73,6 +74,12 @@ async def lister_reponses_canoniques(
             query = query.filter(Ticket.domaine == domaine.upper())
         elif current_user.role != "ADMIN":
             query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
+
+        if q:
+            terme = f"%{q}%"
+            query = query.filter(
+                Ticket.question.ilike(terme) | Reponse.question_suivi.ilike(terme)
+            )
 
         total = query.count()
         resultats = (
@@ -108,6 +115,7 @@ async def lister_reponses_canoniques(
 async def lister_reponses_obsoletes(
     current_user: BackofficeUser,
     domaine: str | None = None,
+    q: str | None = None,
     page: int = 1,
     limit: int = 20,
 ):
@@ -127,6 +135,12 @@ async def lister_reponses_obsoletes(
             query = query.filter(Ticket.domaine == domaine.upper())
         elif current_user.role != "ADMIN":
             query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
+
+        if q:
+            terme = f"%{q}%"
+            query = query.filter(
+                Ticket.question.ilike(terme) | Reponse.question_suivi.ilike(terme)
+            )
 
         total = query.count()
         resultats = query.order_by(Reponse.obsolete_at.desc().nullslast()).offset((page - 1) * limit).limit(limit).all()
@@ -165,6 +179,7 @@ async def lister_reponses_obsoletes(
 async def lister_reponses_a_relire(
     current_user: BackofficeUser,
     domaine: str | None = None,
+    q: str | None = None,
     page: int = 1,
     limit: int = 20,
 ):
@@ -188,6 +203,12 @@ async def lister_reponses_a_relire(
             query = query.filter(Ticket.domaine == domaine.upper())
         elif current_user.role != "ADMIN":
             query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
+
+        if q:
+            terme = f"%{q}%"
+            query = query.filter(
+                Ticket.question.ilike(terme) | Reponse.question_suivi.ilike(terme)
+            )
 
         total = query.count()
         resultats = (

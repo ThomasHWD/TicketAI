@@ -33,6 +33,7 @@ class Reponse(Base):
     score_similarite = Column(Float, nullable=True)
     validator_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     validated_at = Column(DateTime(timezone=True), nullable=True)
+    raison_rejet = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Obsolescence : un drapeau, et non une valeur de `statut`. Les copies

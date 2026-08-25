@@ -23,7 +23,7 @@ export function depuis(iso: string | null): string {
 }
 
 export const LIMIT = 10;
-export const SEUIL_EXPANSION = 220;
+export const SEUIL_EXPANSION = 350;
 
 export type Onglet = "canoniques" | "obsoletes" | "a_relire";
 

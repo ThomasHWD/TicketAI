@@ -27,9 +27,9 @@ export interface DocCible {
 export type Etape = "pick" | "analyse" | "impact" | "submitting" | "done" | "error";
 
 const BTN_SECONDAIRE =
-  "flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-white/12 dark:text-gray-300 dark:hover:bg-white/5";
+  "flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:border-white/12 dark:text-gray-300 dark:hover:bg-white/5";
 const BTN_PRIMAIRE =
-  "flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100";
+  "flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100";
 
 /**
  * Assistant de mise à jour (et de restauration) d'un document, en quatre temps :
@@ -266,13 +266,19 @@ export default function UpdateDocModal({
       )}
 
       {etape === "analyse" && (
-        <div className="flex flex-col items-center gap-3 py-14">
-          <Loader2 size={20} className="animate-spin text-gray-400" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Comparaison avec la version en ligne…
-          </p>
+        <div className="flex flex-col items-center gap-4 py-12">
+          <Loader2 size={22} className="animate-spin text-gray-400" />
+          <div className="space-y-1 text-center">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Comparaison avec la version en ligne…
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              Détection des paragraphes modifiés · quelques secondes
+            </p>
+          </div>
+          <div className="h-0.5 w-40 animate-pulse rounded-full bg-emerald-300 dark:bg-emerald-500/40" />
           <p className="max-w-xs text-center text-xs text-gray-400 dark:text-gray-500">
-            Aucune modification n'est appliquée à ce stade.
+            Aucune modification n'est appliquée avant votre confirmation.
           </p>
         </div>
       )}

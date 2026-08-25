@@ -1,7 +1,7 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { X, Frown } from "lucide-react";
+import { X, Frown, AlertTriangle } from "lucide-react";
 import { getTickets } from "../../lib/api/tickets";
 import { StarRating } from "./SatisfactionCard";
 import type { Ticket } from "../../types";
@@ -34,17 +34,45 @@ function NoteCell({ label, value }: { label: string; value: number | null }) {
 
 export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: Props) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = "modal-insatisfaits-title";
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["tickets-insatisfaits", periode, domaine],
     queryFn: () => getTickets({ noteMax: 2, closed: true, limit: 50, periode, domaine }),
     staleTime: 30_000,
   });
 
+  // Escape key + focus trap
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const trigger = document.activeElement as HTMLElement | null;
+
+    // Focus first focusable element on open
+    const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    firstFocusable?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
   }, [onClose]);
 
   const tickets: Ticket[] = data?.items ?? [];
@@ -58,12 +86,18 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
       <div className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm" />
 
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-2xl max-h-[80vh] flex flex-col rounded-2xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-100 dark:border-white/8 overflow-hidden">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative z-10 w-full max-w-2xl max-h-[80vh] flex flex-col rounded-2xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-100 dark:border-white/8 overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-white/8 shrink-0">
           <div className="flex items-center gap-2">
             <Frown size={16} className="text-rose-500 dark:text-rose-400" />
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            <h2 id={titleId} className="text-sm font-semibold text-gray-800 dark:text-gray-200">
               Tickets insatisfaits
             </h2>
             <span className="text-xs text-gray-400 dark:text-gray-500">
@@ -81,7 +115,18 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
 
         {/* Body */}
         <div className="overflow-y-auto flex-1">
-          {isLoading ? (
+          {isError ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400 dark:text-gray-500">
+              <AlertTriangle size={28} className="text-red-400 opacity-70" />
+              <p className="text-sm">Impossible de charger les tickets</p>
+              <button
+                onClick={() => queryClient.refetchQueries({ queryKey: ["tickets-insatisfaits", periode, domaine] })}
+                className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+              >
+                Réessayer
+              </button>
+            </div>
+          ) : isLoading ? (
             <div className="p-5 space-y-3">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="animate-pulse flex gap-4 p-3 rounded-xl bg-gray-50 dark:bg-white/4">
@@ -125,7 +170,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
           )}
         </div>
 
-        {!isLoading && tickets.length > 0 && (
+        {!isLoading && !isError && tickets.length > 0 && (
           <div className="px-5 py-3 border-t border-gray-100 dark:border-white/8 shrink-0">
             <p className="text-xs text-gray-400 dark:text-gray-500">
               {tickets.length} ticket{tickets.length > 1 ? "s" : ""} · cliquez pour accéder au détail

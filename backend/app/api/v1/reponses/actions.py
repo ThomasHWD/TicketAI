@@ -118,13 +118,17 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest, current_user
         reponse.statut = "REJETÉE"
         reponse.validator_id = current_user.id
         reponse.validated_at = datetime.now(timezone.utc)
+        reponse.raison_rejet = payload.raison or None
 
         if ticket:
             ticket.statut_ticket = "REJETÉ"
+            ticket.closed_at = datetime.now(timezone.utc)
             liberer_verrou(ticket)
 
+        notifier_employe(db, ticket, reponse_id, current_user.id, type="REPONSE_REJETEE")
         domaine = ticket.domaine if ticket else None
         ticket_id_str = str(reponse.ticket_id)
+        user_id = str(ticket.user_id) if ticket and ticket.user_id else None
         db.commit()
     finally:
         db.close()
@@ -134,6 +138,8 @@ async def rejeter_reponse(reponse_id: str, payload: RejeterRequest, current_user
         await broadcast_async(
             f"sse:domain:{domaine}", "reponse_rejected", {"ticket_id": ticket_id_str, "domaine": domaine}
         )
+    if user_id:
+        await broadcast_async(f"sse:user:{user_id}", "notification_created", {"ticket_id": ticket_id_str})
     return {
         "reponse_id": reponse_id,
         "statut": "REJETÉE",
