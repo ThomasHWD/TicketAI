@@ -101,6 +101,7 @@ export default function UserTicketDetail() {
   );
   const hasPending = reponses.some((r) => r.statut === "EN_ATTENTE");
   const suiviEnCours = processing || hasPending;
+  const precisionEnCours = suivi.isPending || awaiting;
   const canSubmitSuivi = precision.trim().length > 0 && !suiviEnCours;
 
   const BackButton = (
@@ -158,23 +159,53 @@ export default function UserTicketDetail() {
             created_at={ticket.created_at}
             reponses={reponses}
           />
-          {isOwner && !suiviEnCours && (
-            <TicketActions
-              closed={closed}
-              hasVisibleAnswer={hasVisibleAnswer}
-              rejected={filStatut === "rejected"}
-              cloture={cloture}
-              showRating={showRating}
-              setShowRating={setShowRating}
-              noteQualite={noteQualite}
-              noteDelai={noteDelai}
-              setNoteQualite={setNoteQualite}
-              setNoteDelai={setNoteDelai}
-              precision={precision}
-              setPrecision={setPrecision}
-              suivi={{ ...suivi, mutate: () => suivi.mutate() }}
-              canSubmitSuivi={canSubmitSuivi}
-            />
+          {isOwner && jobEnCours && reponses.length === 0 && (
+            <div
+              className="glass-card rounded-2xl px-5 py-4 flex items-start gap-3"
+              role="status"
+            >
+              <span
+                className="w-2 h-2 rounded-full bg-blue-400 dark:bg-blue-500 motion-safe:animate-pulse shrink-0 mt-1.5"
+                aria-hidden="true"
+              />
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Votre question a bien été reçue et est en cours de traitement.
+              </p>
+            </div>
+          )}
+          {isOwner && (
+            precisionEnCours ? (
+              <div
+                className="glass-card rounded-2xl px-5 py-4 flex items-center gap-3"
+                role="status"
+                aria-live="polite"
+              >
+                <span
+                  className="w-2 h-2 rounded-full bg-blue-400 dark:bg-blue-500 motion-safe:animate-pulse shrink-0"
+                  aria-hidden="true"
+                />
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Votre précision est en cours de traitement — les actions seront disponibles dès réception de la réponse.
+                </p>
+              </div>
+            ) : !suiviEnCours ? (
+              <TicketActions
+                closed={closed}
+                hasVisibleAnswer={hasVisibleAnswer}
+                rejected={filStatut === "rejected"}
+                cloture={cloture}
+                showRating={showRating}
+                setShowRating={setShowRating}
+                noteQualite={noteQualite}
+                noteDelai={noteDelai}
+                setNoteQualite={setNoteQualite}
+                setNoteDelai={setNoteDelai}
+                precision={precision}
+                setPrecision={setPrecision}
+                suivi={{ ...suivi, mutate: () => suivi.mutate() }}
+                canSubmitSuivi={canSubmitSuivi}
+              />
+            ) : null
           )}
         </div>
         <TicketInfoSidebar ticket={ticket} filStatut={filStatut} joursAutoCloture={joursAutoCloture} />
