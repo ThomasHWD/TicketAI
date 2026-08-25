@@ -430,7 +430,6 @@ export default function UserDashboard() {
             >
               <Plus size={14} />
               Nouvelle question
-              <kbd className="hidden sm:inline-flex items-center px-1 ml-0.5 rounded text-[11px] font-mono border border-current opacity-40">N</kbd>
             </button>
             <span className="w-px h-4 bg-gray-200 dark:bg-white/10" />
             <button
