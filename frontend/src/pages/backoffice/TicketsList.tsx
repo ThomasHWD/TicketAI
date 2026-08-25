@@ -222,7 +222,7 @@ function EmptyState({ hasFilters, isClosed, colSpan }: { hasFilters: boolean; is
 
 // ─── main component ──────────────────────────────────────────────────────────
 
-const LIMIT = 25;
+const LIMIT = 10;
 const SKELETON_WIDTHS = ["w-3/4", "w-2/3", "w-4/5", "w-1/2", "w-3/5", "w-5/6"];
 
 export default function TicketsList() {
