@@ -67,7 +67,12 @@
   animation: marquee linear infinite;
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
+/* ─── Reduced-motion ──────────────────────────────────────────────────────
+   Supprime toutes les animations/transitions décoratives.
+   Les animations qui portent un signal d'état (ex : dot de traitement en cours)
+   doivent utiliser le préfixe Tailwind `motion-safe:` — elles n'entrent pas
+   dans ce bloc car `motion-safe:` les conditionne à `no-preference`.
+   ─────────────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   *,
