@@ -22,6 +22,7 @@ export default function CandidatsPanel({ candidates, search, onSearchChange, onA
           <input
             type="text"
             placeholder="Nom ou département…"
+            aria-label="Rechercher un membre"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-7 pr-7 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"

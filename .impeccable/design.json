@@ -1,44 +1,225 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-07T00:00:00Z",
+  "generatedAt": "2026-08-20T00:00:00Z",
   "title": "Design System: TicketAI",
   "extensions": {
     "colorMeta": {
-      "emerald-primary": { "role": "primary", "displayName": "Emerald Primary", "canonical": "#10b981", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#a7f3d0"] },
-      "emerald-deep": { "role": "primary", "displayName": "Emerald Deep", "canonical": "#059669", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7"] },
-      "green-active-bg": { "role": "primary", "displayName": "Calm Active Green", "canonical": "#dcfce7", "tonalRamp": ["#052e16", "#14532d", "#15803d", "#16a34a", "#22c55e", "#86efac", "#dcfce7", "#f0fdf4"] },
-      "ink-body": { "role": "neutral", "displayName": "Ink Body", "canonical": "#4b5563", "tonalRamp": ["#111827", "#1f2937", "#374151", "#4b5563", "#6b7280", "#9ca3af", "#e5e7eb", "#f9fafb"] },
-      "night": { "role": "neutral", "displayName": "Night Canvas", "canonical": "#05070f", "tonalRamp": ["#05070f", "#0b0f1c", "#131826", "#1f2637", "#2b3446", "#3b4657", "#6b7280", "#9ca3af"] },
-      "state-info": { "role": "tertiary", "displayName": "Validated Blue", "canonical": "#2563eb", "tonalRamp": ["#172554", "#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#93c5fd", "#dbeafe", "#eff6ff"] },
-      "state-warn": { "role": "tertiary", "displayName": "Suggestion Amber", "canonical": "#ca8a04", "tonalRamp": ["#422006", "#713f12", "#a16207", "#ca8a04", "#eab308", "#fde047", "#fef9c3", "#fefce8"] },
-      "state-danger": { "role": "tertiary", "displayName": "Rejected Red", "canonical": "#dc2626", "tonalRamp": ["#450a0a", "#7f1d1d", "#b91c1c", "#dc2626", "#ef4444", "#fca5a5", "#fee2e2", "#fef2f2"] },
-      "chart-blue": { "role": "tertiary", "displayName": "Chart Blue", "canonical": "#3b82f6", "tonalRamp": ["#172554", "#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#93c5fd", "#bfdbfe", "#eff6ff"] },
-      "chart-blue-dark": { "role": "tertiary", "displayName": "Chart Blue (Dark)", "canonical": "#60a5fa", "tonalRamp": ["#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"] },
-      "chart-amber": { "role": "tertiary", "displayName": "Chart Amber", "canonical": "#f59e0b", "tonalRamp": ["#422006", "#713f12", "#a16207", "#ca8a04", "#f59e0b", "#fbbf24", "#fde68a", "#fffbeb"] },
-      "chart-amber-dark": { "role": "tertiary", "displayName": "Chart Amber (Dark)", "canonical": "#fbbf24", "tonalRamp": ["#713f12", "#a16207", "#ca8a04", "#f59e0b", "#fbbf24", "#fde68a", "#fef3c7", "#fffbeb"] },
-      "chart-violet": { "role": "tertiary", "displayName": "Branch Violet (Canonique)", "canonical": "#8b5cf6", "tonalRamp": ["#2e1065", "#4c1d95", "#5b21b6", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ede9fe"] },
-      "chart-violet-dark": { "role": "tertiary", "displayName": "Branch Violet Dark", "canonical": "#a78bfa", "tonalRamp": ["#4c1d95", "#5b21b6", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe"] },
-      "chart-teal": { "role": "tertiary", "displayName": "Branch Teal (Suggestion)", "canonical": "#0d9488", "tonalRamp": ["#042f2e", "#134e4a", "#115e59", "#0f766e", "#0d9488", "#14b8a6", "#5eead4", "#ccfbf1"] },
-      "chart-teal-dark": { "role": "tertiary", "displayName": "Branch Teal Dark", "canonical": "#2dd4bf", "tonalRamp": ["#115e59", "#0f766e", "#0d9488", "#0f9f96", "#2dd4bf", "#5eead4", "#99f6e4", "#ccfbf1"] },
-      "chart-rose": { "role": "tertiary", "displayName": "Branch Rose (LLM)", "canonical": "#e11d48", "tonalRamp": ["#4c0519", "#881337", "#9f1239", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fecdd3"] },
-      "chart-rose-dark": { "role": "tertiary", "displayName": "Branch Rose Dark", "canonical": "#fb7185", "tonalRamp": ["#881337", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fda4af", "#fecdd3", "#fff1f2"] }
+      "emerald-action": {
+        "role": "primary",
+        "displayName": "Verdigris Action",
+        "canonical": "#059669",
+        "tonalRamp": [
+          "oklch(0.18 0.07 162)",
+          "oklch(0.28 0.10 162)",
+          "oklch(0.38 0.13 162)",
+          "oklch(0.48 0.15 162)",
+          "oklch(0.588 0.167 162)",
+          "oklch(0.70 0.14 162)",
+          "oklch(0.82 0.09 162)",
+          "oklch(0.95 0.04 162)"
+        ]
+      },
+      "emerald-signal": {
+        "role": "primary",
+        "displayName": "Signal Mid",
+        "canonical": "#10b981",
+        "tonalRamp": [
+          "oklch(0.20 0.07 162)",
+          "oklch(0.30 0.10 162)",
+          "oklch(0.42 0.13 162)",
+          "oklch(0.52 0.16 162)",
+          "oklch(0.696 0.17 162)",
+          "oklch(0.76 0.13 162)",
+          "oklch(0.86 0.09 162)",
+          "oklch(0.95 0.04 162)"
+        ]
+      },
+      "emerald-vivid": {
+        "role": "primary",
+        "displayName": "Electric Lime (login only)",
+        "canonical": "#2FE272",
+        "tonalRamp": [
+          "oklch(0.20 0.12 145)",
+          "oklch(0.32 0.15 145)",
+          "oklch(0.44 0.18 145)",
+          "oklch(0.56 0.20 145)",
+          "oklch(0.78 0.22 145)",
+          "oklch(0.86 0.17 145)",
+          "oklch(0.92 0.12 145)",
+          "oklch(0.97 0.05 145)"
+        ]
+      },
+      "emerald-deep": {
+        "role": "primary",
+        "displayName": "Forest Anchor (login only)",
+        "canonical": "#168B46",
+        "tonalRamp": [
+          "oklch(0.15 0.06 155)",
+          "oklch(0.25 0.09 155)",
+          "oklch(0.35 0.12 155)",
+          "oklch(0.46 0.14 155)",
+          "oklch(0.54 0.15 155)",
+          "oklch(0.67 0.13 155)",
+          "oklch(0.80 0.09 155)",
+          "oklch(0.94 0.04 155)"
+        ]
+      },
+      "surface-base": {
+        "role": "neutral",
+        "displayName": "Cloud Base",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": [
+          "oklch(0.14 0 0)",
+          "oklch(0.24 0 0)",
+          "oklch(0.38 0 0)",
+          "oklch(0.52 0 0)",
+          "oklch(0.68 0 0)",
+          "oklch(0.80 0 0)",
+          "oklch(0.92 0 0)",
+          "oklch(1 0 0)"
+        ]
+      },
+      "surface-page": {
+        "role": "neutral",
+        "displayName": "Ash Page",
+        "canonical": "#f9fafb",
+        "tonalRamp": [
+          "oklch(0.14 0 0)",
+          "oklch(0.24 0 0)",
+          "oklch(0.38 0 0)",
+          "oklch(0.52 0 0)",
+          "oklch(0.68 0 0)",
+          "oklch(0.80 0 0)",
+          "oklch(0.92 0 0)",
+          "oklch(0.98 0 0)"
+        ]
+      },
+      "surface-void": {
+        "role": "neutral",
+        "displayName": "Void",
+        "canonical": "oklch(0.145 0 0)",
+        "tonalRamp": [
+          "oklch(0.10 0 0)",
+          "oklch(0.145 0 0)",
+          "oklch(0.22 0 0)",
+          "oklch(0.32 0 0)",
+          "oklch(0.45 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.78 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink Primary",
+        "canonical": "oklch(0.145 0 0)",
+        "tonalRamp": [
+          "oklch(0.10 0 0)",
+          "oklch(0.145 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.40 0 0)",
+          "oklch(0.556 0 0)",
+          "oklch(0.70 0 0)",
+          "oklch(0.85 0 0)",
+          "oklch(0.97 0 0)"
+        ]
+      },
+      "danger": {
+        "role": "semantic",
+        "displayName": "Danger Red",
+        "canonical": "oklch(0.577 0.245 27.325)",
+        "tonalRamp": [
+          "oklch(0.18 0.10 27)",
+          "oklch(0.28 0.14 27)",
+          "oklch(0.38 0.18 27)",
+          "oklch(0.48 0.22 27)",
+          "oklch(0.577 0.245 27)",
+          "oklch(0.70 0.20 27)",
+          "oklch(0.82 0.14 27)",
+          "oklch(0.95 0.06 27)"
+        ]
+      },
+      "status-blue": {
+        "role": "semantic",
+        "displayName": "Processing Blue",
+        "canonical": "#3b82f6",
+        "tonalRamp": [
+          "oklch(0.18 0.09 264)",
+          "oklch(0.28 0.13 264)",
+          "oklch(0.38 0.17 264)",
+          "oklch(0.48 0.20 264)",
+          "oklch(0.60 0.24 264)",
+          "oklch(0.72 0.18 264)",
+          "oklch(0.84 0.12 264)",
+          "oklch(0.95 0.05 264)"
+        ]
+      },
+      "status-amber": {
+        "role": "semantic",
+        "displayName": "Alert Amber",
+        "canonical": "#f59e0b",
+        "tonalRamp": [
+          "oklch(0.18 0.06 80)",
+          "oklch(0.30 0.10 80)",
+          "oklch(0.42 0.14 80)",
+          "oklch(0.54 0.18 80)",
+          "oklch(0.76 0.19 80)",
+          "oklch(0.84 0.15 80)",
+          "oklch(0.91 0.10 80)",
+          "oklch(0.97 0.05 80)"
+        ]
+      }
     },
     "typographyMeta": {
-      "page-title": { "displayName": "Page Title", "purpose": "One per screen; text-2xl semibold heading." },
-      "section-title": { "displayName": "Section Title", "purpose": "Panel and card headers." },
-      "body": { "displayName": "Body", "purpose": "Default text, table cells, paragraph copy (cap prose 65-75ch)." },
-      "label": { "displayName": "Label", "purpose": "Form field labels; medium weight, ink-strong." },
-      "eyebrow": { "displayName": "Eyebrow", "purpose": "Uppercase tracked panel section markers (Informations, Demandeur)." },
-      "meta": { "displayName": "Meta", "purpose": "Timestamps, pagination counts, hints; faint gray." }
+      "display": { "displayName": "Display", "purpose": "Login page headline only — not used in the authenticated app shell." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings, modal titles, tab-level headings." },
+      "title": { "displayName": "Title", "purpose": "Sidebar wordmark, stat card values, ticket subject lines." },
+      "body": { "displayName": "Body", "purpose": "All running copy, table cells, form labels, dropdown items. Default operational text size (14px)." },
+      "label": { "displayName": "Label", "purpose": "Sidebar section group headers, stat card metric titles, status chip text. Always UPPERCASE." }
     },
     "shadows": [
-      { "name": "panel-lift", "value": "0 1px 2px 0 rgba(17,24,39,0.05)", "purpose": "The only structural shadow: whisper-lift under every glass panel and the floating back-button." },
-      { "name": "accent-glow", "value": "0 1px 3px 0 rgba(167,243,208,0.5)", "purpose": "shadow-emerald-200 halo under the primary Add Ticket CTA only; ties the button to the aurora." }
+      {
+        "name": "glass-card-ambient",
+        "value": "0 8px 32px rgba(17,17,26,0.07)",
+        "purpose": "Diffuse ambient shadow beneath glass-card surfaces in light mode."
+      },
+      {
+        "name": "glass-card-dark-ambient",
+        "value": "0 8px 32px rgba(0,0,0,0.38)",
+        "purpose": "Diffuse ambient shadow beneath glass-card surfaces in dark mode."
+      },
+      {
+        "name": "glass-card-inset-highlight",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(255,255,255,0.3)",
+        "purpose": "Top-edge inner highlight that gives glass-card its frosted depth."
+      },
+      {
+        "name": "modal-elevation",
+        "value": "0 25px 50px -12px rgba(0,0,0,0.25)",
+        "purpose": "shadow-2xl applied to non-glass modal dialogs."
+      },
+      {
+        "name": "interactive-lift",
+        "value": "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)",
+        "purpose": "hover:shadow-md on a small set of interactive cards (e.g., HorsDomaineCard). Rare."
+      }
     ],
     "motion": [
-      { "name": "color-transition", "value": "150ms ease", "purpose": "Default transition-colors on buttons, nav, rows, links." },
-      { "name": "shell-collapse", "value": "300ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Sidebar width + label fade/slide on collapse — the only choreographed motion." },
-      { "name": "spinner", "value": "linear infinite", "purpose": "Loader2 animate-spin during pending mutations." }
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default easing for sidebar collapse and any layout-level transitions."
+      },
+      {
+        "name": "duration-instant",
+        "value": "150ms",
+        "purpose": "Color changes on all interactive elements (hover, active). transition-colors duration-150."
+      },
+      {
+        "name": "duration-layout",
+        "value": "300ms",
+        "purpose": "Sidebar width collapse/expand — the only long transition in the system."
+      }
     ],
     "breakpoints": [
       { "name": "sm", "value": "640px" },
@@ -52,85 +233,119 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The emerald CTA — primary action on every screen; carries the accent glow in the navbar.",
-      "html": "<button class=\"ds-btn-primary\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>Add Ticket</button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; background: #10b981; color: #fff; font-size: 0.875rem; font-weight: 500; padding: 8px 16px; border: none; border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(167,243,208,0.5); cursor: pointer; transition: background-color 150ms ease; } .ds-btn-primary:hover { background: #059669; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #10b981; } .ds-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }"
+      "description": "The main action button. Solid emerald fill, restrained size — at most one per view region.",
+      "html": "<button class=\"ds-btn-primary\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>Nouveau ticket</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: #059669; color: #ffffff; font-family: 'Geist Variable', system-ui, sans-serif; font-size: 14px; font-weight: 500; border: none; border-radius: 8px; cursor: pointer; transition: background-color 150ms; } .ds-btn-primary:hover { background: #047857; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #10b981; }"
     },
     {
-      "name": "Secondary Button",
+      "name": "Ghost Icon Button",
       "kind": "button",
-      "refersTo": "button-secondary",
-      "description": "Ghost/bordered action for non-primary tasks (Créer un ticket, Corriger).",
-      "html": "<button class=\"ds-btn-secondary\">Créer un ticket<span class=\"ds-btn-secondary__badge\">+</span></button>",
-      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.8); color: #4b5563; font-size: 0.875rem; padding: 6px 12px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: background-color 150ms ease; } .ds-btn-secondary:hover { background: #f9fafb; } .ds-btn-secondary__badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 9999px; background: #f3f4f6; color: #6b7280; font-size: 0.75rem; font-weight: 700; }"
+      "refersTo": "button-ghost",
+      "description": "Icon-only secondary action. Theme toggle, logout, close, and all non-primary actions use this pattern.",
+      "html": "<button class=\"ds-btn-ghost\" title=\"Passer en thème sombre\" aria-label=\"Passer en thème sombre\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"5\"/><line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"3\"/><line x1=\"12\" y1=\"21\" x2=\"12\" y2=\"23\"/><line x1=\"4.22\" y1=\"4.22\" x2=\"5.64\" y2=\"5.64\"/><line x1=\"18.36\" y1=\"18.36\" x2=\"19.78\" y2=\"19.78\"/><line x1=\"1\" y1=\"12\" x2=\"3\" y2=\"12\"/><line x1=\"21\" y1=\"12\" x2=\"23\" y2=\"12\"/><line x1=\"4.22\" y1=\"19.78\" x2=\"5.64\" y2=\"18.36\"/><line x1=\"18.36\" y1=\"5.64\" x2=\"19.78\" y2=\"4.22\"/></svg></button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; padding: 6px; background: transparent; color: #6b7280; border: none; border-radius: 8px; cursor: pointer; transition: background-color 150ms, color 150ms; } .ds-btn-ghost:hover { background: #f3f4f6; color: #1f2937; } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px #10b981; }"
     },
     {
-      "name": "Status Pill",
+      "name": "Status Chip — Validated",
       "kind": "chip",
-      "refersTo": "status-pill",
-      "description": "Rounded status badge with a bg-current leading dot; color maps to business status. Shown here as Canonique (emerald).",
-      "html": "<span class=\"ds-pill\"><span class=\"ds-pill__dot\"></span>Canonique</span>",
-      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; } .ds-pill__dot { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; }"
+      "refersTo": "chip-emerald",
+      "description": "Emerald status pill for validated/canonical answers. Always includes a leading filled dot.",
+      "html": "<span class=\"ds-chip-emerald\"><span class=\"ds-chip-dot\"></span>Validée</span>",
+      "css": ".ds-chip-emerald { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; border-radius: 9999px; font-family: 'Geist Variable', system-ui, sans-serif; font-size: 12px; font-weight: 500; } .ds-chip-dot { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; flex-shrink: 0; }"
     },
     {
-      "name": "Glass Panel",
+      "name": "Status Chip — Processing",
+      "kind": "chip",
+      "refersTo": "chip-blue",
+      "description": "Blue status pill for in-progress / pending-review states. Dot uses pulse animation.",
+      "html": "<span class=\"ds-chip-blue\"><span class=\"ds-chip-dot ds-chip-pulse\"></span>En cours</span>",
+      "css": ".ds-chip-blue { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 9999px; font-family: 'Geist Variable', system-ui, sans-serif; font-size: 12px; font-weight: 500; } .ds-chip-dot { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; flex-shrink: 0; } @keyframes ds-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } } .ds-chip-pulse { animation: ds-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }"
+    },
+    {
+      "name": "Glass Card — Stat",
       "kind": "card",
-      "refersTo": "glass-panel",
-      "description": "The signature frosted-glass surface — every content container. Translucent white + backdrop blur, never opaque.",
-      "html": "<div class=\"ds-panel\"><p class=\"ds-panel__eyebrow\">Informations</p><p class=\"ds-panel__body\">Frosted glass floats over the aurora; the atmosphere stays faintly visible through the surface.</p></div>",
-      "css": ".ds-panel { background: rgba(255,255,255,0.8); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(229,231,235,0.7); border-radius: 16px; box-shadow: 0 1px 2px 0 rgba(17,24,39,0.05); padding: 24px; } .ds-panel__eyebrow { margin: 0 0 8px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #6b7280; } .ds-panel__body { margin: 0; font-size: 0.875rem; line-height: 1.5; color: #4b5563; }"
+      "refersTo": "glass-card",
+      "description": "Compact frosted-glass stat card over a clean gray-50 background. No aurora behind it.",
+      "html": "<div class=\"ds-glass-card\"><div class=\"ds-stat-header\"><div class=\"ds-stat-icon\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#10b981\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg></div><span class=\"ds-trend ds-trend-up\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"9\" height=\"9\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>+12%</span></div><div class=\"ds-stat-value\">248</div><p class=\"ds-stat-label\">RÉPONSES VALIDÉES</p></div>",
+      "css": ".ds-glass-card { background: rgba(255,255,255,0.76); backdrop-filter: blur(20px) saturate(1.5) brightness(1.02); -webkit-backdrop-filter: blur(20px) saturate(1.5) brightness(1.02); border: 1px solid rgba(255,255,255,0.55); box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(255,255,255,0.3), 0 8px 32px rgba(17,17,26,0.07); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; font-family: 'Geist Variable', system-ui, sans-serif; } .ds-stat-header { display: flex; align-items: center; justify-content: space-between; } .ds-stat-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #f9fafb; } .ds-trend { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; } .ds-trend-up { background: #ecfdf5; color: #059669; } .ds-stat-value { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #111827; line-height: 1; } .ds-stat-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #6b7280; line-height: 1; margin: 0; margin-top: auto; }"
     },
     {
-      "name": "Text Input",
-      "kind": "input",
-      "refersTo": "input",
-      "description": "Standard field with the universal emerald focus ring; select and textarea share this vocabulary.",
-      "html": "<input class=\"ds-input\" placeholder=\"Ex. : Combien de jours de congés puis-je reporter ?\" />",
-      "css": ".ds-input { width: 100%; box-sizing: border-box; font-size: 0.875rem; color: #374151; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; transition: box-shadow 150ms ease, border-color 150ms ease; } .ds-input::placeholder { color: #9ca3af; } .ds-input:focus { outline: none; box-shadow: 0 0 0 2px #10b981; border-color: transparent; }"
-    },
-    {
-      "name": "Nav Item (active)",
+      "name": "Nav Item — Active",
       "kind": "nav",
       "refersTo": "nav-item-active",
-      "description": "Sidebar navigation entry. Active state uses the calm flat green, distinct from the emerald button accent.",
-      "html": "<a class=\"ds-nav-item ds-nav-item--active\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg>Tableau de bord</a>",
-      "css": ".ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.875rem; color: #4b5563; text-decoration: none; transition: background-color 150ms ease; } .ds-nav-item:hover { background: #f3f4f6; } .ds-nav-item--active { background: #dcfce7; color: #15803d; font-weight: 500; }"
+      "description": "Sidebar nav item in its active/selected state. Emerald tint fill, medium weight.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-active\" href=\"#\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\"/></svg><span>Tableau de bord</span></a><a class=\"ds-nav-item\" href=\"#\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><polyline points=\"14 2 14 8 20 8\"/></svg><span>Tickets</span></a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 6px; font-family: 'Geist Variable', system-ui, sans-serif; } .ds-nav-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-size: 14px; text-decoration: none; color: #4b5563; transition: background-color 150ms, color 150ms; } .ds-nav-item:hover { background: #f3f4f6; color: #111827; } .ds-nav-active { background: #ecfdf5; color: #047857; font-weight: 500; } .ds-nav-active:hover { background: #d1fae5; }"
+    },
+    {
+      "name": "User Avatar",
+      "kind": "custom",
+      "description": "Name-derived SVG avatar — no asset required. HSL color hashed from name, stable per user.",
+      "html": "<svg width=\"36\" height=\"36\" viewBox=\"0 0 36 36\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\" role=\"img\" aria-label=\"Marie Dupont\"><circle cx=\"18\" cy=\"18\" r=\"18\" fill=\"#c7d7e8\"/><circle cx=\"18\" cy=\"14.5\" r=\"5.5\" fill=\"#2d5a8a\" fill-opacity=\"0.18\"/><ellipse cx=\"18\" cy=\"27\" rx=\"10\" ry=\"6.5\" fill=\"#2d5a8a\" fill-opacity=\"0.14\"/><text x=\"18\" y=\"22.5\" text-anchor=\"middle\" font-size=\"14\" font-family=\"system-ui, sans-serif\" font-weight=\"600\" fill=\"#2d5a8a\" letter-spacing=\"0.01em\">M</text><circle cx=\"18\" cy=\"18\" r=\"17.25\" stroke=\"#95b8d4\" stroke-width=\"1.5\"/></svg>",
+      "css": ""
+    },
+    {
+      "name": "Modal Dialog",
+      "kind": "card",
+      "description": "Non-glass elevated dialog. Opaque white background, rounded-2xl, shadow-2xl, Escape-dismissable.",
+      "html": "<div class=\"ds-modal-scrim\"><div class=\"ds-modal\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Valider la réponse\"><header class=\"ds-modal-header\"><div><p class=\"ds-modal-eyebrow\">Domaine RH</p><h2 class=\"ds-modal-title\">Valider la réponse</h2></div><button class=\"ds-modal-close\" aria-label=\"Fermer\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg></button></header><div class=\"ds-modal-body\"><p style=\"color:#4b5563;font-size:14px;line-height:1.5\">Confirmez-vous que cette réponse est correcte et peut être validée ?</p></div><footer class=\"ds-modal-footer\"><button class=\"ds-btn-ghost-text\">Annuler</button><button class=\"ds-btn-confirm\">Valider</button></footer></div></div>",
+      "css": ".ds-modal-scrim { position: fixed; inset: 0; background: rgba(17,24,39,0.25); display: flex; align-items: center; justify-content: center; padding: 16px; font-family: 'Geist Variable', system-ui, sans-serif; } .ds-modal { position: relative; width: 100%; max-width: 512px; display: flex; flex-direction: column; max-height: 86vh; overflow: hidden; border-radius: 18px; border: 1px solid #e5e7eb; background: #ffffff; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); } .ds-modal-header { display: flex; align-items: flex-start; gap: 16px; border-bottom: 1px solid #f3f4f6; padding: 16px 24px; } .ds-modal-eyebrow { margin: 0 0 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; } .ds-modal-title { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; color: #111827; } .ds-modal-close { margin-left: auto; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 6px; border: none; background: transparent; border-radius: 8px; color: #9ca3af; cursor: pointer; transition: background-color 150ms, color 150ms; } .ds-modal-close:hover { background: #f3f4f6; color: #374151; } .ds-modal-body { flex: 1; overflow-y: auto; padding: 20px 24px; } .ds-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; border-top: 1px solid #f3f4f6; padding: 16px 24px; } .ds-btn-ghost-text { padding: 6px 12px; background: transparent; color: #6b7280; border: none; border-radius: 8px; font-family: 'Geist Variable', system-ui, sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 150ms; } .ds-btn-ghost-text:hover { background: #f3f4f6; } .ds-btn-confirm { display: inline-flex; align-items: center; padding: 6px 12px; background: #059669; color: #ffffff; font-family: 'Geist Variable', system-ui, sans-serif; font-size: 14px; font-weight: 500; border: none; border-radius: 8px; cursor: pointer; transition: background-color 150ms; } .ds-btn-confirm:hover { background: #047857; }"
     }
   ],
   "narrative": {
-    "northStar": "The Aurora Desk",
-    "overview": "TicketAI is a human-in-the-loop workspace where validators review AI-drafted helpdesk answers before they ship. The identity is carried by a single living element: an animated WebGL aurora (emerald simplex-noise) fixed behind the entire app. Everything else — sidebar, topbar, every content panel — is a sheet of frosted glass laid over that aurora, letting emerald light bleed up from beneath. The aurora is the brand; the glass is the desk. Emerald is the one true accent — primary actions, current nav, canonical answers, the aurora itself — and appears nowhere as decoration. Neutrals do the heavy lifting; dark mode is a first-class near-black night palette. The system rejects the flat opaque-card SaaS dashboard: surfaces are translucent, blurred, and border-defined, so the atmosphere behind them is always faintly present.",
+    "northStar": "The Expert's Workshop",
+    "overview": "TicketAI is a professional tool that earns its invisibility. The interface is a neutral membrane between domain experts and their work — structured, unhurried, consistently dense without feeling crowded. Every primary aesthetic decision (Geist's geometric precision, the layered glass hierarchy, the single emerald accent) serves one purpose: keeping the expert focused on the ticket, not the interface itself.\n\nThe palette is deliberately restrained. Zinc-gray neutrals carry 90% of the screen; emerald enters only where it signals actionability or resolution — primary buttons, active navigation items, and validated-answer badges. This rarity is the point: when you see green, something is done or requires your action. Every other hue is strictly semantic.\n\nGlass-morphism is structural rather than decorative. There is no animated background — the Aurora WebGL component was removed for legibility. Cards float above a clean #f9fafb page background via backdrop-filter blur, creating clear depth hierarchy without atmospheric distraction.",
     "keyCharacteristics": [
-      "One accent (emerald), one atmosphere (aurora), one surface material (frosted glass).",
-      "Fixed rem type scale, single system-sans family, tight hierarchy.",
-      "Translucency + backdrop-blur instead of heavy shadows for depth.",
-      "Class-toggled dark mode with a near-black night palette; no FOUC.",
-      "Standardized semantic state colors mapped to business statuses."
+      "Single-accent palette — emerald only, deployed with surgical precision",
+      "Glass as a structural depth signal, not an aesthetic statement",
+      "Geist Variable — one geometric family for all hierarchy levels",
+      "56px chrome (sidebar + navbar) maximizes vertical space for content",
+      "Semantic color system: emerald = validated/action · blue = processing · red = error · amber = count"
     ],
     "rules": [
-      { "name": "The One Emerald Rule", "body": "Emerald is reserved for primary action, current selection, canonical/success state, and the aurora. It is never a decorative fill, gradient, or background band.", "section": "colors" },
-      { "name": "The Translucent Surface Rule", "body": "No content surface is solid #ffffff. Every panel is white/80 + backdrop-blur-xl; every dark surface is white/5. The aurora must always be faintly readable behind the chrome.", "section": "colors" },
-      { "name": "The Fixed-Scale Rule", "body": "Type sizes are fixed rem steps, never clamp/fluid. Headings that shrink in a collapsed sidebar look broken, not responsive.", "section": "typography" },
-      { "name": "The Weight-Not-Color Rule", "body": "Emphasis is created with weight (500/600) and the gray ramp, not with the accent. Text is almost never emerald.", "section": "typography" },
-      { "name": "The Frosted-Depth Rule", "body": "Depth is backdrop-blur-xl + translucency, never a dark shadow. If a surface needs to feel lifted, increase blur or opacity contrast — do not reach for shadow-lg.", "section": "elevation" }
+      {
+        "name": "The Rarity Rule",
+        "body": "Emerald appears on at most 10–15% of any given screen. Its signal value depends entirely on scarcity. Never use it for decorative borders, hover effects unrelated to validation, or any non-action context.",
+        "section": "colors"
+      },
+      {
+        "name": "The Single Family Rule",
+        "body": "Geist Variable is the only typeface in the authenticated shell. Space Grotesk and JetBrains Mono are login-page exceptions and must not cross that boundary.",
+        "section": "typography"
+      },
+      {
+        "name": "The Glass-Is-Structural Rule",
+        "body": "Apply glass-card only to card-level containers that group a discrete unit of information. Nav elements, form fields, tooltips, and table rows are not cards.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Flat-Chrome Rule",
+        "body": "Sidebar and navbar use solid backgrounds (bg-white dark:bg-[#111113]), not glass. Chrome always recedes behind content.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Radius Ladder Rule",
+        "body": "Use rounded-md for interactive actions, rounded-xl for compact cards, rounded-2xl for large cards and dialogs. A button should never be rounder than the card it lives inside.",
+        "section": "shapes"
+      }
     ],
     "dos": [
-      "Do keep emerald to the four sanctioned roles (primary action, current selection, canonical/success, aurora).",
-      "Do render every content surface as frosted glass: white/80 + backdrop-blur-xl + border-gray-200/70 + shadow-sm.",
-      "Do use the emerald focus ring (focus:ring-2 focus:ring-emerald-500) on every interactive control.",
-      "Do map status to the standardized semantic triad (emerald / blue / yellow / red) with a light and a /10 dark variant.",
-      "Do use fixed rem type sizes and the single system-sans family; create hierarchy with weight and the gray ramp.",
-      "Do provide light and dark variants for every color — dark mode is first-class, not an afterthought.",
-      "Do keep transitions to transition-colors (~150-250ms); reserve the duration-300 choreography for the sidebar collapse only."
+      "Do use glass-card rounded-xl p-4 for compact cards and glass-card rounded-2xl p-5 for large dashboard cards.",
+      "Do deploy emerald exclusively on: primary action buttons, active nav items, validated/canonical status chips, and focus rings.",
+      "Do use text-xs font-semibold tracking-[0.06em] uppercase text-gray-400 for all sidebar section labels and stat card metric titles.",
+      "Do use transition-colors duration-150 on every interactive color change; duration-300 only for sidebar width collapse.",
+      "Do keep icons at 14–17px with strokeWidth 1.7–2.2. Small and precise — functional signals, not decorative glyphs.",
+      "Do use rounded-full only for pills (status chips), count badges, and circles (avatars, dots).",
+      "Do provide dark variants (dark:) for every color choice — dark mode is first-class."
     ],
     "donts": [
-      "Don't ship a solid opaque #ffffff card with a hard drop shadow — frosted glass only.",
-      "Don't reach for shadow-lg/deep shadows for depth; use backdrop-blur + translucency.",
-      "Don't use emerald as a decorative fill, gradient text, or background band. No background-clip: text gradients.",
-      "Don't use border-left/border-right colored side-stripes on panels, alerts, or list items; use the full border + bg-current dot pattern.",
-      "Don't introduce a second font family or a display face for UI labels, buttons, or data.",
-      "Don't use clamp/fluid type in the app UI; headings stay at fixed rem steps.",
-      "Don't invent new status colors or one-off accent hues; extend the existing semantic vocabulary."
+      "Don't use the login gradient (linear-gradient(100deg, #168B46, #2FE272)) or its emerald glow shadow inside the authenticated shell.",
+      "Don't render the Aurora WebGL component — removed for legibility.",
+      "Don't apply glass-card to nav elements, table rows, form fields, or tooltips. Glass signals a card-level container.",
+      "Don't apply rounded-2xl to buttons or inline nav items. That radius is reserved for large cards and dialogs.",
+      "Don't use blue as an action or brand color — blue appears only in the in-progress / processing semantic state.",
+      "Don't place more than one filled bg-emerald-600 button in a single view region. Ghost and icon variants absorb secondary actions.",
+      "Don't add extra shadow-* to glass-card containers — the glass token already includes its shadow vocabulary."
     ]
   }
 }

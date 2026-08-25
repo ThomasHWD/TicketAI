@@ -10,7 +10,7 @@ export function formatDate(iso: string | null) {
 export function BotAvatar({ pulse = false }: { pulse?: boolean }) {
   return (
     <span
-      className={`inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-500 dark:bg-emerald-600 text-white shrink-0 ring-2 ring-white dark:ring-black/40 shadow-md shadow-emerald-600/40${pulse ? " animate-pulse" : ""}`}
+      className={`inline-flex items-center justify-center w-9 h-9 rounded-full bg-emerald-500 dark:bg-emerald-600 text-white shrink-0 ring-2 ring-white dark:ring-black/40 shadow-md shadow-emerald-600/40${pulse ? " motion-safe:animate-pulse" : ""}`}
       aria-hidden="true"
     >
       <Bot size={16} strokeWidth={1.75} />

@@ -1,283 +1,311 @@
 ---
 name: TicketAI
-description: Clean, precision-desk helpdesk backoffice — a RAG answer-validation workspace with an opaque neutral chrome and emerald-accent content glass.
+description: AI-powered internal helpdesk where validated answers compound into institutional knowledge — a calm expert workspace with emerald as the only accent.
 colors:
-  emerald-primary: "#10b981"
-  emerald-deep: "#059669"
-  emerald-glow: "#34d399"
-  emerald-tint-bg: "#ecfdf5"
-  green-active-bg: "#dcfce7"
-  green-active-ink: "#15803d"
-  ink-heading: "#1f2937"
-  ink-strong: "#374151"
-  ink-body: "#4b5563"
-  ink-muted: "#6b7280"
-  ink-faint: "#9ca3af"
-  line: "#e5e7eb"
-  surface-subtle: "#f9fafb"
-  surface-base: "#ffffff"
-  night: "#05070f"
-  state-info: "#2563eb"
-  state-info-bg: "#eff6ff"
-  state-warn: "#ca8a04"
-  state-warn-bg: "#fefce8"
-  state-lock: "#f59e0b"
-  state-lock-bg: "#fffbeb"
-  state-danger: "#dc2626"
-  state-danger-bg: "#fef2f2"
-  chart-blue: "#3b82f6"
-  chart-blue-dark: "#60a5fa"
-  chart-amber: "#f59e0b"
-  chart-amber-dark: "#fbbf24"
-  chart-violet: "#8b5cf6"
-  chart-violet-dark: "#a78bfa"
-  chart-teal: "#0d9488"
-  chart-teal-dark: "#2dd4bf"
-  chart-rose: "#e11d48"
-  chart-rose-dark: "#fb7185"
-  chart-purple: "#9333ea"
-  chart-purple-dark: "#c084fc"
+  emerald-action: "#059669"
+  emerald-signal: "#10b981"
+  emerald-vivid: "#2FE272"
+  emerald-deep: "#168B46"
+  surface-base: "oklch(1 0 0)"
+  surface-page: "#f9fafb"
+  surface-muted: "oklch(0.97 0 0)"
+  surface-void: "oklch(0.145 0 0)"
+  surface-elevated-dark: "oklch(0.205 0 0)"
+  ink: "oklch(0.145 0 0)"
+  ink-mid: "oklch(0.556 0 0)"
+  ink-dim: "oklch(0.708 0 0)"
+  rule: "oklch(0.922 0 0)"
+  rule-dark: "oklch(1 0 0 / 10%)"
+  danger: "oklch(0.577 0.245 27.325)"
+  status-blue: "#3b82f6"
+  status-amber: "#f59e0b"
 typography:
-  page-title:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-    fontSize: "1.5rem"
-    fontWeight: 600
+  display:
+    fontFamily: "'Geist Variable', sans-serif"
+    fontSize: "clamp(1.75rem, 3vw, 2rem)"
+    fontWeight: 700
     lineHeight: 1.2
-    letterSpacing: "normal"
-  section-title:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    letterSpacing: "-0.02em"
+  headline:
+    fontFamily: "'Geist Variable', sans-serif"
     fontSize: "1.125rem"
     fontWeight: 600
     lineHeight: 1.3
-    letterSpacing: "normal"
+    letterSpacing: "-0.01em"
+  title:
+    fontFamily: "'Geist Variable', sans-serif"
+    fontSize: "0.9375rem"
+    fontWeight: 600
+    lineHeight: 1.4
+    letterSpacing: "-0.005em"
   body:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "'Geist Variable', sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
-    letterSpacing: "normal"
   label:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-    fontSize: "0.875rem"
+    fontFamily: "'Geist Variable', sans-serif"
+    fontSize: "0.6875rem"
     fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: "normal"
-  eyebrow:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-    fontSize: "0.75rem"
-    fontWeight: 600
-    lineHeight: 1.4
-    letterSpacing: "0.05em"
-  meta:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-    fontSize: "0.75rem"
-    fontWeight: 400
-    lineHeight: 1.4
-    letterSpacing: "normal"
+    lineHeight: 1
+    letterSpacing: "0.06em"
 rounded:
-  sm: "4px"
-  lg: "8px"
-  xl: "12px"
-  2xl: "16px"
+  sm: "6px"
+  md: "8px"
+  lg: "10px"
+  xl: "14px"
+  2xl: "18px"
   full: "9999px"
 spacing:
   xs: "4px"
   sm: "8px"
-  md: "12px"
-  lg: "16px"
-  xl: "24px"
+  md: "16px"
+  lg: "24px"
+  xl: "32px"
 components:
   button-primary:
-    backgroundColor: "{colors.emerald-primary}"
-    textColor: "{colors.surface-base}"
-    rounded: "{rounded.xl}"
-    padding: "8px 16px"
-  button-primary-hover:
-    backgroundColor: "{colors.emerald-deep}"
-    textColor: "{colors.surface-base}"
-  button-secondary:
-    backgroundColor: "{colors.surface-base}"
-    textColor: "{colors.ink-body}"
-    rounded: "{rounded.lg}"
+    backgroundColor: "{colors.emerald-action}"
+    textColor: "#ffffff"
+    rounded: "{rounded.md}"
     padding: "6px 12px"
-  glass-panel:
-    backgroundColor: "{colors.surface-base}"
-    rounded: "{rounded.2xl}"
-    padding: "24px"
-  input:
-    backgroundColor: "{colors.surface-base}"
-    textColor: "{colors.ink-strong}"
-    rounded: "{rounded.lg}"
-    padding: "8px 12px"
-  status-pill:
-    backgroundColor: "{colors.emerald-tint-bg}"
-    textColor: "{colors.emerald-deep}"
+    note: "Page-level primary actions (e.g. nav bar, list toolbar). Exception: multi-step modal confirmation CTAs use button-primary-modal instead — see below."
+  button-primary-hover:
+    backgroundColor: "#047857"
+    textColor: "#ffffff"
+    rounded: "{rounded.md}"
+    padding: "6px 12px"
+  button-primary-modal:
+    backgroundColor: "#111827"
+    darkBackgroundColor: "#ffffff"
+    textColor: "#ffffff"
+    darkTextColor: "#111827"
+    rounded: "{rounded.md}"
+    padding: "8px 16px"
+    note: "Confirmation CTAs inside multi-step modals (UpdateDocModal, IngestionDrawer). Uses neutral dark/white to avoid saturating the emerald accent in validation flows where the user has already committed intent."
+  button-ghost:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink-mid}"
+    rounded: "{rounded.md}"
+    padding: "6px 6px"
+  chip-emerald:
+    backgroundColor: "#ecfdf5"
+    textColor: "#065f46"
     rounded: "{rounded.full}"
     padding: "2px 10px"
-  nav-item-active:
-    backgroundColor: "{colors.emerald-tint-bg}"
-    textColor: "#15803d"
-    rounded: "{rounded.lg}"
-    padding: "7px 10px"
-  chrome-sidebar:
-    backgroundColor: "#ffffff"
-    darkBackgroundColor: "#111113"
-    borderColor: "#e5e7eb"
-    darkBorderColor: "#1f1f1f"
-    width: "224px"
-    collapsedWidth: "56px"
-  chrome-topbar:
-    backgroundColor: "#ffffff"
-    darkBackgroundColor: "#111113"
-    borderColor: "#e5e7eb"
-    darkBorderColor: "#1f1f1f"
-    height: "56px"
-  page-background:
-    backgroundColor: "#f9fafb"
-    darkBackgroundColor: "#0d0d0d"
+  chip-blue:
+    backgroundColor: "#eff6ff"
+    textColor: "#1d4ed8"
+    rounded: "{rounded.full}"
+    padding: "2px 10px"
+  chip-danger:
+    backgroundColor: "#fef2f2"
+    textColor: "#dc2626"
+    rounded: "{rounded.full}"
+    padding: "2px 10px"
+  glass-card:
+    backgroundColor: "rgba(255,255,255,0.76)"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.md}"
 ---
 
 # Design System: TicketAI
 
-## 1. Overview
+## Overview
 
-**Creative North Star: "The Precision Desk"**
+**Creative North Star: "The Expert's Workshop"**
 
-TicketAI is a human-in-the-loop workspace where validators review AI-drafted helpdesk answers before they ship. The layout chrome — sidebar, topbar, page background — is opaque, neutral, and razor-clean (Vercel / Linear register): solid white in light mode, near-black `#111113` in dark mode, separated by a single `1px` border. Content panels (cards, modals, tables) use frosted glass (`glass-card`) over the `#f9fafb` / `#0d0d0d` page background, giving depth without distracting chrome.
+TicketAI is a professional tool that earns its invisibility. The interface is a neutral membrane between domain experts and their work — structured, unhurried, consistently dense without feeling crowded. Every primary aesthetic decision (Geist's geometric precision, the layered glass hierarchy, the single emerald accent) serves one purpose: keeping the expert focused on the ticket, not the interface itself.
 
-Emerald is the one true accent — it marks primary actions, the active nav item, canonical answers, and success states. It never appears as decoration. Neutrals carry the text hierarchy; Geist Variable is the typeface throughout.
+The palette is deliberately restrained. Zinc-gray neutrals carry 90% of the screen; emerald enters only where it signals actionability or resolution — primary buttons, active navigation items, and validated-answer badges. This rarity is the point: when you see green, something is done or requires your action. Every other hue is strictly semantic (blue = in-progress, red = rejected/alert, amber = count badges).
 
-Density and calm coexist. Tables run wide and compact; forms and detail panels breathe. The tool should feel trustworthy enough that a validator signs off on an answer without second-guessing the interface.
+Glass-morphism is structural rather than decorative. There is no animated background — the Aurora WebGL component was removed for legibility. Cards float above a clean `#f9fafb` page background (`#0d0d0d` dark) via `backdrop-filter` blur, creating clear depth hierarchy without atmospheric distraction.
 
 **Key Characteristics:**
-- Two-layer material system: opaque chrome (sidebar, topbar) + frosted-glass content panels.
-- One accent (emerald): primary actions, active nav, canonical / success, focus rings.
-- Geist Variable, fixed rem type scale, single family, tight hierarchy.
-- Class-toggled dark mode; sidebar and topbar shift from white to `#111113`.
-- Standardized semantic state colors mapped to business statuses.
+- Single-accent palette — emerald only, deployed with surgical precision
+- Glass as a structural depth signal, not an aesthetic statement
+- Geist Variable — one geometric family for all hierarchy levels
+- 56px chrome (sidebar + navbar) maximizes vertical space for content
+- Semantic color system: emerald = validated/action · blue = processing · red = error · amber = count
 
-## 2. Colors
+## Colors
 
-A restrained emerald-on-neutral palette where the only saturated hue is the brand green; every other color is either a gray or a narrow semantic-state signal.
+A near-achromatic base with one living accent: emerald. The system works by contrast of presence — most of the screen is gray, so a single green element commands full attention.
 
 ### Primary
-- **Emerald Primary** (`#10b981`): The one true accent. Primary buttons, the "Add Ticket" CTA, focus rings (`ring-emerald-500`), and the lightest aurora color stop. Used on a small fraction of any screen.
-- **Emerald Deep** (`#059669`): Hover state for every primary button and the darkest aurora stop.
-- **Emerald Glow** (`#34d399`): Mid aurora color stop only — the light that rises through the glass.
-- **Emerald Tint BG** (`#ecfdf5`): Soft fill behind success/canonical pills and confirmation icons.
-- **Green Active BG** (`#dcfce7`) / **Green Active Ink** (`#15803d`): The active navigation item and the table header row. A cooler, flatter green than the accent — deliberately calmer than a button.
+
+- **Verdigris Action** (`#059669`): The primary action color. Filled buttons, active nav item text/background, focus rings (`ring-emerald-500`), validated/canonical status chip fills. The color that reads "this is done" or "do this now."
+- **Signal Mid** (`#10b981`): Softer emerald for icon tints, trend chip fills (`bg-emerald-50`), positive chart accents. Supports Verdigris Action without competing.
+- **Electric Lime** (`#2FE272`): Reserved exclusively for the login page CTA gradient endpoint and robot mascot animations. Does not appear in the authenticated app shell — its neon vibrancy would overwhelm the operational context.
+- **Forest Anchor** (`#168B46`): Login brand panel fill and login CTA gradient origin. Does not cross into the app shell.
 
 ### Neutral
-- **Ink Heading** (`#1f2937` / gray-800): Page titles (`h1`), strong headings.
-- **Ink Strong** (`#374151` / gray-700): Form labels, emphasized values.
-- **Ink Body** (`#4b5563` / gray-600): Default body and paragraph text.
-- **Ink Muted** (`#6b7280` / gray-500): Secondary meta text, eyebrow labels.
-- **Ink Faint** (`#9ca3af` / gray-400): Icons at rest, placeholders, breadcrumb, empty-state text.
-- **Line** (`#e5e7eb` / gray-200): Borders and dividers; panels use `gray-200/70` (70% opacity) so the aurora shows through the edge.
-- **Surface Subtle** (`#f9fafb` / gray-50): Inset fields, quiet fills inside panels.
-- **Surface Base** (`#ffffff`): Panels render as `white/80`–`white/90` — never fully opaque.
-- **Chrome BG dark** (`#111113`): Sidebar and topbar background in dark mode.
-- **Page BG dark** (`#0d0d0d`): Content area background in dark mode. Dark chrome borders are `#1f1f1f`; dark dividers are `#1a1a1a`.
 
-### State (semantic signals, mapped to business status)
-- **Info** (`#2563eb` on `#eff6ff`): Validated (`VALIDÉ`) tickets and answers.
-- **Warn** (`#ca8a04` on `#fefce8`): Suggestion (`RÉPONDU`) — reused validated answer, still needs review.
-- **Lock** (`#f59e0b` on `#fffbeb`): Ticket locked/checked-out by another validator; read-only banners and the lock chip.
-- **Danger** (`#dc2626` on `#fef2f2`): Rejected (`REJETÉ`/`REJETÉE`) answers, form errors.
-- Success/Canonical reuses **Emerald** (`emerald-50`/`emerald-600`), tying canonical answers to the brand.
+- **Cloud Base** (`oklch(1 0 0)` / `#ffffff`): Sidebar, navbar, and modal backgrounds in light mode. The structural chrome layer.
+- **Ash Page** (`#f9fafb`): `gray-50`. Main content area background — one perceptible step below Cloud Base so glass-card surfaces read as elevated.
+- **Frost Muted** (`oklch(0.97 0 0)`): Secondary surfaces, skeleton loader fills.
+- **Void** (`oklch(0.145 0 0)` / `#111113`): Dark-mode chrome (sidebar, navbar).
+- **Card Dark** (`oklch(0.205 0 0)` / `#141416`): Dark-mode modal backgrounds. One step above Void.
+- **Ink Primary** (`oklch(0.145 0 0)`): Body text in light mode.
+- **Ink Mid** (`oklch(0.556 0 0)`): Secondary text, icon fills, placeholder text.
+- **Ink Dim** (`oklch(0.708 0 0)`): Tertiary text — timestamps, metadata (dark mode foreground).
+- **Rule Default** (`oklch(0.922 0 0)` / `#e5e7eb`): Borders and dividers (light). Dark: `oklch(1 0 0 / 10%)`.
 
-### Named Rules
-**The One Emerald Rule.** Emerald is reserved for primary action, current selection, canonical/success state, and focus rings. It is never used as a decorative fill, gradient, or background band. If green appears and it is not one of those four things, it is wrong.
+### Semantic Status
 
-**The Two-Layer Rule.** Chrome surfaces (sidebar, topbar) are opaque and flat. Content surfaces (cards, modals, panels) are frosted glass (`glass-card`). Never apply glassmorphism to chrome; never make content panels opaque solid white.
+- **Processing Blue** (`#3b82f6`): In-progress job states, pending-review badges. Cool neutral — informative, not urgent.
+- **Alert Amber** (`#f59e0b`): Count badge fills on nav items; SUGGESTION-branch answer chips. Never used for body text.
+- **Danger Red** (`oklch(0.577 0.245 27.325)`): Rejected-answer chips, error notifications, alert dot indicators.
+- **Sky** (`#0ea5e9`): "Nouvelle" ticket status chip; processing/EN_COURS states in ticket tracking. A step lighter than Processing Blue — signals "new and unread" rather than "actively in progress."
+- **Purple** (`#a855f7`): "Hors domaine" ticket chips — tickets that landed outside any managed domain. Used only for this single, exceptional state.
+- **Violet** (`#7c3aed`): "Assigné" ticket chips; RAG-sourced answer source labels. Distinct from purple — slightly warmer, indicates explicit assignment.
 
-## 3. Typography
+**The Rarity Rule.** Emerald appears on at most 10–15% of any given screen. Its signal value depends entirely on scarcity. Never use it for decorative borders, hover effects unrelated to validation, or any non-action context.
 
-**Display Font:** none — this is a product UI, not a brand surface.
-**Body Font:** System sans stack (`ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`) — Tailwind v4's default `font-sans`.
-**Label/Mono Font:** none distinct; keyboard hints (`<kbd>`) use the same sans at `text-xs`.
+## Typography
 
-**Character:** One well-tuned system sans carries every role — headings, labels, body, table data, buttons. No pairing, no display face. Hierarchy comes from size and weight, never from a second family. This is the correct product move: familiar, fast, invisible.
+**App Font:** Geist Variable (`@fontsource-variable/geist`), `system-ui, sans-serif` fallback.  
+**Login Exception:** Space Grotesk (login form and brand panel); JetBrains Mono (uppercase spaced tagline). These do not enter the authenticated interface.
+
+**Character:** Geist is geometric without austerity. Its variable weight axis lets one family carry the full hierarchy from 400-weight body copy to 700-weight display heads without optical friction. Slight negative tracking at larger sizes — down to `–0.02em` at display level — keeps headings tight and purposeful, matching the density philosophy.
 
 ### Hierarchy
-- **Page Title** (600, `1.5rem` / text-2xl, line-height 1.2): One per screen — "Tickets", "Besoin d'un renseignement ?". Color `ink-heading`.
-- **Section Title** (600, `1.125rem`–`1rem` / text-lg–text-base, 1.3): Panel and card headers — "Dernières questions", "Réponses".
-- **Title / Emphasis** (600, `0.875rem` / text-sm): Inline strong values, list-item names.
-- **Body** (400, `0.875rem` / text-sm, 1.5): Default text, table cells, paragraph copy. Cap prose panels at 65–75ch.
-- **Label** (500, `0.875rem` / text-sm): Form field labels; color `ink-strong`.
-- **Eyebrow** (600, `0.75rem` / text-xs, uppercase, `tracking-wide` 0.05em): Panel section markers — "Informations", "Demandeur". Color `ink-muted`.
-- **Meta** (400, `0.75rem` / text-xs): Timestamps, pagination counts, hints. Color `ink-faint`.
 
-### Named Rules
-**The Fixed-Scale Rule.** Type sizes are fixed rem steps, never `clamp()`/fluid. A validator views at consistent DPI; headings that shrink in a collapsed sidebar look broken, not responsive.
+- **Display** (700, `clamp(1.75rem, 3vw, 2rem)`, lh 1.2, ls –0.02em): Login page headline only. The authenticated shell rarely uses this level — it leads with section headings.
+- **Headline** (600, 1.125rem / 18px, lh 1.3, ls –0.01em): Section headings, modal titles, tab-level headings.
+- **Title** (600, 0.9375rem / 15px, lh 1.4, ls –0.005em): Sidebar wordmark, stat card values, ticket subject lines.
+- **Body** (400, 0.875rem / 14px, lh 1.5): All running copy, table cells, form fields, dropdown items. The default text size for the operational context.
+- **Label** (500, 0.6875rem / 11px, lh 1, ls 0.06em, UPPERCASE): Sidebar section group headers, stat card metric titles, status chip text.
 
-**The Weight-Not-Color Rule.** Emphasis is created with weight (500/600) and the gray ramp, not with the accent. Text is almost never emerald.
+**The Single Family Rule.** Geist Variable is the only typeface in the authenticated shell. Space Grotesk and JetBrains Mono are login-page exceptions and must not cross that boundary.
 
-## 4. Elevation
+## Layout
 
-Depth comes from two sources: the border between opaque chrome and frosted-glass content panels, and the `glass-card` blur over the `#f9fafb` / `#0d0d0d` page background. There is no deep shadow vocabulary.
+The shell is a fixed-viewport composition. Sidebar and navbar form a permanent chrome layer; the main content region scrolls independently inside its own overflow container.
+
+- **Sidebar:** Fixed left — 56px (3.5rem) collapsed / 224px (14rem) expanded. `transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`. Labels dissolve via `opacity`/`width` on collapse.
+- **Navbar:** Fixed top, 56px. Content scrolls below via `padding-top: 56px`.
+- **Content region:** `position: absolute; inset: 0; padding-top: 56px; overflow-y: auto` — each page scrolls its own stack independently.
+- **Page inset:** `p-6` (24px) is standard. Dense list views may use `p-4`.
+- **Max-width containers:** Modals `max-w-xl` (512px); forms `max-w-3xl` (768px). Dashboards and lists fill available width.
+- **Dashboard grid:** 4-column at `xl`, 2-column at `sm`. Gap: `gap-4` (16px).
+- **Spacing rhythm:** 4px base grid. Component gaps: `gap-2`–`gap-4` (8–16px). Section separations: `gap-6` (24px) or border dividers.
+- **Density stance:** Cards at `p-4` (16px) keep more data visible. Dashboards are information-dense by design.
+
+## Elevation & Depth
+
+Depth is conveyed through two discrete mechanisms: **glass translucency** for card-level surfaces and **solid opaque backgrounds** for chrome and dialogs. There is no animated layer — Aurora was removed. Glass floats over a clean `#f9fafb` (light) or `#0d0d0d` (dark) background.
 
 ### Shadow Vocabulary
-- **Panel lift** (`box-shadow: 0 1px 2px 0 rgba(17,24,39,0.05)`): The only structural shadow. Applied to `glass-card` panels. Barely visible by design.
-- **Chrome border**: A `1px` `#e5e7eb` / `#1f1f1f` border separates sidebar from content and topbar from main — this is the elevation signal for chrome, not shadow.
 
-### Named Rules
-**The No-Chrome-Shadow Rule.** The sidebar and topbar carry no drop shadow — only a `1px` border. Depth inside content surfaces comes from `backdrop-blur` + translucency (`glass-card`), not from heavy shadows. Do not add `shadow-lg` to chrome elements.
+- **Glass Card** (`glass-card` class): `backdrop-filter: blur(20px) saturate(1.5) brightness(1.02)`. Background: `rgba(255,255,255,0.76)` light / `rgba(255,255,255,0.11)` dark. Highlights: `inset 0 1px 0 rgba(255,255,255,0.9)` top + `0 8px 32px rgba(17,17,26,0.07)` ambient diffuse. The primary surface token — used on all dashboard cards, stat cards, notification panels, admin cards.
+- **Modal Dialog**: Non-glass. `shadow-2xl` over solid white / `#141416` backgrounds. Scrim: `bg-gray-900/25` light / `bg-black/60` dark.
+- **Focus Ring**: `ring-2 ring-emerald-500 ring-offset-1` — always Verdigris Action. An accessibility signal, not a shadow.
+- **Interactive card lift**: `hover:shadow-md transition-shadow` on a small number of interactive cards (e.g., HorsDomaineCard). Rare.
 
-## 5. Components
+**The Glass-Is-Structural Rule.** Apply `glass-card` only to card-level containers that group a discrete unit of information. Nav elements, form fields, tooltips, and table rows are not cards.
 
-Consistency is absolute: the same button shape, the same panel material, the same pill, screen to screen.
+**The Flat-Chrome Rule.** Sidebar and navbar use solid backgrounds (`bg-white dark:bg-[#111113]`), not glass. Chrome always recedes behind content.
+
+## Shapes
+
+All corners are curved. Nothing is square; nothing pill-shaped except badges and dots.
+
+- **Nav items / Buttons / Icon buttons:** `rounded-md` (8px) — compact and decisive.
+- **Icon containers / Inline chips:** `rounded-lg` (10px) — marginally softer for non-interactive wrappers.
+- **Compact cards (stat cards, row cards):** `rounded-xl` (14px) — the lightweight card signature.
+- **Large dashboard cards (charts, heatmap, satisfaction, notification panel):** `rounded-2xl` (18px) — larger-footprint containers.
+- **Modals / Dialogs:** `rounded-2xl` (18px) — overlays share the radius of large cards.
+- **Status badges / Count chips / Avatars:** `rounded-full` — pills and circles signal semantic, non-interactive labels.
+
+**The Radius Ladder Rule.** Use `rounded-md` for interactive actions, `rounded-xl` for compact cards, `rounded-2xl` for large cards and dialogs. A button should never be rounder than the card it lives inside.
+
+## Components
 
 ### Buttons
-- **Shape:** Rounded (`rounded-xl` 12px for CTAs and detail actions; `rounded-lg` 8px for compact/secondary). Icon buttons are `rounded-lg` squares.
-- **Primary:** `bg-emerald-500` → `hover:bg-emerald-600`, white text, `text-sm font-medium`, padding `px-4 py-2`, `transition-colors`. The navbar CTA adds a `lucide` `Plus` icon and `shadow-emerald-200`.
-- **Secondary / Ghost:** Transparent-to-`white/80` fill, `border border-gray-200` (dark `border-white/15`), `text-gray-600`, `hover:bg-gray-50` (dark `hover:bg-white/10`).
-- **Icon button:** `p-1.5`/`p-2`, `text-gray-400`, `hover:bg-gray-100` (dark `hover:bg-white/10`), `rounded-lg`.
-- **Disabled:** `disabled:opacity-40 disabled:cursor-not-allowed`. Loading swaps the leading icon for a spinning `lucide` `Loader2`.
-- **Focus:** `focus:ring-2 focus:ring-emerald-500` on inputs and interactive controls.
 
-### Status Pills
-- **Style:** `inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border`, with a small `w-1.5 h-1.5 rounded-full bg-current` leading dot.
-- **State mapping:** Canonique → emerald; Validée → blue; Suggestion → yellow; Rejetée → red; Nouvelle → blue. Every pill uses the `{bg}-50 / {ink}-600 / {border}-200` light triad and a `{color}-500/10` translucent dark variant.
+Dense and immediate — the primary button states its intent without theatrical effects.
 
-### Cards / Containers (the Glass Panel)
-- **Corner Style:** `rounded-2xl` (16px).
-- **Material:** `bg-white/80` (dark `bg-white/5`) + `backdrop-blur-xl`. Never fully opaque.
-- **Border:** `border border-gray-200/70` (dark `border-white/10`).
-- **Shadow:** `shadow-sm shadow-gray-900/5` — see Elevation.
-- **Internal Padding:** `p-5`–`p-6`; sectioned panels use `px-6 py-4` header/footer rows split by `border-gray-100` dividers.
+- **Shape:** `rounded-md` (8px)
+- **Primary:** `bg-emerald-600 hover:bg-emerald-700 text-white`, `px-3 py-1.5 text-sm font-medium`. Internal icon: 14px, `strokeWidth 2.2`, `gap-1.5`.
+- **Hover:** `bg-emerald-700` — one step darker. No transform, no shadow lift. `transition-colors duration-150`.
+- **Focus:** `focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1`.
+- **Ghost / Icon button:** `text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-md p-1.5`. Used for theme toggle, logout, close, secondary icon actions.
+- **Login CTA (exception):** `background: linear-gradient(100deg, #168B46, #2FE272); box-shadow: 0 8px 24px -8px rgba(47,226,114,.6)`. Gradient fills and glow shadows are confined to the login page only.
+
+### Status Chips
+
+The primary semantic layer — carry the truth about every ticket and response.
+
+- **Anatomy:** `inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border` with a leading filled dot (`w-1.5 h-1.5 rounded-full bg-current`).
+- **Emerald** (`bg-emerald-50 text-emerald-700 border-emerald-200` / dark `bg-emerald-500/10 text-emerald-300 border-emerald-500/20`): Validated, canonical, answered.
+- **Blue** (`bg-blue-50 text-blue-600 border-blue-200` / dark `bg-blue-500/10 text-blue-300 border-blue-500/20`): In-progress, processing. Dot uses `animate-pulse`.
+- **Sky** (`bg-sky-50 text-sky-700 border-sky-200` / dark `bg-sky-500/10 text-sky-300 border-sky-500/20`): New/unread ticket status ("Nouvelle"), processing in TicketTracking.
+- **Amber** (`bg-amber-50 text-amber-700 border-amber-200` / dark `bg-yellow-500/10 text-yellow-300 border-yellow-500/20`): SUGGESTION-branch answers — reusing a validated answer that still needs review.
+- **Purple** (`bg-purple-50 text-purple-700 border-purple-200` / dark `bg-purple-500/10 text-purple-300 border-purple-500/20`): Out-of-domain tickets ("Hors domaine").
+- **Violet** (`bg-violet-50 text-violet-700 border-violet-200` / dark `bg-violet-500/10 text-violet-300 border-violet-500/20`): Assigned tickets ("Assigné"), RAG-sourced answer labels.
+- **Red** (`bg-red-50 text-red-600 border-red-200`): Rejected.
+- **Gray** (`bg-gray-100 text-gray-500 border-gray-200` / dark `bg-white/10 text-gray-400 border-white/10`): Closed, archived.
+
+### Cards / Containers
+
+All card surfaces use `glass-card`. Two size variants in practice:
+
+- **Compact card** (`glass-card rounded-xl p-4`): StatCard, HorsDomaineCard, compact admin cards.
+- **Large card** (`glass-card rounded-2xl p-5`): Charts, heatmap, satisfaction, recent-docs, notification panel.
+- **Background:** `rgba(255,255,255,0.76)` light (effectively opaque on `#f9fafb`), `rgba(255,255,255,0.11)` dark.
+- **Border:** `1px solid rgba(255,255,255,0.55)` light / `rgba(255,255,255,0.15)` dark.
+- **Skeleton state:** `animate-pulse` with `bg-gray-200 dark:bg-white/10` fills inside the same `glass-card` shell.
 
 ### Inputs / Fields
-- **Style:** `border border-gray-200` (or `-300` for prominent textareas), `rounded-lg`/`rounded-xl`, `bg-white` (dark `bg-white/5`), `px-3 py-2`, `text-sm`.
-- **Focus:** `focus:outline-none focus:ring-2 focus:ring-emerald-500` — the emerald ring is the universal focus signal.
-- **Placeholder:** `placeholder:text-gray-400`. Textareas are `resize-y`.
-- **Select:** identical border/radius/focus treatment as text inputs for a single form-control vocabulary.
+
+- **Style:** 1px solid border, `rounded-lg` or `border-radius: 11px` (login). Solid white background.
+- **Focus:** `ring-2 ring-emerald-500` in the app shell. Login: `border-color: #2FE272; box-shadow: 0 0 0 3px rgba(47,226,114,.18)`.
+- **Placeholder:** `text-gray-400`.
+- **Font:** Geist Variable 14px body throughout the app shell.
 
 ### Navigation
-- **Sidebar:** Opaque aside (`bg-white dark:bg-[#111113]`), `border-r border-gray-200 dark:border-[#1f1f1f]`, collapsible `w-56` ↔ `w-14` with a `duration-300 cubic-bezier(0.4,0,0.2,1)` width transition; labels fade out on collapse. Logo mark stays fixed at `w-7 h-7`; wordmark fades.
-- **Nav item (text-sm):** `rounded-md px-2.5 py-[7px] mx-2`. **Active:** `bg-emerald-50 text-emerald-700 font-medium` (dark `bg-emerald-500/[0.08] text-emerald-400`). **Inactive:** `text-gray-600 hover:bg-gray-100 hover:text-gray-900` (dark `text-gray-400 hover:bg-white/[0.05] hover:text-gray-200`). Collapsed icon-only: `w-9 h-9 rounded-md justify-center mx-auto`.
-- **Section labels:** `text-xs font-semibold uppercase tracking-[0.06em] text-gray-400`; hidden on collapse.
-- **Topbar:** `h-14` opaque bar, `bg-white dark:bg-[#111113]`, `border-b border-gray-200 dark:border-[#1f1f1f]`. Icon buttons use `p-1.5 rounded-md text-gray-500 hover:bg-gray-100`; primary CTA is `bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3 py-1.5 rounded-md`.
-- **SidebarToggle:** `w-5 h-5 rounded-full bg-white dark:bg-[#1c1c1e]`, `border border-gray-200 dark:border-[#2a2a2d]`, `shadow-sm`; positioned at `top-7` at `left-56` / `left-14`.
 
-## 6. Do's and Don'ts
+- **Shell:** `<aside>` fixed left, solid `bg-white dark:bg-[#111113]`, `border-r border-gray-200 dark:border-[#1f1f1f]`.
+- **Section labels:** `text-xs font-semibold tracking-[0.06em] uppercase text-gray-400 dark:text-gray-600 px-2 pt-4 pb-1`.
+- **Nav items:** `rounded-md text-sm`, icon `15px / strokeWidth 1.7`, `gap-2.5`. Default: `text-gray-600 dark:text-gray-400`. Hover: `bg-gray-100 dark:bg-white/[0.05] text-gray-900 dark:text-gray-200`. Active: `bg-emerald-50 dark:bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-400 font-medium`.
+- **Badge indicators:** Boolean dot — `w-1.5 h-1.5 rounded-full bg-red-500` at `-top-0.5 -right-0.5`. Count chip — `bg-amber-500 text-white text-[9px] min-w-[1rem] rounded-full tabular-nums`.
+- **Collapse:** `transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`. Labels fade via `opacity`/`width`.
+
+### Modal
+
+Two-layer: scrim behind, dialog in front.
+
+- **Scrim:** `fixed inset-0 bg-gray-900/25 dark:bg-black/60 cursor-default`, click-to-dismiss.
+- **Dialog:** `rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#141416]`. Max height `86vh`.
+- **Anatomy:** fixed `<header>` with `border-b`, scrollable `<div>` (`overflow-y-auto min-h-0 flex-1`), optional fixed `<footer>` with `border-t`.
+- **Eyebrow:** `text-[11px] font-semibold uppercase tracking-wider text-gray-400` above title.
+- **Dismiss:** Escape key + scrim click + explicit ✕ ghost icon button.
+
+### User Avatar
+
+Generated SVG — no asset required per user.
+
+- **Shape:** Circle, 36px default.
+- **Color:** HSL derived from name hash — stable and unique per user. `hsl(${hue} 55% 88%)` background, `hsl(${hue} 45% 32%)` text, `hsl(${hue} 40% 78%)` ring stroke.
+- **Structure:** Colored circle + ghost silhouette shapes (low opacity) + uppercase initial + 1.5px outer ring.
+- **Photo variant:** `rounded-full object-cover ring-2 ring-white/60 dark:ring-white/10`.
+
+## Do's and Don'ts
 
 ### Do:
-- **Do** keep emerald to the sanctioned roles: primary action, active nav, canonical/success state, focus rings. See The One Emerald Rule.
-- **Do** keep chrome (sidebar, topbar) fully opaque and flat — no blur, no glass, no translucency.
-- **Do** render content panels as frosted glass: `glass-card` (`white/76` + `backdrop-blur-xl` + border) over `#f9fafb` / `#0d0d0d` background.
-- **Do** use the emerald focus ring (`focus-visible:ring-2 focus-visible:ring-emerald-500`) on every interactive control.
-- **Do** map status to the standardized semantic triad (emerald / blue / yellow / red) and always pair a light and a `/10` dark variant.
-- **Do** use fixed rem type sizes (Tailwind's `text-xs` / `text-sm` / `text-base` / `text-lg` / `text-2xl`) and Geist Variable throughout.
-- **Do** provide light and dark variants for every color — dark mode is a first-class class-toggled theme.
-- **Do** keep transitions to `transition-colors duration-150`; reserve `duration-300` for the sidebar collapse only.
+- **Do** use `glass-card rounded-xl p-4` for compact cards and `glass-card rounded-2xl p-5` for large dashboard cards. These two sizes are the full card vocabulary.
+- **Do** deploy emerald exclusively on: primary action buttons, active nav items, validated/canonical status chips, and focus rings.
+- **Do** use `text-xs font-semibold tracking-[0.06em] uppercase text-gray-400` for all sidebar section labels and stat card metric titles.
+- **Do** use `transition-colors duration-150` on every interactive color change; `duration-300` only for sidebar width collapse.
+- **Do** keep icons at 14–17px with `strokeWidth 1.7–2.2`. Small and precise — functional signals, not decorative glyphs.
+- **Do** use `rounded-full` only for pills (status chips), count badges, and circles (avatars, dots).
+- **Do** provide dark variants (`dark:`) for every color choice — dark mode is first-class.
 
 ### Don't:
-- **Don't** apply glassmorphism (`backdrop-blur`, translucent bg) to the sidebar or topbar — those are opaque chrome.
-- **Don't** ship a solid opaque `#ffffff` card with a hard drop shadow in the content area — use `glass-card`.
-- **Don't** reach for `shadow-lg`/deep shadows; chrome depth comes from a `1px` border, content depth from `glass-card` blur.
-- **Don't** use emerald as a decorative fill, gradient text, or background band. No `background-clip: text` gradients anywhere.
-- **Don't** use colored `border-left`/`border-right` side-stripes on panels, alerts, or list items.
-- **Don't** introduce a second font family or a display face for UI labels, buttons, or data.
-- **Don't** use `clamp()`/fluid type in the app UI; headings stay at fixed rem steps.
-- **Don't** invent new status colors or one-off accent hues; extend the existing semantic vocabulary instead.
+- **Don't** use the login gradient (`linear-gradient(100deg, #168B46, #2FE272)`) or its emerald glow shadow inside the authenticated shell.
+- **Don't** render the Aurora WebGL component — removed for legibility.
+- **Don't** apply `glass-card` to nav elements, table rows, form fields, or tooltips. Glass signals a card-level container.
+- **Don't** apply `rounded-2xl` to buttons or inline nav items. That radius is reserved for large cards and dialogs.
+- **Don't** use blue as an action or brand color — blue appears only in the "in-progress / processing" semantic state.
+- **Don't** place more than one filled `bg-emerald-600` button in a single view region. Ghost and icon variants absorb secondary actions.
+- **Don't** add extra `shadow-*` to `glass-card` containers — the glass token already includes its shadow vocabulary.

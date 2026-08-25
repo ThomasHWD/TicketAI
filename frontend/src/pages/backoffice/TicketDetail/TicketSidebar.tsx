@@ -1,4 +1,5 @@
-import { Building2, History, MapPin, Phone, User, UserPlus, X } from "lucide-react";
+import { useState } from "react";
+import { Building2, Check, Copy, History, MapPin, Phone, User, UserPlus, X } from "lucide-react";
 import type { MembreGroupe } from "../../../lib/api";
 import UserAvatar from "../../../components/ui/UserAvatar";
 import type { StatutTicket, Ticket } from "../../../types";
@@ -18,7 +19,7 @@ export function ticketStatutLabel(
   if (closed) return "Clôturé";
   if (failed) return "Échec";
   if (processing) return "En attente de réponse";
-  if (canonique || statut === "VALIDÉ") return "En cours";
+  if (canonique || statut === "VALIDÉ") return "Traité";
   if (statut === "RÉPONDU") return "En attente";
   if (statut === "REJETÉ") return "Rejetée";
   return "Nouvelle";
@@ -71,10 +72,12 @@ interface TicketSidebarProps {
   selectedAssignee: string;
   currentUserId: string | undefined;
   validateurs: MembreGroupe[];
+  validateursLoading: boolean;
   onShowWorkflow: () => void;
   onAssign: () => void;
   onUnassign: () => void;
   onSelectedAssigneeChange: (id: string) => void;
+  onClearAssignError?: () => void;
 }
 
 function SidebarSection({ children }: { children: React.ReactNode }) {
@@ -87,7 +90,7 @@ function SidebarSection({ children }: { children: React.ReactNode }) {
 
 function SidebarLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+    <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-[0.06em]">
       {children}
     </p>
   );
@@ -101,17 +104,26 @@ export default function TicketSidebar({
   selectedAssignee,
   currentUserId,
   validateurs,
+  validateursLoading,
   onShowWorkflow,
   onAssign,
   onUnassign,
   onSelectedAssigneeChange,
+  onClearAssignError,
 }: TicketSidebarProps) {
   const userName = ticket.user_nom_complet || ticket.user_email;
   const processing = isProcessing(ticket.statut_job);
   const failed = ticket.statut_job === "ÉCHOUÉ";
+  const [copied, setCopied] = useState(false);
+
+  function copyRef() {
+    navigator.clipboard.writeText(ticket.id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
 
   return (
-    <aside className="w-72 shrink-0">
+    <aside className="w-full lg:w-72 shrink-0">
       <div className="glass-card rounded-2xl overflow-hidden">
 
         {/* Statut & Détails */}
@@ -142,7 +154,25 @@ export default function TicketSidebar({
             )}
             <div className="flex items-start justify-between gap-2">
               <dt className="text-xs text-gray-400 dark:text-gray-500 mt-px shrink-0">Référence</dt>
-              <dd className="text-xs font-mono text-gray-400 dark:text-gray-500 truncate min-w-0" title={ticket.id}>{ticket.id}</dd>
+              <dd className="flex items-center gap-1 min-w-0">
+                <span
+                  className="text-xs font-mono text-gray-400 dark:text-gray-500 truncate min-w-0 cursor-default select-all"
+                  title={`Référence complète : ${ticket.id}`}
+                >
+                  {ticket.id}
+                </span>
+                <button
+                  onClick={copyRef}
+                  className="shrink-0 p-0.5 rounded text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-colors"
+                  aria-label="Copier la référence"
+                  title="Copier la référence complète"
+                >
+                  {copied
+                    ? <Check size={11} className="text-emerald-500" aria-hidden="true" />
+                    : <Copy size={11} aria-hidden="true" />
+                  }
+                </button>
+              </dd>
             </div>
           </dl>
         </SidebarSection>
@@ -213,11 +243,18 @@ export default function TicketSidebar({
                       )}
                     </div>
                   </div>
-                  {assignError && <p className="text-xs text-red-600 dark:text-red-400">{assignError}</p>}
+                  {assignError && (
+                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                      {assignError}
+                      {onClearAssignError && (
+                        <button onClick={onClearAssignError} className="underline hover:no-underline shrink-0" aria-label="Fermer l'erreur">Fermer</button>
+                      )}
+                    </p>
+                  )}
                   <button
                     onClick={onUnassign}
                     disabled={assignLoading}
-                    className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/15 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-white/15 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
                   >
                     <X size={11} aria-hidden="true" />
                     Remettre dans le pot commun
@@ -229,9 +266,12 @@ export default function TicketSidebar({
                     value={selectedAssignee}
                     onChange={(e) => onSelectedAssigneeChange(e.target.value)}
                     disabled={assignLoading}
-                    className="w-full text-xs text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-40"
+                    aria-label="Assigner à"
+                    className="w-full text-xs text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-40"
                   >
-                    <option value="">Assigner à…</option>
+                    <option value="">
+                      {validateursLoading ? "Chargement…" : validateurs.length === 0 ? "Aucun validateur disponible" : "Assigner à…"}
+                    </option>
                     {validateurs
                       .filter((v) => v.id !== currentUserId)
                       .map((v) => (
@@ -240,11 +280,18 @@ export default function TicketSidebar({
                         </option>
                       ))}
                   </select>
-                  {assignError && <p className="text-xs text-red-600 dark:text-red-400">{assignError}</p>}
+                  {assignError && (
+                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                      {assignError}
+                      {onClearAssignError && (
+                        <button onClick={onClearAssignError} className="underline hover:no-underline shrink-0" aria-label="Fermer l'erreur">Fermer</button>
+                      )}
+                    </p>
+                  )}
                   <button
                     onClick={onAssign}
                     disabled={assignLoading || !selectedAssignee}
-                    className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 font-medium transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 font-medium transition-colors"
                   >
                     <UserPlus size={11} aria-hidden="true" />
                     Assigner
@@ -268,7 +315,7 @@ export default function TicketSidebar({
         <SidebarSection>
           <button
             onClick={onShowWorkflow}
-            className="w-full flex items-center justify-center gap-2 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 hover:text-gray-800 dark:hover:bg-white/10 dark:hover:text-gray-100 transition-colors"
+            className="w-full flex items-center justify-center gap-2 text-xs font-medium px-3 py-2 rounded-md border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 hover:text-gray-800 dark:hover:bg-white/10 dark:hover:text-gray-100 transition-colors"
           >
             <History size={12} aria-hidden="true" />
             Voir l'historique

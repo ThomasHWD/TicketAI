@@ -46,6 +46,7 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
                 "created_at": r.created_at.isoformat() if r.created_at else None,
                 "validator_email": r.validator.email if r.validator else None,
                 "validator_nom_complet": full_name(r.validator) or (r.validator.email if r.validator else None),
+                "raison_rejet": r.raison_rejet,
             }
             for r in reponses
         ]
@@ -124,7 +125,8 @@ async def get_ticket_workflow(ticket_id: str, current_user: CurrentUser):
                         "at": reponse.validated_at.isoformat(),
                         "actor_email": reponse.validator.email if reponse.validator else None,
                         "actor_nom_complet": full_name(reponse.validator),
-                        "meta": {},
+                        "meta": {"raison": reponse.raison_rejet} if reponse.statut == "REJETÉE"\
+                            and reponse.raison_rejet else {},
                     }
                 )
 

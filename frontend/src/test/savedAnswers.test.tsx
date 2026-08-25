@@ -183,10 +183,13 @@ describe("Onglet À relire", () => {
     // La version fait partie de la clé : un document remis à jour entre-temps a
     // reflagué ses réponses sur v(n+1), et une confirmation partie de l'écran de
     // v(n) ne doit pas balayer un signalement que personne n'a vu.
+    // Note : la confirmation est en deux temps — "Tout confirmer" ouvre la demande,
+    // "Confirmer" la valide. Le test doit reproduire les deux clics.
     const envoyees = router({ aRelire: [signalee()], nbDocuments: 1 });
     afficher();
     await userEvent.click(await screen.findByRole("tab", { name: /À relire/ }));
     await userEvent.click(await screen.findByRole("button", { name: /Tout confirmer/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Confirmer$/ }));
 
     await waitFor(() => {
       const post = envoyees.find((a) => a.init?.method === "POST");
@@ -266,7 +269,7 @@ describe("Motif propre à chaque réponse", () => {
     afficher();
     await userEvent.click(await screen.findByRole("tab", { name: /À relire/ }));
 
-    expect(await screen.findByText(/Résultat dans quelques minutes/)).toBeInTheDocument();
+    expect(await screen.findByText(/résultat dans quelques minutes/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Confirmer|Retirer|Corriger/ })).toBeNull();
   });
 });

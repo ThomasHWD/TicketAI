@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Download,
   Eye,
@@ -44,14 +44,24 @@ function LigneDocument({
   doc,
   peutEcrire,
   actions,
+  highlightDocId,
 }: {
   doc: IndexedDocument;
   peutEcrire: boolean;
   actions: ActionsDocument;
+  highlightDocId?: string;
 }) {
   const [telechargement, setTelechargement] = useState(false);
   const [erreurTelechargement, setErreurTelechargement] = useState(false);
   const enMaj = doc.statut === "EN_MAJ";
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  const isHighlighted = doc.doc_id === highlightDocId;
+
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [isHighlighted]);
 
   async function telecharger() {
     setTelechargement(true);
@@ -94,7 +104,10 @@ function LigneDocument({
   ];
 
   return (
-    <tr className="group transition-colors hover:bg-gray-50/70 dark:hover:bg-white/[0.025]">
+    <tr
+      ref={rowRef}
+      className={`group transition-colors hover:bg-gray-50/70 dark:hover:bg-white/[0.025] ${isHighlighted ? "ring-1 ring-inset ring-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-500/8" : ""}`}
+    >
       <td className="px-5 py-3">
         <div className="flex items-start gap-2.5">
           <span className="mt-0.5">
@@ -113,8 +126,15 @@ function LigneDocument({
               {doc.description || <span className="italic">Aucune description</span>}
             </p>
             {erreurTelechargement && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                Téléchargement impossible.
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
+                Téléchargement impossible.{" "}
+                <button
+                  type="button"
+                  onClick={telecharger}
+                  className="underline underline-offset-2 hover:no-underline"
+                >
+                  Réessayer
+                </button>
               </p>
             )}
           </div>
@@ -164,20 +184,24 @@ export default function DocumentsTable({
   docs,
   estInscriptible,
   actions,
+  highlightDocId,
 }: {
   docs: IndexedDocument[];
   /** Un document n'est modifiable que par un membre de son domaine. */
   estInscriptible: (doc: IndexedDocument) => boolean;
   actions: ActionsDocument;
+  highlightDocId?: string;
 }) {
   return (
+    <div className="overflow-x-auto">
     <table className="w-full">
+      <caption className="sr-only">Documents indexés</caption>
       <thead>
         <tr className="border-b border-gray-100 dark:border-white/8">
           <th className={TH}>Document</th>
           <th className={TH}>Domaine</th>
           <th className={TH}>Version</th>
-          <th className={TH}>Chunks</th>
+          <th className={TH} title="Passages de texte extraits et indexés pour la recherche IA">Passages</th>
           <th className={TH}>Mis à jour</th>
           <th className="w-12" />
         </tr>
@@ -189,9 +213,11 @@ export default function DocumentsTable({
             doc={doc}
             peutEcrire={estInscriptible(doc)}
             actions={actions}
+            highlightDocId={highlightDocId}
           />
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

@@ -24,6 +24,7 @@ export interface TicketSummaryDashboard {
   domaine: string;
   statut_ticket: string;
   statut_job: string;
+  branche?: "CANONIQUE" | "SUGGESTION" | "LLM" | "HORS_DOMAINE" | null;
   created_at: string | null;
 }
 

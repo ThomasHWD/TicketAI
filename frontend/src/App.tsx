@@ -97,7 +97,11 @@ export default function App() {
   return (
     <JobsProvider>
     <BrowserRouter>
-      <Suspense fallback={null}>
+      <Suspense fallback={
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-50 dark:bg-[#0d0d0d]">
+          <div className="w-5 h-5 rounded-full border-2 border-emerald-500 border-t-transparent motion-safe:animate-spin" />
+        </div>
+      }>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<ProtectedRoute />}>

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { EyeOff, X, AlertTriangle } from "lucide-react";
 import type { UseMutationResult } from "@tanstack/react-query";
 import type { ReponseSignalee } from "../../../types";
@@ -9,17 +10,50 @@ type Props = {
 };
 
 export default function RetraitModal({ target, mutation, onClose }: Props) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const cancelBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    triggerRef.current = document.activeElement as HTMLElement | null;
+    cancelBtnRef.current?.focus();
+    return () => { triggerRef.current?.focus(); };
+  }, []);
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape" && !mutation.isPending) {
+      onClose();
+      return;
+    }
+    if (e.key === "Tab" && panelRef.current) {
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) { e.preventDefault(); return; }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Confirmer le retrait"
       onClick={() => !mutation.isPending && onClose()}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#0d1117] shadow-[0_8px_48px_0_rgba(0,0,0,0.18)] overflow-hidden"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="retrait-modal-title"
+        tabIndex={-1}
+        className="w-full max-w-md rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#141416] shadow-[0_8px_48px_0_rgba(0,0,0,0.18)] overflow-hidden outline-none"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-4 border-b border-gray-100 dark:border-white/8">
@@ -28,7 +62,7 @@ export default function RetraitModal({ target, mutation, onClose }: Props) {
               <EyeOff size={15} className="text-amber-500" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-50">
+              <h3 id="retrait-modal-title" className="text-sm font-semibold text-gray-900 dark:text-gray-50">
                 Retirer cette réponse du service ?
               </h3>
               <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
@@ -40,9 +74,9 @@ export default function RetraitModal({ target, mutation, onClose }: Props) {
             onClick={onClose}
             disabled={mutation.isPending}
             aria-label="Fermer"
-            className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/8 disabled:opacity-40 transition-colors"
+            className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/8 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
           >
-            <X size={15} />
+            <X size={15} aria-hidden="true" />
           </button>
         </div>
 
@@ -53,13 +87,13 @@ export default function RetraitModal({ target, mutation, onClose }: Props) {
             <span className="font-medium text-gray-800 dark:text-gray-200">
               «&nbsp;{target.question}&nbsp;»
             </span>{" "}
-            ne sera plus servie automatiquement. Les questions similaires repasseront par la génération.
-            Ses validations sont conservées.
+            ne sera plus servie automatiquement. Pour les questions similaires, l'IA devra générer une nouvelle réponse, qui passera par la validation humaine habituelle.
+            Les validations accumulées sont conservées et seront réutilisées si la réponse est restaurée.
           </p>
 
           {mutation.isError && (
-            <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/15">
-              <AlertTriangle size={13} className="shrink-0 text-red-500" />
+            <div role="alert" className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/15">
+              <AlertTriangle size={13} className="shrink-0 text-red-500" aria-hidden="true" />
               <p className="text-xs text-red-600 dark:text-red-400">
                 {mutation.error instanceof Error ? mutation.error.message : "Erreur de retrait"}
               </p>
@@ -70,16 +104,17 @@ export default function RetraitModal({ target, mutation, onClose }: Props) {
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 pb-5">
           <button
+            ref={cancelBtnRef}
             onClick={onClose}
             disabled={mutation.isPending}
-            className="px-4 py-2 rounded-xl border border-gray-200 dark:border-white/12 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/8 disabled:opacity-40 transition-colors"
+            className="px-4 py-2 rounded-md border border-gray-200 dark:border-white/12 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/8 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
           >
             Annuler
           </button>
           <button
             onClick={() => mutation.mutate(target.reponse_id)}
             disabled={mutation.isPending}
-            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
           >
             {mutation.isPending ? "Retrait…" : "Retirer du service"}
           </button>

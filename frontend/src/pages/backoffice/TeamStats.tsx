@@ -32,6 +32,7 @@ export default function TeamStatsPanel({ periode }: Props) {
           <select
             value={groupeId}
             onChange={(e) => setGroupeId(e.target.value)}
+            aria-label="Groupe"
             className="appearance-none pl-3 pr-8 py-2 text-sm rounded-xl border border-gray-200 dark:border-white/10 bg-white/70 dark:bg-white/5 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer"
           >
             {groupesChef.map((g) => (

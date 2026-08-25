@@ -162,6 +162,7 @@ export default function UserTicketDetail() {
             <TicketActions
               closed={closed}
               hasVisibleAnswer={hasVisibleAnswer}
+              rejected={filStatut === "rejected"}
               cloture={cloture}
               showRating={showRating}
               setShowRating={setShowRating}
