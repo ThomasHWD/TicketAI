@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Inbox, Plus, Search, X } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertCircle, ChevronLeft, ChevronRight, Inbox, Plus, Search, X } from "lucide-react";
 import { getTickets } from "../../lib/api";
 import { getSiteConfig } from "../../lib/api/admin";
 import { getValidatorId } from "../../lib/currentUser";
-import { formatDate } from "../../lib/ticketStatus";
+import { formatDate, formatRelativeDate } from "../../lib/ticketStatus";
 import UserStatutBadge from "../../components/ui/UserStatutBadge";
 import type { Ticket } from "../../types";
 
@@ -21,6 +21,8 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "repondues",     label: "Répondues" },
   { value: "cloturees",     label: "Clôturées" },
 ];
+
+const VALID_TABS: Tab[] = ["toutes", "en_traitement", "repondues", "cloturees"];
 
 function matchesTab(t: Ticket, tab: Tab): boolean {
   const closed = !!t.closed_at;
@@ -54,16 +56,28 @@ function clotureLabel(remaining: number, dateMs: number): string {
 function AutoClotureTimer({ ticket, joursConfig }: { ticket: Ticket; joursConfig: number }) {
   const eligible =
     ticket.statut_ticket === "VALIDÉ" && !ticket.closed_at && !!ticket.validated_at;
+
+  const dateClotureMs = eligible
+    ? new Date(ticket.validated_at!).getTime() + joursConfig * 86_400_000
+    : 0;
+
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!eligible) return;
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, [eligible]);
+
   if (!eligible) return null;
 
-  const dateClotureMs = new Date(ticket.validated_at!).getTime() + joursConfig * 86_400_000;
-  const remaining = dateClotureMs - Date.now();
+  const remaining = dateClotureMs - now;
   const isUrgent = remaining < 86_400_000;
   const isWarning = remaining < 2 * 86_400_000;
 
   return (
     <span
-      title={`Clôture automatique le ${new Date(dateClotureMs).toLocaleDateString("fr-FR")}`}
+      aria-label={`Clôture automatique le ${new Date(dateClotureMs).toLocaleDateString("fr-FR")}`}
       className={`block text-[11px] leading-none mt-1.5 tabular-nums ${
         isUrgent
           ? "font-medium text-red-500 dark:text-red-400"
@@ -81,7 +95,8 @@ function AutoClotureTimer({ ticket, joursConfig }: { ticket: Ticket; joursConfig
 
 function DomainChip({ domaine }: { domaine: string }) {
   return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 whitespace-nowrap">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/10 whitespace-nowrap">
+      <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" aria-hidden="true" />
       {domaine}
     </span>
   );
@@ -91,16 +106,42 @@ function SkeletonRow() {
   return (
     <tr className="animate-pulse" aria-hidden="true">
       <td className="px-5 py-4">
-        <div className="h-4 rounded-md bg-gray-100 dark:bg-white/5 w-3/4" />
+        <div className="h-4 rounded-md bg-gray-200 dark:bg-white/10 w-3/4" />
+      </td>
+      <td className="hidden sm:table-cell px-5 py-4">
+        <div className="h-5 rounded-full bg-gray-200 dark:bg-white/10 w-16" />
+      </td>
+      <td className="hidden sm:table-cell px-5 py-4">
+        <div className="h-4 rounded-md bg-gray-200 dark:bg-white/10 w-28" />
       </td>
       <td className="px-5 py-4">
-        <div className="h-5 rounded-full bg-gray-100 dark:bg-white/5 w-16" />
+        <div className="h-5 rounded-full bg-gray-200 dark:bg-white/10 w-24" />
       </td>
-      <td className="px-5 py-4">
-        <div className="h-4 rounded-md bg-gray-100 dark:bg-white/5 w-28" />
-      </td>
-      <td className="px-5 py-4">
-        <div className="h-5 rounded-full bg-gray-100 dark:bg-white/5 w-24" />
+    </tr>
+  );
+}
+
+function ErrorState({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  return (
+    <tr>
+      <td colSpan={4}>
+        <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+          <div className="w-11 h-11 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-center justify-center mb-4">
+            <AlertCircle size={20} className="text-red-500 dark:text-red-400" aria-hidden="true" />
+          </div>
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Impossible de charger vos questions
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+            {error instanceof Error ? error.message : "Une erreur est survenue. Réessayez dans quelques instants."}
+          </p>
+          <button
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors"
+          >
+            Réessayer
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -147,7 +188,7 @@ function EmptyState({
               </p>
               <button
                 onClick={onNew}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-4 py-2 transition-colors"
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors"
               >
                 <Plus size={15} aria-hidden="true" />
                 Poser ma première question
@@ -164,23 +205,75 @@ function EmptyState({
 
 export default function UserTicketHistory() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const userId = getValidatorId();
 
-  const [activeTab, setActiveTab] = useState<Tab>("toutes");
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // ── URL-persisted state ──────────────────────────────────────────────────
+  const rawTab = searchParams.get("tab") as Tab;
+  const activeTab: Tab = VALID_TABS.includes(rawTab) ? rawTab : "toutes";
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const debouncedSearch = searchParams.get("q") ?? "";
 
+  // Local input state so keystrokes feel instant; URL updates after 300 ms
+  const [inputSearch, setInputSearch] = useState(debouncedSearch);
+
+  // Sync input when URL q changes externally (back/forward navigation)
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    setInputSearch(debouncedSearch);
+  }, [debouncedSearch]);
+
+  // Debounce: write to URL after user stops typing
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchParams(
+        (prev) => {
+          if (inputSearch) prev.set("q", inputSearch);
+          else prev.delete("q");
+          prev.delete("page");
+          return prev;
+        },
+        { replace: true },
+      );
+    }, 300);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [inputSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { setPage(1); }, [activeTab, debouncedSearch]);
+  function setActiveTab(tab: Tab) {
+    setSearchParams(
+      (prev) => { prev.set("tab", tab); prev.delete("page"); return prev; },
+      { replace: true },
+    );
+  }
 
+  function setPage(updater: number | ((p: number) => number)) {
+    const next = typeof updater === "function" ? updater(page) : updater;
+    setSearchParams(
+      (prev) => { prev.set("page", String(next)); return prev; },
+      { replace: true },
+    );
+  }
+
+  function clearSearch() {
+    setInputSearch("");
+    setSearchParams(
+      (prev) => { prev.delete("q"); prev.delete("page"); return prev; },
+      { replace: true },
+    );
+  }
+
+  function resetFilters() {
+    setInputSearch("");
+    setSearchParams(
+      (prev) => { prev.delete("tab"); prev.delete("q"); prev.delete("page"); return prev; },
+      { replace: true },
+    );
+  }
+
+  // ── Queries ──────────────────────────────────────────────────────────────
   const { data, isLoading, error } = useQuery({
     queryKey: ["mes-tickets", userId],
-    queryFn: () => getTickets({ limit: 200, userId }),
+    queryFn: () => getTickets({ limit: 400, userId }),
     staleTime: 30_000,
   });
 
@@ -192,7 +285,10 @@ export default function UserTicketHistory() {
   const joursAutoCloture = siteConfig?.jours_auto_cloture ?? 7;
 
   const allTickets: Ticket[] = data?.items ?? [];
+  const totalCount = data?.total ?? allTickets.length;
+  const isTruncated = !isLoading && (data?.total ?? 0) > allTickets.length;
 
+  // ── Filtering ────────────────────────────────────────────────────────────
   const counts = useMemo<Record<Tab, number>>(() => ({
     toutes:        allTickets.length,
     en_traitement: allTickets.filter((t) => matchesTab(t, "en_traitement")).length,
@@ -211,11 +307,6 @@ export default function UserTicketHistory() {
   const pageTickets = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const isFiltered = activeTab !== "toutes" || !!debouncedSearch;
 
-  function resetFilters() {
-    setActiveTab("toutes");
-    setSearch("");
-  }
-
   return (
     <div className="p-6 space-y-5">
 
@@ -224,9 +315,9 @@ export default function UserTicketHistory() {
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
           Mon historique
         </h1>
-        {!isLoading && allTickets.length > 0 && (
+        {!isLoading && totalCount > 0 && (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 tabular-nums border border-gray-200/60 dark:border-white/[0.08]">
-            {allTickets.length}
+            {totalCount}
           </span>
         )}
       </div>
@@ -241,6 +332,7 @@ export default function UserTicketHistory() {
               <button
                 key={tab.value}
                 onClick={() => setActiveTab(tab.value)}
+                aria-current={active ? "true" : undefined}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 border-b-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${
                   active
                     ? "border-emerald-500 text-gray-900 dark:text-gray-100"
@@ -259,10 +351,10 @@ export default function UserTicketHistory() {
         </nav>
 
         {/* Séparateur */}
-        <div className="w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
+        <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
 
         {/* Recherche */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 w-full sm:w-48">
           <Search
             size={13}
             className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
@@ -272,15 +364,15 @@ export default function UserTicketHistory() {
             type="search"
             placeholder="Rechercher…"
             aria-label="Rechercher dans l'historique"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-7 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-48 transition-shadow"
+            value={inputSearch}
+            onChange={(e) => setInputSearch(e.target.value)}
+            className="pl-8 pr-7 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full transition-shadow"
           />
-          {search && (
+          {inputSearch && (
             <button
-              onClick={() => setSearch("")}
+              onClick={clearSearch}
               aria-label="Effacer la recherche"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
             >
               <X size={12} aria-hidden="true" />
             </button>
@@ -288,7 +380,7 @@ export default function UserTicketHistory() {
         </div>
 
         {/* Séparateur */}
-        <div className="w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
+        <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
 
         {/* CTA */}
         <button
@@ -300,19 +392,30 @@ export default function UserTicketHistory() {
         </button>
       </div>
 
+      {/* ── Truncation banner ────────────────────────────────────────────── */}
+      {isTruncated && (
+        <div
+          role="status"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-700 dark:text-amber-400"
+        >
+          <AlertCircle size={13} className="shrink-0" aria-hidden="true" />
+          Seules les {allTickets.length} questions les plus récentes sont affichées ({data?.total} au total).
+        </div>
+      )}
+
       {/* ── Table ───────────────────────────────────────────────────────── */}
       <div className="glass-card rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" aria-label="Historique des questions">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50/60 dark:bg-white/[0.02]">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide w-full">
                   Objet
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                <th className="hidden sm:table-cell px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
                   Domaine
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                <th className="hidden sm:table-cell px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
                   Posée le
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
@@ -320,7 +423,7 @@ export default function UserTicketHistory() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-white/[0.04]">
+            <tbody className="divide-y divide-gray-50 dark:divide-white/[0.04]" aria-busy={isLoading}>
               {isLoading && (
                 <>
                   <SkeletonRow />
@@ -331,15 +434,10 @@ export default function UserTicketHistory() {
                 </>
               )}
               {!isLoading && error && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-5 py-10 text-center text-sm text-red-500 dark:text-red-400"
-                    role="alert"
-                  >
-                    {error instanceof Error ? error.message : "Erreur de chargement"}
-                  </td>
-                </tr>
+                <ErrorState
+                  error={error}
+                  onRetry={() => queryClient.invalidateQueries({ queryKey: ["mes-tickets", userId] })}
+                />
               )}
               {!isLoading && !error && pageTickets.length === 0 && (
                 <EmptyState
@@ -360,7 +458,6 @@ export default function UserTicketHistory() {
                       }
                     }}
                     tabIndex={0}
-                    role="link"
                     aria-label={`Voir le détail de : ${t.objet ?? t.question}`}
                     className="group hover:bg-gray-50/80 dark:hover:bg-white/[0.03] transition-colors duration-100 cursor-pointer focus-within:bg-gray-50/80 dark:focus-within:bg-white/[0.03] focus-visible:outline-none"
                   >
@@ -372,12 +469,15 @@ export default function UserTicketHistory() {
                         {t.objet ?? t.question}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="hidden sm:table-cell px-5 py-4">
                       <DomainChip domaine={t.domaine} />
                     </td>
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
-                        {formatDate(t.created_at)}
+                    <td className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">
+                      <span
+                        className="text-xs text-gray-400 dark:text-gray-500"
+                        title={formatDate(t.created_at)}
+                      >
+                        {formatRelativeDate(t.created_at)}
                       </span>
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap">
@@ -403,7 +503,7 @@ export default function UserTicketHistory() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 aria-label="Page précédente"
-                className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft size={14} aria-hidden="true" />
               </button>
@@ -414,7 +514,7 @@ export default function UserTicketHistory() {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 aria-label="Page suivante"
-                className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight size={14} aria-hidden="true" />
               </button>

@@ -35,7 +35,10 @@ export function FilBadge({ statut }: { statut: FilStatut }) {
       {statut === "closed" ? (
         <Lock size={10} aria-hidden="true" />
       ) : (
-        <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" aria-hidden="true" />
+        <span
+          className={`w-1.5 h-1.5 rounded-full bg-current shrink-0${statut === "processing" ? " motion-safe:animate-pulse" : ""}`}
+          aria-hidden="true"
+        />
       )}
       {label}
     </span>

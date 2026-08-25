@@ -15,7 +15,7 @@ function UserAvatar() {
 function BotAvatar({ pulse = false }: { pulse?: boolean }) {
   return (
     <span
-      className={`inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 dark:bg-emerald-600 text-white shrink-0 ring-2 ring-white dark:ring-black/20 shadow-sm${pulse ? " animate-pulse" : ""}`}
+      className={`inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 dark:bg-emerald-600 text-white shrink-0 ring-2 ring-white dark:ring-black/20 shadow-sm${pulse ? " motion-safe:animate-pulse" : ""}`}
       aria-hidden="true"
     >
       <Bot size={14} strokeWidth={1.75} />
@@ -45,7 +45,7 @@ function QuestionBubble({
   precision?: boolean;
 }) {
   return (
-    <li className="px-5 py-4 flex justify-end animate-in fade-in slide-in-from-bottom-1 duration-200">
+    <li className="px-5 py-4 flex justify-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-200">
       <div className="min-w-0 max-w-[75%] space-y-1.5">
         <div className="flex items-center justify-end gap-2">
           <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(date)}</span>
@@ -78,9 +78,9 @@ function PendingAnswer({ date }: { date: string | null }) {
         <div className="bg-blue-50/70 dark:bg-blue-500/[0.07] border border-blue-100 dark:border-blue-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
           <div className="flex items-center gap-2.5">
             <span className="flex items-center gap-1" aria-label="En cours de traitement">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 animate-pulse [animation-delay:0ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 animate-pulse [animation-delay:200ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 animate-pulse [animation-delay:400ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 motion-safe:animate-pulse [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 motion-safe:animate-pulse [animation-delay:200ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 motion-safe:animate-pulse [animation-delay:400ms]" />
             </span>
             <span className="text-sm text-blue-700 dark:text-blue-300">En cours de traitement…</span>
           </div>
@@ -92,7 +92,7 @@ function PendingAnswer({ date }: { date: string | null }) {
 
 function RejectedBubble({ reponse }: { reponse: TicketReponse }) {
   return (
-    <li className="px-5 py-4 flex gap-3 animate-in fade-in slide-in-from-bottom-1 duration-200">
+    <li className="px-5 py-4 flex gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-200">
       <span
         className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 shrink-0 ring-2 ring-white dark:ring-black/20"
         aria-hidden="true"
@@ -110,7 +110,7 @@ function RejectedBubble({ reponse }: { reponse: TicketReponse }) {
           </p>
           {reponse.raison_rejet && (
             <p className="text-xs text-red-600/80 dark:text-red-400/80 italic border-t border-red-100 dark:border-red-500/20 pt-1.5">
-              Motif : {reponse.raison_rejet}
+              Le service d'assistance précise : {reponse.raison_rejet}
             </p>
           )}
         </div>
@@ -128,7 +128,7 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
     : reponse.validator_nom_complet ?? reponse.validator_email ?? "Assistance";
 
   return (
-    <li className="px-5 py-4 flex gap-3 animate-in fade-in slide-in-from-bottom-1 duration-200">
+    <li className="px-5 py-4 flex gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-200">
       {isCanonique ? (
         <BotAvatar />
       ) : (
@@ -178,6 +178,8 @@ export default function ConversationThread({
       <ul
         className="divide-y divide-gray-100 dark:divide-white/[0.04]"
         aria-label="Fil de la conversation"
+        aria-live="polite"
+        aria-relevant="additions"
       >
         <QuestionBubble text={question} date={created_at} />
         {reponses.length === 0 ? (
