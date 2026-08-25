@@ -16,7 +16,10 @@ function UserBubble({
   precision?: boolean;
 }) {
   return (
-    <li className="px-5 py-4 flex justify-end animate-in fade-in slide-in-from-bottom-1 duration-200">
+    <li
+      className="px-5 py-4 flex justify-end animate-in fade-in slide-in-from-bottom-1 duration-200"
+      aria-label={precision ? `Précision de ${senderLabel}` : `Question de ${senderLabel}`}
+    >
       <div className="min-w-0 max-w-[72%] space-y-1.5">
         <div className="flex items-center justify-end gap-2">
           <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(date)}</span>
@@ -29,10 +32,10 @@ function UserBubble({
             {senderLabel}
           </span>
           <span
-            className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shrink-0 ring-2 ring-white dark:ring-black/20"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 shrink-0 ring-2 ring-white dark:ring-black/20"
             aria-hidden="true"
           >
-            <User size={13} />
+            <User size={14} />
           </span>
         </div>
         <div className="bg-emerald-50 dark:bg-emerald-500/[0.08] border border-emerald-100 dark:border-emerald-500/20 rounded-2xl rounded-tr-sm px-4 py-3 overflow-hidden">
@@ -47,7 +50,7 @@ function UserBubble({
 
 function PendingBubble() {
   return (
-    <li className="px-5 py-4 flex gap-3 items-start">
+    <li className="px-5 py-4 flex gap-3 items-start" aria-label="Réponse en cours de génération">
       <BotAvatar pulse />
       <div className="space-y-1.5">
         <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">TicketAI</span>
@@ -72,9 +75,8 @@ interface BackofficeThreadProps {
   userName: string;
   reponses: TicketReponse[];
   readOnly: boolean;
-  userEmail: string | null;
   onChanged: () => void;
-  onLockConflict: () => void;
+  onLockConflict: (message: string) => void;
 }
 
 export default function BackofficeThread({
@@ -83,7 +85,6 @@ export default function BackofficeThread({
   userName,
   reponses,
   readOnly,
-  userEmail,
   onChanged,
   onLockConflict,
 }: BackofficeThreadProps) {
@@ -114,7 +115,6 @@ export default function BackofficeThread({
               <ReponseItem
                 reponse={r}
                 readOnly={readOnly}
-                userEmail={userEmail}
                 onChanged={onChanged}
                 onLockConflict={onLockConflict}
               />
