@@ -151,11 +151,6 @@ function TicketRow({
           <span className="font-medium">{t.domaine}</span>
           <span className="opacity-40">·</span>
           {formatDate(t.created_at)}
-          {variant === "reply" && t.canonique && (
-            <span className="ml-1 px-1.5 py-px rounded text-[11px] font-semibold uppercase tracking-[0.06em] bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              Instantané
-            </span>
-          )}
         </p>
       </div>
       <ChevronRight
