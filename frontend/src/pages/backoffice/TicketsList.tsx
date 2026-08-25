@@ -79,17 +79,11 @@ const TAB_HINTS: Record<FilterView, string> = {
   clotures: "Tickets fermés définitivement — disponibles en consultation uniquement.",
 };
 
-const BRANCHE_CHIP: Record<string, { label: string; ariaLabel: string; className: string }> = {
-  LLM:        { label: "IA",         ariaLabel: "Réponse générée par IA — relecture obligatoire",  className: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300" },
-  SUGGESTION: { label: "Suggestion", ariaLabel: "Réponse suggérée — vérification conseillée",       className: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300" },
-  CANONIQUE:  { label: "Auto",       ariaLabel: "Réponse automatique — aucune action requise",      className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" },
-};
 
 const LEGEND_ITEMS = [
   { color: "bg-sky-400",     label: "Nouvelle",     desc: "Pas encore répondu" },
   { color: "bg-amber-400",   label: "Suggestion",   desc: "Réponse à vérifier" },
-  { color: "bg-emerald-400", label: "Canonique",    desc: "Auto — aucune action" },
-  { color: "bg-blue-400",    label: "Validée",      desc: "Déjà traitée" },
+  { color: "bg-emerald-400", label: "Traitée",       desc: "Validée ou canonique" },
   { color: "bg-red-400",     label: "Rejetée",      desc: "Rejetée" },
   { color: "bg-purple-400",  label: "Hors domaine", desc: "Hors périmètre" },
 ];
@@ -120,14 +114,14 @@ function getStatutMeta(
     dotClass: "animate-pulse",
   };
   if (canonique) return {
-    label: "Canonique",
-    title: "Réponse automatique — aucune action requise",
+    label: "Traitée",
+    title: "Réponse canonique — servie automatiquement",
     badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
   };
   if (statut === "VALIDÉ") return {
-    label: "Validée",
-    title: "Réponse déjà validée",
-    badgeClass: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
+    label: "Traitée",
+    title: "Réponse validée par un expert",
+    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
   };
   if (statut === "RÉPONDU" && reponseSource === "HORS_DOMAINE") return {
     label: "Hors domaine",
@@ -567,21 +561,6 @@ export default function TicketsList() {
                 </div>
               ))}
             </div>
-            <div className="space-y-1.5 pt-2 border-t border-gray-100 dark:border-white/5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Branche IA</p>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 shrink-0">IA</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">Relecture obligatoire</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300 shrink-0">Suggestion</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">Vérification conseillée</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 shrink-0">Auto</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">Aucune action requise</span>
-              </div>
-            </div>
             <div className="pt-2 border-t border-gray-100 dark:border-white/5">
               <p className="text-[10px] text-gray-400 dark:text-gray-500">
                 Raccourcis :{" "}
@@ -688,19 +667,11 @@ export default function TicketsList() {
                 const assignedNom: string | null = tx.assigned_to_nom_complet ?? tx.assigned_to_email ?? null;
                 const lockedEmail: string = t.locked_by_email ?? "un validateur";
                 const userEmail: string | null = t.user_email;
-                const branche: string | null = tx.branche ?? null;
-
-                const rowUrgencyBg =
-                  !locked && !processing && !closed && branche === "LLM"
-                    ? "bg-sky-50/25 dark:bg-sky-500/[0.04]"
-                    : !locked && !processing && !closed && branche === "SUGGESTION"
-                    ? "bg-amber-50/25 dark:bg-amber-500/[0.04]"
-                    : "";
 
                 return (
                   <tr
                     key={t.id}
-                    className={`group transition-colors duration-100 focus-within:bg-gray-50/80 dark:focus-within:bg-white/[0.03] ${rowUrgencyBg} ${
+                    className={`group transition-colors duration-100 focus-within:bg-gray-50/80 dark:focus-within:bg-white/[0.03] ${
                       locked
                         ? "cursor-default opacity-75 hover:opacity-90 hover:bg-amber-50/30 dark:hover:bg-amber-500/5"
                         : "cursor-pointer hover:bg-gray-50/80 dark:hover:bg-white/[0.03]"
@@ -730,14 +701,6 @@ export default function TicketsList() {
                             {title}
                           </span>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            {branche && BRANCHE_CHIP[branche] && (
-                              <span
-                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${BRANCHE_CHIP[branche].className}`}
-                                aria-label={BRANCHE_CHIP[branche].ariaLabel}
-                              >
-                                {BRANCHE_CHIP[branche].label}
-                              </span>
-                            )}
                             {userEmail && (
                               <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
                                 {userEmail}
