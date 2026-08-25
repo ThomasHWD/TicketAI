@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Star } from "lucide-react";
-import { FilBadge, formatDate, type FilStatut } from "./utils";
+import { formatDate, type FilStatut } from "./utils";
 import type { Ticket } from "../../../types";
 
 interface TicketInfoSidebarProps {
@@ -62,22 +62,12 @@ export default function TicketInfoSidebar({ ticket, filStatut, joursAutoCloture 
   return (
     <div className="w-full lg:w-72 shrink-0">
       <div className="glass-card rounded-2xl p-5 space-y-5">
-        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
           Informations
-        </p>
+        </h2>
 
         <dl className="space-y-4">
-          <InfoRow label="Domaine">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300">
-              {ticket.domaine}
-            </span>
-          </InfoRow>
-
           <InfoRow label="Posée le">{formatDate(ticket.created_at)}</InfoRow>
-
-          <InfoRow label="Statut">
-            <FilBadge statut={filStatut} />
-          </InfoRow>
 
           {showCountdown && remaining !== null && dateClotureMs !== null && (
             <InfoRow label="Clôture automatique prévue">
@@ -103,9 +93,9 @@ export default function TicketInfoSidebar({ ticket, filStatut, joursAutoCloture 
 
         {hasRatings && (
           <div className="pt-4 border-t border-gray-100 dark:border-white/[0.06] space-y-4">
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               Évaluation
-            </p>
+            </h2>
             <dl className="space-y-3.5">
               {ticket.note_qualite !== null && (
                 <InfoRow label="Qualité de la réponse">
@@ -122,10 +112,12 @@ export default function TicketInfoSidebar({ ticket, filStatut, joursAutoCloture 
         )}
 
         <div className="pt-4 border-t border-gray-100 dark:border-white/[0.06]">
-          <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Référence</dt>
-          <dd className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate" title={ticket.id}>
-            {ticket.id}
-          </dd>
+          <dl>
+            <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Référence</dt>
+            <dd className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate" title={ticket.id}>
+              {ticket.id}
+            </dd>
+          </dl>
         </div>
       </div>
     </div>
