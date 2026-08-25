@@ -168,7 +168,6 @@ export default function TicketDetail() {
               userName={userName ?? "Utilisateur"}
               reponses={reponses}
               readOnly={readOnly}
-              userEmail={userName}
               onChanged={refresh}
               onLockConflict={refresh}
             />

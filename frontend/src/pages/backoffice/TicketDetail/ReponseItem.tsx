@@ -23,10 +23,8 @@ export function reponseStatutLabel(statut: StatutReponse, canonique: boolean, so
 export function reponseStatutClass(statut: StatutReponse, canonique: boolean, source?: string | null) {
   if (statut === "REJETÉE")
     return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
-  if ((statut === "VALIDÉE" || statut === "CORRIGÉE") && canonique)
-    return "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
   if (statut === "VALIDÉE" || statut === "CORRIGÉE")
-    return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
+    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
   if (statut === "EN_ATTENTE" && source === "SUGGESTION")
     return "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20";
   return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
@@ -46,7 +44,6 @@ export default function ReponseItem({
 }: {
   reponse: TicketReponse;
   readOnly: boolean;
-  userEmail?: string | null;
   onChanged: () => void;
   onLockConflict: (message: string) => void;
 }) {
@@ -180,7 +177,7 @@ export default function ReponseItem({
                 {sourceInfo.label}
               </span>
             )}
-            {reponse.score_similarite != null && (() => {
+            {reponse.score_similarite != null && !isHorsDomaine && (() => {
               const conf = confidenceChip(reponse.score_similarite);
               return (
                 <span
@@ -274,7 +271,7 @@ export default function ReponseItem({
           {canAct && !editing && (
             <div className="flex flex-col gap-2 pt-1 border-t border-gray-100 dark:border-white/[0.07] mt-1">
               {justValidated ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium py-1">
+                <div role="status" className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium py-1">
                   <Check size={14} aria-hidden="true" />
                   Réponse validée
                 </div>
