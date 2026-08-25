@@ -41,13 +41,12 @@ function confidenceChip(score: number) {
 export default function ReponseItem({
   reponse,
   readOnly,
-  userEmail,
   onChanged,
   onLockConflict,
 }: {
   reponse: TicketReponse;
   readOnly: boolean;
-  userEmail: string | null;
+  userEmail?: string | null;
   onChanged: () => void;
   onLockConflict: (message: string) => void;
 }) {
@@ -148,33 +147,17 @@ export default function ReponseItem({
   }
 
   return (
-    <article
-      className="glass-card rounded-2xl overflow-hidden motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-300"
+    <li
+      className="px-5 py-4 flex gap-3.5 items-start motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-300"
       aria-label={`Réponse — ${authorLabel}`}
     >
-
-      {/* Follow-up question from user */}
-      {reponse.question_suivi && (
-        <div className="flex gap-3.5 items-start px-5 py-4 border-b border-gray-100 dark:border-white/[0.07] bg-gray-50/50 dark:bg-white/[0.02]">
-          <UserAvatar name={userEmail ?? "?"} size={32} />
-          <div className="flex-1 min-w-0 space-y-1">
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Précision de l'utilisateur</span>
-            <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-              {reponse.question_suivi}
-            </p>
-          </div>
-        </div>
+      {showBot ? (
+        <BotAvatar pulse={isPending} />
+      ) : (
+        <UserAvatar name={reponse.validator_nom_complet ?? reponse.validator_email ?? "Validateur"} size={32} />
       )}
 
-      {/* Main response */}
-      <div className="flex gap-3.5 items-start px-5 py-4">
-        {showBot ? (
-          <BotAvatar pulse={isPending} />
-        ) : (
-          <UserAvatar name={reponse.validator_nom_complet ?? reponse.validator_email ?? "Validateur"} size={36} />
-        )}
-
-        <div className="flex-1 min-w-0 space-y-3">
+      <div className="flex-1 min-w-0 space-y-3">
           {/* Author row */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className={authorClass}>{authorLabel}</span>
@@ -375,7 +358,6 @@ export default function ReponseItem({
                         <ThumbsUp size={14} aria-hidden="true" />
                         Valider
                       </button>
-                      <kbd className="hidden lg:inline text-[10px] text-gray-400 dark:text-gray-500 px-1 py-0.5 rounded border border-gray-200 dark:border-white/10 font-mono" aria-label="raccourci : touche V">V</kbd>
                     </span>
                   )}
                   <span className="inline-flex items-center gap-1.5">
@@ -390,7 +372,6 @@ export default function ReponseItem({
                       <Pencil size={14} aria-hidden="true" />
                       {isHorsDomaine ? "Rédiger une réponse" : "Corriger"}
                     </button>
-                    <kbd className="hidden lg:inline text-[10px] text-gray-400 dark:text-gray-500 px-1 py-0.5 rounded border border-gray-200 dark:border-white/10 font-mono" aria-label="raccourci : touche E">E</kbd>
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <button
@@ -404,7 +385,6 @@ export default function ReponseItem({
                       <ThumbsDown size={14} aria-hidden="true" />
                       Rejeter
                     </button>
-                    <kbd className="hidden lg:inline text-[10px] text-gray-400 dark:text-gray-500 px-1 py-0.5 rounded border border-gray-200 dark:border-white/10 font-mono" aria-label="raccourci : touche R">R</kbd>
                   </span>
                   {error && (
                     <p className="text-xs text-red-600 dark:text-red-400 w-full" role="alert">
@@ -447,7 +427,6 @@ export default function ReponseItem({
             </div>
           )}
         </div>
-      </div>
-    </article>
+    </li>
   );
 }
