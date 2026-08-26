@@ -100,7 +100,7 @@ export default function SiteConfigPage() {
             className={`relative flex items-center gap-2 px-0.5 mr-6 py-3 text-sm font-medium transition-colors duration-150 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${
               tab === id
                 ? "text-gray-900 dark:text-gray-50"
-                : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             }`}
           >
             <Icon size={14} aria-hidden="true" />

@@ -34,8 +34,8 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
       <span className="text-sm text-gray-600 dark:text-gray-400 flex-1 min-w-0">
         <span className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{count}</span>
         {" "}sujet{count > 1 ? "s" : ""} non couvert{count > 1 ? "s" : ""} cette période
-        <span className="text-gray-400 dark:text-gray-500 ml-1.5 tabular-nums">({pct}%)</span>
-        <span className="block text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">questions sans document correspondant</span>
+        <span className="text-gray-500 dark:text-gray-400 ml-1.5 tabular-nums">({pct}%)</span>
+        <span className="block text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">questions sans document correspondant</span>
       </span>
 
       <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">

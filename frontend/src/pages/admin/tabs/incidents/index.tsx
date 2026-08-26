@@ -31,7 +31,7 @@ export default function IncidentsTab() {
     <div className="space-y-4">
       {/* Top bar */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           {isFetching
             ? "Actualisation…"
             : lastUpdated
@@ -59,7 +59,7 @@ export default function IncidentsTab() {
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
               Aucun incident en cours
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 max-w-xs mx-auto leading-relaxed">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 max-w-xs mx-auto leading-relaxed">
               Tous les tickets et documents ont été traités avec succès.
             </p>
           </div>
@@ -75,7 +75,7 @@ export default function IncidentsTab() {
               Documents échoués
             </p>
             {!isLoading && (
-              <span className="ml-auto text-xs tabular-nums font-mono text-gray-400 dark:text-gray-500">
+              <span className="ml-auto text-xs tabular-nums font-mono text-gray-500 dark:text-gray-400">
                 {totalDocs}
               </span>
             )}
@@ -106,12 +106,12 @@ export default function IncidentsTab() {
               Tickets échoués / bloqués
             </p>
             {!isLoading && (
-              <span className="ml-auto text-xs tabular-nums font-mono text-gray-400 dark:text-gray-500">
+              <span className="ml-auto text-xs tabular-nums font-mono text-gray-500 dark:text-gray-400">
                 {totalTickets}
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-3 leading-relaxed">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
             <span className="font-medium text-red-500 dark:text-red-400">ÉCHOUÉ</span>
             {" — job Celery planté, nécessite une relance manuelle. "}
             <span className="font-medium text-amber-500 dark:text-amber-400">BLOQUÉ</span>
@@ -122,19 +122,19 @@ export default function IncidentsTab() {
               <caption className="sr-only">Tickets échoués et bloqués</caption>
               <thead>
                 <tr className="border-b border-gray-100 dark:border-white/[0.06]">
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Statut
                   </th>
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Domaine
                   </th>
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Question
                   </th>
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     Date
                   </th>
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Action
                   </th>
                 </tr>

@@ -197,7 +197,7 @@ export default function TicketActions({
             type="button"
             onClick={() => cloture.mutate(false)}
             disabled={cloture.isPending}
-            className="inline-flex items-center text-sm px-4 py-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center text-sm px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Fermer le ticket sans noter
           </button>

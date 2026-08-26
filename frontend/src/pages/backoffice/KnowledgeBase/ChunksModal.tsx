@@ -53,7 +53,7 @@ export default function ChunksModal({
               <ChevronLeft size={14} />
               Précédent
             </button>
-            <span aria-live="polite" className="text-xs tabular-nums text-gray-400 dark:text-gray-500">
+            <span aria-live="polite" className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
               {page + 1} / {nbPages} · {chunks.length} passage{chunks.length > 1 ? "s" : ""}
             </span>
             <button
@@ -98,7 +98,7 @@ export default function ChunksModal({
               className="overflow-hidden rounded-xl border border-gray-200 dark:border-white/10"
             >
               <div className="border-b border-gray-100 bg-gray-50/80 px-3 py-1.5 dark:border-white/8 dark:bg-white/[0.04]">
-                <span className="text-[11px] font-medium tabular-nums text-gray-400 dark:text-gray-500">
+                <span className="text-[11px] font-medium tabular-nums text-gray-500 dark:text-gray-400">
                   Passage {chunk.chunk_index + 1} sur {chunks.length}
                 </span>
               </div>

@@ -130,7 +130,7 @@ export default function TabARelire({
     return (
       <div className="px-5 py-16 text-center space-y-1">
         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Aucune réponse à relire</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">Toutes les réponses sont à jour.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Toutes les réponses sont à jour.</p>
       </div>
     );
   }
@@ -143,7 +143,7 @@ export default function TabARelire({
         <div className="flex items-center justify-end px-5 py-2 border-b border-gray-100 dark:border-white/8">
           <button
             onClick={allCollapsed ? onExpandAll : onCollapseAll}
-            className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-sm"
+            className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-sm"
             aria-label={allCollapsed ? "Développer tous les groupes" : "Réduire tous les groupes"}
           >
             {allCollapsed ? "Tout développer" : "Tout réduire"}
@@ -334,7 +334,7 @@ export default function TabARelire({
                               <InfoTooltip content="Servie directement sans relecture humaine — vérifiez bien avant de confirmer" />
                             </span>
                           )}
-                          <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
                             {r.nb_validations} validation{r.nb_validations > 1 ? "s" : ""}
                           </span>
                         </div>
@@ -382,7 +382,7 @@ export default function TabARelire({
 
                       {/* Actions */}
                       {enAnalyse ? (
-                        <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                           <Loader2 size={12} className="animate-spin shrink-0" aria-hidden="true" />
                           Analyse IA en cours — résultat dans quelques minutes
                         </div>

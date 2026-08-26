@@ -80,7 +80,7 @@ export default function BanniereTab({
             <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
               Bannière d'annonce
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               Affichée dans la barre de navigation pour tous les utilisateurs.
             </p>
           </div>
@@ -111,7 +111,7 @@ export default function BanniereTab({
             >
               Message
             </label>
-            <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+            <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
               {message.length} car.
             </span>
           </div>
@@ -132,7 +132,7 @@ export default function BanniereTab({
             className="text-xs font-medium text-gray-500 dark:text-gray-400"
           >
             Lien{" "}
-            <span className="font-normal text-gray-400 dark:text-gray-500">(optionnel)</span>
+            <span className="font-normal text-gray-500 dark:text-gray-400">(optionnel)</span>
           </label>
           <input
             id="banner-url"
@@ -142,7 +142,7 @@ export default function BanniereTab({
             placeholder="https://…"
             className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-white/[0.04] px-3.5 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 transition"
           />
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Le lien s'ouvre dans un nouvel onglet lors du clic sur la bannière.
           </p>
         </div>
@@ -165,7 +165,7 @@ export default function BanniereTab({
                     className="text-gray-300 dark:text-white/20 shrink-0"
                     aria-hidden="true"
                   />
-                  <span className="text-xs text-gray-400 dark:text-gray-500 italic truncate">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 italic truncate">
                     {!active ? "Bannière désactivée — aucun message affiché" : "Aucun message saisi"}
                   </span>
                 </div>

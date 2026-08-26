@@ -199,14 +199,14 @@ function EmptyState({ hasFilters, isClosed, colSpan }: { hasFilters: boolean; is
           }`}>
             {isSuccess
               ? <CheckCircle2 size={20} className="text-emerald-500 dark:text-emerald-400" aria-hidden="true" />
-              : <Inbox size={20} className="text-gray-400 dark:text-gray-500" aria-hidden="true" />
+              : <Inbox size={20} className="text-gray-500 dark:text-gray-400" aria-hidden="true" />
             }
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {hasFilters ? "Aucun résultat" : isClosed ? "Aucun ticket clôturé" : "File d'attente vide"}
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {hasFilters
                 ? "Essayez d'autres filtres."
                 : isClosed
@@ -399,7 +399,7 @@ export default function TicketsList() {
             Tickets
           </h1>
           {!multiDomain && userDomaines.length > 0 && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{userDomaines[0]}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{userDomaines[0]}</p>
           )}
         </div>
         {total > 0 && (
@@ -461,7 +461,7 @@ export default function TicketsList() {
         {/* Filtre domaine */}
         {multiDomain && (
           <div className="relative shrink-0 inline-flex items-center">
-            <Layers size={12} className="absolute left-2.5 text-gray-400 dark:text-gray-500 pointer-events-none" aria-hidden="true" />
+            <Layers size={12} className="absolute left-2.5 text-gray-500 dark:text-gray-400 pointer-events-none" aria-hidden="true" />
             <select
               value={domainFilter}
               onChange={(e) => handleDomainChange(e.target.value)}
@@ -478,7 +478,7 @@ export default function TicketsList() {
 
         {/* Recherche */}
         <div className="relative shrink-0">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" aria-hidden="true" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none" aria-hidden="true" />
           <input
             ref={searchRef}
             type="text"
@@ -526,7 +526,7 @@ export default function TicketsList() {
               handleDomainChange("tous");
               setSearchParams({});
             }}
-            className="shrink-0 inline-flex items-center gap-1 min-h-[44px] px-2 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-md"
+            className="shrink-0 inline-flex items-center gap-1 min-h-[44px] px-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-md"
             aria-label="Effacer tous les filtres"
           >
             <X size={11} aria-hidden="true" />
@@ -544,25 +544,25 @@ export default function TicketsList() {
             }
           }}
         >
-          <summary className="inline-flex items-center gap-1 min-h-[44px] px-2 text-xs text-gray-400 dark:text-gray-500 cursor-pointer list-none select-none hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-md">
+          <summary className="inline-flex items-center gap-1 min-h-[44px] px-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer list-none select-none hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-md">
             <HelpCircle size={12} aria-hidden="true" />
             <span>Légende</span>
           </summary>
           <div className="absolute right-0 top-full mt-1 z-20 glass-card rounded-xl p-3 w-64 border border-gray-100 dark:border-white/10 shadow-lg space-y-3">
             <div className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 pb-1 border-b border-gray-100 dark:border-white/5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 pb-1 border-b border-gray-100 dark:border-white/5">
                 Statut du ticket
               </p>
               {LEGEND_ITEMS.map(({ color, label, desc }) => (
                 <div key={label} className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${color}`} aria-hidden="true" />
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto pl-2 text-right">{desc}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto pl-2 text-right">{desc}</span>
                 </div>
               ))}
             </div>
             <div className="pt-2 border-t border-gray-100 dark:border-white/5">
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">
                 Raccourcis :{" "}
                 <kbd className="font-mono bg-gray-100 dark:bg-white/10 px-0.5 rounded text-gray-600 dark:text-gray-300">j</kbd>
                 /<kbd className="font-mono bg-gray-100 dark:bg-white/10 px-0.5 rounded text-gray-600 dark:text-gray-300">k</kbd> naviguer ·{" "}
@@ -575,7 +575,7 @@ export default function TicketsList() {
       </div>
 
       {/* Tab context hint */}
-      <p className="text-xs text-gray-400 dark:text-gray-500 -mt-2 px-1">{TAB_HINTS[filter]}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2 px-1">{TAB_HINTS[filter]}</p>
 
       {/* ── Table ─────────────────────────────────────────────────────────── */}
       <div id="tickets-table" className="glass-card rounded-xl overflow-hidden" role="tabpanel" aria-labelledby={`filter-tab-${filter}`}>
@@ -583,18 +583,18 @@ export default function TicketsList() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50/60 dark:bg-white/[0.02]">
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide w-full">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-full">
                   Objet
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">
                   Créé
                 </th>
                 {multiDomain && (
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">
                     Domaine
                   </th>
                 )}
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
                   Statut
                 </th>
                 <th className="px-5 py-3 w-8 hidden sm:table-cell" aria-hidden="true" />
@@ -628,7 +628,7 @@ export default function TicketsList() {
                       </div>
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{errorMsg.title}</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">{errorMsg.detail}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{errorMsg.detail}</p>
                       </div>
                       {errorMsg.loginPath ? (
                         <a
@@ -702,7 +702,7 @@ export default function TicketsList() {
                           </span>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                             {userEmail && (
-                              <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                              <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                 {userEmail}
                               </span>
                             )}
@@ -721,7 +721,7 @@ export default function TicketsList() {
                     </td>
 
                     {/* Date */}
-                    <td className="px-5 py-4 text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap hidden sm:table-cell">
+                    <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap hidden sm:table-cell">
                       <time dateTime={t.created_at ?? undefined} title={formatDateFull(t.created_at)}>
                         {formatDateShort(t.created_at)}
                       </time>
@@ -763,7 +763,7 @@ export default function TicketsList() {
         {/* Pagination */}
         {!isLoading && total > 0 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/40 dark:bg-white/[0.01]">
-            <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums flex items-center gap-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums flex items-center gap-2">
               {from}–{to} sur {total} ticket{total > 1 ? "s" : ""}
               {isFetchingBg && (
                 <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400" aria-live="polite" aria-label="Actualisation en cours">

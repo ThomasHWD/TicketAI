@@ -95,7 +95,7 @@ export default function TicketDetail() {
 
   if (loading) {
     return (
-      <div className="p-6 text-center text-sm text-gray-400 dark:text-gray-500" aria-live="polite">
+      <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400" aria-live="polite">
         Chargement…
       </div>
     );
@@ -106,7 +106,7 @@ export default function TicketDetail() {
       <div className="p-6 space-y-4">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
         >
           <ArrowLeft size={14} aria-hidden="true" />
           Retour aux tickets

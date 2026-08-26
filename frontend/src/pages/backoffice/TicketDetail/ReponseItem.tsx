@@ -158,7 +158,7 @@ export default function ReponseItem({
           {/* Author row */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className={authorClass}>{authorLabel}</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">{reponseDate}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{reponseDate}</span>
             <span
               className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${reponseStatutClass(reponse.statut, reponse.canonique, reponse.source)}`}
             >
@@ -170,7 +170,7 @@ export default function ReponseItem({
                 className={`text-xs flex items-center gap-1 ${
                   reponse.source === "HORS_DOMAINE"
                     ? "text-purple-500 dark:text-purple-400 font-medium"
-                    : "text-gray-400 dark:text-gray-500"
+                    : "text-gray-500 dark:text-gray-400"
                 }`}
               >
                 <sourceInfo.icon size={11} aria-hidden="true" />
@@ -200,7 +200,7 @@ export default function ReponseItem({
 
           {/* Source context */}
           {isPending && reponse.source === "SUGGESTION" && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 -mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
               Réutilise une réponse validée antérieure — vérifiez qu'elle s'applique à ce cas.
             </p>
           )}
@@ -229,7 +229,7 @@ export default function ReponseItem({
                 aria-describedby={error ? errorId : undefined}
               />
               {isHorsDomaine && draft && (
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">Brouillon sauvegardé localement.</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Brouillon sauvegardé localement.</p>
               )}
               {error && (
                 <p id={errorId} className="text-xs text-red-600 dark:text-red-400" role="alert">
@@ -258,7 +258,7 @@ export default function ReponseItem({
               </div>
             </div>
           ) : isHorsDomaine && !reponse.contenu_corrige ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+            <p className="text-sm text-gray-500 dark:text-gray-400 italic">
               Sujet non couvert — une réponse manuelle est attendue.
             </p>
           ) : (
@@ -400,7 +400,7 @@ export default function ReponseItem({
               {/* Contextual help */}
               {!justValidated && (
                 <details className="group mt-0.5">
-                  <summary className="text-[11px] text-gray-400 dark:text-gray-500 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors list-none flex items-center gap-1 select-none">
+                  <summary className="text-[11px] text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors list-none flex items-center gap-1 select-none">
                     <span className="transition-transform group-open:rotate-90 inline-block text-[10px]" aria-hidden="true">▶</span>
                     À propos de ces actions
                   </summary>
@@ -417,7 +417,7 @@ export default function ReponseItem({
                       <p className="text-emerald-600 dark:text-emerald-400"><span className="font-medium">Promotion imminente</span> : cette réponse a {reponse.nb_validations} validation(s). La prochaine la rendra canonique.</p>
                     )}
                     <p><span className="font-medium">Rejeter</span> : refuse la réponse — elle ne sera pas envoyée. Une raison peut être précisée.</p>
-                    <p className="text-gray-400 dark:text-gray-500">Raccourcis : <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">V</kbd> Valider · <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">E</kbd> Corriger · <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">R</kbd> Rejeter · <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">Alt+←</kbd> Retour</p>
+                    <p className="text-gray-500 dark:text-gray-400">Raccourcis : <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">V</kbd> Valider · <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">E</kbd> Corriger · <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">R</kbd> Rejeter · <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">Alt+←</kbd> Retour</p>
                   </div>
                 </details>
               )}

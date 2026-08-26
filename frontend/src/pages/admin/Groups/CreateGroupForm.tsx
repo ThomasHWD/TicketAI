@@ -26,7 +26,7 @@ export default function CreateGroupForm({
       className="px-4 py-4 flex flex-col gap-3 bg-gray-50/60 dark:bg-white/[0.02]"
     >
       <div className="flex flex-col gap-1.5">
-        <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+        <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
           Nom du groupe
         </label>
         <input
@@ -39,7 +39,7 @@ export default function CreateGroupForm({
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+        <label className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
           Domaine
         </label>
         <DomaineCombobox

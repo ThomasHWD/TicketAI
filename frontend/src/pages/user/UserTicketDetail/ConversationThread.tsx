@@ -48,7 +48,7 @@ function QuestionBubble({
     <li className="px-5 py-4 flex justify-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-200">
       <div className="min-w-0 max-w-[75%] space-y-1.5">
         <div className="flex items-center justify-end gap-2">
-          <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(date)}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(date)}</span>
           <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
             {precision ? "Ma précision" : "Vous"}
           </span>
@@ -72,7 +72,7 @@ function PendingAnswer({ date }: { date: string | null }) {
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">TicketAI</span>
           {date && (
-            <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(date)}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(date)}</span>
           )}
         </div>
         <div className="bg-blue-50/70 dark:bg-blue-500/[0.07] border border-blue-100 dark:border-blue-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
@@ -102,7 +102,7 @@ function RejectedBubble({ reponse }: { reponse: TicketReponse }) {
       <div className="flex-1 min-w-0 space-y-1.5">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-red-700 dark:text-red-400">Assistance</span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(reponse.created_at)}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(reponse.created_at)}</span>
         </div>
         <div className="bg-red-50/70 dark:bg-red-500/[0.07] border border-red-100 dark:border-red-500/20 rounded-2xl rounded-tl-sm px-4 py-3 space-y-1.5">
           <p className="text-sm text-red-700 dark:text-red-300">
@@ -145,7 +145,7 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
           >
             {authorLabel}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {formatDate(reponse.created_at)}
           </span>
         </div>

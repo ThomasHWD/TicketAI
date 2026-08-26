@@ -300,7 +300,7 @@ export default function Dashboard() {
                 <span
                   role="status"
                   aria-live="polite"
-                  className={`text-xs ${isDataStale ? "text-amber-500 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"}`}
+                  className={`text-xs ${isDataStale ? "text-amber-500 dark:text-amber-400" : "text-gray-500 dark:text-gray-400"}`}
                 >
                   {isDataStale && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1 align-middle animate-pulse" aria-hidden="true" />}
                   Mis à jour {formatLastUpdated(lastUpdated)}
@@ -428,7 +428,7 @@ export default function Dashboard() {
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums mt-0.5">
                         {pendingBranchSummary}
                         {pendingTruncated && (
-                          <span className="text-gray-400 dark:text-gray-500 ml-1">(100 premiers)</span>
+                          <span className="text-gray-500 dark:text-gray-400 ml-1">(100 premiers)</span>
                         )}
                       </p>
                     )}
@@ -459,7 +459,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-2">
-                <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-0.5">
                   Indicateurs · {PERIODES.find((p) => p.value === periode)?.label}
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
@@ -560,7 +560,7 @@ export default function Dashboard() {
 
             <div id="analytics-section" className="space-y-4" hidden={!analyticsOpen}>
                 {/* Tendances */}
-                <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-0.5">
                   Tendances
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -588,7 +588,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Activité récente */}
-                <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-0.5">
                   Activité récente
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -179,7 +179,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
           className={`flex flex-col flex-1 min-w-0 transition-all duration-200 ease-in-out
             ${collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}
         >
-          <p className="text-xs text-gray-400 dark:text-gray-500 leading-none mb-0.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-none mb-0.5">
             Connecté en tant que
           </p>
           <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate leading-none">

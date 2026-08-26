@@ -83,7 +83,7 @@ function AutoClotureTimer({ ticket, joursConfig }: { ticket: Ticket; joursConfig
           ? "font-medium text-red-500 dark:text-red-400"
           : isWarning
           ? "text-amber-500 dark:text-amber-400"
-          : "text-gray-400 dark:text-gray-500"
+          : "text-gray-500 dark:text-gray-400"
       }`}
     >
       {clotureLabel(remaining, dateClotureMs)}
@@ -132,7 +132,7 @@ function ErrorState({ error, onRetry }: { error: unknown; onRetry: () => void })
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Impossible de charger vos questions
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
             {error instanceof Error ? error.message : "Une erreur est survenue. Réessayez dans quelques instants."}
           </p>
           <button
@@ -161,14 +161,14 @@ function EmptyState({
       <td colSpan={4}>
         <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
           <div className="w-11 h-11 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center mb-4 shadow-sm">
-            <Inbox size={20} className="text-gray-400 dark:text-gray-500" aria-hidden="true" />
+            <Inbox size={20} className="text-gray-500 dark:text-gray-400" aria-hidden="true" />
           </div>
           {isFiltered ? (
             <>
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Aucun résultat
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                 Aucune question ne correspond à ce filtre.
               </p>
               <button
@@ -183,7 +183,7 @@ function EmptyState({
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Aucune question pour l'instant
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mb-5">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
                 Vos échanges avec le service d'assistance apparaîtront ici.
               </p>
               <button
@@ -357,7 +357,7 @@ export default function UserTicketHistory() {
         <div className="relative shrink-0 w-full sm:w-48">
           <Search
             size={13}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none"
             aria-hidden="true"
           />
           <input
@@ -409,16 +409,16 @@ export default function UserTicketHistory() {
           <table className="w-full text-sm" aria-label="Historique des questions">
             <thead>
               <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50/60 dark:bg-white/[0.02]">
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide w-full">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-full">
                   Objet
                 </th>
-                <th className="hidden sm:table-cell px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                <th className="hidden sm:table-cell px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   Domaine
                 </th>
-                <th className="hidden sm:table-cell px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                <th className="hidden sm:table-cell px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
                   Posée le
                 </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
                   Statut
                 </th>
               </tr>
@@ -474,7 +474,7 @@ export default function UserTicketHistory() {
                     </td>
                     <td className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">
                       <span
-                        className="text-xs text-gray-400 dark:text-gray-500"
+                        className="text-xs text-gray-500 dark:text-gray-400"
                         title={formatDate(t.created_at)}
                       >
                         {formatRelativeDate(t.created_at)}
@@ -495,7 +495,7 @@ export default function UserTicketHistory() {
         {/* ── Pagination ──────────────────────────────────────────────── */}
         {!isLoading && filtered.length > 0 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/40 dark:bg-white/[0.01]">
-            <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums" aria-live="polite">
+            <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums" aria-live="polite">
               {from}–{to} sur {filtered.length} question{filtered.length > 1 ? "s" : ""}
             </span>
             <div className="flex items-center gap-1">

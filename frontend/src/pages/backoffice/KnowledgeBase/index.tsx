@@ -109,12 +109,12 @@ function AnglesMorts({ periode }: { periode: PeriodeId }) {
                       {q.objet ?? q.question.slice(0, 100)}
                     </p>
                     {q.objet && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                         {q.question.slice(0, 120)}
                       </p>
                     )}
                   </div>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 tabular-nums">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
                     {formatDate(q.created_at)}
                   </span>
                   <ArrowRight
@@ -178,7 +178,7 @@ function AnglesMortsEmptyState() {
       </div>
       <div>
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Aucun angle mort sur cette période</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 max-w-xs mx-auto leading-relaxed">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 max-w-xs mx-auto leading-relaxed">
           Toutes les questions ont pu être traitées depuis les documents disponibles.
         </p>
       </div>
@@ -202,10 +202,10 @@ function EtatVide({
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-20 text-center">
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/5">
-        <Icon size={18} className="text-gray-400 dark:text-gray-500" />
+        <Icon size={18} className="text-gray-500 dark:text-gray-400" />
       </div>
       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{titre}</p>
-      <p className="max-w-sm text-xs leading-relaxed text-gray-400 dark:text-gray-500">{detail}</p>
+      <p className="max-w-sm text-xs leading-relaxed text-gray-500 dark:text-gray-400">{detail}</p>
       {action}
     </div>
   );
@@ -335,7 +335,7 @@ export default function KnowledgeBase() {
                 className={`relative flex items-center gap-1.5 px-0.5 mr-6 py-3 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${
                   onglet === o.id
                     ? "text-gray-900 dark:text-gray-50"
-                    : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 }`}
               >
                 {o.id === "angles-morts" ? (
@@ -440,7 +440,7 @@ export default function KnowledgeBase() {
                   </>
                 )}
 
-                <span className="text-xs tabular-nums text-gray-400 dark:text-gray-500">
+                <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
                   {isLoading
                     ? "…"
                     : `${docs.length} document${docs.length > 1 ? "s" : ""}${

@@ -69,7 +69,7 @@ function LigneVersion({
                 </span>
               )}
             </p>
-            <p className="mt-0.5 truncate text-xs text-gray-400 dark:text-gray-500">
+            <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
               {dateCourte(v.created_at)}
               {v.auteur && ` · ${v.auteur}`}
               {v.taille_octets != null && ` · ${formatSize(v.taille_octets)}`}
