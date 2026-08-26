@@ -13,7 +13,7 @@ interface Props {
 }
 
 function NoteCell({ label, value }: { label: string; value: number | null }) {
-  if (value === null) return <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>;
+  if (value === null) return <span className="text-gray-500 dark:text-gray-400 text-xs">—</span>;
   const mauvaise = value <= 2;
   return (
     <div className="flex flex-col gap-0.5">
@@ -91,7 +91,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative z-10 w-full max-w-2xl max-h-[80vh] flex flex-col rounded-2xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-100 dark:border-white/8 overflow-hidden"
+        className="relative z-10 w-full max-w-2xl max-h-[80vh] flex flex-col rounded-2xl bg-white dark:bg-[#141416] shadow-2xl border border-gray-100 dark:border-white/8 overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-white/8 shrink-0">
