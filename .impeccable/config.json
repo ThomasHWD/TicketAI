@@ -57,6 +57,18 @@
           "frontend/src/pages/backoffice/HorsDomaine.tsx"
         ],
         "createdAt": "2026-08-13T13:41:53.979Z"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#f97316",
+        "createdAt": "2026-08-26T12:05:14.695Z",
+        "reason": "Couleur chart Hors domaine, confirmée par l'utilisateur pour différencier du violet Canonique"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#fb923c",
+        "createdAt": "2026-08-26T12:05:14.915Z",
+        "reason": "Variante dark de #f97316 (orange Hors domaine), confirmée par l'utilisateur"
       }
     ]
   }

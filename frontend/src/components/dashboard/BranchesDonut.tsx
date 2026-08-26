@@ -13,7 +13,7 @@ const BRANCHE_CONFIG: Record<string, { label: string; color: string; darkColor: 
   CANONIQUE:    { label: "Canonique",     color: "#8b5cf6", darkColor: "#a78bfa", description: "Réponse automatique haute confiance — servie sans intervention humaine" },
   SUGGESTION:   { label: "Suggestion",    color: "#0d9488", darkColor: "#2dd4bf", description: "Réponse réutilisée depuis une réponse validée — soumise à validation humaine" },
   LLM:          { label: "Génération IA", color: "#e11d48", darkColor: "#fb7185", description: "Réponse générée par l'IA depuis les documents — soumise à validation humaine" },
-  HORS_DOMAINE: { label: "Hors domaine",  color: "#9333ea", darkColor: "#c084fc", description: "Ticket sans domaine correspondant dans la base de connaissances" },
+  HORS_DOMAINE: { label: "Hors domaine",  color: "#f97316", darkColor: "#fb923c", description: "Ticket sans domaine correspondant dans la base de connaissances" },
 };
 
 interface BranchesDonutProps {
