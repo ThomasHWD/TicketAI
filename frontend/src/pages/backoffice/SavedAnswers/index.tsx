@@ -216,7 +216,7 @@ export default function SavedAnswers() {
 
         {!loading && total > 0 && onglet !== "a_relire" && (
           <nav aria-label="Pagination des réponses" className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100 dark:border-white/8">
-            <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+            <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
               {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} sur {total}
             </span>
             <div className="flex items-center gap-1">

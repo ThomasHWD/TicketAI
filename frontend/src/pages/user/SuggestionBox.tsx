@@ -158,7 +158,7 @@ export default function SuggestionBox() {
                     className={`text-xs transition-colors duration-150 ${
                       meetsMin
                         ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-gray-400 dark:text-gray-500"
+                        : "text-gray-500 dark:text-gray-400"
                     }`}
                   >
                     {meetsMin ? "✓ Prêt à envoyer" : `${MIN_LENGTH} caractères minimum`}
@@ -169,7 +169,7 @@ export default function SuggestionBox() {
                     className={`text-xs tabular-nums shrink-0 ${
                       remaining < 100
                         ? "text-amber-600 dark:text-amber-400"
-                        : "text-gray-400 dark:text-gray-500"
+                        : "text-gray-500 dark:text-gray-400"
                     }`}
                   >
                     {contenu.length} / {MAX_LENGTH}
@@ -233,7 +233,7 @@ export default function SuggestionBox() {
           <div className="text-center">
             <button
               onClick={() => navigate("/mon-espace")}
-              className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               Retour à l'accueil
             </button>

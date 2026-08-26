@@ -114,7 +114,7 @@ export default function TicketInfoSidebar({ ticket, filStatut, joursAutoCloture 
         <div className="pt-4 border-t border-gray-100 dark:border-white/[0.06]">
           <dl>
             <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Référence</dt>
-            <dd className="text-xs text-gray-400 dark:text-gray-500 font-mono truncate" title={ticket.id}>
+            <dd className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={ticket.id}>
               {ticket.id}
             </dd>
           </dl>

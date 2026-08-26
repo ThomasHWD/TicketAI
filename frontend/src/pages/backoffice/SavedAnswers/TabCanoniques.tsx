@@ -74,7 +74,7 @@ export default function TabCanoniques({
 
   if (total === 0 && q) {
     return (
-      <p className="px-5 py-12 text-center text-sm text-gray-400 dark:text-gray-500">
+      <p className="px-5 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
         Aucun résultat pour <span className="font-medium text-gray-600 dark:text-gray-300">«&nbsp;{searchQuery}&nbsp;»</span>.
       </p>
     );
@@ -84,7 +84,7 @@ export default function TabCanoniques({
     return (
       <div className="px-5 py-16 text-center space-y-1">
         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Aucune réponse enregistrée</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">Les réponses validées 3 fois ou plus apparaissent ici.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Les réponses validées 3 fois ou plus apparaissent ici.</p>
       </div>
     );
   }
@@ -151,7 +151,7 @@ export default function TabCanoniques({
 
             {/* Meta + actions row */}
             <div className="mt-2.5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
                 <span>{r.nb_validations} validation{r.nb_validations > 1 ? "s" : ""}</span>
                 {r.validated_at && (
                   <>

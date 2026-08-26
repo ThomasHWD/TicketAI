@@ -22,13 +22,13 @@ export interface ActionsDocument {
 }
 
 const TH =
-  "px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500";
+  "px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400";
 
 function IconeFichier({ filename }: { filename: string | null }) {
   const ext = filename?.split(".").pop()?.toLowerCase();
   if (ext === "pdf") return <FileType size={15} className="shrink-0 text-red-400" />;
   if (ext === "docx") return <FileText size={15} className="shrink-0 text-blue-400" />;
-  return <File size={15} className="shrink-0 text-gray-400 dark:text-gray-500" />;
+  return <File size={15} className="shrink-0 text-gray-500 dark:text-gray-400" />;
 }
 
 function dateCourte(iso: string | null): string {
@@ -122,7 +122,7 @@ function LigneDocument({
             >
               {doc.filename ?? "—"}
             </button>
-            <p className="mt-0.5 max-w-md truncate text-xs text-gray-400 dark:text-gray-500">
+            <p className="mt-0.5 max-w-md truncate text-xs text-gray-500 dark:text-gray-400">
               {doc.description || <span className="italic">Aucune description</span>}
             </p>
             {erreurTelechargement && (
@@ -162,11 +162,11 @@ function LigneDocument({
         )}
       </td>
 
-      <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-gray-400 dark:text-gray-500">
+      <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-gray-500 dark:text-gray-400">
         {doc.nb_chunks}
       </td>
 
-      <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-gray-400 dark:text-gray-500">
+      <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-gray-500 dark:text-gray-400">
         {dateCourte(doc.updated_at)}
       </td>
 

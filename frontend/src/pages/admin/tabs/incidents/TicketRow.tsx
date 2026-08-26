@@ -16,7 +16,10 @@ export default function TicketRow({ ticket }: { ticket: TicketIncident }) {
 
   const retryMutation = useMutation({
     mutationFn: () => retryTicket(ticket.id),
-    onSuccess: () => { setRetryDone(true); setTimeout(invalidate, 1000); },
+    onSuccess: () => {
+      setRetryDone(true);
+      setTimeout(() => { invalidate(); setRetryDone(false); }, 3000);
+    },
   });
 
   const deleteMutation = useMutation({
@@ -50,15 +53,15 @@ export default function TicketRow({ ticket }: { ticket: TicketIncident }) {
         <div className="flex items-center gap-3 flex-wrap">
           {retryDone ? (
             <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 size={12} /> Relancé
+              <CheckCircle2 size={12} aria-hidden="true" /> Relancé
             </span>
           ) : (
             <button
               onClick={() => retryMutation.mutate()}
               disabled={retryMutation.isPending}
-              className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-40 transition-colors"
+              className="flex items-center gap-1 py-1 text-xs text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-40 transition-colors"
             >
-              {retryMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+              {retryMutation.isPending ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <RotateCcw size={12} aria-hidden="true" />}
               Relancer
             </button>
           )}
@@ -67,13 +70,13 @@ export default function TicketRow({ ticket }: { ticket: TicketIncident }) {
               <button
                 onClick={() => deleteMutation.mutate()}
                 disabled={deleteMutation.isPending}
-                className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-40"
+                className="py-1 text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-40"
               >
-                {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin inline" /> : "Confirmer"}
+                {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin inline" aria-hidden="true" /> : "Confirmer"}
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                className="py-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
               >
                 Annuler
               </button>
@@ -81,13 +84,15 @@ export default function TicketRow({ ticket }: { ticket: TicketIncident }) {
           ) : (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+              className="flex items-center gap-1 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
             >
-              <Trash2 size={12} /> Supprimer
+              <Trash2 size={12} aria-hidden="true" /> Supprimer
             </button>
           )}
           {retryMutation.isError && (
-            <p className="text-xs text-red-500 w-full">{(retryMutation.error as Error).message}</p>
+            <p className="text-xs text-red-500 w-full">
+              Échec du relancement — réessayez ou contactez le support si le problème persiste.
+            </p>
           )}
         </div>
       </td>

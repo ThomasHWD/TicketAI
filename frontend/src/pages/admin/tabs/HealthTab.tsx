@@ -22,18 +22,20 @@ const INFRA_SERVICES: { key: InfraKey; label: string }[] = [
 function ServiceRow({ svc, label }: { svc: ServiceHealth; label: string }) {
   const ok = svc.status === "ok";
   return (
-    <li
-      title={svc.detail ?? undefined}
-      className="flex items-center gap-3 py-2.5 border-b border-gray-100 dark:border-white/[0.06] last:border-0"
-    >
-      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ok ? "bg-emerald-500" : "bg-red-500"}`} />
-      <span className="flex-1 text-sm text-gray-700 dark:text-gray-200">{label}</span>
+    <li className="flex items-start gap-3 py-2.5 border-b border-gray-100 dark:border-white/[0.06] last:border-0">
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-[0.375rem] ${ok ? "bg-emerald-500" : "bg-red-500"}`} />
+      <div className="flex-1 min-w-0">
+        <span className="text-sm text-gray-700 dark:text-gray-200">{label}</span>
+        {!ok && svc.detail && (
+          <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">{svc.detail}</p>
+        )}
+      </div>
       {svc.latency_ms != null && ok && (
-        <span className="font-mono text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+        <span className="font-mono text-xs text-gray-500 dark:text-gray-400 tabular-nums mt-0.5">
           {svc.latency_ms} ms
         </span>
       )}
-      <span className={`text-xs font-medium min-w-[3rem] text-right ${ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+      <span className={`text-xs font-medium min-w-[3rem] text-right mt-0.5 shrink-0 ${ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
         {ok ? "OK" : "Erreur"}
       </span>
     </li>
@@ -61,11 +63,13 @@ function MetricChip({
 
 function PipelineRow({
   label,
+  hint,
   value,
   warn = false,
   danger = false,
 }: {
   label: string;
+  hint?: string;
   value: number | null;
   warn?: boolean;
   danger?: boolean;
@@ -78,7 +82,10 @@ function PipelineRow({
 
   return (
     <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-white/[0.06] last:border-0">
-      <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
+      <div>
+        <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
+        {hint && <p className="text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
+      </div>
       <span className={`font-mono text-sm font-medium tabular-nums ${valueClass}`}>
         {value ?? "—"}
       </span>
@@ -87,12 +94,13 @@ function PipelineRow({
 }
 
 export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void }) {
-  const { data: health, isLoading, isFetching, refetch } = useQuery({
+  const { data: health, isLoading, isFetching, isError, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["admin-health"],
     queryFn: getServicesHealth,
     retry: 1,
     staleTime: 0,
     refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
   });
 
   const stats = health?.stats;
@@ -107,6 +115,14 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
       })
     : null;
 
+  const lastUpdated = dataUpdatedAt > 0
+    ? new Date(dataUpdatedAt).toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : null;
+
   const hasAlert =
     (stats?.tickets_echoues ?? 0) > 0 ||
     (stats?.tickets_bloques ?? 0) > 0 ||
@@ -116,18 +132,37 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
     <div className="space-y-4">
       {/* Top bar */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400 dark:text-gray-500">
-          {isFetching ? "Actualisation…" : health ? "Données en temps réel" : ""}
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          {isFetching
+            ? "Actualisation…"
+            : lastUpdated
+            ? `Mis à jour à ${lastUpdated} · auto toutes les 30 s`
+            : ""}
         </p>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
+          aria-label="Actualiser les données de santé"
           className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150 disabled:opacity-40"
         >
           <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} aria-hidden="true" />
           Actualiser
         </button>
       </div>
+
+      {/* API error */}
+      {isError && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-red-200 dark:border-red-500/25 bg-red-50 dark:bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5 text-red-500" aria-hidden="true" />
+          <span>
+            Impossible de contacter l'API de supervision. Vérifiez que le backend est démarré, puis{" "}
+            <button onClick={() => refetch()} className="underline underline-offset-2 font-semibold hover:opacity-75 transition-opacity">
+              réessayez
+            </button>
+            .
+          </span>
+        </div>
+      )}
 
       {/* Alert banner */}
       {!isLoading && hasAlert && (
@@ -163,17 +198,17 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
       ) : (
         <div className="space-y-4">
           {/* Metric chips */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetricChip label="Documents indexés" value={stats?.nb_documents ?? null} mono />
             <MetricChip label="Réponses canoniques" value={stats?.nb_reponses_validees ?? null} mono />
             <MetricChip label="Dernière activité" value={derniereActivite} />
           </div>
 
           {/* Services + Pipeline */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Infrastructure */}
             <div className="glass-card rounded-2xl px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 pb-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 pb-2">
                 Infrastructure
               </p>
               <ul>
@@ -185,16 +220,16 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
 
             {/* Pipeline */}
             <div className="glass-card rounded-2xl px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 pb-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 pb-2">
                 Pipeline
               </p>
 
-              {/* Incidents */}
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-300 dark:text-white/20 pt-1 pb-0.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-white/40 pt-1 pb-0.5">
                 Incidents
               </p>
               <PipelineRow
                 label="Tickets échoués"
+                hint="Job Celery planté — nécessite une relance manuelle"
                 value={stats?.tickets_echoues ?? null}
                 danger={(stats?.tickets_echoues ?? 0) > 0}
               />
@@ -205,26 +240,27 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
               />
               <PipelineRow
                 label="Tickets bloqués"
+                hint="En attente de traitement depuis plus de 10 min"
                 value={stats?.tickets_bloques ?? null}
                 warn={(stats?.tickets_bloques ?? 0) > 0}
               />
               <PipelineRow
                 label="Réponses à relire"
+                hint="Réponses validées affectées par une mise à jour documentaire"
                 value={stats?.reponses_a_relire ?? null}
                 warn={(stats?.reponses_a_relire ?? 0) > 0}
               />
 
-              {/* Capacité */}
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-300 dark:text-white/20 pt-4 pb-0.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-white/40 pt-4 pb-0.5">
                 Capacité
               </p>
               <PipelineRow
-                label="File ingestion"
+                label="File d'attente ingestion"
                 value={stats?.celery_pending_ingestion ?? null}
                 warn={(stats?.celery_pending_ingestion ?? 0) > 5}
               />
               <PipelineRow
-                label="File questions"
+                label="File d'attente questions"
                 value={stats?.celery_pending_questions ?? null}
                 warn={(stats?.celery_pending_questions ?? 0) > 10}
               />

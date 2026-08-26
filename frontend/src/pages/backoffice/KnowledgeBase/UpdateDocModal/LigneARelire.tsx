@@ -23,7 +23,7 @@ export default function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
             canonique
           </span>
         )}
-        <span className="shrink-0 text-[10px] tabular-nums text-gray-400 dark:text-gray-500">
+        <span className="shrink-0 text-[10px] tabular-nums text-gray-500 dark:text-gray-400">
           {reponse.nb_validations} val.
         </span>
       </div>

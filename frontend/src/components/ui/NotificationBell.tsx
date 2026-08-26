@@ -135,7 +135,7 @@ export default function NotificationBell() {
       </div>
 
       {visibleAssigned.length === 0 && notifications.length === 0 && (
-        <p className="px-4 py-6 text-sm text-center text-gray-400 dark:text-gray-500">
+        <p className="px-4 py-6 text-sm text-center text-gray-500 dark:text-gray-400">
           Aucune notification
         </p>
       )}
@@ -165,7 +165,7 @@ export default function NotificationBell() {
                   <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
                     {t.objet ?? t.question}
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t.domaine}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.domaine}</p>
                 </button>
               </li>
             ))}
@@ -194,7 +194,7 @@ export default function NotificationBell() {
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
                         {n.ticket_objet ?? n.ticket_question ?? "Ticket"}
                       </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         Réponse disponible · {formatDate(n.created_at)}
                       </p>
                     </div>

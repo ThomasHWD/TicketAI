@@ -105,12 +105,12 @@ export default function HorsDomaine() {
                             {q.objet ?? q.question.slice(0, 100)}
                           </p>
                           {q.objet && (
-                            <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                               {q.question.slice(0, 120)}
                             </p>
                           )}
                         </div>
-                        <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 tabular-nums">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
                           {formatDate(q.created_at)}
                         </span>
                         <ArrowRight
@@ -181,7 +181,7 @@ function EmptyState() {
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
           Aucun angle mort sur cette période
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 max-w-xs mx-auto leading-relaxed">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 max-w-xs mx-auto leading-relaxed">
           Toutes les questions ont pu être traitées depuis les documents disponibles.
         </p>
       </div>

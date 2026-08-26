@@ -90,7 +90,7 @@ function SidebarSection({ children }: { children: React.ReactNode }) {
 
 function SidebarLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-[0.06em]">
+    <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-[0.06em]">
       {children}
     </p>
   );
@@ -131,7 +131,7 @@ export default function TicketSidebar({
           <SidebarLabel>Détails</SidebarLabel>
           <dl className="space-y-2.5 text-sm">
             <div className="flex items-start justify-between gap-2">
-              <dt className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 shrink-0">Statut</dt>
+              <dt className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 shrink-0">Statut</dt>
               <dd>
                 <StatutBadge
                   statut={ticket.statut_ticket}
@@ -143,20 +143,20 @@ export default function TicketSidebar({
               </dd>
             </div>
             <div className="flex items-start justify-between gap-2">
-              <dt className="text-xs text-gray-400 dark:text-gray-500 mt-px shrink-0">Créé le</dt>
+              <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Créé le</dt>
               <dd className="text-xs text-gray-600 dark:text-gray-300 text-right">{formatDate(ticket.created_at)}</dd>
             </div>
             {ticket.closed_at && (
               <div className="flex items-start justify-between gap-2">
-                <dt className="text-xs text-gray-400 dark:text-gray-500 mt-px shrink-0">Clôturé le</dt>
+                <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Clôturé le</dt>
                 <dd className="text-xs text-gray-600 dark:text-gray-300 text-right">{formatDate(ticket.closed_at)}</dd>
               </div>
             )}
             <div className="flex items-start justify-between gap-2">
-              <dt className="text-xs text-gray-400 dark:text-gray-500 mt-px shrink-0">Référence</dt>
+              <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Référence</dt>
               <dd className="flex items-center gap-1 min-w-0">
                 <span
-                  className="text-xs font-mono text-gray-400 dark:text-gray-500 truncate min-w-0 cursor-default select-all"
+                  className="text-xs font-mono text-gray-500 dark:text-gray-400 truncate min-w-0 cursor-default select-all"
                   title={`Référence complète : ${ticket.id}`}
                 >
                   {ticket.id}
@@ -187,7 +187,7 @@ export default function TicketSidebar({
                 {userName ?? "Utilisateur inconnu"}
               </p>
               {ticket.user_titre && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{ticket.user_titre}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{ticket.user_titre}</p>
               )}
             </div>
           </div>
@@ -195,7 +195,7 @@ export default function TicketSidebar({
             {ticket.user_email && (
               <a
                 href={`mailto:${ticket.user_email}`}
-                className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate"
+                className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate"
               >
                 <User size={11} className="shrink-0" aria-hidden="true" />
                 {ticket.user_email}
@@ -204,20 +204,20 @@ export default function TicketSidebar({
             {ticket.user_telephone && (
               <a
                 href={`tel:${ticket.user_telephone}`}
-                className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
               >
                 <Phone size={11} className="shrink-0" aria-hidden="true" />
                 {ticket.user_telephone}
               </a>
             )}
             {ticket.user_departement && (
-              <p className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+              <p className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <Building2 size={11} className="shrink-0" aria-hidden="true" />
                 {ticket.user_departement}
               </p>
             )}
             {ticket.user_localisation && (
-              <p className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+              <p className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <MapPin size={11} className="shrink-0" aria-hidden="true" />
                 {ticket.user_localisation}
               </p>
@@ -239,7 +239,7 @@ export default function TicketSidebar({
                         {ticket.assigned_to_nom_complet ?? ticket.assigned_to_email ?? "Validateur"}
                       </p>
                       {ticket.assigned_to_email && (
-                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{ticket.assigned_to_email}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ticket.assigned_to_email}</p>
                       )}
                     </div>
                   </div>
@@ -306,7 +306,7 @@ export default function TicketSidebar({
                 </p>
               </div>
             ) : (
-              <p className="text-xs text-gray-400 dark:text-gray-500">Non assigné</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Non assigné</p>
             )}
           </SidebarSection>
         )}
