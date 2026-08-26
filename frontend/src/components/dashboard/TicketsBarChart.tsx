@@ -68,7 +68,7 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
         <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: isDark ? "#60a5fa" : "#3b82f6" }} />
-            À traiter
+            Nouveaux
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: isDark ? "#34d399" : "#10b981" }} />
@@ -76,7 +76,11 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
           </span>
         </div>
       </div>
-      <div className="flex-1 min-h-[220px]">
+      <div
+        className="flex-1 min-h-[220px]"
+        role="img"
+        aria-label={`Graphique d'activité — ${TITRE[periode].toLowerCase()}. Deux séries : nouveaux tickets (bleu) et tickets en traitement (vert).`}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
             <CartesianGrid
@@ -102,14 +106,14 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
                 borderRadius: "10px",
                 border: "none",
                 boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-                background: isDark ? "#1e293b" : "#fff",
+                background: isDark ? "#141416" : "#fff",
                 color: isDark ? "#e2e8f0" : "#1e293b",
                 fontSize: 12,
               }}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formatter={(value: any, name: any) => [
                 value,
-                name === "nouveaux" ? "À traiter" : "En traitement",
+                name === "nouveaux" ? "Nouveaux" : "En traitement",
               ]}
               labelStyle={{ fontWeight: 600, marginBottom: 4 }}
             />
