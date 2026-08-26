@@ -83,11 +83,16 @@ function SubMetric({ label, value }: { label: string; value: number | null }) {
             <div
               className="h-full rounded-full bg-amber-400 transition-all duration-500"
               style={{ width: `${pct}%` }}
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${label} : ${value!.toFixed(1)} sur 5`}
             />
           </div>
         </>
       ) : (
-        <span className="text-xl font-bold text-gray-300 dark:text-gray-600">—</span>
+        <span className="text-xl font-bold text-gray-500 dark:text-gray-400">—</span>
       )}
     </div>
   );

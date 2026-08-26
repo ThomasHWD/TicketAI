@@ -9,7 +9,7 @@ interface StatutItem {
 }
 
 const STATUT_CONFIG: Record<string, { label: string; color: string; darkColor: string }> = {
-  NOUVEAU:    { label: "À traiter", color: "#3b82f6", darkColor: "#60a5fa" },
+  NOUVEAU:    { label: "Nouveaux",  color: "#3b82f6", darkColor: "#60a5fa" },
   "EN COURS": { label: "En cours",  color: "#f59e0b", darkColor: "#fbbf24" },
   CLOTURÉ:    { label: "Clôturés",  color: "#10b981", darkColor: "#34d399" },
 };
@@ -89,11 +89,15 @@ export default function DonutChart({ data, loading = false, periode = "semaine" 
 
   return (
     <div className="glass-card p-5 rounded-2xl space-y-4">
-      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+      <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
         Répartition — {PERIODE_LABEL[periode]}
       </h3>
 
-      <div className="relative h-52">
+      <div
+        className="relative h-52"
+        role="img"
+        aria-label={`Répartition des tickets ${PERIODE_LABEL[periode]} : ${visibleData.map(d => `${STATUT_CONFIG[d.statut]?.label ?? d.statut} ${d.pct}%`).join(', ')}. Total : ${total} tickets.`}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
