@@ -42,7 +42,7 @@ export default function BranchesDonut({ data, loading = false }: BranchesDonutPr
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
           Branches de traitement
         </h3>
-        <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
           {total} ticket{total > 1 ? "s" : ""}
         </span>
       </div>
@@ -65,7 +65,7 @@ export default function BranchesDonut({ data, loading = false }: BranchesDonutPr
                     {cfg.label}
                   </span>
                   <div className="flex items-center gap-3 tabular-nums">
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {d.count} ticket{d.count > 1 ? "s" : ""}
                     </span>
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 w-10 text-right">

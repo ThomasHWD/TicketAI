@@ -210,7 +210,7 @@ export default function IngestionDrawer({
               Découpage et indexation en cours en arrière-plan.
             </p>
           </div>
-          <p className="max-w-xs text-xs leading-relaxed text-gray-400 dark:text-gray-500">
+          <p className="max-w-xs text-xs leading-relaxed text-gray-500 dark:text-gray-400">
             Le document apparaîtra dans la liste dès que ses chunks seront écrits dans l'index. La
             progression est suivie en bas à droite de l'écran.
           </p>
@@ -416,7 +416,7 @@ export default function IngestionDrawer({
                 placeholder="Rédigez le contenu du document ici…"
                 className={`${CHAMP} resize-y font-mono leading-relaxed`}
               />
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Markdown ou texte brut — minimum {MIN_CARACTERES} caractères
                 {contenu.length > 0 && (
                   <span
@@ -438,7 +438,7 @@ export default function IngestionDrawer({
         <div className="space-y-1.5">
           <span id="dom-group-label" className={LABEL}>Domaine</span>
           {domaines.length === 0 ? (
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Aucun domaine ne vous est attribué : demandez un rattachement à un administrateur.
             </p>
           ) : (
@@ -477,7 +477,7 @@ export default function IngestionDrawer({
             className={CHAMP}
             required
           />
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Obligatoire — sert à retrouver le document dans la liste (non indexée).
           </p>
         </div>

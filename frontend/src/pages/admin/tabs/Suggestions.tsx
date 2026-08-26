@@ -49,14 +49,14 @@ function SuggestionCard({ s }: { s: SuggestionOut }) {
                 {s.user_nom || s.user_email || "Utilisateur supprimé"}
               </p>
               {s.user_nom && s.user_email && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                   {s.user_email}
                 </p>
               )}
             </div>
           </div>
           <div className={`flex items-center gap-1.5 shrink-0 ${s.lu ? "opacity-50" : ""}`}>
-            <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap tabular-nums mr-1">
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums mr-1">
               {formatDate(s.created_at)}
             </span>
             <button
@@ -123,7 +123,7 @@ export default function AdminSuggestions() {
     <div className="space-y-4 max-w-3xl">
       {/* Counter + bulk action */}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           {isLoading
             ? "Chargement…"
             : nonLues > 0
@@ -156,7 +156,7 @@ export default function AdminSuggestions() {
 
       {!isLoading && total === 0 && (
         <div className="glass-card rounded-2xl px-6 py-16 text-center">
-          <p className="text-sm text-gray-400 dark:text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Aucune suggestion pour le moment.
           </p>
         </div>

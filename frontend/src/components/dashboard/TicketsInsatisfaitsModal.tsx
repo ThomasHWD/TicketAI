@@ -17,7 +17,7 @@ function NoteCell({ label, value }: { label: string; value: number | null }) {
   const mauvaise = value <= 2;
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{label}</span>
+      <span className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</span>
       <div className="flex items-center gap-1.5">
         <span
           className={`text-sm font-semibold tabular-nums ${
@@ -100,7 +100,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
             <h2 id={titleId} className="text-sm font-semibold text-gray-800 dark:text-gray-200">
               Tickets insatisfaits
             </h2>
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
               note &lt; 3 sur au moins un critère
             </span>
           </div>
@@ -116,7 +116,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
         {/* Body */}
         <div className="overflow-y-auto flex-1">
           {isError ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400 dark:text-gray-500">
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-500 dark:text-gray-400">
               <AlertTriangle size={28} className="text-red-400 opacity-70" />
               <p className="text-sm">Impossible de charger les tickets</p>
               <button
@@ -139,7 +139,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
               ))}
             </div>
           ) : tickets.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400 dark:text-gray-500">
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-500 dark:text-gray-400">
               <Frown size={32} className="opacity-40" />
               <p className="text-sm">Aucun ticket avec une note inférieure à 3</p>
             </div>
@@ -155,7 +155,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                         {t.objet || "Sans objet"}
                       </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                         {t.domaine} · {t.closed_at ? new Date(t.closed_at).toLocaleDateString("fr-FR") : ""}
                       </p>
                     </div>
@@ -172,7 +172,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
 
         {!isLoading && !isError && tickets.length > 0 && (
           <div className="px-5 py-3 border-t border-gray-100 dark:border-white/8 shrink-0">
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {tickets.length} ticket{tickets.length > 1 ? "s" : ""} · cliquez pour accéder au détail
             </p>
           </div>

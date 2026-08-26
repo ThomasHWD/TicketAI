@@ -20,7 +20,7 @@ export default function SidebarToggle({ collapsed, onToggle }: SidebarToggleProp
       <span className="flex items-center justify-center w-5 h-5 rounded-full
         bg-white dark:bg-[#1c1c1e]
         border border-gray-200 dark:border-[#2a2a2d]
-        text-gray-400 dark:text-gray-500
+        text-gray-500 dark:text-gray-400
         group-hover:border-gray-300 dark:group-hover:border-[#3a3a3d]
         group-hover:text-gray-700 dark:group-hover:text-gray-300
         shadow-sm

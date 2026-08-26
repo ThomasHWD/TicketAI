@@ -85,7 +85,7 @@ export default function Modal({
         <header className="flex items-start gap-4 border-b border-gray-100 px-6 py-4 dark:border-white/8">
           <div className="min-w-0 flex-1">
             {eyebrow && (
-              <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 {eyebrow}
               </p>
             )}

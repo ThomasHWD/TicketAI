@@ -31,7 +31,7 @@ function ServiceRow({ svc, label }: { svc: ServiceHealth; label: string }) {
         )}
       </div>
       {svc.latency_ms != null && ok && (
-        <span className="font-mono text-xs text-gray-400 dark:text-gray-500 tabular-nums mt-0.5">
+        <span className="font-mono text-xs text-gray-500 dark:text-gray-400 tabular-nums mt-0.5">
           {svc.latency_ms} ms
         </span>
       )}
@@ -84,7 +84,7 @@ function PipelineRow({
     <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-white/[0.06] last:border-0">
       <div>
         <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
-        {hint && <p className="text-xs text-gray-400 dark:text-gray-500">{hint}</p>}
+        {hint && <p className="text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
       </div>
       <span className={`font-mono text-sm font-medium tabular-nums ${valueClass}`}>
         {value ?? "—"}
@@ -132,7 +132,7 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
     <div className="space-y-4">
       {/* Top bar */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           {isFetching
             ? "Actualisation…"
             : lastUpdated
@@ -208,7 +208,7 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Infrastructure */}
             <div className="glass-card rounded-2xl px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 pb-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 pb-2">
                 Infrastructure
               </p>
               <ul>
@@ -220,7 +220,7 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
 
             {/* Pipeline */}
             <div className="glass-card rounded-2xl px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 pb-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 pb-2">
                 Pipeline
               </p>
 

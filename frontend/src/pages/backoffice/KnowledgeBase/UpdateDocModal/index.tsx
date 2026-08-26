@@ -182,7 +182,7 @@ export default function UpdateDocModal({
                   {restauration ? "Confirmer la restauration" : "Confirmer la mise à jour"}
                 </button>
                 {impact.nb_a_analyser > 0 && (
-                  <p className="text-center text-[11px] text-gray-400 dark:text-gray-500">
+                  <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
                     {impact.nb_a_analyser} réponse{impact.nb_a_analyser > 1 ? "s" : ""}{" "}
                     {impact.nb_a_analyser > 1 ? "seront relues" : "sera relue"}
                   </p>
@@ -254,7 +254,7 @@ export default function UpdateDocModal({
               className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-white/12 dark:bg-white/5 dark:text-gray-100 dark:placeholder:text-gray-600"
               required
             />
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Obligatoire — sert à retrouver le document dans la liste.
             </p>
           </div>
@@ -272,12 +272,12 @@ export default function UpdateDocModal({
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Comparaison avec la version en ligne…
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Détection des paragraphes modifiés · quelques secondes
             </p>
           </div>
           <div className="h-0.5 w-40 animate-pulse rounded-full bg-emerald-300 dark:bg-emerald-500/40" />
-          <p className="max-w-xs text-center text-xs text-gray-400 dark:text-gray-500">
+          <p className="max-w-xs text-center text-xs text-gray-500 dark:text-gray-400">
             Aucune modification n'est appliquée avant votre confirmation.
           </p>
         </div>

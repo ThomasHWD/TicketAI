@@ -78,7 +78,7 @@ export default function TabObsoletes({
 
   if (total === 0 && q) {
     return (
-      <p className="px-5 py-12 text-center text-sm text-gray-400 dark:text-gray-500">
+      <p className="px-5 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
         Aucun résultat pour <span className="font-medium text-gray-600 dark:text-gray-300">«&nbsp;{searchQuery}&nbsp;»</span>.
       </p>
     );
@@ -88,7 +88,7 @@ export default function TabObsoletes({
     return (
       <div className="px-5 py-16 text-center space-y-1">
         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Aucune réponse obsolète</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">Les réponses retirées du service apparaissent ici.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Les réponses retirées du service apparaissent ici.</p>
       </div>
     );
   }
@@ -107,7 +107,7 @@ export default function TabObsoletes({
                 <p className="text-sm font-semibold text-gray-900 dark:text-gray-50 leading-snug">
                   {r.question}
                 </p>
-                <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                   {r.canonique && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                       canonique

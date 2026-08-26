@@ -41,7 +41,7 @@ function BlocChangements({ impact }: { impact: UpdateImpact }) {
         ))}
       </ul>
       {restantes > 0 && (
-        <p className="text-[11px] text-gray-400 dark:text-gray-500">
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
           … et {restantes} autre{restantes > 1 ? "s" : ""}.
         </p>
       )}

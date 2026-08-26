@@ -71,7 +71,7 @@ export default function DomaineCombobox({ value, onChange, existing }: Props) {
                 role="option"
                 aria-selected={false}
                 aria-disabled={true}
-                className="flex items-center justify-between px-3 py-2.5 text-sm text-gray-400 dark:text-gray-500 select-none cursor-not-allowed"
+                className="flex items-center justify-between px-3 py-2.5 text-sm text-gray-500 dark:text-gray-400 select-none cursor-not-allowed"
               >
                 <span className="font-mono">{d}</span>
                 <span className="text-xs bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 rounded">

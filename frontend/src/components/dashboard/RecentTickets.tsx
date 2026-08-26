@@ -99,7 +99,7 @@ export default function RecentTickets({ tickets, loading = false }: RecentTicket
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   {t.created_at && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                        {new Date(t.created_at).toLocaleDateString("fr-FR")}
                     </span>
                   )}
