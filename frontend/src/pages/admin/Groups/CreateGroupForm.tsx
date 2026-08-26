@@ -9,6 +9,7 @@ type Props = {
   isPending: boolean;
   error: string | null;
   domaines: string[];
+  groupeNoms: string[];
 };
 
 export default function CreateGroupForm({
@@ -19,6 +20,7 @@ export default function CreateGroupForm({
   isPending,
   error,
   domaines,
+  groupeNoms,
 }: Props) {
   return (
     <form
@@ -32,14 +34,14 @@ export default function CreateGroupForm({
         >
           Nom du groupe
         </label>
-        <input
+        <DomaineCombobox
           id="create-group-nom"
-          required
-          autoFocus
           value={form.nom}
-          onChange={(e) => onChange({ ...form, nom: e.target.value })}
+          onChange={(v) => onChange({ ...form, nom: v })}
+          existing={groupeNoms}
+          uppercase={false}
           placeholder="ex : Ressources humaines"
-          className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
+          autoFocus
         />
       </div>
       <div className="flex flex-col gap-1.5">

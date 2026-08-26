@@ -7,22 +7,29 @@ type Props = {
   value: string;
   onChange: (v: string) => void;
   existing: string[];
+  uppercase?: boolean;
+  placeholder?: string;
+  autoFocus?: boolean;
 };
 
-export default function DomaineCombobox({ id, value, onChange, existing }: Props) {
+export default function DomaineCombobox({ id, value, onChange, existing, uppercase = true, placeholder, autoFocus }: Props) {
   const [open, setOpen] = useState(false);
   const [focusedIdx, setFocusedIdx] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const q = value.trim().toUpperCase();
-  const exactMatch = existing.includes(q);
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/\p{Mn}/gu, "");
+  const q = uppercase ? value.trim().toUpperCase() : value.trim();
+  const exactMatch = uppercase
+    ? existing.includes(q)
+    : existing.some((d) => norm(d) === norm(q));
   const canCreate = q.length >= 2 && !exactMatch;
 
-  // Matching existing domains — filter by current query when non-empty
   const matchingExisting = q.length >= 1
-    ? existing.filter((d) => d.startsWith(q) || d.includes(q))
-    : existing.slice(0, 8); // cap at 8 when empty to avoid a huge dropdown
+    ? existing.filter((d) => uppercase
+        ? (d.startsWith(q) || d.includes(q))
+        : norm(d).includes(norm(q)))
+    : existing.slice(0, 8);
 
   const options: Array<{ type: "existing" | "create"; value: string }> = [
     ...matchingExisting.map((d) => ({ type: "existing" as const, value: d })),
@@ -92,10 +99,11 @@ export default function DomaineCombobox({ id, value, onChange, existing }: Props
         ref={inputRef}
         id={id}
         required
+        autoFocus={autoFocus}
         type="text"
         value={value}
-        placeholder="ex : RH"
-        role="combobox"Domaine
+        placeholder={placeholder ?? (uppercase ? "ex : RH" : "ex : Ressources humaines")}
+        role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
         aria-controls={showDropdown ? "domaine-listbox" : undefined}
@@ -104,7 +112,7 @@ export default function DomaineCombobox({ id, value, onChange, existing }: Props
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
         onChange={(e) => {
-          onChange(e.target.value.toUpperCase());
+          onChange(uppercase ? e.target.value.toUpperCase() : e.target.value);
           setOpen(true);
         }}
         className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
