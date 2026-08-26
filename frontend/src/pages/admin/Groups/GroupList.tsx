@@ -20,6 +20,7 @@ type Props = {
   isCreating: boolean;
   createError: string | null;
   domaines: string[];
+  groupeNoms: string[];
 };
 
 export default function GroupList({
@@ -36,6 +37,7 @@ export default function GroupList({
   isCreating,
   createError,
   domaines,
+  groupeNoms,
 }: Props) {
   const [groupSearch, setGroupSearch] = useState("");
 
@@ -90,6 +92,7 @@ export default function GroupList({
             isPending={isCreating}
             error={createError}
             domaines={domaines}
+            groupeNoms={groupeNoms}
           />
         </div>
       )}

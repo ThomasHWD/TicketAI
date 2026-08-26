@@ -72,7 +72,7 @@ export default function GroupsPage() {
   const createMut = useMutation({
     mutationFn: createGroupe,
     onSuccess: invalidate,
-    onError: (err: unknown) => setCreateError(toFrenchError(err, "add")),
+    onError: (err: unknown) => setCreateError(toFrenchError(err, "create")),
   });
 
   const deleteMut = useMutation({
@@ -129,6 +129,11 @@ export default function GroupsPage() {
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.nom.trim() || !form.domaine.trim()) return;
+    const nomNorm = normalize(form.nom.trim());
+    if (groupes.some((g) => normalize(g.nom) === nomNorm)) {
+      setCreateError("Un groupe avec ce nom existe déjà.");
+      return;
+    }
     setCreateError(null);
     createMut.mutate(form, {
       onSuccess: (g) => {
@@ -183,6 +188,7 @@ export default function GroupsPage() {
           isCreating={createMut.isPending}
           createError={createError}
           domaines={domaines}
+          groupeNoms={groupes.map((g) => g.nom)}
         />
 
         {selectedGroupe ? (
