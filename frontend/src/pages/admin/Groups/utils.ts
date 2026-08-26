@@ -30,5 +30,31 @@ export function normalize(s: string) {
   return s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+    .replace(/\p{Mn}/gu, "");
+}
+
+const USER_MESSAGES = {
+  add: "Impossible d'ajouter ce groupe. Vérifiez qu'il n'existe pas déjà.",
+  chef: "Impossible de modifier ce rôle. Actualisez la page et réessayez.",
+  delete: "Impossible de supprimer ce groupe. Réessayez ou rechargez la page.",
+  remove: "Impossible de retirer ce membre. Actualisez la page et réessayez.",
+} as const;
+
+export function toFrenchError(err: unknown, context: keyof typeof USER_MESSAGES): string {
+  const raw = err instanceof Error ? err.message.toLowerCase() : "";
+  if (raw.includes("failed to fetch") || raw.includes("networkerror") || raw.includes("503") || raw.includes("network request failed")) {
+    return "Service temporairement indisponible. Vérifiez votre connexion et réessayez.";
+  }
+  if (raw.includes("already") || raw.includes("409") || raw.includes("unique")) {
+    return context === "add"
+      ? "Ce gestionnaire est déjà membre de ce groupe."
+      : "Opération en conflit avec l'état actuel. Actualisez et réessayez.";
+  }
+  if (raw.includes("403") || raw.includes("forbidden")) {
+    return "Action non autorisée. Vérifiez vos droits d'accès.";
+  }
+  if (raw.includes("404") || raw.includes("not found")) {
+    return "Ressource introuvable. Actualisez la page et réessayez.";
+  }
+  return USER_MESSAGES[context];
 }

@@ -1,6 +1,7 @@
-import { ChevronRight, Loader2, Plus, Users } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, Loader2, Plus, Search, Users } from "lucide-react";
 import type { Groupe } from "../../../types/index.tsx";
-import { domainColor } from "./utils";
+import { domainColor, normalize } from "./utils";
 import CreateGroupForm from "./CreateGroupForm";
 
 type FormState = { nom: string; domaine: string };
@@ -36,12 +37,21 @@ export default function GroupList({
   createError,
   domaines,
 }: Props) {
+  const [groupSearch, setGroupSearch] = useState("");
+
+  const visibleGroupes = groupSearch.trim()
+    ? groupes.filter((g) => {
+        const hay = normalize(`${g.nom} ${g.domaine}`);
+        return normalize(groupSearch).split(/\s+/).filter(Boolean).every((t) => hay.includes(t));
+      })
+    : groupes;
+
   return (
     <div className="glass-card rounded-2xl flex flex-col overflow-hidden">
       {/* Panel header */}
       <div className="px-4 py-3 border-b border-gray-200/80 dark:border-white/10 shrink-0">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
             Groupes
             {groupes.length > 0 && (
               <span className="ml-2 font-medium normal-case tracking-normal text-gray-500 dark:text-gray-400">
@@ -51,8 +61,10 @@ export default function GroupList({
           </span>
           <button
             onClick={onToggleCreate}
-            title={showCreate ? "Annuler" : "Nouveau groupe"}
-            className={`p-1 rounded-md transition-colors ${
+            aria-label={showCreate ? "Annuler la création" : "Nouveau groupe"}
+            aria-expanded={showCreate}
+            aria-controls="create-group-form"
+            className={`p-1.5 rounded-md transition-colors ${
               showCreate
                 ? "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8"
                 : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-400/10"
@@ -60,6 +72,7 @@ export default function GroupList({
           >
             <Plus
               size={14}
+              aria-hidden="true"
               className={`transition-transform duration-150 ${showCreate ? "rotate-45" : ""}`}
             />
           </button>
@@ -68,7 +81,7 @@ export default function GroupList({
 
       {/* Inline create form */}
       {showCreate && (
-        <div className="border-b border-gray-200/80 dark:border-white/10 shrink-0">
+        <div id="create-group-form" className="border-b border-gray-200/80 dark:border-white/10 shrink-0">
           <CreateGroupForm
             form={form}
             onChange={onFormChange}
@@ -81,6 +94,27 @@ export default function GroupList({
         </div>
       )}
 
+      {/* Search */}
+      {!isLoading && groupes.length > 4 && (
+        <div className="px-3 py-2 border-b border-gray-100 dark:border-white/5 shrink-0">
+          <div className="relative">
+            <Search
+              size={11}
+              aria-hidden="true"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              value={groupSearch}
+              onChange={(e) => setGroupSearch(e.target.value)}
+              placeholder="Filtrer les groupes…"
+              aria-label="Filtrer les groupes"
+              className="w-full pl-7 pr-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
+            />
+          </div>
+        </div>
+      )}
+
       {/* List */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
@@ -90,22 +124,34 @@ export default function GroupList({
         ) : groupes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
             <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/8 flex items-center justify-center mb-3">
-              <Users size={18} className="text-gray-400 dark:text-gray-600" />
+              <Users size={18} className="text-gray-400 dark:text-gray-600" aria-hidden="true" />
             </div>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Aucun groupe</p>
             <p className="text-xs text-gray-400 dark:text-gray-600 mt-1 leading-relaxed">
-              Utilisez le <Plus size={10} className="inline" /> ci-dessus pour en créer un.
+              Utilisez le <Plus size={10} className="inline" aria-hidden="true" /> ci-dessus pour en créer un.
             </p>
+          </div>
+        ) : visibleGroupes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Aucun groupe trouvé</p>
+            <button
+              onClick={() => setGroupSearch("")}
+              className="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+            >
+              Effacer le filtre
+            </button>
           </div>
         ) : (
           <div className="py-1">
-            {groupes.map((g) => {
+            {visibleGroupes.map((g) => {
               const isSelected = selectedId === g.id;
               const color = domainColor(g.domaine);
               return (
                 <button
                   key={g.id}
+                  data-group-id={g.id}
                   onClick={() => onSelect(g.id)}
+                  aria-current={isSelected ? "true" : undefined}
                   className={`relative w-full text-left px-3 py-2.5 transition-colors flex items-center gap-3 group ${
                     isSelected
                       ? "bg-gray-100/80 dark:bg-white/8"
@@ -114,12 +160,13 @@ export default function GroupList({
                 >
                   {/* Active left pip */}
                   {isSelected && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-emerald-500" />
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-emerald-500" aria-hidden="true" />
                   )}
 
                   {/* Domain avatar */}
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold ${color.bg} ${color.text}`}
+                    aria-hidden="true"
                   >
                     {g.domaine.slice(0, 2).toUpperCase()}
                   </div>
@@ -143,6 +190,7 @@ export default function GroupList({
                   {/* Chevron */}
                   <ChevronRight
                     size={13}
+                    aria-hidden="true"
                     className={`shrink-0 transition-opacity ${
                       isSelected
                         ? "text-gray-500 dark:text-gray-400 opacity-100"
