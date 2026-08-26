@@ -5,11 +5,12 @@ import DocumentRow from "./DocumentRow";
 import TicketRow from "./TicketRow";
 
 export default function IncidentsTab() {
-  const { data, isLoading, isFetching, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["admin-incidents"],
     queryFn: getIncidents,
     staleTime: 0,
     refetchOnWindowFocus: false,
+    refetchInterval: 60_000,
     retry: 1,
   });
 
@@ -18,16 +19,29 @@ export default function IncidentsTab() {
   const allTickets = [...(data?.tickets_echoues ?? []), ...(data?.tickets_bloques ?? [])];
   const isEmpty = !isLoading && totalTickets === 0 && totalDocs === 0;
 
+  const lastUpdated = dataUpdatedAt > 0
+    ? new Date(dataUpdatedAt).toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : null;
+
   return (
     <div className="space-y-4">
       {/* Top bar */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400 dark:text-gray-500">
-          {isFetching ? "Actualisation…" : data ? "Données en temps réel" : ""}
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          {isFetching
+            ? "Actualisation…"
+            : lastUpdated
+            ? `Mis à jour à ${lastUpdated} · auto toutes les 60 s`
+            : ""}
         </p>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
+          aria-label="Actualiser la liste des incidents"
           className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150 disabled:opacity-40"
         >
           <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} aria-hidden="true" />
@@ -45,7 +59,7 @@ export default function IncidentsTab() {
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
               Aucun incident en cours
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 max-w-xs mx-auto leading-relaxed">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 max-w-xs mx-auto leading-relaxed">
               Tous les tickets et documents ont été traités avec succès.
             </p>
           </div>
@@ -61,7 +75,7 @@ export default function IncidentsTab() {
               Documents échoués
             </p>
             {!isLoading && (
-              <span className="ml-auto text-xs tabular-nums font-mono text-gray-400 dark:text-gray-500">
+              <span className="ml-auto text-xs tabular-nums font-mono text-gray-500 dark:text-gray-400">
                 {totalDocs}
               </span>
             )}
@@ -92,28 +106,35 @@ export default function IncidentsTab() {
               Tickets échoués / bloqués
             </p>
             {!isLoading && (
-              <span className="ml-auto text-xs tabular-nums font-mono text-gray-400 dark:text-gray-500">
+              <span className="ml-auto text-xs tabular-nums font-mono text-gray-500 dark:text-gray-400">
                 {totalTickets}
               </span>
             )}
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
+            <span className="font-medium text-red-500 dark:text-red-400">ÉCHOUÉ</span>
+            {" — job Celery planté, nécessite une relance manuelle. "}
+            <span className="font-medium text-amber-500 dark:text-amber-400">BLOQUÉ</span>
+            {" — en attente depuis plus de 10 min, le worker est peut-être saturé."}
+          </p>
           <div className="overflow-x-auto -mx-1">
             <table className="w-full text-left">
+              <caption className="sr-only">Tickets échoués et bloqués</caption>
               <thead>
                 <tr className="border-b border-gray-100 dark:border-white/[0.06]">
-                  <th className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Statut
                   </th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Domaine
                   </th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Question
                   </th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     Date
                   </th>
-                  <th className="px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                     Action
                   </th>
                 </tr>

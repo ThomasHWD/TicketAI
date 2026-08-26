@@ -92,7 +92,7 @@ function StatCard({
           )}
         </p>
         {subtext && (
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 leading-none">{subtext}</p>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-none">{subtext}</p>
         )}
       </div>
     </div>
@@ -218,7 +218,7 @@ function ErrorPanel({ onRetry }: { onRetry: () => void }) {
 function SubLabel({ children, hasBorderTop = false }: { children: React.ReactNode; hasBorderTop?: boolean }) {
   return (
     <div className={`px-6 py-2 bg-gray-50/70 dark:bg-white/[0.025] ${hasBorderTop ? "border-t border-gray-100 dark:border-white/5" : ""}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-500">
+      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
         {children}
       </p>
     </div>
@@ -445,7 +445,7 @@ export default function UserDashboard() {
 
         {/* Hint contextuel : visible uniquement quand seule la section "en cours" est affichée */}
         {!hasPendingReplies && hasInProgress && !hasRejected && (
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Votre question est analysée par notre IA — la réponse sera disponible
             une fois validée par un expert de votre domaine, généralement sous 24 h.
           </p>
@@ -489,15 +489,15 @@ export default function UserDashboard() {
             <div className="max-h-[520px] overflow-y-auto">
               {/* Légende des points de statut — toujours visible, accessible touch/SR */}
               <div className="px-6 pt-3 pb-1 flex items-center gap-4" aria-label="Légende des statuts">
-                <span className="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+                <span className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" role="img" aria-label="Point vert" />
                   Réponse dispo
                 </span>
-                <span className="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+                <span className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" role="img" aria-label="Point bleu" />
                   En cours
                 </span>
-                <span className="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+                <span className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" role="img" aria-label="Point rouge" />
                   Rejetée
                 </span>
@@ -600,7 +600,7 @@ export default function UserDashboard() {
               {/* Avertissement de troncature (dépassement limit: 200) */}
               {hasOverflow && (
                 <div className="px-6 py-3 border-t border-gray-100 dark:border-white/5 text-center">
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {total - fetchedCount} question{total - fetchedCount > 1 ? "s" : ""} supplémentaire{total - fetchedCount > 1 ? "s" : ""} —{" "}
                     <button
                       type="button"

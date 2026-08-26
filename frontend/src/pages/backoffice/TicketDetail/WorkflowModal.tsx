@@ -117,7 +117,7 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
             <div>
               <h2 id="workflow-modal-title" className="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-none">Historique</h2>
               {events.length > 0 && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{events.length} événement{events.length > 1 ? "s" : ""}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{events.length} événement{events.length > 1 ? "s" : ""}</p>
               )}
             </div>
           </div>
@@ -136,7 +136,7 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
           {isLoading ? (
             <div className="flex flex-col items-center justify-center gap-3 py-14">
               <Loader2 size={20} className="animate-spin text-gray-300 dark:text-gray-600" aria-hidden="true" />
-              <p className="text-xs text-gray-400 dark:text-gray-500">Chargement de l'historique…</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Chargement de l'historique…</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center gap-2 py-10">
@@ -148,7 +148,7 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
               </p>
             </div>
           ) : events.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-10">Aucun événement enregistré.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-10">Aucun événement enregistré.</p>
           ) : (
             <ul aria-label="Historique du ticket (du plus récent au plus ancien)">
               {[...events].reverse().map((event, i, arr) => {
@@ -186,7 +186,7 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
 
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           {event.at && (
-                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               {formatDate(event.at)}
                             </span>
                           )}

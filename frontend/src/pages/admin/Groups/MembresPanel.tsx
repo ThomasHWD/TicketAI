@@ -14,11 +14,11 @@ export default function MembresPanel({ groupe, onChef, onRetirer }: Props) {
       {/* Sub-header */}
       <div className="px-5 py-3 border-b border-gray-100 dark:border-white/5 bg-gray-50/40 dark:bg-white/[0.015] shrink-0">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
             Membres actuels
           </span>
           {groupe.membres.length > 0 && (
-            <span className="text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
+            <span className="text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
               {groupe.membres.length}
             </span>
           )}
@@ -65,7 +65,7 @@ export default function MembresPanel({ groupe, onChef, onRetirer }: Props) {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 truncate leading-snug mt-0.5">
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate leading-snug mt-0.5">
                   {m.departement ?? m.email}
                 </p>
               </div>

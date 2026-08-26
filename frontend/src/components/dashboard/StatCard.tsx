@@ -53,7 +53,7 @@ export default function StatCard({
   const TrendIcon = isNeutral ? Minus : hausse ? TrendingUp : TrendingDown;
   const isGood = positiveIsUp ? hausse : !hausse;
   const trendColor = isNeutral
-    ? "text-gray-400 dark:text-gray-500"
+    ? "text-gray-500 dark:text-gray-400"
     : isGood
       ? "text-emerald-600 dark:text-emerald-400"
       : "text-red-500 dark:text-red-400";
@@ -87,11 +87,11 @@ export default function StatCard({
         >
           {displayValue}
           {!formatter && suffix && (
-            <span className="text-base font-normal text-gray-400 dark:text-gray-500 ml-0.5">{suffix}</span>
+            <span className="text-base font-normal text-gray-500 dark:text-gray-400 ml-0.5">{suffix}</span>
           )}
         </div>
         {subtitle && (
-          <p id={subtitleId} className="text-xs text-gray-400 dark:text-gray-500 mt-1 leading-snug">{subtitle}</p>
+          <p id={subtitleId} className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">{subtitle}</p>
         )}
       </div>
 
@@ -116,7 +116,7 @@ export default function StatCard({
             )}
           </div>
           {variationLabel && !isNeutral && (
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">{variationLabel}</span>
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">{variationLabel}</span>
           )}
         </div>
       </div>

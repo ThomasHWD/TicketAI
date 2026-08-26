@@ -92,7 +92,7 @@ export default function TeamStatsPanel({ periode }: Props) {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{m.email}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{m.email}</p>
                 </td>
                 <td className="px-5 py-4 text-right">
                   <span className={`font-semibold ${m.nb_reponses_validees > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400"}`}>

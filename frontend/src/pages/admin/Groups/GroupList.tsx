@@ -41,10 +41,10 @@ export default function GroupList({
       {/* Panel header */}
       <div className="px-4 py-3 border-b border-gray-200/80 dark:border-white/10 shrink-0">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
             Groupes
             {groupes.length > 0 && (
-              <span className="ml-2 font-medium normal-case tracking-normal text-gray-400 dark:text-gray-500">
+              <span className="ml-2 font-medium normal-case tracking-normal text-gray-500 dark:text-gray-400">
                 {groupes.length}
               </span>
             )}
@@ -54,7 +54,7 @@ export default function GroupList({
             title={showCreate ? "Annuler" : "Nouveau groupe"}
             className={`p-1 rounded-md transition-colors ${
               showCreate
-                ? "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8"
+                ? "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8"
                 : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-400/10"
             }`}
           >
@@ -135,7 +135,7 @@ export default function GroupList({
                     >
                       {g.nom}
                     </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {g.nb_membres} membre{g.nb_membres !== 1 ? "s" : ""}
                     </p>
                   </div>
@@ -145,7 +145,7 @@ export default function GroupList({
                     size={13}
                     className={`shrink-0 transition-opacity ${
                       isSelected
-                        ? "text-gray-400 dark:text-gray-500 opacity-100"
+                        ? "text-gray-500 dark:text-gray-400 opacity-100"
                         : "text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100"
                     }`}
                   />

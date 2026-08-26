@@ -22,9 +22,9 @@ function UserBubble({
     >
       <div className="min-w-0 max-w-[72%] space-y-1.5">
         <div className="flex items-center justify-end gap-2">
-          <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(date)}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(date)}</span>
           {precision && (
-            <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
               précision
             </span>
           )}

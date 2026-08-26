@@ -32,7 +32,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
         <span className="font-bold text-gray-900 dark:text-gray-100">{item.count}</span>
         {" ticket"}{item.count > 1 ? "s" : ""}
       </div>
-      <div className="pl-4 text-gray-400 dark:text-gray-500 text-xs">
+      <div className="pl-4 text-gray-500 dark:text-gray-400 text-xs">
         {item.pct}% du total
       </div>
     </div>

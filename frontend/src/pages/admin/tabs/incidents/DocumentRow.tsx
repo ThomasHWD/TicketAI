@@ -20,16 +20,19 @@ export default function DocumentRow({ doc }: { doc: DocumentIncident }) {
         qc.invalidateQueries({ queryKey: ["admin-health"] });
       }, 1000);
     },
-    onError: (e: Error) => setRetryError(e.message),
+    onError: () =>
+      setRetryError("Échec du relancement — réessayez ou contactez le support si le problème persiste."),
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteDocumentIncident(doc.task_id),
     onSuccess: () => {
+      setRetryError(null);
       qc.invalidateQueries({ queryKey: ["admin-incidents"] });
       qc.invalidateQueries({ queryKey: ["admin-health"] });
     },
-    onError: (e: Error) => setRetryError(e.message),
+    onError: () =>
+      setRetryError("Échec de la suppression — réessayez ou contactez le support."),
   });
 
   const handleDownload = async () => {
@@ -45,7 +48,7 @@ export default function DocumentRow({ doc }: { doc: DocumentIncident }) {
 
   return (
     <div className="flex items-start gap-3 py-3 border-b border-gray-100 dark:border-white/8 last:border-0">
-      <FileX size={15} className="shrink-0 mt-0.5 text-red-400" />
+      <FileX size={15} className="shrink-0 mt-0.5 text-red-400" aria-hidden="true" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{doc.filename ?? "—"}</span>
@@ -63,21 +66,21 @@ export default function DocumentRow({ doc }: { doc: DocumentIncident }) {
       <div className="flex items-center gap-3 shrink-0">
         <button
           onClick={handleDownload}
-          className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          className="flex items-center gap-1 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
         >
-          <Download size={12} /> Télécharger
+          <Download size={12} aria-hidden="true" /> Télécharger
         </button>
         {retryDone ? (
           <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 size={12} /> Relancé
+            <CheckCircle2 size={12} aria-hidden="true" /> Relancé
           </span>
         ) : (
           <button
             onClick={() => { setRetryError(null); retryMutation.mutate(); }}
             disabled={retryMutation.isPending}
-            className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-1 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-40 transition-colors"
           >
-            {retryMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+            {retryMutation.isPending ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <RotateCcw size={12} aria-hidden="true" />}
             Relancer
           </button>
         )}
@@ -86,13 +89,13 @@ export default function DocumentRow({ doc }: { doc: DocumentIncident }) {
             <button
               onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
-              className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-40"
+              className="py-1 text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-40"
             >
-              {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin inline" /> : "Confirmer"}
+              {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin inline" aria-hidden="true" /> : "Confirmer"}
             </button>
             <button
               onClick={() => setConfirmDelete(false)}
-              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              className="py-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
             >
               Annuler
             </button>
@@ -100,9 +103,9 @@ export default function DocumentRow({ doc }: { doc: DocumentIncident }) {
         ) : (
           <button
             onClick={() => setConfirmDelete(true)}
-            className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+            className="flex items-center gap-1 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
           >
-            <Trash2 size={12} /> Supprimer
+            <Trash2 size={12} aria-hidden="true" /> Supprimer
           </button>
         )}
       </div>

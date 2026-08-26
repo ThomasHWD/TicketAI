@@ -61,7 +61,7 @@ function Tab({
     >
       <Icon
         size={15}
-        className={active ? iconActiveClass : "text-gray-400 dark:text-gray-500"}
+        className={active ? iconActiveClass : "text-gray-500 dark:text-gray-400"}
         aria-hidden="true"
       />
       {label}
@@ -220,7 +220,7 @@ export default function SavedAnswersHeader({
       {/* Stats bar for canoniques */}
       {onglet === "canoniques" && !loading && !error && total > 0 && (
         <div className="px-5 py-2.5 flex items-center gap-2 border-b border-gray-100 dark:border-white/8">
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {total} réponse{total > 1 ? "s" : ""} canonique{total > 1 ? "s" : ""}
           </span>
           {searchQuery.trim() && (

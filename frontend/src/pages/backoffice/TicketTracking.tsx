@@ -142,10 +142,10 @@ function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
       <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
-        <Icon size={18} className="text-gray-400 dark:text-gray-500" aria-hidden="true" />
+        <Icon size={18} className="text-gray-500 dark:text-gray-400" aria-hidden="true" />
       </div>
       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</p>
-      <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs">{subtitle}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">{subtitle}</p>
       {onClear && (
         <button
           onClick={onClear}
@@ -295,10 +295,10 @@ function TicketRow({ ticket }: { ticket: Ticket }) {
         </span>
       </td>
       <td className="px-5 py-3.5 whitespace-nowrap">
-        <span className="text-xs text-gray-400 dark:text-gray-500">{ticket.domaine}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">{ticket.domaine}</span>
       </td>
       <td className="px-5 py-3.5 whitespace-nowrap">
-        <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">{formatDate(ticket.created_at)}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatDate(ticket.created_at)}</span>
       </td>
       <td className="px-5 py-3.5">
         <StatutBadge
@@ -409,10 +409,10 @@ function TicketTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-100 dark:border-white/5 text-left">
-            <th scope="col" className="px-5 py-2.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Objet</th>
-            <th scope="col" className="px-5 py-2.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Domaine</th>
-            <th scope="col" className="px-5 py-2.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Créé le</th>
-            <th scope="col" className="px-5 py-2.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Statut</th>
+            <th scope="col" className="px-5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Objet</th>
+            <th scope="col" className="px-5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Domaine</th>
+            <th scope="col" className="px-5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Créé le</th>
+            <th scope="col" className="px-5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Statut</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50 dark:divide-white/[0.03]">
@@ -632,7 +632,7 @@ export default function TicketTracking() {
             role="status"
             aria-live="polite"
             aria-label="Actualisation en cours"
-            className="px-5 py-1.5 flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-white/5"
+            className="px-5 py-1.5 flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/5"
           >
             <Loader2 size={11} className="animate-spin" aria-hidden="true" />
             Actualisation…
@@ -681,7 +681,7 @@ export default function TicketTracking() {
 
           {/* pagination — participations only */}
           {tab === "participated" && !participatedLoading && total > 0 && (
-            <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100 dark:border-white/5 text-xs text-gray-400 dark:text-gray-500">
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100 dark:border-white/5 text-xs text-gray-500 dark:text-gray-400">
               <span className="tabular-nums">{from}–{to} sur {total}</span>
               <div className="flex items-center gap-1">
                 <button
@@ -707,7 +707,7 @@ export default function TicketTracking() {
       </div>
 
       {/* keyboard hint — role="note" for AT discoverability */}
-      <p role="note" aria-label="Raccourcis clavier" className="text-[11px] text-gray-400 dark:text-gray-500 text-right select-none">
+      <p role="note" aria-label="Raccourcis clavier" className="text-[11px] text-gray-500 dark:text-gray-400 text-right select-none">
         Raccourcis&nbsp;: <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> naviguer · <kbd className="font-mono">/</kbd> rechercher · <kbd className="font-mono">1–4</kbd> filtres · <kbd className="font-mono">Échap</kbd> quitter la recherche
       </p>
     </div>

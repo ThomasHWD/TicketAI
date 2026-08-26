@@ -66,7 +66,7 @@ function JobCard({ job }: { job: TrackedJob }) {
         ) : job.statut === "FAILURE" ? (
           <XCircle size={15} className="text-red-600 dark:text-red-400" />
         ) : (
-          <Loader2 size={15} className="animate-spin text-gray-400 dark:text-gray-500" />
+          <Loader2 size={15} className="animate-spin text-gray-500 dark:text-gray-400" />
         )}
       </div>
 

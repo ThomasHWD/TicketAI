@@ -68,7 +68,7 @@ function SubMetric({ label, value }: { label: string; value: number | null }) {
   const pct = value !== null ? Math.round((value / 5) * 100) : 0;
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
         {label}
       </span>
       {value !== null ? (
@@ -139,7 +139,7 @@ export default function SatisfactionCard({ data, loading = false, onVoirInsatisf
           </h3>
         </div>
         {!isEmpty && (
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {data!.nb_avec_notes} avis
           </span>
         )}
@@ -171,11 +171,11 @@ export default function SatisfactionCard({ data, loading = false, onVoirInsatisf
                 <span className="text-5xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-none tabular-nums">
                   {globalScore!.toFixed(1)}
                 </span>
-                <span className="text-lg text-gray-400 dark:text-gray-500 font-normal">/&nbsp;5</span>
+                <span className="text-lg text-gray-500 dark:text-gray-400 font-normal">/&nbsp;5</span>
               </div>
             </div>
             <StarRating value={globalScore!} size={22} />
-            <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Score moyen
             </span>
           </>
