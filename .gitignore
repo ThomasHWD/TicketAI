@@ -35,6 +35,7 @@ entities.json
 # Outil de revue design local
 .impeccable/
 DESIGN.md
+PRODUCT.md
 
 # Celery Beat state
 celerybeat-schedule
