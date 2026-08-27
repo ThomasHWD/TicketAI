@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Info } from "lucide-react";
 
@@ -8,20 +8,55 @@ type Props = {
   className?: string;
 };
 
+type State = {
+  open: boolean;
+  top: number;
+  left: number;
+  arrowLeft: number;
+  measured: boolean;
+};
+
 export default function InfoTooltip({ content, size = 12, className = "" }: Props) {
   const id = useId();
   const triggerRef = useRef<HTMLSpanElement>(null);
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const tooltipRef = useRef<HTMLSpanElement>(null);
+  const [state, setState] = useState<State>({
+    open: false,
+    top: 0,
+    left: 0,
+    arrowLeft: 0,
+    measured: false,
+  });
 
   function show() {
     if (!triggerRef.current) return;
     const r = triggerRef.current.getBoundingClientRect();
-    setCoords({ top: r.top - 8, left: r.left + r.width / 2 });
+    setState({ open: true, top: r.top - 8, left: r.left + r.width / 2, arrowLeft: 0, measured: false });
   }
 
   function hide() {
-    setCoords(null);
+    setState((s) => ({ ...s, open: false }));
   }
+
+  // Runs after every render; guard prevents infinite loop.
+  // Measures the tooltip box and clamps its position within the viewport,
+  // then shifts the arrow so it still points at the trigger.
+  useLayoutEffect(() => {
+    if (!state.open || state.measured || !tooltipRef.current) return;
+    const t = tooltipRef.current.getBoundingClientRect();
+    const margin = 8;
+    const centerX = state.left;
+    let newLeft = centerX;
+
+    if (t.right > window.innerWidth - margin) {
+      newLeft -= t.right - (window.innerWidth - margin);
+    } else if (t.left < margin) {
+      newLeft += margin - t.left;
+    }
+
+    const arrowLeft = Math.max(8, Math.min(t.width - 8, centerX - newLeft + t.width / 2));
+    setState((s) => ({ ...s, left: newLeft, arrowLeft, measured: true }));
+  });
 
   return (
     <span className={`inline-flex ${className}`}>
@@ -39,16 +74,18 @@ export default function InfoTooltip({ content, size = 12, className = "" }: Prop
       </span>
       {createPortal(
         <span
+          ref={tooltipRef}
           id={id}
           role="tooltip"
           style={
-            coords
+            state.open
               ? {
                   position: "fixed",
-                  top: coords.top,
-                  left: coords.left,
+                  top: state.top,
+                  left: state.left,
                   transform: "translateX(-50%) translateY(-100%)",
                   zIndex: 9999,
+                  visibility: state.measured ? "visible" : "hidden",
                 }
               : { display: "none" }
           }
@@ -56,7 +93,8 @@ export default function InfoTooltip({ content, size = 12, className = "" }: Prop
         >
           {content}
           <span
-            className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"
+            style={{ left: `${state.arrowLeft}px` }}
+            className="absolute top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"
             aria-hidden="true"
           />
         </span>,
