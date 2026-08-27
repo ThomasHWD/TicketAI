@@ -69,6 +69,12 @@
         "value": "#fb923c",
         "createdAt": "2026-08-26T12:05:14.915Z",
         "reason": "Variante dark de #f97316 (orange Hors domaine), confirmée par l'utilisateur"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "9px",
+        "createdAt": "2026-08-27T11:35:49.857Z",
+        "reason": "DESIGN.md Navigation: count chip spec is text-[9px] tabular-nums"
       }
     ]
   }
