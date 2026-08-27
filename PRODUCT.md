@@ -36,7 +36,7 @@ The key mechanism is the **human-in-the-loop validation loop that compounds over
 - Three response branches: **CANONIQUE** (instant, no review), **SUGGESTION** (reuses a validated answer, requires review), **RAG** (LLM-generated from document chunks, requires review)
 - Validation gate: a validator cannot validate their own ticket
 - Canonical promotion threshold: 3 validations (configurable, `seuil_canonique`)
-- Cosine similarity threshold for canonical/suggestion lookup: calibrated per dataset, default 0.60 (`seuil_cosinus`)
+- Cosine similarity threshold for canonical/suggestion lookup: calibrated per dataset, default 0.90 (`seuil_cosinus`)
 - Document update pipeline detects semantic changes and flags affected answers for re-review (`a_relire`)
 - Dark mode supported; reduced-motion preference respected
 - `ADMIN` role, `BACKOFFICE` role (domain experts), and regular users — each sees a different interface

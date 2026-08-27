@@ -114,7 +114,7 @@ jobs:
           ALBERT_RERANKER_URL: "https://localhost/v1/rerank"
           ALBERT_RERANKER_MODEL_NAME: "mock-reranker"
           SEUIL_CANONIQUE: 3
-          SEUIL_COSINUS: 0.85
+          SEUIL_COSINUS: 0.90
           AUTH_MODE: db
           JWT_SECRET_KEY: "ci-test-secret"
           JWT_ALGORITHM: HS256

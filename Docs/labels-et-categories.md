@@ -13,13 +13,12 @@ possibles, par ordre de priorité d'affichage.
 | Badge | Couleur | Signification |
 |---|---|---|
 | **Clôturé** | Gris | Ticket fermé par le demandeur ou automatiquement après validation |
-| **En cours** | Bleu clair | L'IA est en train de générer une réponse |
-| **Canonique** | Vert | Réponse validée ≥ seuil, réutilisée automatiquement |
-| **Validée** | Bleu | Un humain a validé la réponse de l'IA |
+| **En cours** | Bleu | L'IA est en train de générer une réponse |
+| **Traitée** | Vert émeraude | Réponse canonique servie automatiquement, ou validée par un humain |
 | **Hors domaine** | Violet | La question ne relève d'aucun domaine couvert |
 | **Suggestion** | Ambre | Une réponse similaire existe mais doit être confirmée |
 | **Rejetée** | Rouge | La réponse a été rejetée par un validateur |
-| **Nouvelle** | Gris clair | Le ticket vient d'arriver, pas encore de réponse |
+| **Nouvelle** | Bleu ciel | Le ticket vient d'arriver, pas encore de réponse |
 
 ### Règle de priorité
 
@@ -28,13 +27,16 @@ Quand plusieurs conditions sont vraies en même temps, le badge est choisi dans 
 ```
 1. Clôturé      ← priorité absolue (ticket fermé)
 2. En cours     ← l'IA travaille encore
-3. Canonique    ← réponse automatique de haute confiance
-4. Validée      ← réponse humaine confirmée
-5. Hors domaine ← question hors périmètre
-6. Suggestion   ← réponse similaire à confirmer
-7. Rejetée      ← réponse refusée
-8. Nouvelle     ← état par défaut à l'arrivée
+3. Traitée      ← réponse canonique ou humaine confirmée
+4. Hors domaine ← question hors périmètre (RÉPONDU + source HORS_DOMAINE)
+5. Suggestion   ← réponse similaire à confirmer (RÉPONDU sans canonique)
+6. Rejetée      ← réponse refusée
+7. Nouvelle     ← état par défaut à l'arrivée
 ```
+
+> **Note :** Le badge est identique ("Traitée", vert émeraude) qu'il s'agisse d'une réponse
+> canonique (servie automatiquement par Qdrant) ou d'une réponse validée manuellement par un
+> expert. La distinction reste visible dans le détail du ticket via la source de réponse.
 
 ---
 
@@ -65,7 +67,7 @@ Quand plusieurs conditions sont vraies en même temps, le badge est choisi dans 
   ┌────────────┐   ┌──────────────┐           │
   │ CANONIQUE  │   │  SUGGESTION  │           │
   │ Badge:     │   │  Badge:      │           │
-  │ Canonique  │   │  Suggestion  │           │
+  │ Traitée    │   │  Suggestion  │           │
   └──────┬─────┘   └──────┬───────┘           │
          │                │                   │
          │         ┌──────┴──────┐            │
@@ -73,7 +75,7 @@ Quand plusieurs conditions sont vraies en même temps, le badge est choisi dans 
          │   ┌──────────┐ ┌──────────┐       │
          │   │ Validée  │ │ Rejetée  │       │
          │   │ Badge:   │ │ Badge:   │       │
-         │   │ Validée  │ │ Rejetée  │       │
+         │   │ Traitée  │ │ Rejetée  │       │
          │   └──────┬───┘ └──────────┘       │
          │          │                         │
          └────┬─────┘             ┌───────────┘
@@ -86,10 +88,10 @@ Quand plusieurs conditions sont vraies en même temps, le badge est choisi dans 
               Oui ◄────┴────► Non
                │               │
                ▼               │
-       ┌──────────────┐        │ (reste Validée)
+       ┌──────────────┐        │ (reste Traitée)
        │  CANONIQUE   │        │
        │  Badge:      │        │
-       │  Canonique   │        │
+       │  Traitée     │        │
        └──────────────┘        │
                                │
     ┌──────────────────────┬────────────────────────────┐
@@ -139,8 +141,8 @@ Question entrante
     │              │
     ▼              ▼
  CANONIQUE     Cherche une réponse
- Badge vert    VALIDÉE liée au doc
-               Badge: Suggestion
+ Badge:        VALIDÉE liée au doc
+ Traitée       Badge: Suggestion
 ```
 
 ---
@@ -175,21 +177,21 @@ Tickets qui nécessitent une action humaine. Regroupe :
 > **Note :** Les tickets « Hors domaine » apparaissent dans cet onglet car ils attendent
 > qu'un validateur les traite manuellement. Leur badge violet reste affiché.
 
-### Répondus
+### Traités
 
 Tickets qui ont reçu une réponse considérée comme satisfaisante (humaine ou automatique) :
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    RÉPONDUS                         │
+│                    TRAITÉS                          │
 ├─────────────────────────────────────────────────────┤
 │  ● canonique = true                                 │
 │    → réponse automatique de haute confiance         │
-│    Badge: Canonique                                 │
+│    Badge: Traitée                                   │
 │                                                     │
 │  ● statut_ticket = VALIDÉ                           │
 │    → réponse confirmée par un validateur humain     │
-│    Badge: Validée                                   │
+│    Badge: Traitée                                   │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -218,14 +220,13 @@ Tickets fermés. Requête séparée côté serveur (`closed=true`). Deux chemins
 ## 5. Récapitulatif badge × onglet
 
 ```
-Badge           │ Tous │ En attente │ Répondus │ Clôturés
+Badge           │ Tous │ En attente │ Traités  │ Clôturés
 ────────────────┼──────┼────────────┼──────────┼──────────
 Nouvelle        │  ✓   │     ✓      │          │
 En cours        │  ✓   │     ✓      │          │
 Suggestion      │  ✓   │     ✓      │          │
 Hors domaine    │  ✓   │     ✓      │          │
-Canonique       │  ✓   │            │    ✓     │
-Validée         │  ✓   │            │    ✓     │
+Traitée         │  ✓   │            │    ✓     │
 Rejetée         │  ✓   │     ✓      │          │
 Clôturé         │      │            │          │    ✓
 ```
@@ -250,21 +251,21 @@ Jour 1 — Traitement IA (quelques secondes)
 Jour 1 — Validation
   Marie (RH) valide la suggestion
   nb_validations : 1
-  └─► Badge: Validée  →  onglet Répondus
+  └─► Badge: Traitée  →  onglet Traités
 
 Jour 2 — Autre ticket similaire
   "Je veux prendre des RTT, comment faire ?"
   Score : 0.91  →  réponse validée réutilisée
   Marie valide à nouveau — nb_validations : 2
-  └─► Badge: Validée  →  onglet Répondus
+  └─► Badge: Traitée  →  onglet Traités
 
 Jour 3 — Seuil canonique atteint (défaut : 3)
   "Procédure RTT ?"
   Marie valide — nb_validations : 3
   Réponse promue, réindexée dans Qdrant
-  └─► Badge: Canonique  →  onglet Répondus
+  └─► Badge: Traitée  →  onglet Traités
 
 Jour 4 — Ticket identique suivant
   Score : 0.94  +  reponse_id trouvé dans Qdrant
-  └─► Badge: Canonique  →  aucune validation requise
+  └─► Badge: Traitée  →  aucune validation requise
 ```
