@@ -15,6 +15,7 @@ CLAUDE.md
 REVUE_DOCKER_HEALTHCHECKS.md
 storage/
 uploads_tmp/
+tests_maj_doc/
 
 # React / Node
 node_modules/
@@ -33,6 +34,7 @@ entities.json
 
 # Outil de revue design local
 .impeccable/
+DESIGN.md
 
 # Celery Beat state
 celerybeat-schedule

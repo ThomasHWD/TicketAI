@@ -42,6 +42,11 @@ retire ou réécrit — et nomme les réponses qui seront **examinées** ensuite
 qui coûte des appels au modèle et se fait donc après confirmation, en tâche de fond. Rien n'est
 modifié tant que vous n'avez pas confirmé — vous pouvez fermer la fenêtre sans conséquence.
 
+Deux gardes s'activent avant même de calculer le diff : si le fichier déposé est **identique à la
+version courante** (même empreinte SHA-256), l'aperçu est refusé — il n'y aurait rien à montrer.
+Si le même contenu est déjà indexé sous **un autre document dans le même domaine**, il est
+également refusé pour éviter des doublons silencieux.
+
 **Le document garde son identifiant.** Ce n'est pas un nouveau document : c'est la version
 suivante du même, et l'ancienne reste téléchargeable dans l'historique.
 
@@ -223,8 +228,9 @@ validée. À ce moment, la charte est mise à jour.
 ```
 
 **Résultat :** aucun jugement requis — ces réponses n'ont jamais été servies ni indexées. Le
-validateur voit simplement le ticket revenir en file avec une réponse à jour. Ce chemin ne
-s'active que s'il existe **au moins une unité de changement**.
+validateur voit simplement le ticket revenir en file avec une réponse à jour. Ce chemin s'active
+dès qu'il y a au moins une unité de changement **ou que la comparaison est impossible** (version
+sortante illisible) — mais pas lors d'un reformatage pur (zéro unité).
 
 ---
 
@@ -561,8 +567,10 @@ sequenceDiagram
     W->>Q: delete anciens points
     W->>PG: commit (version N+1 + changements sérialisés)
 
-    alt ≥ 1 unité de changement
+    alt changements illisible OU nb_unites ≥ 1
         W->>PG: perimer_en_attente + requeuer_en_attente
+    end
+    alt nb_unites ≥ 1
         W->>PG: flaguer_en_analyse → ANALYSE_EN_COURS<br/>(dans la foulée du commit : ferme la race window)
         W->>R: reverification_job.apply_async()
     end
@@ -579,8 +587,9 @@ ensuite et `doc` devient détaché.
 de 128 tokens du splitter fabriquerait une fausse suppression à chaque couture.
 
 Sans texte sortant lisible (`changements is None`), aucun diff n'est calculable : on retombe sur
-`marquer_a_relire(..., RAISON_ILLISIBLE)` et **aucun job n'est enfilé**. C'est le seul survivant
-du signalement en bloc côté mise à jour.
+`marquer_a_relire(..., RAISON_ILLISIBLE)` et **aucun job n'est enfilé**. Les EN_ATTENTE sont
+quand même périmées et remises en file RAG (`a_du_neuf = changements is None or nb_unites`).
+C'est le seul survivant du signalement en bloc côté mise à jour.
 
 ### Colonnes
 
