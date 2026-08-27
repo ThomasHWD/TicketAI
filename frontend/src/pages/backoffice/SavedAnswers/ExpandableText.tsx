@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { renderMarkdown } from "../../../components/ticket/utils";
 import { SEUIL_EXPANSION } from "./utils";
 
 export default function ExpandableText({ text, label }: { text: string; label?: string }) {
@@ -10,11 +11,11 @@ export default function ExpandableText({ text, label }: { text: string; label?: 
     <div>
       <p
         id={textId}
-        className={`text-sm leading-relaxed whitespace-pre-wrap text-gray-500 dark:text-gray-400 ${
+        className={`text-sm leading-relaxed text-gray-500 dark:text-gray-400 ${
           !expanded && long ? "line-clamp-3" : ""
         }`}
       >
-        {text}
+        {renderMarkdown(text)}
       </p>
       {long && (
         <button
