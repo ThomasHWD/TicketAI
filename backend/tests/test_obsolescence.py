@@ -616,13 +616,13 @@ class TestMarquerARelire:
     def test_reponse_signalee_reste_reutilisable(self, scenario):
         """Le signalement est un tri, pas un retrait — la branche CANONIQUE
         continue de servir la réponse jusqu'au jugement humain."""
-        from app.workers.question import SEUIL_COSINUS, _trouver_reponse_reutilisable
+        from app.workers.question import SEUIL_SUGGESTION, _trouver_reponse_reutilisable
 
         r = scenario(chunks=[1], canonique=True)
         marquer_a_relire(scenario.db, scenario.doc_id, 2)
 
         trouvee, _ = _trouver_reponse_reutilisable(
-            scenario.db, [{"reponse_id": str(r.id), "score_cosinus": SEUIL_COSINUS + 0.1}]
+            scenario.db, [{"reponse_id": str(r.id), "score_cosinus": SEUIL_SUGGESTION + 0.1}]
         )
 
         assert trouvee is not None and trouvee.id == r.id
@@ -644,9 +644,9 @@ class TestReutilisationBloquee:
 
     @staticmethod
     def _chunks(reponse):
-        from app.workers.question import SEUIL_COSINUS
+        from app.workers.question import SEUIL_SUGGESTION
 
-        return [{"reponse_id": str(reponse.id), "score_cosinus": SEUIL_COSINUS + 0.1}]
+        return [{"reponse_id": str(reponse.id), "score_cosinus": SEUIL_SUGGESTION + 0.1}]
 
     def test_reponse_validee_est_reutilisee(self, scenario):
         from app.workers.question import _trouver_reponse_reutilisable

@@ -70,8 +70,7 @@ def env(tmp_path, monkeypatch, db_session):
         maj,
         "embed_texts",
         lambda chunks, is_query=False: [
-            {"dense": [0.1] * 1024, "sparse": {"indices": [1], "values": [0.5]}}
-            for _ in chunks
+            {"dense": [0.1] * 1024, "sparse": {"indices": [1], "values": [0.5]}} for _ in chunks
         ],
     )
 

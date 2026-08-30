@@ -234,11 +234,13 @@ Comprendre ces branches est central pour travailler sur le pipeline :
 
 | Branche | Déclencheur | Validation humaine ? |
 |---|---|---|
-| **CANONIQUE** | Score cosinus ≥ seuil **et** réponse validée indexée dans Qdrant | Non — réponse directe |
-| **SUGGESTION** | Score cosinus ≥ seuil mais pas encore canonique | Oui |
-| **RAG** | Score sous le seuil — génération LLM à partir des chunks | Oui |
+| **CANONIQUE** | Réponse **canonique** indexée dans Qdrant, score ≥ `SEUIL_CANDIDAT_CANONIQUE` (0.70), **et les deux juges du garde l'approuvent** | Non — réponse directe |
+| **SUGGESTION** | Réponse validée **non canonique**, score ≥ `SEUIL_SUGGESTION` (0.85) | Oui |
+| **RAG** | Aucun candidat, **ou** un juge du garde a refusé — génération LLM à partir des chunks | Oui |
 
-Une réponse devient canonique après `SEUIL_CANONIQUE` (défaut : 3) validations humaines.
+Une réponse devient canonique après `SEUIL_CANONIQUE` (défaut : 3) validations humaines. Elle est alors *candidate* au service direct : le garde (`app/services/garde_cache.py`) tranche question par question.
+
+⚠ **Le score ne décide plus du service sans revue humaine.** Mesuré non informatif pour cette décision (AUC 0.000 sur le jeu adversarial), `SEUIL_COSINUS` a été retiré du pipeline. Les deux planchers ci-dessus ne font que désigner des *candidats*. Avant de toucher à l'un d'eux ou aux invites des juges, lire [`Docs/garde-cache-canonique.md`](garde-cache-canonique.md).
 
 ---
 

@@ -114,7 +114,8 @@ Quand plusieurs conditions sont vraies en même temps, le badge est choisi dans 
 ## 3. La branche canonique en détail
 
 La branche canonique est le chemin le plus automatisé : aucune intervention humaine n'est
-requise si la réponse est déjà connue avec haute confiance.
+requise. Le score de similarité ne suffit **pas** à l'emprunter — il ne fait que désigner un
+candidat, que deux juges automatiques doivent ensuite approuver.
 
 ```
 Question entrante
@@ -123,27 +124,42 @@ Question entrante
  Embedding  ──►  Qdrant (recherche hybride dense + sparse)
                           │
                           ▼
-              ┌───────────────────────┐
-              │  Score cosinus        │
-              │  ≥ seuil    │
-              └─────────┬─────────────┘
-                        │
-             Oui ◄──────┴──────► Non
-              │                   │
-              ▼                   ▼
-   ┌─────────────────┐     Reranking + LLM
-   │ reponse_id dans │     Badge: Suggestion
-   │ le payload      │     (attente validation)
-   │ Qdrant ?        │
-   └────────┬────────┘
-            │
-   Oui ◄───┴───► Non
+              ┌────────────────────────────────┐
+              │  Un point porte-t-il un        │
+              │  reponse_id, au-dessus de son  │
+              │  plancher de candidature ?     │
+              │  (canonique 0.70 · sinon 0.85) │
+              └─────────────┬──────────────────┘
+                            │
+                 Oui ◄──────┴──────► Non
+                  │                   │
+                  ▼                   ▼
+      ┌───────────────────────┐   Reranking + LLM
+      │  La réponse est-elle  │   Badge: Suggestion
+      │  canonique ?          │   (attente validation)
+      └───────────┬───────────┘
+                  │
+       Oui ◄──────┴──────► Non
+        │                   │
+        ▼                   ▼
+ ┌──────────────────┐   SUGGESTION
+ │  GARDE           │   Badge: Suggestion
+ │  [2] pertinence  │   (attente validation)
+ │  [6] ancrage     │
+ └────────┬─────────┘
+          │
+ Approuvé ◄┴► Refusé / juge indisponible
     │              │
     ▼              ▼
- CANONIQUE     Cherche une réponse
- Badge:        VALIDÉE liée au doc
- Traitée       Badge: Suggestion
+ CANONIQUE     Reranking + LLM
+ Badge:        Badge: Suggestion
+ Traitée       (attente validation)
 ```
+
+Un refus des juges renvoie au RAG, **pas** en suggestion de la réponse en cache : le
+validateur relit alors une réponse fraîche et ciblée, plutôt qu'une réponse dont on sait
+déjà qu'elle ne traite pas le cas posé. Détail et mesures :
+[Le garde du cache canonique](garde-cache-canonique.md).
 
 ---
 
@@ -244,8 +260,8 @@ Jour 1 — Arrivée
   └─► Badge: Nouvelle  →  onglet En attente
 
 Jour 1 — Traitement IA (quelques secondes)
-  Score cosinus : 0.82  ≥  seuil 0.70
-  Aucune réponse canonique trouvée dans Qdrant
+  Aucune réponse réutilisable dans Qdrant
+  Reranking + génération LLM
   └─► Badge: Suggestion  →  onglet En attente
 
 Jour 1 — Validation
@@ -255,7 +271,7 @@ Jour 1 — Validation
 
 Jour 2 — Autre ticket similaire
   "Je veux prendre des RTT, comment faire ?"
-  Score : 0.91  →  réponse validée réutilisée
+  Score : 0.91  ≥  0.85  →  réponse validée réutilisée en suggestion
   Marie valide à nouveau — nb_validations : 2
   └─► Badge: Traitée  →  onglet Traités
 
@@ -266,6 +282,13 @@ Jour 3 — Seuil canonique atteint (défaut : 3)
   └─► Badge: Traitée  →  onglet Traités
 
 Jour 4 — Ticket identique suivant
-  Score : 0.94  +  reponse_id trouvé dans Qdrant
+  Score : 0.94  +  reponse_id canonique trouvé dans Qdrant
+  Garde : [2] SUFFISANTE  et  [6] ETAYEE
   └─► Badge: Traitée  →  aucune validation requise
+
+Jour 5 — Même sujet, mais avec une précision
+  "Et pour un alternant, comment je pose des RTT ?"
+  Score : 0.93  →  même réponse canonique candidate
+  Garde : [6] NON_ETAYEE (les documents ne disent rien des alternants)
+  └─► retour au RAG  →  Badge: Suggestion  →  onglet En attente
 ```

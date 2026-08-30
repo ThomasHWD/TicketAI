@@ -71,5 +71,14 @@ class Reponse(Base):
     # [{"sens": ..., "avant": ..., "apres": ...}]
     analyse_extraits = Column(JSON, nullable=True)
 
+    # Verdict du garde anti « cache over-hit » (services/garde_cache.py), pour les
+    # réponses servies en branche CANONIQUE — c'est-à-dire sans qu'aucun humain ne
+    # les relise. Sans cette trace, une telle réponse est indiscernable en base
+    # d'une validation humaine (`statut="VALIDÉE"`, `validator_id=None`,
+    # `validated_at=None`) et le taux d'erreur des juges reste immesurable.
+    # NULL partout ailleurs : branche RAG, branche SUGGESTION, validation manuelle.
+    garde_verdict = Column(String(30), nullable=True)  # cf. VERDICT_* dans services/garde_cache.py
+    garde_justification = Column(Text, nullable=True)
+
     ticket = relationship("Ticket", back_populates="reponses")
     validator = relationship("User", foreign_keys=[validator_id])

@@ -1,0 +1,120 @@
+{
+  "_lisez_moi": {
+    "objet": "Jeu adversarial pour mesurer le « cache over-hit » : une question précisée interceptée par le cache et servie avec la réponse générique, sans revue humaine.",
+    "les_deux_polarites_sont_obligatoires": "Avec uniquement attendu=RAG, la métrique a un optimum dégénéré : SEUIL_COSINUS=1.0 (ou la suppression du cache) donne 0 % d'over-hit, et le harnais certifierait la mort du cache comme son meilleur résultat. Les entrées attendu=CACHE apportent le coût opposé (under-hit) et rendent la question « un seuil scalaire est-il viable ? » répondable.",
+    "taxonomie_vs_attendu": "`taxonomie` décrit la FORME du delta (syntaxe), `attendu` décrit la BONNE DÉCISION (sémantique). Les deux sont volontairement décorrélés : RESTRICTION_PORTEE apparaît avec les deux labels (onboarding-droits-dba → RAG, logs-parefeu → CACHE). C'est la démonstration qu'aucune règle purement syntaxique — ni un seuil, ni le vecteur sparse ressuscité — ne tranche seule.",
+    "taille": "5 RAG + 3 CACHE. Un intervalle de Wilson à 95 % sur 5 échantillons vaut environ ±35 points : ce fichier est un ÉCHAFAUDAGE, pas une mesure. Ne citez aucun taux issu de ce jeu sans son N. Cible pour une mesure publiable : >= 30 paires par polarité.",
+    "ancrage": "Chaque reponse_canonique est ancrée verbatim dans son doc_source (tests/*.md). Ne pas inventer de fait : une réponse canonique non ancrée serait déjà une hallucination, et l'over-hit mesuré porterait sur du vide.",
+    "champs": {
+      "texte_indexe": "Optionnel. Ce qui se retrouve RÉELLEMENT dans Qdrant. feedback.py:52-57 indexe r.question_suivi si présent, sinon ticket.question, sinon le contenu de la réponse. Une réponse promue canonique via une précision est donc indexée sous le texte de la précision, pas sous la question initiale du ticket. Défaut = question_canonique.",
+      "delta_lexical": "Tokens présents dans question_variante et absents de question_canonique. Alimente le contrefactuel lexical (IDF/BM25) de scripts/eval_cache_over_hit.py.",
+      "gravite": "Coût d'un over-hit sur cette entrée. Pondère la matrice de confusion (CRITIQUE=3, MAJEURE=2, MINEURE=1) : une réponse juridiquement inversée n'est pas la même erreur qu'une réponse un peu trop générique. Null pour les entrées attendu=CACHE, dont l'erreur est un under-hit."
+    }
+  },
+  "cas": [
+    {
+      "id": "nikon-mail-non-marque",
+      "domaine": "IT",
+      "doc_source": "Charte_Utilisation_Informatique.md",
+      "question_canonique": "Mon employeur a-t-il le droit de lire mes e-mails marqués « Personnel » ?",
+      "reponse_canonique": "Non. Conformément à l'Arrêt Nikon du 2 octobre 2001, l'employeur ne peut ouvrir les messages identifiés comme personnels par le salarié.",
+      "question_variante": "Mon employeur a-t-il le droit de lire mes e-mails qui ne sont pas marqués « Personnel » ?",
+      "attendu": "RAG",
+      "taxonomie": "NEGATION",
+      "delta_lexical": ["ne", "sont", "pas"],
+      "gravite": "CRITIQUE",
+      "justification": "La bonne réponse est l'EXACTE OPPOSÉE : à défaut de mention « Personnel » ou « Privé », l'élément est présumé professionnel et la Direction Juridique, dûment mandatée, est en droit d'en prendre connaissance (Charte, § 2). Le delta lexical se réduit à trois mots-outils à IDF quasi nulle : le cosinus est proche de 1 et le signal lexical est aveugle. Un over-hit ici sert une réponse juridiquement inversée en statut VALIDÉE, sans validateur. C'est le cas le plus dommageable du jeu."
+    },
+    {
+      "id": "onboarding-droits-dba",
+      "domaine": "IT",
+      "doc_source": "Procedure_Onboarding_IT.md",
+      "question_canonique": "Quel est le délai d'attribution des droits applicatifs pour un nouvel arrivant ?",
+      "reponse_canonique": "La DSI s'engage sur un SLA de 48 heures maximum à compter de l'arrivée du collaborateur pour l'attribution complète des droits applicatifs de base (accès ERP, suites collaboratives, partages réseau de service).",
+      "question_variante": "Quel est le délai d'attribution des droits d'administration de base de données pour un nouvel arrivant ?",
+      "attendu": "RAG",
+      "taxonomie": "RESTRICTION_PORTEE",
+      "delta_lexical": ["administration", "base", "données"],
+      "gravite": "MAJEURE",
+      "justification": "Le SLA de 48 h ne couvre que les droits de BASE. La Charte d'onboarding (§ 4) sort explicitement les rôles d'administration et les accès bases de données de ce périmètre : ils exigent un ticket complémentaire approuvé par le RSSI, et aucun délai n'est stipulé. Servir « 48 heures » promet un SLA qui n'existe pas. À comparer à logs-parefeu : même taxonomie, même profil lexical (tokens rares ajoutés), décision inverse."
+    },
+    {
+      "id": "teletravail-indemnite-alternant",
+      "domaine": "RH",
+      "doc_source": "Accord_Teletravail_Reglementation.md",
+      "question_canonique": "Quel est le montant de l'indemnité de télétravail et à quelle condition est-elle versée ?",
+      "reponse_canonique": "OmniCorp verse une indemnité forfaitaire mensuelle de 15 €, destinée à couvrir une quote-part de l'abonnement internet et de l'énergie. Elle est versée sur le bulletin de paie sous réserve d'un taux d'activité minimal en télétravail de 4 jours par mois.",
+      "question_variante": "Quel est le montant de l'indemnité de télétravail pour un alternant en contrat d'apprentissage ?",
+      "attendu": "RAG",
+      "taxonomie": "AJOUT_CONDITION",
+      "delta_lexical": ["alternant", "contrat", "apprentissage"],
+      "gravite": "MAJEURE",
+      "justification": "L'accord OC-HR-AGR-2025 ne traite nulle part le cas des alternants. Servir « 15 € » en statut VALIDÉE affirme un droit que le document ne fonde pas — le RAG, lui, aurait répondu HORS_DOMAINE. L'absence d'information est ici une information, et le cache la détruit."
+    },
+    {
+      "id": "deconnexion-astreinte-weekend",
+      "domaine": "RH",
+      "doc_source": "Accord_Teletravail_Reglementation.md",
+      "question_canonique": "À quelle heure les notifications Slack et Teams sont-elles bloquées le soir ?",
+      "reponse_canonique": "Un blocage technique des notifications push sur Slack et Microsoft Teams est configuré pour tous les collaborateurs entre 20h00 et 07h00 (Art. L2242-17 du Code du travail).",
+      "question_variante": "À quelle heure les notifications Slack et Teams sont-elles bloquées pendant une astreinte de week-end ?",
+      "attendu": "RAG",
+      "taxonomie": "QUALIFICATEUR_TEMPOREL",
+      "delta_lexical": ["astreinte", "week-end"],
+      "gravite": "MINEURE",
+      "justification": "L'accord ne prévoit aucun régime d'astreinte ni de dérogation week-end. La plage 20h00-07h00 est décrite comme quotidienne et sans exception. Servir la réponse générique n'est pas faux au sens strict, mais élude la question posée — d'où gravité MINEURE : c'est l'entrée qui calibre le bas de l'échelle de coût."
+    },
+    {
+      "id": "rgpd-acces-rssi",
+      "domaine": "RH",
+      "doc_source": "Gestion_Donnees_Salarie_RGPD.md",
+      "question_canonique": "Sous quel délai le DPO doit-il répondre à ma demande d'accès à mon dossier RH ?",
+      "reponse_canonique": "En vertu de l'Article 15 du RGPD, la demande doit être adressée au Délégué à la Protection des Données (DPO) via dpo@omnicorp.fr. Une réponse et l'extraction des données doivent être fournies dans un délai légal d'un mois maximum.",
+      "question_variante": "Sous quel délai le RSSI doit-il répondre à ma demande d'accès à mon dossier RH ?",
+      "attendu": "RAG",
+      "taxonomie": "SUBSTITUTION_ENTITE",
+      "delta_lexical": ["RSSI"],
+      "gravite": "MAJEURE",
+      "justification": "Le RSSI existe bien dans le corpus, mais dans un tout autre rôle : il approuve les demandes de droits spécifiques à l'onboarding (Procedure_Onboarding_IT.md, § 4). Il n'a aucune compétence sur le droit d'accès RGPD. La bonne réponse doit rediriger vers le DPO, pas confirmer un délai pour un destinataire erroné. Un seul token substitué, tous les autres identiques : cosinus très élevé garanti."
+    },
+    {
+      "id": "logs-parefeu",
+      "domaine": "IT",
+      "doc_source": "Charte_Utilisation_Informatique.md",
+      "question_canonique": "Combien de temps OmniCorp conserve-t-elle les journaux de connexion ?",
+      "reponse_canonique": "Les journaux de connexion sont conservés pour une durée maximale de 90 jours, conformément aux directives de la CNIL et au principe de minimisation (Art. 5.1.c du RGPD). Passé ce délai, ils sont irrévocablement purgés et anonymisés.",
+      "question_variante": "Combien de temps OmniCorp conserve-t-elle les logs de pare-feu ?",
+      "attendu": "CACHE",
+      "taxonomie": "RESTRICTION_PORTEE",
+      "delta_lexical": ["logs", "pare-feu"],
+      "gravite": null,
+      "justification": "LE PIÈGE ANTI-BM25 — à ne jamais retirer du jeu. La forme est identique à onboarding-droits-dba (restriction de portée par un token rare ajouté), mais la Charte § 4 énumère explicitement « logs de pare-feu » parmi les journaux soumis à la règle des 90 jours : la réponse cachée est CORRECTE. Toute heuristique qui pénalise un token rare non apparié (vecteur sparse ressuscité, filtre BM25, pénalité IDF) casse cette entrée tout en réparant onboarding-droits-dba. C'est la preuve qu'un signal lexical seul ne suffit pas."
+    },
+    {
+      "id": "teletravail-montant-reformule",
+      "domaine": "RH",
+      "doc_source": "Accord_Teletravail_Reglementation.md",
+      "question_canonique": "Quel est le montant de l'indemnité de télétravail et à quelle condition est-elle versée ?",
+      "reponse_canonique": "OmniCorp verse une indemnité forfaitaire mensuelle de 15 €, destinée à couvrir une quote-part de l'abonnement internet et de l'énergie. Elle est versée sur le bulletin de paie sous réserve d'un taux d'activité minimal en télétravail de 4 jours par mois.",
+      "question_variante": "Combien touche-t-on par mois quand on travaille depuis chez soi, et à quelles conditions ?",
+      "attendu": "CACHE",
+      "taxonomie": "PARAPHRASE",
+      "delta_lexical": ["touche", "mois", "chez", "soi"],
+      "gravite": null,
+      "justification": "Même intention, aucun mot de contenu en commun : « indemnité de télétravail » devient « touche-t-on quand on travaille depuis chez soi ». C'est exactement la paraphrase qu'un filtre par recouvrement lexical détruirait. Elle borne par le bas ce qu'un seuil peut se permettre : la casser, c'est rendre le cache inutile pour les vraies reformulations."
+    },
+    {
+      "id": "onboarding-sla-reformule",
+      "domaine": "IT",
+      "doc_source": "Procedure_Onboarding_IT.md",
+      "question_canonique": "Quel est le délai d'attribution des droits applicatifs pour un nouvel arrivant ?",
+      "reponse_canonique": "La DSI s'engage sur un SLA de 48 heures maximum à compter de l'arrivée du collaborateur pour l'attribution complète des droits applicatifs de base (accès ERP, suites collaboratives, partages réseau de service).",
+      "question_variante": "En combien de temps un nouveau collaborateur obtient-il ses accès applicatifs de base ?",
+      "attendu": "CACHE",
+      "taxonomie": "PARAPHRASE",
+      "delta_lexical": ["combien", "temps", "collaborateur", "obtient", "accès", "base"],
+      "gravite": null,
+      "justification": "Reformulation fidèle, avec « de base » qui EXPLICITE le périmètre au lieu de le restreindre. Contraste direct avec onboarding-droits-dba, qui part de la même question canonique : là où « droits d'administration de base de données » sort du périmètre, « accès applicatifs de base » y entre pleinement. Les deux entrées partagent la question canonique et diffèrent uniquement par la sémantique du delta."
+    }
+  ]
+}

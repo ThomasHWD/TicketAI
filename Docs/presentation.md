@@ -8,7 +8,7 @@ TicketAI est un helpdesk interne alimenté par l'IA qui répond automatiquement 
 
 Les employés posent leurs questions procédurales ou réglementaires via un portail web. Le système tente d'y répondre automatiquement en cherchant dans les documents internes et les réponses déjà validées. Si la confiance est suffisante, la réponse est servie instantanément ; sinon, elle est soumise à un expert du domaine pour validation.
 
-Chaque validation renforce la base : au bout de trois validations, une réponse devient **canonique** et est servie directement, sans intervention humaine, pour toutes les questions similaires à venir.
+Chaque validation renforce la base : au bout de trois validations, une réponse devient **canonique** et peut être servie directement, sans intervention humaine, sur les questions similaires à venir — sous réserve que deux juges automatiques confirment, à chaque question, qu'elle traite bien *ce* cas précis et qu'elle est étayée par les documents.
 
 ---
 
@@ -30,18 +30,23 @@ Question de l'employé
         ▼
   Recherche hybride (dense + sparse, Qdrant)
         │
-        ├── Score élevé + réponse canonique ──► CANONIQUE   (instantané, sans revue)
+        ├── Réponse canonique candidate
+        │        │
+        │        └── deux juges l'approuvent ──► CANONIQUE   (instantané, sans revue)
+        │        └── un juge refuse ────────────► RAG
         │
-        ├── Score élevé + réponse validée ───► SUGGESTION   (revue humaine requise)
+        ├── Réponse validée non canonique ─────► SUGGESTION  (revue humaine requise)
         │
-        └── Pas de réponse réutilisable ──────► RAG          (génération LLM, revue humaine requise)
+        └── Pas de réponse réutilisable ───────► RAG         (génération LLM, revue humaine requise)
 ```
 
-**CANONIQUE** — la question est très proche d'une question déjà traitée et sa réponse a été validée suffisamment de fois. Aucune intervention humaine.
+**CANONIQUE** — la question rejoint une question déjà traitée, dont la réponse a été validée suffisamment de fois, **et** deux juges automatiques confirment que cette réponse traite bien la question posée et qu'elle est étayée par les documents. Aucune intervention humaine.
 
-**SUGGESTION** — une réponse validée existe mais la confiance n'est pas assez haute pour la servir sans relecture. L'expert confirme ou corrige.
+Ce dernier point n'est pas décoratif : sans lui, une question qui ajoute une précision (« … qui **ne sont pas** marqués Personnel ») recevait la réponse générique, exacte pour le cas général et fausse pour le cas demandé. Voir [Le garde du cache canonique](garde-cache-canonique.md).
 
-**RAG** — aucune réponse réutilisable. Le système reranke les chunks de documents pertinents et génère une réponse via LLM (Albert API). Elle est toujours soumise à validation avant d'être publiée.
+**SUGGESTION** — une réponse validée existe mais elle n'est pas encore canonique. L'expert confirme ou corrige.
+
+**RAG** — aucune réponse réutilisable, ou un juge a refusé la réponse en cache. Le système reranke les chunks de documents pertinents et génère une réponse via LLM (Albert API). Elle est toujours soumise à validation avant d'être publiée.
 
 ---
 
@@ -55,6 +60,9 @@ Réindexation dans Qdrant (vecteur de la question → payload reponse_id)
         │
         ▼
 nb_validations atteint le seuil ──► réponse promue CANONIQUE
+        │
+        ▼
+elle devient candidate au service direct — les juges tranchent question par question
 ```
 
 La base de connaissances s'enrichit naturellement au fil des validations, sans action manuelle.

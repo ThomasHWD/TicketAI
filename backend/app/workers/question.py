@@ -5,9 +5,10 @@ from celery.exceptions import Retry
 
 from app.database import SessionLocal
 from app.models.reponse_chunk import ReponseChunk
+from app.services.garde_cache import autoriser_service_canonique
 from app.services.llm import generate
 from app.services.question_pipeline import (
-    SEUIL_COSINUS,  # noqa: F401 — ré-exporté pour les tests qui l'importent depuis ce module
+    SEUIL_CANDIDAT_CANONIQUE,  # noqa: F401 — ré-exporté pour les tests qui l'importent d'ici
     SEUIL_SUGGESTION,  # noqa: F401
     TicketDisparu,
     charger_contexte_fil,
@@ -80,27 +81,60 @@ def question_job(
 
         # Étape 2 — Réponse déjà validée, retrouvée directement via son reponse_id.
         chunks_ctx: list[dict] | None = None
+        # Déclaré ici, hors du `try`, parce qu'un REFUS doit survivre jusqu'à
+        # l'étape 5 : c'est la moitié de l'audit qui compte. Ne tracer que les
+        # approbations laisserait les blocages du garde invisibles en base, alors
+        # que ce sont eux qu'il faut relire pour mesurer s'il bloque à tort.
+        verdict = None
         db = SessionLocal()
         try:
             reponse_liee, score_liee = trouver_reponse_reutilisable(db, chunks)
 
             if reponse_liee is not None:
                 print(f"[QUESTION] Score {score_liee:.4f} → réponse validée {reponse_liee.id}")
-                return servir_reutilisation(
-                    db,
-                    job_id,
-                    ticket_uuid,
-                    question,
-                    domaine,
-                    user_uuid,
-                    reponse_liee,
-                    score_liee,
-                    question_suivi,
-                    est_suivi,
-                    self.request.retries,
-                    True,
-                    objet,
-                )
+
+                # Le garde ne s'interpose que devant la branche CANONIQUE — la
+                # seule qui serve à l'employé sans qu'aucun humain ne relise. La
+                # branche SUGGESTION passe par un validateur : la faire juger
+                # coûterait deux appels LLM pour un risque déjà couvert.
+                if reponse_liee.canonique:
+                    # Ce que le garde juge, c'est `requete_recherche` : pour un
+                    # suivi, le fil concaténé et non la seule précision. « Et pour
+                    # un alternant ? » est intelligible dans le fil, insensé seul.
+                    chunks_garde = chunks
+                    if est_suivi:
+                        chunks_ctx = search_hybrid(requete_recherche, domaine, top_k=15)
+                        chunks_garde = chunks_ctx
+                    verdict = autoriser_service_canonique(
+                        requete_recherche,
+                        reponse_liee.contenu_corrige or reponse_liee.contenu,
+                        chunks_garde,
+                    )
+                    print(f"[QUESTION] Garde cache : {verdict.verdict} — {verdict.justification}")
+
+                # Un refus renvoie au RAG, PAS en SUGGESTION : le garde vient de
+                # constater que cette réponse ne traite pas correctement cette
+                # question. La proposer au validateur lui mettrait sous les yeux
+                # une réponse connue pour être inadaptée, à la place d'une réponse
+                # fraîche et ciblée.
+                if verdict is None or verdict.autorise:
+                    return servir_reutilisation(
+                        db,
+                        job_id,
+                        ticket_uuid,
+                        question,
+                        domaine,
+                        user_uuid,
+                        reponse_liee,
+                        score_liee,
+                        question_suivi,
+                        est_suivi,
+                        self.request.retries,
+                        verdict.autorise if verdict else False,
+                        objet,
+                        garde_verdict=verdict.verdict if verdict else None,
+                        garde_justification=verdict.justification if verdict else None,
+                    )
 
         finally:
             db.close()
@@ -162,6 +196,11 @@ def question_job(
                     source="HORS_DOMAINE" if hors_domaine else "LLM",
                     question_suivi=question_suivi,
                     nouveau=est_suivi,
+                    # Non nul uniquement si un candidat canonique a été refusé :
+                    # cette réponse RAG existe *parce que* le garde a bloqué, et
+                    # la relire est le seul moyen de savoir s'il a bien fait.
+                    garde_verdict=verdict.verdict if verdict else None,
+                    garde_justification=verdict.justification if verdict else None,
                 )
                 reponse_id = str(reponse.id)
 

@@ -200,11 +200,13 @@ def test_upsert_reponse_met_a_jour_si_existante():
 # ── Tests seuil canonique ──────────────────────────────────────────────────
 
 
-def test_seuil_cosinus_defini():
-    from app.workers.question import SEUIL_COSINUS
+def test_les_planchers_de_candidature_sont_definis():
+    """Ils sont ré-exportés par le worker : plusieurs tests les importent d'ici."""
+    from app.workers.question import SEUIL_CANDIDAT_CANONIQUE, SEUIL_SUGGESTION
 
-    assert isinstance(SEUIL_COSINUS, float)
-    assert 0.40 <= SEUIL_COSINUS <= 0.90
+    assert isinstance(SEUIL_CANDIDAT_CANONIQUE, float)
+    assert isinstance(SEUIL_SUGGESTION, float)
+    assert 0.40 <= SEUIL_CANDIDAT_CANONIQUE <= SEUIL_SUGGESTION <= 0.95
 
 
 def test_nb_validations_incremente_sur_source():

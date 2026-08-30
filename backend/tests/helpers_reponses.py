@@ -31,10 +31,19 @@ def seed_ticket_reponse(
     locked_by=None,
     lock_expires_at=None,
     domaine="IT",
+    question="Question test ?",
+    question_suivi=None,
 ):
-    """Crée un Ticket + sa Reponse et renvoie le couple (ticket, reponse)."""
+    """Crée un Ticket + sa Reponse et renvoie le couple (ticket, reponse).
+
+    `question` / `question_suivi` sont exposés parce que le cache indexe le TEXTE
+    DE LA QUESTION, pas celui de la réponse (cf. `app/workers/feedback.py:52-57`) :
+    un test de réutilisation qui ne peut pas choisir la question testerait le
+    cache sans pouvoir en piloter l'entrée. Défauts inchangés — aucun appelant
+    existant n'est affecté.
+    """
     ticket = Ticket(
-        question="Question test ?",
+        question=question,
         domaine=domaine,
         user_id=user_id,
         statut_ticket=ticket_statut,
@@ -53,6 +62,7 @@ def seed_ticket_reponse(
         canonique=canonique,
         reponse_source_id=reponse_source_id,
         contenu_corrige=contenu_corrige,
+        question_suivi=question_suivi,
     )
     db.add(reponse)
     db.commit()

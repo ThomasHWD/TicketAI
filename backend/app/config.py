@@ -31,7 +31,21 @@ class Settings(BaseSettings):
 
     # SEUILS
     seuil_canonique: int
+    # `seuil_cosinus` ne gouverne plus la branche CANONIQUE : mesuré non
+    # informatif (AUC 0.000 sur le jeu adversarial). Conservé comme repère
+    # d'affichage pour les scripts d'éval. Voir Docs/garde-cache-canonique.md.
     seuil_cosinus: float
+
+    # Plancher de candidature des réponses CANONIQUES — celles que les juges
+    # verront. Volontairement bas : les reformulations légitimes mesurées se
+    # situent entre 0.71 et 0.79, sous l'ancien plancher de 0.85, et n'étaient
+    # donc jamais soumises au garde. C'est le garde qui tranche, pas ce seuil.
+    seuil_candidat_canonique: float = 0.70
+
+    # Plancher des réponses validées NON canoniques (branche SUGGESTION). Reste
+    # haut : aucun juge ne filtre cette branche, l'abaisser noierait le
+    # validateur sous des réponses génériques hors sujet.
+    seuil_suggestion: float = 0.85
 
     # Verrou de ticket (durée du bail en secondes, prolongé par heartbeat)
     lock_ttl_seconds: int = 300

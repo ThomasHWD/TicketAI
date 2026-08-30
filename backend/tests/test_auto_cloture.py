@@ -99,10 +99,7 @@ class TestAutoCloture:
 
     def test_closed_at_est_defini_sur_chaque_ticket(self):
         """Chaque ticket clôturé reçoit une date closed_at."""
-        tickets = [
-            _make_ticket(validated_at=datetime.now(timezone.utc) - timedelta(days=8))
-            for _ in range(3)
-        ]
+        tickets = [_make_ticket(validated_at=datetime.now(timezone.utc) - timedelta(days=8)) for _ in range(3)]
         self._run(tickets)
         for t in tickets:
             assert t.closed_at is not None
@@ -118,6 +115,7 @@ class TestAutoCloture:
             patch("app.workers.auto_cloture.settings") as mock_settings,
         ):
             from app.workers.auto_cloture import auto_cloture_job as _job
+
             mock_settings.valkey_url = "redis://localhost:6379/0"
             mock_settings.jours_auto_cloture = 7
             mock_r = MagicMock()
@@ -143,6 +141,7 @@ class TestAutoCloture:
             patch("app.workers.auto_cloture.settings") as mock_settings,
         ):
             from app.workers.auto_cloture import auto_cloture_job as _job
+
             mock_settings.valkey_url = "redis://localhost:6379/0"
             mock_settings.jours_auto_cloture = 7
             db = MagicMock()

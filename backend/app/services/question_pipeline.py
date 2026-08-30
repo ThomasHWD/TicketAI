@@ -18,8 +18,16 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-SEUIL_COSINUS = settings.seuil_cosinus
-SEUIL_SUGGESTION = SEUIL_COSINUS - 0.05
+# Deux planchers de candidature INDÉPENDANTS. Ils dérivaient auparavant l'un de
+# l'autre (`SEUIL_SUGGESTION = SEUIL_COSINUS - 0.05`), ce qui rendait impossible
+# d'abaisser le plancher canonique sans abaisser du même coup la porte du service
+# sans revue humaine — exactement le contraire du but.
+#
+# `SEUIL_COSINUS` a disparu de ce module : il ne gouverne plus aucune décision
+# (AUC 0.000, mesuré). Une constante qui ne décide plus rien mais qui reste
+# exportée est un piège pour le prochain lecteur.
+SEUIL_CANDIDAT_CANONIQUE = settings.seuil_candidat_canonique
+SEUIL_SUGGESTION = settings.seuil_suggestion
 
 
 class TicketDisparu(Exception):
@@ -66,6 +74,8 @@ def upsert_reponse(
     canonique: bool = False,
     question_suivi: str | None = None,
     nouveau: bool = False,
+    garde_verdict: str | None = None,
+    garde_justification: str | None = None,
 ) -> Reponse:
     reponse = (
         None
@@ -83,11 +93,17 @@ def upsert_reponse(
             reponse_source_id=reponse_source_id,
             canonique=canonique,
             question_suivi=question_suivi,
+            garde_verdict=garde_verdict,
+            garde_justification=garde_justification,
         )
         db.add(reponse)
     else:
         reponse.contenu = contenu
         reponse.score_similarite = top_score
+        # Réécrits même sur une réponse recyclée : un retraitement qui repasse en
+        # CANONIQUE doit porter le verdict qui l'a autorisé, pas celui d'avant.
+        reponse.garde_verdict = garde_verdict
+        reponse.garde_justification = garde_justification
     db.flush()
     return reponse
 
@@ -138,16 +154,29 @@ def charger_contexte_fil(ticket_id: uuid.UUID, precision: str) -> tuple[list[dic
 
 
 def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> tuple[Reponse | None, float | None]:
-    """Cherche, parmi les chunks, une réponse VALIDÉE réutilisable au-dessus de SEUIL_SUGGESTION.
+    """Cherche, parmi les chunks, une réponse VALIDÉE réutilisable.
+
+    Deux planchers, selon la nature du candidat :
+      - **canonique** : `SEUIL_CANDIDAT_CANONIQUE` (bas). Ces réponses passeront
+        devant les juges du garde avant d'être servies, le plancher n'a donc plus
+        à porter la sûreté — il ne fait que borner le coût.
+      - **non canonique** : `SEUIL_SUGGESTION` (haut, inchangé). Aucun juge ne
+        filtre la branche SUGGESTION ; abaisser ce plancher mettrait sous les yeux
+        du validateur des réponses génériques hors sujet à la place d'une réponse
+        RAG ciblée.
+
+    La nature du candidat n'étant connue qu'après la requête SQL, on retient
+    d'abord au plancher le plus bas des deux, puis on écarte.
 
     Plusieurs réponses validées peuvent matcher → on retient le meilleur score par
     `reponse_id`, puis on choisit de façon déterministe (canonique, plus validée,
     meilleur score, id). Renvoie `(reponse, score)` ou `(None, None)`.
     """
+    plancher_bas = min(SEUIL_CANDIDAT_CANONIQUE, SEUIL_SUGGESTION)
     scores_par_reponse: dict[str, float] = {}
     for c in chunks:
         rid = c.get("reponse_id")
-        if rid and c["score_cosinus"] >= SEUIL_SUGGESTION:
+        if rid and c["score_cosinus"] >= plancher_bas:
             rid = str(rid)
             scores_par_reponse[rid] = max(scores_par_reponse.get(rid, 0.0), c["score_cosinus"])
 
@@ -163,9 +192,17 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> tuple[Repon
         )
         .all()
     )
+    candidats = [
+        r
+        for r in candidats
+        if scores_par_reponse[str(r.id)] >= (SEUIL_CANDIDAT_CANONIQUE if r.canonique else SEUIL_SUGGESTION)
+    ]
     if not candidats:
         return None, None
 
+    # Le départage est conservé tel quel : `nb_validations` prime toujours sur le
+    # score. Ce n'est plus un risque comme avant — un mauvais choix de candidat
+    # canonique est désormais rattrapé par le garde, qui refusera de le servir.
     reponse_liee = max(
         candidats,
         key=lambda r: (
@@ -192,17 +229,31 @@ def servir_reutilisation(
     nb_retries: int,
     autoriser_canonique: bool,
     objet: str | None = None,
+    garde_verdict: str | None = None,
+    garde_justification: str | None = None,
 ) -> dict:
     """Persiste et renvoie la réutilisation d'une réponse validée.
 
-    `autoriser_canonique` : n'autorise la branche CANONIQUE (servie sans revue
-    humaine) que si le match provient de la question/précision BRUTE. Un match
-    obtenu par contextualisation du fil ressort toujours en SUGGESTION.
+    `autoriser_canonique` porte désormais le verdict du garde
+    (`services/garde_cache.py`) : la branche CANONIQUE — servie à l'employé sans
+    qu'aucun humain ne la relise — n'est ouverte que si les deux juges ont
+    approuvé. Le score cosinus ne conditionne plus rien ici : mesuré non
+    informatif (AUC 0.000), il classait même les cas à l'envers.
+
+    `garde_verdict` / `garde_justification` sont tracés en base sur la réponse
+    servie. Sans eux, une réponse CANONIQUE et une réponse validée à la main sont
+    indiscernables (`statut="VALIDÉE"`, `validator_id=None`), et le taux d'erreur
+    des juges en production reste immesurable.
     """
     contenu = reponse_liee.contenu_corrige or reponse_liee.contenu
 
-    if autoriser_canonique and reponse_liee.canonique and score_liee >= SEUIL_COSINUS:
-        logger.info("Réponse canonique servie : %s (score=%.3f)", reponse_liee.id, score_liee)
+    if autoriser_canonique and reponse_liee.canonique:
+        logger.info(
+            "Réponse canonique servie : %s (score=%.3f, garde=%s)",
+            reponse_liee.id,
+            score_liee,
+            garde_verdict,
+        )
         ticket = upsert_ticket(
             db,
             job_id,
@@ -232,6 +283,8 @@ def servir_reutilisation(
             canonique=True,
             question_suivi=question_suivi,
             nouveau=est_suivi,
+            garde_verdict=garde_verdict,
+            garde_justification=garde_justification,
         )
 
         ticket_source = db.query(Ticket).filter(Ticket.id == reponse_liee.ticket_id).first()
