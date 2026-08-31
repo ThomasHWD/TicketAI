@@ -24,11 +24,11 @@ Phase 2 — COMPORTEMENT DU GARDE
 import argparse
 import json
 import re
+import sys
 import time
 import uuid
 from pathlib import Path
 
-import sys
 sys.path.insert(0, ".")
 
 from app.config import settings
@@ -152,7 +152,8 @@ RÉPONSE GÉNÉRÉE :
 {reponse}
 
 Évalue sur deux critères :
-1. CORRECTE : la réponse est-elle factuellement exacte par rapport au document ? (aucune invention, aucune contradiction)
+1. CORRECTE : la réponse est-elle factuellement exacte par rapport au document ?
+   (aucune invention, aucune contradiction)
 2. PERTINENTE : répond-elle à la question posée, sans esquiver ni généraliser ?
 
 Réponds uniquement par un objet JSON :
@@ -302,21 +303,18 @@ def extraire_json(brut: str | None, cles: list[str]) -> dict | None:
 
 def phase_qualite(domaines_q: dict[str, str], pause: float) -> list[dict]:
     resultats = []
-    domaines_doc = {
-        "Charte_Utilisation_Informatique.md": "IT",
-        "Gestion_Donnees_Salarie_RGPD.md": "RH",
-        "Accord_Teletravail_Reglementation.md": "RH",
-        "Procedure_Onboarding_IT.md": "IT",
-    }
 
-    for domaine, doc_source, question, _ in QUESTIONS_QUALITE:
+    for domaine, _doc_source, question, _ in QUESTIONS_QUALITE:
         domaine_isole = domaines_q[domaine]
         chunks = search_hybrid(question, domaine_isole, top_k=15)
         chunks_r = rerank(question, chunks, top_k=5) or chunks[:5]
 
         reponse, hors_domaine = generer_robuste(question, chunks_r)
         if reponse is None:
-            resultats.append({"q": question, "echec": True, "correcte": None, "pertinente": None, "note": "Albert indisponible"})
+            resultats.append({
+                "q": question, "echec": True,
+                "correcte": None, "pertinente": None, "note": "Albert indisponible",
+            })
             print(f"  ÉCHEC   {question[:80]}")
             continue
 
@@ -334,7 +332,10 @@ def phase_qualite(domaines_q: dict[str, str], pause: float) -> list[dict]:
 
         verdict = extraire_json(brut, ["correcte", "pertinente"])
         if verdict is None:
-            resultats.append({"q": question, "echec": True, "correcte": None, "pertinente": None, "note": "juge illisible"})
+            resultats.append({
+                "q": question, "echec": True,
+                "correcte": None, "pertinente": None, "note": "juge illisible",
+            })
             print(f"  JUGE?   {question[:80]}")
             continue
 
@@ -349,7 +350,10 @@ def phase_qualite(domaines_q: dict[str, str], pause: float) -> list[dict]:
             "reponse": reponse,
         })
         symbole = "✓" if ok else ("⚠ HD" if hors_domaine else "✗")
-        print(f"  {symbole:<5} correcte={str(verdict['correcte']):<5} pertinente={str(verdict['pertinente']):<5} | {question[:70]}")
+        print(
+            f"  {symbole:<5} correcte={str(verdict['correcte']):<5}"
+            f" pertinente={str(verdict['pertinente']):<5} | {question[:70]}"
+        )
         if not ok:
             print(f"        note     : {verdict.get('note', '')}")
             print(f"        réponse  : {' '.join(reponse.split())[:200]}")
@@ -448,13 +452,13 @@ def synthese(resultats_q: list[dict], resultats_g: list[dict]) -> None:
     if echecs_q:
         print(f"  Albert indisponible    : {len(echecs_q)} (écartés)")
     if ko_q:
-        print(f"\n  Questions en échec :")
+        print("\n  Questions en échec :")
         for r in ko_q:
             print(f"    ✗ correcte={r['correcte']} pertinente={r['pertinente']} | {r['q'][:90]}")
             print(f"      → {r['note']}")
 
     # Phase 2
-    valides_g = [r for r in resultats_g]
+    valides_g = list(resultats_g)
     sert_tort  = [r for r in valides_g if r["erreur_type"] == "SERT_À_TORT"]
     bloque_tort = [r for r in valides_g if r["erreur_type"] == "BLOQUE_À_TORT"]
     ok_g = [r for r in valides_g if r["correct"]]

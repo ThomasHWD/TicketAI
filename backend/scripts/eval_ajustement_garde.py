@@ -34,11 +34,11 @@ introduire de SERT_À_TORT. Toute stratégie avec >= 1 SERT_À_TORT est élimin�
 import argparse
 import json
 import re
+import sys
 import time
 import uuid
 from pathlib import Path
 
-import sys
 sys.path.insert(0, ".")
 
 from app.config import settings
@@ -329,30 +329,44 @@ def sert_strat(strat: str, p_orig: list, p_mod: list, a_orig: list, a_mod: list)
     def au_moins_un_none(verdicts):  return any(v is None for v in verdicts)
 
     if strat == "A":
-        if au_moins_un_none(p_orig): return None
-        if not unanime_suffisante(p_orig): return False
-        if au_moins_un_none(a_orig): return None
+        if au_moins_un_none(p_orig):
+            return None
+        if not unanime_suffisante(p_orig):
+            return False
+        if au_moins_un_none(a_orig):
+            return None
         return unanime_etayee(a_orig)
     if strat == "B":
-        if au_moins_un_none(p_orig): return None
+        if au_moins_un_none(p_orig):
+            return None
         return unanime_suffisante(p_orig)
     if strat == "C":
-        if au_moins_un_none(a_orig): return None
+        if au_moins_un_none(a_orig):
+            return None
         return unanime_etayee(a_orig)
     if strat == "D":
-        if au_moins_un_none(p_mod): return None
-        if not unanime_suffisante(p_mod): return False
-        if au_moins_un_none(a_orig): return None
+        if au_moins_un_none(p_mod):
+            return None
+        if not unanime_suffisante(p_mod):
+            return False
+        if au_moins_un_none(a_orig):
+            return None
         return unanime_etayee(a_orig)
     if strat == "E":
-        if au_moins_un_none(p_orig): return None
-        if not unanime_suffisante(p_orig): return False
-        if au_moins_un_none(a_mod): return None
+        if au_moins_un_none(p_orig):
+            return None
+        if not unanime_suffisante(p_orig):
+            return False
+        if au_moins_un_none(a_mod):
+            return None
         return unanime_etayee(a_mod)
     if strat == "F":
-        if au_moins_un_none(p_mod): return None
-        if not unanime_suffisante(p_mod): return False
-        if au_moins_un_none(a_mod): return None
+        if au_moins_un_none(p_mod):
+            return None
+        if not unanime_suffisante(p_mod):
+            return False
+        if au_moins_un_none(a_mod):
+            return None
         return unanime_etayee(a_mod)
     return None
 
@@ -398,7 +412,7 @@ def main() -> int:
                     break
 
             if rid_trouve is None:
-                resultats[c["id"]] = {s: None for s in STRATEGIES}
+                resultats[c["id"]] = dict.fromkeys(STRATEGIES)
                 print(f"  {c['id']:<42} cos=-----  candidat absent → toutes stratégies = RAG")
                 continue
 
@@ -452,12 +466,6 @@ def main() -> int:
         for strat, desc in STRATEGIES.items():
             sert_tort   = [c for c in rag_cas   if resultats[c["id"]][strat] is True]
             bloque_tort = [c for c in cache_cas  if resultats[c["id"]][strat] is False]
-            echecs      = [c for c in cas        if resultats[c["id"]][strat] is None]
-            n_valides   = len(cas) - len([c for c in cas if resultats[c["id"]][strat] is None and
-                                          c["id"] not in [x["id"] for x in [c2 for c2 in cas
-                                          if resultats[c2["id"]][strat] is None and
-                                          any(ch.get("reponse_id") and str(ch.get("reponse_id")) in registre
-                                              for ch in search_hybrid(c2["question_variante"], domaines[c2["domaine"]], top_k=1))]]])
 
             # Recompte propre
             rag_ok    = sum(1 for c in rag_cas   if resultats[c["id"]][strat] is False)
