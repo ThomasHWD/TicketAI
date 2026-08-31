@@ -23,10 +23,14 @@ particulier demandé (« y compris un alternant en contrat d'apprentissage »,
 absent des documents). Un juge qui arbitre sur un texte généré est donc plafonné
 par le taux d'hallucination du RAG, précisément sur les cas qui comptent.
 
-Les deux invites sont **reprises mot pour mot** de
-``scripts/eval_accord_rag_cache.py``. Ce sont les textes exacts qui ont produit le
-8/8 avec 0 erreur dangereuse ; les reformuler invaliderait la mesure. Toute
-modification doit être remesurée par ce script avant d'être conservée.
+L'invite de pertinence [2] est reprise de ``scripts/eval_accord_rag_cache.py``
+(texte exact du 8/8 d'origine).
+
+L'invite d'ancrage [6] a été recalibrée par ``scripts/eval_ajustement_garde.py``
+(3 runs × 14 cas × k=2/3 répétitions, stratégie E). La modification ajoute une
+tolérance explicite aux reformulations/paraphrases vocabulairement éloignées (gain :
++1 cas correctement servi, 0 erreur dangereuse dans tous les runs). Toute
+modification ultérieure doit être remesurée par ce script avant d'être conservée.
 """
 
 import logging
@@ -95,15 +99,20 @@ RÉPONSE EN CACHE, celle qu'on servirait :
 {cachee}
 
 Réponds NON_ETAYEE si l'un de ces points est vrai :
-- un élément de la réponse en cache n'apparaît pas dans les extraits ;
+- un élément factuel de la réponse en cache (montant, délai, acteur, règle) ne
+  figure pas dans les extraits ;
 - les extraits contredisent la réponse en cache, même partiellement, et en
   particulier sur la polarité (oui / non, autorisé / interdit) ;
 - la question porte sur un cas particulier, une condition, une population, une
   période ou une entité dont les extraits ne disent rien. Le silence des documents
   n'autorise JAMAIS à servir : c'est une réponse à donner, pas une lacune à combler.
 
-Réponds ETAYEE seulement si les extraits suffisent à établir que la réponse en cache
-répond correctement et complètement à cette question précise.
+Réponds ETAYEE si les extraits confirment que la réponse en cache est correcte
+et complète pour la question posée. Si la question est une reformulation ou
+paraphrase et que les extraits corroborent le contenu factuel de la réponse,
+réponds ETAYEE même si le vocabulaire de la question diffère de celui de la réponse
+ou des extraits — ce qui compte, c'est que les faits soient étayés, pas que les
+mots soient identiques.
 
 N'utilise aucune connaissance extérieure aux extraits. Ne rédige aucune correction.
 Réponds uniquement par un objet JSON :

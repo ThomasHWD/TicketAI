@@ -3,7 +3,7 @@
     "objet": "Jeu adversarial pour mesurer le « cache over-hit » : une question précisée interceptée par le cache et servie avec la réponse générique, sans revue humaine.",
     "les_deux_polarites_sont_obligatoires": "Avec uniquement attendu=RAG, la métrique a un optimum dégénéré : SEUIL_COSINUS=1.0 (ou la suppression du cache) donne 0 % d'over-hit, et le harnais certifierait la mort du cache comme son meilleur résultat. Les entrées attendu=CACHE apportent le coût opposé (under-hit) et rendent la question « un seuil scalaire est-il viable ? » répondable.",
     "taxonomie_vs_attendu": "`taxonomie` décrit la FORME du delta (syntaxe), `attendu` décrit la BONNE DÉCISION (sémantique). Les deux sont volontairement décorrélés : RESTRICTION_PORTEE apparaît avec les deux labels (onboarding-droits-dba → RAG, logs-parefeu → CACHE). C'est la démonstration qu'aucune règle purement syntaxique — ni un seuil, ni le vecteur sparse ressuscité — ne tranche seule.",
-    "taille": "5 RAG + 3 CACHE. Un intervalle de Wilson à 95 % sur 5 échantillons vaut environ ±35 points : ce fichier est un ÉCHAFAUDAGE, pas une mesure. Ne citez aucun taux issu de ce jeu sans son N. Cible pour une mesure publiable : >= 30 paires par polarité.",
+    "taille": "8 RAG + 6 CACHE. Un intervalle de Wilson à 95 % sur 8 échantillons vaut environ ±30 points : ce fichier est un ÉCHAFAUDAGE, pas une mesure. Ne citez aucun taux issu de ce jeu sans son N. Cible pour une mesure publiable : >= 30 paires par polarité.",
     "ancrage": "Chaque reponse_canonique est ancrée verbatim dans son doc_source (tests/*.md). Ne pas inventer de fait : une réponse canonique non ancrée serait déjà une hallucination, et l'over-hit mesuré porterait sur du vide.",
     "champs": {
       "texte_indexe": "Optionnel. Ce qui se retrouve RÉELLEMENT dans Qdrant. feedback.py:52-57 indexe r.question_suivi si présent, sinon ticket.question, sinon le contenu de la réponse. Une réponse promue canonique via une précision est donc indexée sous le texte de la précision, pas sous la question initiale du ticket. Défaut = question_canonique.",
@@ -115,6 +115,84 @@
       "delta_lexical": ["combien", "temps", "collaborateur", "obtient", "accès", "base"],
       "gravite": null,
       "justification": "Reformulation fidèle, avec « de base » qui EXPLICITE le périmètre au lieu de le restreindre. Contraste direct avec onboarding-droits-dba, qui part de la même question canonique : là où « droits d'administration de base de données » sort du périmètre, « accès applicatifs de base » y entre pleinement. Les deux entrées partagent la question canonique et diffèrent uniquement par la sémantique du delta."
+    },
+    {
+      "id": "rgpd-donnees-apres-depart-reformule",
+      "domaine": "RH",
+      "doc_source": "Gestion_Donnees_Salarie_RGPD.md",
+      "question_canonique": "Combien de temps mes données personnelles sont-elles conservées après mon départ d'OmniCorp ?",
+      "reponse_canonique": "L'ensemble des données nominatives du dossier RH et de la paie fait l'objet d'une suppression automatique et irréversible 5 ans après la date de départ effectif du salarié (Article L3245-1 du Code du travail).",
+      "question_variante": "Au bout de combien d'années après avoir quitté OmniCorp mes informations personnelles sont-elles effacées ?",
+      "attendu": "CACHE",
+      "taxonomie": "PARAPHRASE",
+      "delta_lexical": ["années", "quitté", "informations", "effacées"],
+      "gravite": null,
+      "justification": "Reformulation complète : « combien de temps conservées » devient « au bout de combien d'années effacées ». La réponse canonique (5 ans, Art. L3245-1) est exactement juste pour cette question."
+    },
+    {
+      "id": "rgpd-donnees-stagiaire",
+      "domaine": "RH",
+      "doc_source": "Gestion_Donnees_Salarie_RGPD.md",
+      "question_canonique": "Combien de temps mes données personnelles sont-elles conservées après mon départ d'OmniCorp ?",
+      "reponse_canonique": "L'ensemble des données nominatives du dossier RH et de la paie fait l'objet d'une suppression automatique et irréversible 5 ans après la date de départ effectif du salarié (Article L3245-1 du Code du travail).",
+      "question_variante": "Combien de temps les données personnelles d'un ancien stagiaire sont-elles conservées après la fin de son stage ?",
+      "attendu": "RAG",
+      "taxonomie": "SUBSTITUTION_ENTITE",
+      "delta_lexical": ["stagiaire", "fin", "stage"],
+      "gravite": "MAJEURE",
+      "justification": "La politique RGPD (§ 4) ne mentionne que le « salarié » et cite l'Article L3245-1 (prescription salariale). Le stagiaire a un statut juridique différent — la convention de stage n'est pas un contrat de travail — et la durée de prescription applicable est distincte. Servir « 5 ans » affirme un délai sans fondement légal pour cette population."
+    },
+    {
+      "id": "onboarding-yubikey-reformule",
+      "domaine": "IT",
+      "doc_source": "Procedure_Onboarding_IT.md",
+      "question_canonique": "Quel équipement de sécurité matérielle est obligatoire pour tout accès VPN chez OmniCorp ?",
+      "reponse_canonique": "Une clé d'authentification multifacteur matérielle Yubikey 5C FIPS est attribuée à chaque nouvel arrivant. Elle est obligatoire pour tout accès distant ou VPN.",
+      "question_variante": "Quelle clé MFA physique doit-on avoir pour se connecter en VPN à OmniCorp ?",
+      "attendu": "CACHE",
+      "taxonomie": "PARAPHRASE",
+      "delta_lexical": ["clé", "MFA", "physique", "connecter"],
+      "gravite": null,
+      "justification": "Reformulation technique fidèle : « équipement de sécurité matérielle » → « clé MFA physique ». L'intention est identique, la réponse canonique (Yubikey 5C FIPS) répond exactement à la question posée."
+    },
+    {
+      "id": "onboarding-yubikey-stagiaire",
+      "domaine": "IT",
+      "doc_source": "Procedure_Onboarding_IT.md",
+      "question_canonique": "Quel équipement de sécurité matérielle est obligatoire pour tout accès VPN chez OmniCorp ?",
+      "reponse_canonique": "Une clé d'authentification multifacteur matérielle Yubikey 5C FIPS est attribuée à chaque nouvel arrivant. Elle est obligatoire pour tout accès distant ou VPN.",
+      "question_variante": "Est-ce que les stagiaires reçoivent aussi une Yubikey, ou seulement les salariés en CDI ?",
+      "attendu": "RAG",
+      "taxonomie": "AJOUT_CONDITION",
+      "delta_lexical": ["stagiaires", "CDI"],
+      "gravite": "MINEURE",
+      "justification": "La procédure d'onboarding (§ 1) s'applique à « tout nouveau collaborateur » sans distinguer le type de contrat. La question pose explicitement la comparaison stagiaires/CDI, que le document ne tranche pas. Servir la réponse générique laisse croire que la procédure couvre tous les cas alors qu'elle ne répond pas à cette distinction."
+    },
+    {
+      "id": "teletravail-avenant-reformule",
+      "domaine": "RH",
+      "doc_source": "Accord_Teletravail_Reglementation.md",
+      "question_canonique": "Un avenant au contrat de travail est-il obligatoire pour télétravailler chez OmniCorp ?",
+      "reponse_canonique": "Oui. Le passage en télétravail requiert la validation formelle de la hiérarchie et de la DRH, et se matérialise obligatoirement par la signature d'un avenant au contrat de travail initial.",
+      "question_variante": "Doit-on absolument modifier son contrat de travail par écrit pour avoir le droit de travailler à domicile ?",
+      "attendu": "CACHE",
+      "taxonomie": "PARAPHRASE",
+      "delta_lexical": ["modifier", "écrit", "travailler", "domicile"],
+      "gravite": null,
+      "justification": "Reformulation intégrale : « avenant obligatoire » → « modifier son contrat par écrit ». Le sens est identique. L'exigence de l'avenant écrit est exactement ce que couvre la réponse canonique."
+    },
+    {
+      "id": "teletravail-avenant-oral",
+      "domaine": "RH",
+      "doc_source": "Accord_Teletravail_Reglementation.md",
+      "question_canonique": "Un avenant au contrat de travail est-il obligatoire pour télétravailler chez OmniCorp ?",
+      "reponse_canonique": "Oui. Le passage en télétravail requiert la validation formelle de la hiérarchie et de la DRH, et se matérialise obligatoirement par la signature d'un avenant au contrat de travail initial.",
+      "question_variante": "Si mon manager accepte verbalement, puis-je télétravailler sans signer d'avenant ?",
+      "attendu": "RAG",
+      "taxonomie": "AJOUT_CONDITION",
+      "delta_lexical": ["manager", "verbalement", "sans", "signer"],
+      "gravite": "MAJEURE",
+      "justification": "La question pose une condition explicite d'exclusion (accord verbal, sans avenant). La réponse canonique dit OUI à l'obligation de l'avenant. La servir ici serait correct, sauf que la question cherche à savoir si l'accord verbal suffit — la bonne réponse est NON, et l'accord verbal du seul manager ne suffit pas (la DRH doit aussi valider, et l'avenant doit être signé). La réponse canonique ne couvre pas le cas de figure posé : l'employé pourrait en déduire qu'il faut un avenant SANS comprendre que l'accord verbal du manager seul ne suffit pas à déclencher le droit."
     }
   ]
 }

@@ -64,6 +64,101 @@ ciblée.
 
 ---
 
+## Cycle de vie d'une réponse canonique
+
+Comment une réponse naît en RAG, accumule des validations, devient canonique, puis est
+servie directement — ou bloquée — sur de futures questions similaires.
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  PHASE 1 — Première question, aucun cache                                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  Employé A : « Quel est le montant de l'indemnité de télétravail ? »
+       │
+       ▼
+  Recherche hybride Qdrant ── aucun point avec reponse_id trouvé
+       │
+       ▼
+  Reranking → Génération LLM
+       │
+       ▼
+  Reponse(source=LLM, statut=EN_ATTENTE)   ← en attente de validation humaine
+       │
+       ├── Validateur 1 → statut=VALIDÉE, nb_validations=1
+       ├── Validateur 2 →                 nb_validations=2
+       └── Validateur 3 →                 nb_validations=3 ≥ SEUIL_CANONIQUE
+                │
+                ▼
+           canonique=True
+           feedback_job() : indexation dans Qdrant
+                │
+                └── Point Qdrant :
+                      vecteur = embed(question originale)   ← question, pas réponse
+                      payload = { reponse_id, contenu: "15 €/mois…", domaine: RH }
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  PHASE 2 — Question suivante : paraphrase légitime                          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  Employé B : « Combien touche-t-on quand on travaille depuis chez soi ? »
+       │
+       ▼
+  Recherche hybride ── point canonique retrouvé, score_cosinus = 0.71
+                       (≥ SEUIL_CANDIDAT_CANONIQUE 0.70 ✓)
+       │
+       ▼
+  trouver_reponse_reutilisable() → Reponse canonique
+       │
+       ▼
+  Garde [2] pertinence : SUFFISANTE  (même intention, vocabulaire différent)
+       │
+       ▼
+  Garde [6] ancrage    : ETAYEE      (15 €, 4 jours confirmés dans les extraits)
+       │
+       ▼
+  Reponse(source=CANONIQUE, statut=VALIDÉE, garde_verdict=SUFFISANTE_ETAYEE)
+       │
+       └── ✓ Servie immédiatement, zéro validateur humain
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  PHASE 3 — Question suivante : variante dangereuse                          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  Employé C : « Quel est le montant de l'indemnité pour un alternant ? »
+       │
+       ▼
+  Recherche hybride ── point canonique retrouvé, score_cosinus = 0.84
+       │
+       ▼
+  Garde [2] pertinence : SUFFISANTE  ← le juge ne voit pas que le doc
+  │                                     ne couvre pas les alternants
+  ▼
+  Garde [6] ancrage    : NON_ETAYEE  ← les extraits ne mentionnent pas
+  │                                     les alternants : silence = refus
+  ▼
+  garde_verdict=NON_ETAYEE → refus → bascule en RAG
+       │
+       ▼
+  Reranking → Génération LLM → réponse ciblée (probablement HORS_DOMAINE)
+  Reponse(source=LLM, statut=EN_ATTENTE, garde_verdict=NON_ETAYEE)
+       │
+       └── ✗ Validateur humain requis (trace du refus conservée pour audit)
+```
+
+**Trois invariants à retenir :**
+
+1. Le vecteur indexé est celui de la **question**, pas de la réponse — question↔question
+   donne un cosinus exploitable, question↔réponse plafonnait à ~0.50.
+2. `source == "CANONIQUE"` est le seul marqueur d'un service sans relecture humaine.
+   `garde_verdict` est tracé dans les deux sens (approbation *et* refus) pour l'audit.
+3. Un refus du garde renvoie au **RAG**, jamais en SUGGESTION — proposer au validateur
+   une réponse connue pour être inadaptée serait contre-productif.
+
+---
+
 ## Seuils de décision
 
 | Variable | Valeur par défaut | Rôle |

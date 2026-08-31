@@ -8,9 +8,11 @@
 - `backend/app/services/garde_cache.py` — les deux juges
 - `backend/app/services/question_pipeline.py` — les seuils et la décision de branche
 - `backend/app/workers/question.py` — l'appel du garde (étape 2)
-- `backend/scripts/eval_accord_rag_cache.py` — la mesure des conceptions
+- `backend/scripts/eval_accord_rag_cache.py` — la mesure des conceptions initiales
+- `backend/scripts/eval_ajustement_garde.py` — le calibrage des invites (stratégie E)
+- `backend/scripts/eval_rag_complet.py` — évaluation bout en bout : qualité RAG + garde
 - `backend/scripts/eval_plancher_candidature.py` — la mesure des seuils
-- `backend/tests/dataset_precision.json` — le jeu adversarial
+- `backend/tests/dataset_precision.json` — le jeu adversarial (14 cas, 8 RAG + 6 CACHE)
 
 ---
 
@@ -113,11 +115,21 @@ question ; les deux rôles sont distincts, d'où la conjonction plutôt qu'un ju
 ### [6] — ancrage
 
 Voit la **question**, les **extraits sources** (top-5 rerankés) et la **réponse en cache**.
-Sa règle centrale, celle qui attrape les précisions :
+Deux règles symétriques :
 
 > « la question porte sur un cas particulier, une condition, une population, une période ou
 > une entité dont les extraits ne disent rien. **Le silence des documents n'autorise JAMAIS à
 > servir : c'est une réponse à donner, pas une lacune à combler.** »
+
+> « Si la question est une **reformulation ou paraphrase** et que les extraits corroborent le
+> contenu factuel de la réponse, réponds ETAYEE même si le vocabulaire de la question diffère
+> de celui de la réponse ou des extraits — **ce qui compte, c'est que les faits soient étayés,
+> pas que les mots soient identiques.** »
+
+La seconde règle a été ajoutée par le calibrage `eval_ajustement_garde.py` (§ 4b). Sans elle,
+l'ancrage confondait une reformulation lexicalement éloignée avec une précision non couverte,
+et bloquait des paraphrases légitimes (ex. : « combien touche-t-on quand on travaille depuis
+chez soi » pour la question canonique sur l'indemnité de télétravail).
 
 ### Pourquoi [6] ne regarde aucun texte généré
 
@@ -141,12 +153,12 @@ moins cher que [3] : pas d'appel à `generate()`.
 
 ---
 
-## 4. Les sept conceptions mesurées
+## 4. Les conceptions mesurées
 
-Contre le vrai Albert, sur `tests/dataset_precision.json`, dans une même session
-(`scripts/eval_accord_rag_cache.py`). « Sert à tort » est la seule colonne qui compte : elle
-expose une réponse fausse en VALIDÉE, sans validateur. « Bloque à tort » ne fait que rendre
-la main au RAG.
+### 4a. Choix de l'architecture ([2] ET [6])
+
+Contre le vrai Albert, sur `tests/dataset_precision.json` (8 cas), dans une même session
+(`scripts/eval_accord_rag_cache.py`). « Sert à tort » est la seule colonne qui compte.
 
 | conception | justes | sert à tort | bloque à tort |
 |---|---|---|---|
@@ -169,6 +181,43 @@ la main au RAG.
   est stable sur ses erreurs, pas seulement sur ses réussites. Répéter ne diversifie pas.
 - **[4], la conjonction avec le RAG frais.** A tenu 3 runs avant de produire une erreur au
   4ᵉ. C'est ce faux sentiment de sécurité qui a motivé [6].
+- **Ancrage seul ([6] sans [2]).** Sur 14 cas (k=2), a servi `deconnexion-astreinte-weekend`
+  à tort dans le run 1 (a_o unanimement ETAYEE alors que la réponse générique n'était pas
+  la bonne pour une astreinte). Sans [2] pour capturer ce cas, le garde n'est pas fiable.
+- **Pertinence seule ([2] sans [6]).** Sert `teletravail-indemnite-alternant` à tort dans
+  tous les runs : [2] dit SUFFISANTE pour la réponse générique face à la question « alternant »
+  (aucune mention de restriction dans la réponse), seul [6] rattrape en constatant que les
+  extraits ne traitent pas les alternants.
+
+### 4b. Calibrage de l'invite d'ancrage ([E] vs [A])
+
+Sur le jeu étendu à 14 cas (`eval_ajustement_garde.py`, 3 runs, k=2 à 3 répétitions par
+juge, unanimité requise pour servir). Six variantes de garde testées en parallèle.
+
+| stratégie | SERT_À_TORT | CACHE correct | notes |
+|---|---|---|---|
+| A — orig ET ancrage_orig (production initiale) | 0 | 1–2/6 | instable sur les paraphrases |
+| B — pertinence seule | **1** | 2–3/6 | sert `alternant` à tort — **éliminée** |
+| C — ancrage seul | 0–1 | 3–4/6 | sert `astreinte` à tort dans le run 1 — **éliminée** |
+| D — pertinence_mod ET ancrage_orig | 0 | 1–2/6 | aucun gain, prompt_mod instable sur `astreinte` |
+| **E — pertinence_orig ET ancrage_mod** | **0** | **2/6 stable** | **retenue** |
+| F — pertinence_mod ET ancrage_mod | 0 | 2/6 | identique à E en pratique |
+
+**Stratégie E retenue** : l'invite d'ancrage est assouplie sur les reformulations
+lexicalement éloignées — les faits doivent être étayés, pas les mots. Gain net : +1 cas
+servi correctement (`teletravail-montant-reformule`, stable sur les 3 runs), 0 erreur
+dangereuse.
+
+**Résidu irréductible** (bloqué dans toutes les stratégies sûres) :
+- `logs-parefeu` et `rgpd-apres-depart-reformule` : [2] dit INSUFFISANTE de façon unanime
+  même avec le prompt modifié — le juge-pertinence ne distingue pas la spécification d'un
+  sous-type couvert d'une restriction sémantique réelle. Seul [C] les sert, mais [C] est
+  dangereux.
+- `onboarding-yubikey-reformule` : [6] dit NON_ETAYEE unanimement (3 runs) même avec le
+  prompt modifié — problème de retrieval, les chunks remontés pour « clé MFA physique » ne
+  contiennent pas le bon passage du document.
+- 4 cas absents (cos < 0.70) : le candidat canonique n'est pas retrouvé en recherche hybride
+  — problème d'embedding, aucun juge ne peut aider.
 
 ### Le modèle
 
@@ -321,16 +370,18 @@ cd backend && source .venv/bin/activate
 python -m pytest tests/test_garde_cache.py tests/test_cache_over_hit.py -v
 
 # Étage réel — opt-in, consomme des tokens Albert
-PYTHONPATH=. python scripts/eval_accord_rag_cache.py --pause 8      # les 7 conceptions
+PYTHONPATH=. python scripts/eval_rag_complet.py                     # qualité RAG + garde bout en bout
+PYTHONPATH=. python scripts/eval_accord_rag_cache.py --pause 8      # les 7 conceptions (architecture)
+PYTHONPATH=. python scripts/eval_ajustement_garde.py --k 3          # calibrage des invites (6 stratégies)
 PYTHONPATH=. python scripts/eval_plancher_candidature.py            # la fenêtre de seuils
 ```
 
-**Critère de succès** : `nikon-mail-non-marque` (cos 0.9589) ne ressort **jamais** CANONIQUE,
-et `teletravail-montant-reformule` (cos 0.7116) ressort CANONIQUE **sans revue humaine**.
-C'est exactement le couple que le pipeline d'avant traitait à l'envers.
+**Critères de succès** :
+- `nikon-mail-non-marque` (cos 0.9589) ne ressort **jamais** CANONIQUE.
+- `teletravail-montant-reformule` (cos 0.7116) ressort CANONIQUE **sans revue humaine**.
+- `eval_ajustement_garde.py` : stratégie E conserve 0 SERT_À_TORT et ≥ 2/6 CACHE corrects.
 
-À répéter **≥ 3 fois** : `temperature=0` n'est pas reproductible chez Albert, et [4] avait
-tenu 3 runs avant de produire une erreur au 4ᵉ.
+À répéter **≥ 3 fois** : `temperature=0` n'est pas reproductible chez Albert.
 
 ### Les bornes honnêtes
 

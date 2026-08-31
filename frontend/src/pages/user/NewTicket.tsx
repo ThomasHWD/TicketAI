@@ -158,8 +158,8 @@ export default function NewTicket() {
             Votre question a bien été soumise
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
-            Elle est en cours d'analyse. Vous recevrez une réponse dans votre
-            espace personnel, généralement sous 24 heures ouvrées.
+            Elle est en cours de traitement. Vous recevrez une réponse dans votre
+            espace personnel.
           </p>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
             <button

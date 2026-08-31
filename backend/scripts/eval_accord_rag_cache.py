@@ -149,8 +149,12 @@ Réponds NON_ETAYEE si l'un de ces points est vrai :
   période ou une entité dont les extraits ne disent rien. Le silence des documents
   n'autorise JAMAIS à servir : c'est une réponse à donner, pas une lacune à combler.
 
-Réponds ETAYEE seulement si les extraits suffisent à établir que la réponse en cache
-répond correctement et complètement à cette question précise.
+Réponds ETAYEE si les extraits confirment que la réponse en cache est correcte
+et complète pour la question posée. Si la question est une reformulation ou
+paraphrase et que les extraits corroborent le contenu factuel de la réponse,
+réponds ETAYEE même si le vocabulaire de la question diffère de celui de la réponse
+ou des extraits — ce qui compte, c'est que les faits soient étayés, pas que les
+mots soient identiques.
 
 N'utilise aucune connaissance extérieure aux extraits. Ne rédige aucune correction.
 Réponds uniquement par un objet JSON :
