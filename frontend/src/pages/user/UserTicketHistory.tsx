@@ -1,27 +1,22 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, ChevronLeft, ChevronRight, Inbox, Plus, Search, X } from "lucide-react";
+import { AlertCircle, Plus, Search, X } from "lucide-react";
 import { getTickets } from "../../lib/api";
 import { getSiteConfig } from "../../lib/api/admin";
 import { getValidatorId } from "../../lib/currentUser";
-import { formatDate, formatRelativeDate } from "../../lib/ticketStatus";
-import UserStatutBadge from "../../components/ui/UserStatutBadge";
+import { TicketHistoryTable } from "../../components/user/TicketHistoryTable";
 import type { Ticket } from "../../types";
 
 const PAGE_SIZE = 10;
 
-// ─── filtering ───────────────────────────────────────────────────────────────
-
 type Tab = "toutes" | "en_traitement" | "repondues" | "cloturees";
-
 const TABS: { value: Tab; label: string }[] = [
   { value: "toutes",        label: "Toutes" },
   { value: "en_traitement", label: "En traitement" },
   { value: "repondues",     label: "Répondues" },
   { value: "cloturees",     label: "Clôturées" },
 ];
-
 const VALID_TABS: Tab[] = ["toutes", "en_traitement", "repondues", "cloturees"];
 
 function matchesTab(t: Ticket, tab: Tab): boolean {
@@ -35,242 +30,44 @@ function matchesTab(t: Ticket, tab: Tab): boolean {
   }
 }
 
-function matchesSearch(t: Ticket, q: string): boolean {
-  if (!q) return true;
-  return (t.objet ?? t.question).toLowerCase().includes(q.toLowerCase());
-}
-
-// ─── auto-cloture countdown ──────────────────────────────────────────────────
-
-function clotureLabel(remaining: number, dateMs: number): string {
-  if (remaining <= 0) return "Clôture auto imminente";
-  if (remaining < 3_600_000) return "Clôture auto dans moins d'1 h";
-  if (remaining < 86_400_000) {
-    const h = Math.floor(remaining / 3_600_000);
-    return `Clôture auto dans ${h} h`;
-  }
-  if (remaining < 2 * 86_400_000) return "Clôture auto demain";
-  return `Clôture auto le ${new Date(dateMs).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
-}
-
-function AutoClotureTimer({ ticket, joursConfig }: { ticket: Ticket; joursConfig: number }) {
-  const eligible =
-    ticket.statut_ticket === "VALIDÉ" && !ticket.closed_at && !!ticket.validated_at;
-
-  const dateClotureMs = eligible
-    ? new Date(ticket.validated_at!).getTime() + joursConfig * 86_400_000
-    : 0;
-
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!eligible) return;
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, [eligible]);
-
-  if (!eligible) return null;
-
-  const remaining = dateClotureMs - now;
-  const isUrgent = remaining < 86_400_000;
-  const isWarning = remaining < 2 * 86_400_000;
-
-  return (
-    <span
-      aria-label={`Clôture automatique le ${new Date(dateClotureMs).toLocaleDateString("fr-FR")}`}
-      className={`block text-[11px] leading-none mt-1.5 tabular-nums ${
-        isUrgent
-          ? "font-medium text-red-500 dark:text-red-400"
-          : isWarning
-          ? "text-amber-500 dark:text-amber-400"
-          : "text-gray-500 dark:text-gray-400"
-      }`}
-    >
-      {clotureLabel(remaining, dateClotureMs)}
-    </span>
-  );
-}
-
-// ─── sub-components ──────────────────────────────────────────────────────────
-
-function DomainChip({ domaine }: { domaine: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/10 whitespace-nowrap">
-      <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" aria-hidden="true" />
-      {domaine}
-    </span>
-  );
-}
-
-function SkeletonRow() {
-  return (
-    <tr className="animate-pulse" aria-hidden="true">
-      <td className="px-5 py-4">
-        <div className="h-4 rounded-md bg-gray-200 dark:bg-white/10 w-3/4" />
-      </td>
-      <td className="hidden sm:table-cell px-5 py-4">
-        <div className="h-5 rounded-full bg-gray-200 dark:bg-white/10 w-16" />
-      </td>
-      <td className="hidden sm:table-cell px-5 py-4">
-        <div className="h-4 rounded-md bg-gray-200 dark:bg-white/10 w-28" />
-      </td>
-      <td className="px-5 py-4">
-        <div className="h-5 rounded-full bg-gray-200 dark:bg-white/10 w-24" />
-      </td>
-    </tr>
-  );
-}
-
-function ErrorState({ error, onRetry }: { error: unknown; onRetry: () => void }) {
-  return (
-    <tr>
-      <td colSpan={4}>
-        <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-          <div className="w-11 h-11 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-center justify-center mb-4">
-            <AlertCircle size={20} className="text-red-500 dark:text-red-400" aria-hidden="true" />
-          </div>
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Impossible de charger vos questions
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-            {error instanceof Error ? error.message : "Une erreur est survenue. Réessayez dans quelques instants."}
-          </p>
-          <button
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors"
-          >
-            Réessayer
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function EmptyState({
-  isFiltered,
-  onNew,
-  onReset,
-}: {
-  isFiltered: boolean;
-  onNew: () => void;
-  onReset: () => void;
-}) {
-  return (
-    <tr>
-      <td colSpan={4}>
-        <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-          <div className="w-11 h-11 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center mb-4 shadow-sm">
-            <Inbox size={20} className="text-gray-500 dark:text-gray-400" aria-hidden="true" />
-          </div>
-          {isFiltered ? (
-            <>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Aucun résultat
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                Aucune question ne correspond à ce filtre.
-              </p>
-              <button
-                onClick={onReset}
-                className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
-              >
-                Effacer les filtres
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Aucune question pour l'instant
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
-                Vos échanges avec le service d'assistance apparaîtront ici.
-              </p>
-              <button
-                onClick={onNew}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors"
-              >
-                <Plus size={15} aria-hidden="true" />
-                Poser ma première question
-              </button>
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-// ─── main ────────────────────────────────────────────────────────────────────
-
 export default function UserTicketHistory() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const userId = getValidatorId();
 
-  // ── URL-persisted state ──────────────────────────────────────────────────
   const rawTab = searchParams.get("tab") as Tab;
   const activeTab: Tab = VALID_TABS.includes(rawTab) ? rawTab : "toutes";
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const debouncedSearch = searchParams.get("q") ?? "";
-
-  // Local input state so keystrokes feel instant; URL updates after 300 ms
   const [inputSearch, setInputSearch] = useState(debouncedSearch);
 
-  // Sync input when URL q changes externally (back/forward navigation)
-  useEffect(() => {
-    setInputSearch(debouncedSearch);
-  }, [debouncedSearch]);
+  useEffect(() => { setInputSearch(debouncedSearch); }, [debouncedSearch]);
 
-  // Debounce: write to URL after user stops typing
   useEffect(() => {
     const t = setTimeout(() => {
-      setSearchParams(
-        (prev) => {
-          if (inputSearch) prev.set("q", inputSearch);
-          else prev.delete("q");
-          prev.delete("page");
-          return prev;
-        },
-        { replace: true },
-      );
+      setSearchParams((prev) => {
+        if (inputSearch) prev.set("q", inputSearch); else prev.delete("q");
+        prev.delete("page");
+        return prev;
+      }, { replace: true });
     }, 300);
     return () => clearTimeout(t);
   }, [inputSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function setActiveTab(tab: Tab) {
-    setSearchParams(
-      (prev) => { prev.set("tab", tab); prev.delete("page"); return prev; },
-      { replace: true },
-    );
+    setSearchParams((prev) => { prev.set("tab", tab); prev.delete("page"); return prev; }, { replace: true });
   }
 
-  function setPage(updater: number | ((p: number) => number)) {
-    const next = typeof updater === "function" ? updater(page) : updater;
-    setSearchParams(
-      (prev) => { prev.set("page", String(next)); return prev; },
-      { replace: true },
-    );
-  }
-
-  function clearSearch() {
-    setInputSearch("");
-    setSearchParams(
-      (prev) => { prev.delete("q"); prev.delete("page"); return prev; },
-      { replace: true },
-    );
+  function setPage(updater: (p: number) => number) {
+    setSearchParams((prev) => { prev.set("page", String(updater(page))); return prev; }, { replace: true });
   }
 
   function resetFilters() {
     setInputSearch("");
-    setSearchParams(
-      (prev) => { prev.delete("tab"); prev.delete("q"); prev.delete("page"); return prev; },
-      { replace: true },
-    );
+    setSearchParams((prev) => { prev.delete("tab"); prev.delete("q"); prev.delete("page"); return prev; }, { replace: true });
   }
 
-  // ── Queries ──────────────────────────────────────────────────────────────
   const { data, isLoading, error } = useQuery({
     queryKey: ["mes-tickets", userId],
     queryFn: () => getTickets({ limit: 400, userId }),
@@ -288,7 +85,6 @@ export default function UserTicketHistory() {
   const totalCount = data?.total ?? allTickets.length;
   const isTruncated = !isLoading && (data?.total ?? 0) > allTickets.length;
 
-  // ── Filtering ────────────────────────────────────────────────────────────
   const counts = useMemo<Record<Tab, number>>(() => ({
     toutes:        allTickets.length,
     en_traitement: allTickets.filter((t) => matchesTab(t, "en_traitement")).length,
@@ -297,7 +93,10 @@ export default function UserTicketHistory() {
   }), [allTickets]);
 
   const filtered = useMemo(
-    () => allTickets.filter((t) => matchesTab(t, activeTab) && matchesSearch(t, debouncedSearch)),
+    () => allTickets.filter((t) =>
+      matchesTab(t, activeTab) &&
+      (!debouncedSearch || (t.objet ?? t.question).toLowerCase().includes(debouncedSearch.toLowerCase()))
+    ),
     [allTickets, activeTab, debouncedSearch],
   );
 
@@ -309,12 +108,9 @@ export default function UserTicketHistory() {
 
   return (
     <div className="p-6 space-y-5">
-
-      {/* ── Page header ─────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
-          Mon historique
-        </h1>
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 tracking-tight">Mon historique</h1>
         {!isLoading && totalCount > 0 && (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 tabular-nums border border-gray-200/60 dark:border-white/[0.08]">
             {totalCount}
@@ -322,7 +118,7 @@ export default function UserTicketHistory() {
         )}
       </div>
 
-      {/* ── Toolbar : onglets | recherche ───────────────────────────────── */}
+      {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap">
         <nav className="flex items-center gap-1 flex-1 min-w-0" aria-label="Filtrer par statut">
           {TABS.map((tab) => {
@@ -350,178 +146,53 @@ export default function UserTicketHistory() {
           })}
         </nav>
 
-        {/* Séparateur */}
         <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
 
-        {/* Recherche */}
         <div className="relative shrink-0 w-full sm:w-48">
-          <Search
-            size={13}
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none"
-            aria-hidden="true"
-          />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none" aria-hidden="true" />
           <input
-            type="search"
-            placeholder="Rechercher…"
-            aria-label="Rechercher dans l'historique"
-            value={inputSearch}
-            onChange={(e) => setInputSearch(e.target.value)}
+            type="search" placeholder="Rechercher…" aria-label="Rechercher dans l'historique"
+            value={inputSearch} onChange={(e) => setInputSearch(e.target.value)}
             className="pl-8 pr-7 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full transition-shadow"
           />
           {inputSearch && (
-            <button
-              onClick={clearSearch}
-              aria-label="Effacer la recherche"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-            >
+            <button onClick={() => setInputSearch("")} aria-label="Effacer la recherche" className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
               <X size={12} aria-hidden="true" />
             </button>
           )}
         </div>
 
-        {/* Séparateur */}
         <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
 
-        {/* CTA */}
-        <button
-          onClick={() => navigate("/nouveau-ticket")}
-          className="inline-flex items-center gap-1.5 shrink-0 text-sm font-medium px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
-        >
+        <button onClick={() => navigate("/nouveau-ticket")} className="inline-flex items-center gap-1.5 shrink-0 text-sm font-medium px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors">
           <Plus size={14} className="text-emerald-500" aria-hidden="true" />
           Nouvelle question
         </button>
       </div>
 
-      {/* ── Truncation banner ────────────────────────────────────────────── */}
       {isTruncated && (
-        <div
-          role="status"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-700 dark:text-amber-400"
-        >
+        <div role="status" className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
           <AlertCircle size={13} className="shrink-0" aria-hidden="true" />
           Seules les {allTickets.length} questions les plus récentes sont affichées ({data?.total} au total).
         </div>
       )}
 
-      {/* ── Table ───────────────────────────────────────────────────────── */}
-      <div className="glass-card rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" aria-label="Historique des questions">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50/60 dark:bg-white/[0.02]">
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-full">
-                  Objet
-                </th>
-                <th className="hidden sm:table-cell px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Domaine
-                </th>
-                <th className="hidden sm:table-cell px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-                  Posée le
-                </th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">
-                  Statut
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-white/[0.04]" aria-busy={isLoading}>
-              {isLoading && (
-                <>
-                  <SkeletonRow />
-                  <SkeletonRow />
-                  <SkeletonRow />
-                  <SkeletonRow />
-                  <SkeletonRow />
-                </>
-              )}
-              {!isLoading && error && (
-                <ErrorState
-                  error={error}
-                  onRetry={() => queryClient.invalidateQueries({ queryKey: ["mes-tickets", userId] })}
-                />
-              )}
-              {!isLoading && !error && pageTickets.length === 0 && (
-                <EmptyState
-                  isFiltered={isFiltered}
-                  onNew={() => navigate("/nouveau-ticket")}
-                  onReset={resetFilters}
-                />
-              )}
-              {!isLoading &&
-                pageTickets.map((t) => (
-                  <tr
-                    key={t.id}
-                    onClick={() => navigate(`/historique/${t.id}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        navigate(`/historique/${t.id}`);
-                      }
-                    }}
-                    tabIndex={0}
-                    aria-label={`Voir le détail de : ${t.objet ?? t.question}`}
-                    className="group hover:bg-gray-50/80 dark:hover:bg-white/[0.03] transition-colors duration-100 cursor-pointer focus-within:bg-gray-50/80 dark:focus-within:bg-white/[0.03] focus-visible:outline-none"
-                  >
-                    <td className="px-5 py-4">
-                      <span
-                        className="block truncate font-medium text-gray-800 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors duration-100"
-                        title={t.objet ?? t.question}
-                      >
-                        {t.objet ?? t.question}
-                      </span>
-                    </td>
-                    <td className="hidden sm:table-cell px-5 py-4">
-                      <DomainChip domaine={t.domaine} />
-                    </td>
-                    <td className="hidden sm:table-cell px-5 py-4 whitespace-nowrap">
-                      <span
-                        className="text-xs text-gray-500 dark:text-gray-400"
-                        title={formatDate(t.created_at)}
-                      >
-                        {formatRelativeDate(t.created_at)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <div className="flex flex-col items-start gap-0.5">
-                        <UserStatutBadge ticket={t} />
-                        <AutoClotureTimer ticket={t} joursConfig={joursAutoCloture} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── Pagination ──────────────────────────────────────────────── */}
-        {!isLoading && filtered.length > 0 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/40 dark:bg-white/[0.01]">
-            <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums" aria-live="polite">
-              {from}–{to} sur {filtered.length} question{filtered.length > 1 ? "s" : ""}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                aria-label="Page précédente"
-                className="p-2 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft size={14} aria-hidden="true" />
-              </button>
-              <span className="text-xs text-gray-500 dark:text-gray-400 px-2 tabular-nums font-medium">
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                aria-label="Page suivante"
-                className="p-2 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight size={14} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <TicketHistoryTable
+        tickets={pageTickets}
+        isLoading={isLoading}
+        error={error}
+        isFiltered={isFiltered}
+        joursAutoCloture={joursAutoCloture}
+        from={from}
+        to={to}
+        page={page}
+        totalPages={totalPages}
+        filteredCount={filtered.length}
+        onRetry={() => queryClient.invalidateQueries({ queryKey: ["mes-tickets", userId] })}
+        onNew={() => navigate("/nouveau-ticket")}
+        onReset={resetFilters}
+        onPageChange={setPage}
+      />
     </div>
   );
 }
