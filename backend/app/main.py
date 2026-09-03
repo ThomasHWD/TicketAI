@@ -14,8 +14,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="TicketAI",
-    description="API de gestion de tickets grâce à l'IA",
+    title="Ticket - ONaCVG",
+    description="App de gestion de tickets pour ONaCVG",
     version="0.1.0",
     lifespan=lifespan,
 )

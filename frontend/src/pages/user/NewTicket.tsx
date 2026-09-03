@@ -141,7 +141,7 @@ export default function NewTicket() {
           Besoin d'un renseignement ?
         </h1>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Décrivez votre demande — un expert de votre domaine vous répondra.
+          Décrivez votre demande, un expert vous répondra.
         </p>
       </div>
 

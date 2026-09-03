@@ -330,8 +330,8 @@ export default function UserDashboard() {
               Posez votre première question
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
-              Notre IA analyse votre demande et propose une réponse validée par
-              un expert de votre domaine — RH, IT ou Juridique.
+              Notre équipe traite votre demande et vous propose une réponse
+              dans les meilleurs délais.
             </p>
           </div>
           <button
@@ -446,7 +446,7 @@ export default function UserDashboard() {
         {/* Hint contextuel : visible uniquement quand seule la section "en cours" est affichée */}
         {!hasPendingReplies && hasInProgress && !hasRejected && (
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Votre question est analysée par notre IA — la réponse sera disponible
+            Votre question est en cours de traitement — la réponse sera disponible
             une fois validée par un expert de votre domaine, généralement sous 24 h.
           </p>
         )}

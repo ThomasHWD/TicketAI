@@ -69,3 +69,16 @@ class ConfigPayload(BaseModel):
 
 class ChefPayload(BaseModel):
     is_chef: bool
+
+
+class AlbertModelUsage(BaseModel):
+    nom: str
+    tokens_aujourd_hui: int = 0
+    requetes_aujourd_hui: int = 0
+
+
+class AlbertQuotasResponse(BaseModel):
+    limite_tpd: int | None = None
+    limite_rpd: int | None = None
+    budget: float | None = None
+    modeles: list[AlbertModelUsage] = []
