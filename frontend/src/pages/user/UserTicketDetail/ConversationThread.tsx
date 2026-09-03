@@ -70,7 +70,7 @@ function PendingAnswer({ date }: { date: string | null }) {
       <BotAvatar pulse />
       <div className="space-y-1.5">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">TicketAI</span>
+          <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Assistant</span>
           {date && (
             <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(date)}</span>
           )}
@@ -124,7 +124,7 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
 
   const isCanonique = reponse.canonique;
   const authorLabel = isCanonique
-    ? "TicketAI"
+    ? "Assistant"
     : reponse.validator_nom_complet ?? reponse.validator_email ?? "Assistance";
 
   return (
