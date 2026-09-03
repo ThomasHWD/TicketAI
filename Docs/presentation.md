@@ -1,6 +1,6 @@
 # TicketAI — Présentation du projet
 
-TicketAI est un helpdesk interne alimenté par l'IA qui répond automatiquement aux questions des employés (RH, IT, Juridique) en s'appuyant sur une base de connaissances validée par des experts métier.
+TicketAI est un helpdesk interne alimenté par l'IA qui répond automatiquement aux questions des employés en s'appuyant sur une base de connaissances validée par des experts métier.
 
 ---
 
@@ -16,7 +16,7 @@ Chaque validation renforce la base : au bout de trois validations, une réponse 
 
 | Rôle | Ce qu'ils font |
 |---|---|
-| **Employé** | Soumet une question dans son domaine (RH, IT, Juridique) et consulte les réponses depuis l'espace utilisateur |
+| **Employé** | Soumet une question dans son domaine et consulte les réponses depuis l'espace utilisateur |
 | **Validateur** (expert métier) | Valide, corrige ou rejette les réponses générées par l'IA depuis le backoffice ; gère la base documentaire |
 | **Admin** | Configure les seuils, les groupes, les domaines et surveille la santé de la plateforme |
 
@@ -80,7 +80,7 @@ La base de connaissances s'enrichit naturellement au fil des validations, sans a
 
 - Déploiement interne mono-organisation, sans multi-tenancy
 - Interface entièrement en français (UI, prompts, documents)
-- Domaines configurables par l'admin (par défaut : RH, IT, Juridique)
+- Domaines configurables par l'admin
 - Documents supportés : PDF, DOCX, TXT, MD
 - Mise à jour documentaire versionnée : remplacer un document déclenche une révérification automatique des réponses existantes
 - Authentification LDAP (production) ou base locale (développement)

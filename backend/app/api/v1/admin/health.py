@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from uuid import UUID
 
+import httpx
 import redis as redis_lib
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
@@ -19,6 +20,8 @@ from app.models.reponse import Reponse
 from app.models.site_config import SiteConfig
 from app.models.ticket import Ticket
 from app.schemas.admin import (
+    AlbertModelUsage,
+    AlbertQuotasResponse,
     ConfigPayload,
     FunctionalStats,
     HealthResponse,
@@ -159,6 +162,77 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
             celery_workers_questions=workers_q,
             derniere_activite=derniere_activite,
         ),
+    )
+
+
+@router.get("/albert-quotas", response_model=AlbertQuotasResponse)
+def get_albert_quotas(_: AdminUser) -> AlbertQuotasResponse:
+    base = settings.albert_llm_url  # e.g. "https://albert.api.etalab.gouv.fr/v1"
+    headers = {"Authorization": f"Bearer {settings.albert_api_key}"}
+
+    info: dict = {}
+    try:
+        r = httpx.get(f"{base}/me/info", headers=headers, timeout=5.0)
+        if r.is_success:
+            info = r.json()
+    except Exception:
+        pass
+
+    now_utc = datetime.now(timezone.utc)
+    start_of_today = int(datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc).timestamp())
+
+    usage_data: list = []
+    try:
+        PAGE = 100
+        offset = 0
+        while True:
+            r = httpx.get(
+                f"{base}/me/usage",
+                headers=headers,
+                params={"start_time": start_of_today, "limit": PAGE, "offset": offset},
+                timeout=10.0,
+            )
+            if not r.is_success:
+                break
+            page = r.json().get("data") or []
+            usage_data.extend(page)
+            if len(page) < PAGE:
+                break
+            offset += PAGE
+    except Exception:
+        pass
+
+    limits_raw: list = info.get("limits") or []
+    tpd_values = [lim["value"] for lim in limits_raw if lim.get("type") == "tpd" and lim.get("value") is not None]
+    rpd_values = [lim["value"] for lim in limits_raw if lim.get("type") == "rpd" and lim.get("value") is not None]
+    limite_tpd: int | None = min(tpd_values) if tpd_values else None
+    limite_rpd: int | None = min(rpd_values) if rpd_values else None
+
+    today = now_utc.date()
+    aggregated: dict[str, dict] = {}
+    for event in usage_data:
+        created = event.get("created") or 0
+        if datetime.fromtimestamp(created, tz=timezone.utc).date() != today:
+            continue
+        model = event.get("model") or "inconnu"
+        if model not in aggregated:
+            aggregated[model] = {"tokens": 0, "requests": 0}
+        usage_evt = event.get("usage") or {}
+        aggregated[model]["tokens"] += usage_evt.get("prompt_tokens") or 0
+        aggregated[model]["requests"] += 1
+
+    return AlbertQuotasResponse(
+        limite_tpd=limite_tpd,
+        limite_rpd=limite_rpd,
+        budget=info.get("budget"),
+        modeles=[
+            AlbertModelUsage(
+                nom=model,
+                tokens_aujourd_hui=data["tokens"],
+                requetes_aujourd_hui=data["requests"],
+            )
+            for model, data in sorted(aggregated.items())
+        ],
     )
 
 
