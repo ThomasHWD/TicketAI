@@ -18,6 +18,196 @@ function useDark() {
   return dark;
 }
 
+const TICKET_EXAMPLES = [
+  {
+    domain: "RH",
+    color: "#2FE272",
+    bg: "rgba(47,226,114,.15)",
+    text: "Quels sont les délais légaux pour valider un arrêt de travail ?",
+  },
+  {
+    domain: "Comptabilité",
+    color: "#60a5fa",
+    bg: "rgba(96,165,250,.15)",
+    text: "Quelle est la procédure de remboursement des frais de déplacement ?",
+  },
+  {
+    domain: "Juridique",
+    color: "#fb923c",
+    bg: "rgba(251,146,60,.15)",
+    text: "Quelles pièces sont requises pour une demande d'allocation ?",
+  },
+];
+
+function TicketAnimation() {
+  const [idx, setIdx] = useState(0);
+  const [charIdx, setCharIdx] = useState(0);
+  const [phase, setPhase] = useState<"typing" | "hold" | "erasing">("typing");
+  const [cursor, setCursor] = useState(true);
+
+  const ticket = TICKET_EXAMPLES[idx];
+  const displayText = ticket.text.slice(0, charIdx);
+  const showSend = charIdx === ticket.text.length && phase !== "erasing";
+
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    if (phase === "typing") {
+      if (charIdx < ticket.text.length) {
+        t = setTimeout(() => setCharIdx((c) => c + 1), 42 + Math.random() * 28);
+      } else {
+        t = setTimeout(() => setPhase("hold"), 1800);
+      }
+    } else if (phase === "hold") {
+      t = setTimeout(() => setPhase("erasing"), 500);
+    } else {
+      if (charIdx > 0) {
+        t = setTimeout(() => setCharIdx((c) => c - 1), 18);
+      } else {
+        setIdx((i) => (i + 1) % TICKET_EXAMPLES.length);
+        setPhase("typing");
+      }
+    }
+    return () => clearTimeout(t);
+  }, [phase, charIdx, ticket.text.length]);
+
+  useEffect(() => {
+    const t = setInterval(() => setCursor((v) => !v), 530);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div
+      className="tk-illus-float"
+      style={{ animation: "tk-float 4.2s ease-in-out infinite", width: 320 }}
+    >
+      <div
+        style={{
+          background: "rgba(5,20,14,.9)",
+          border: `1px solid ${ticket.color}2e`,
+          borderRadius: 16,
+          padding: "22px 22px 18px",
+          boxShadow: `0 0 56px -12px ${ticket.color}1a, 0 24px 48px -16px rgba(0,0,0,.65)`,
+          backdropFilter: "blur(12px)",
+          transition: "border-color .8s ease, box-shadow .8s ease",
+        }}
+      >
+        {/* Header row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 18,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "rgba(234,255,242,.7)",
+              letterSpacing: "-.01em",
+            }}
+          >
+            Nouvelle question
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              padding: "3px 10px",
+              borderRadius: 20,
+              background: ticket.bg,
+              color: ticket.color,
+              transition: "background .8s ease, color .8s ease",
+              letterSpacing: ".01em",
+            }}
+          >
+            {ticket.domain}
+          </span>
+        </div>
+
+        {/* Question text area */}
+        <div
+          style={{
+            background: "rgba(255,255,255,.03)",
+            border: "1px solid rgba(127,224,166,.1)",
+            borderRadius: 10,
+            padding: "13px 14px",
+            minHeight: 88,
+            fontSize: 13.5,
+            color: "#eafff2",
+            lineHeight: 1.6,
+            letterSpacing: "-.005em",
+          }}
+        >
+          {displayText.length === 0 ? (
+            <span style={{ color: "rgba(127,185,155,.28)" }}>
+              Décrivez votre demande…
+            </span>
+          ) : (
+            <>
+              {displayText}
+              <span
+                style={{
+                  opacity: cursor ? 1 : 0,
+                  color: ticket.color,
+                  fontWeight: 300,
+                  transition: "opacity .06s",
+                }}
+              >
+                |
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Footer: progress pips + send button */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            marginTop: 14,
+          }}
+        >
+          {TICKET_EXAMPLES.map((_, i) => (
+            <div
+              key={i}
+              style={{
+                height: 5,
+                width: i === idx ? 20 : 5,
+                borderRadius: 3,
+                background: i === idx ? ticket.color : "rgba(127,224,166,.18)",
+                transition: "all .5s cubic-bezier(.16,1,.3,1)",
+              }}
+            />
+          ))}
+          <div style={{ flex: 1 }} />
+          <div
+            style={{
+              padding: "6px 16px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: ".01em",
+              background: showSend
+                ? "linear-gradient(100deg,#168B46,#2FE272)"
+                : "rgba(127,224,166,.08)",
+              color: showSend ? "#06140d" : "rgba(127,185,155,.28)",
+              boxShadow: showSend ? "0 4px 14px -4px rgba(47,226,114,.5)" : "none",
+              transition: "all .4s cubic-bezier(.16,1,.3,1)",
+              cursor: "default",
+              userSelect: "none" as const,
+            }}
+          >
+            Envoyer
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -25,7 +215,7 @@ export default function Login() {
   const dark = useDark();
 
   const theme = dark
-    ? { bg: "#071310", text: "#eafff2", sub: "#7fb99b", border: "rgba(127,224,166,.18)", field: "rgba(255,255,255,.03)", inputCls: "tk-login-input" }
+    ? { bg: "#101f18", text: "#eafff2", sub: "#7fb99b", border: "rgba(127,224,166,.18)", field: "rgba(255,255,255,.03)", inputCls: "tk-login-input" }
     : { bg: "#F8FAFC", text: "#112F21", sub: "#5a7166", border: "rgba(17,47,33,.14)", field: "#ffffff", inputCls: "tk-login-input tk-login-input-light" };
 
   const from = (location.state as { from?: string } | null)?.from ?? "/";
@@ -38,16 +228,10 @@ export default function Login() {
   return (
     <>
       <style>{`
-        @keyframes tk-float   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
-        @keyframes tk-antenna { 0%,100%{transform:scale(.6);opacity:0} 15%{opacity:.9} 70%{opacity:0} 100%{transform:scale(2.6);opacity:0} }
-        @keyframes tk-tip     { 0%,100%{opacity:.55;filter:drop-shadow(0 0 2px #2FE272)} 50%{opacity:1;filter:drop-shadow(0 0 8px #2FE272)} }
-        @keyframes tk-blink   { 0%,42%,48%,92%,100%{transform:scaleY(1)} 45%,90.5%{transform:scaleY(.08)} }
-        @keyframes tk-code    { 0%,100%{opacity:.35} 50%{opacity:.85} }
-        @keyframes tk-rise    { 0%{opacity:0;transform:translateY(16px)} 100%{opacity:1;transform:translateY(0)} }
-        @keyframes tk-grid    { 0%{background-position:0 0} 100%{background-position:44px 44px} }
-        @keyframes tk-ticket  { 0%{transform:translateX(-14px);opacity:0} 18%{opacity:1} 82%{opacity:1} 100%{transform:translateX(16px);opacity:0} }
-        @keyframes tk-scan    { 0%{transform:translateY(0);opacity:0} 12%{opacity:1} 88%{opacity:1} 100%{transform:translateY(26px);opacity:0} }
-        @keyframes spin       { to{transform:rotate(360deg)} }
+        @keyframes tk-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+        @keyframes tk-rise  { 0%{opacity:0;transform:translateY(16px)} 100%{opacity:1;transform:translateY(0)} }
+        @keyframes tk-grid  { 0%{background-position:0 0} 100%{background-position:44px 44px} }
+        @keyframes spin     { to{transform:rotate(360deg)} }
 
         .tk-login-input {
           width: 100%;
@@ -56,7 +240,7 @@ export default function Login() {
           border: 1px solid rgba(127,224,166,.18);
           background: rgba(255,255,255,.03);
           color: #eafff2;
-          font-family: 'Space Grotesk', system-ui, sans-serif;
+          font-family: 'Geist Variable', sans-serif;
           font-size: 14.5px;
           outline: none;
           transition: border-color .15s, box-shadow .15s;
@@ -83,7 +267,7 @@ export default function Login() {
           border: none;
           background: linear-gradient(100deg, #168B46, #2FE272);
           color: #06140d;
-          font-family: 'Space Grotesk', system-ui, sans-serif;
+          font-family: 'Geist Variable', sans-serif;
           font-size: 15px;
           font-weight: 700;
           letter-spacing: .01em;
@@ -111,24 +295,26 @@ export default function Login() {
         .tk-pw-toggle:hover { color: var(--tk-text); }
 
         @media (prefers-reduced-motion: reduce) {
-          .tk-robot-float, .tk-grid-bg { animation: none !important; }
+          .tk-illus-float, .tk-grid-bg { animation: none !important; }
         }
       `}</style>
 
-      <div style={{
-        position: "fixed", inset: 0, display: "flex",
-        fontFamily: "'Space Grotesk', system-ui, sans-serif",
-        overflow: "auto",
-        "--tk-text": theme.text,
-        "--tk-sub": theme.sub,
-      } as React.CSSProperties}>
+      <div
+        style={{
+          position: "fixed", inset: 0, display: "flex",
+          fontFamily: "'Geist Variable', sans-serif",
+          overflow: "auto",
+          "--tk-text": theme.text,
+          "--tk-sub": theme.sub,
+        } as React.CSSProperties}
+      >
         {/* ── Left brand panel (md+) ── */}
         <div
           style={{
             position: "relative", flex: "1 1 46%", minWidth: 0,
             display: "flex", flexDirection: "column", justifyContent: "space-between",
             padding: "48px 52px",
-            background: "#050f0c",
+            background: "#081912",
             overflow: "hidden",
           }}
           className="hidden md:flex"
@@ -146,11 +332,14 @@ export default function Login() {
             }}
           />
           {/* Radial glow */}
-          <div aria-hidden="true" style={{
-            position: "absolute", inset: 0,
-            background: "radial-gradient(70% 55% at 30% 40%,rgba(47,226,114,.14) 0%,transparent 70%)",
-            pointerEvents: "none",
-          }} />
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute", inset: 0,
+              background: "radial-gradient(70% 55% at 30% 40%,rgba(47,226,114,.14) 0%,transparent 70%)",
+              pointerEvents: "none",
+            }}
+          />
 
           {/* Logo */}
           <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 12 }}>
@@ -160,62 +349,22 @@ export default function Login() {
             </span>
           </div>
 
-          {/* Robot + tagline */}
-          <div style={{
-            position: "relative", display: "flex", flexDirection: "column",
-            alignItems: "center", gap: 30, padding: "20px 0",
-          }}>
-            <div className="tk-robot-float" style={{ animation: "tk-float 4.2s ease-in-out infinite" }}>
-              <svg width="150" height="188" viewBox="0 0 190 238" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: "block", overflow: "visible" }}>
-                <circle cx="95" cy="20" r="9" fill="none" stroke="#2FE272" strokeWidth="2"
-                  style={{ transformBox: "fill-box", transformOrigin: "center", animation: "tk-antenna 2.6s ease-out infinite" }} />
-                <circle cx="95" cy="20" r="9" fill="none" stroke="#2FE272" strokeWidth="2"
-                  style={{ transformBox: "fill-box", transformOrigin: "center", animation: "tk-antenna 2.6s ease-out infinite", animationDelay: "1.3s" }} />
-                <line x1="95" y1="46" x2="95" y2="26" stroke="#0f6c37" strokeWidth="4" strokeLinecap="round" />
-                <circle cx="95" cy="20" r="6" fill="#2FE272" style={{ animation: "tk-tip 1.6s ease-in-out infinite" }} />
-                <rect x="46" y="44" width="98" height="72" rx="22" fill="#168B46" />
-                <g style={{ transformBox: "fill-box", transformOrigin: "center", animation: "tk-blink 5s ease-in-out 1s infinite" }}>
-                  <circle cx="77" cy="82" r="11" fill="#0d2417" />
-                  <circle cx="77" cy="82" r="7" fill="#2FE272" style={{ filter: "drop-shadow(0 0 6px #2FE272)" }} />
-                  <circle cx="80" cy="79" r="2.4" fill="#eafff2" />
-                  <circle cx="113" cy="82" r="11" fill="#0d2417" />
-                  <circle cx="113" cy="82" r="7" fill="#2FE272" style={{ filter: "drop-shadow(0 0 6px #2FE272)" }} />
-                  <circle cx="116" cy="79" r="2.4" fill="#eafff2" />
-                </g>
-                <rect x="82" y="104" width="26" height="5" rx="2.5" fill="#2FE272" opacity="0.5" />
-                <rect x="86" y="116" width="18" height="10" fill="#0f6c37" />
-                <rect x="24" y="132" width="16" height="52" rx="8" fill="#0f6c37" />
-                <rect x="150" y="132" width="16" height="52" rx="8" fill="#0f6c37" />
-                <rect x="40" y="126" width="110" height="86" rx="20" fill="#168B46" />
-                <rect x="54" y="140" width="82" height="58" rx="10" fill="#06140d" />
-                <rect x="54" y="140" width="82" height="58" rx="10" fill="none" stroke="#2FE272" strokeWidth="1.5" opacity="0.35" />
-                <clipPath id="tkLoginScreen"><rect x="54" y="140" width="82" height="58" rx="10" /></clipPath>
-                <g clipPath="url(#tkLoginScreen)">
-                  <line x1="63" y1="150" x2="98" y2="150" stroke="#2FE272" strokeWidth="2" strokeLinecap="round"
-                    style={{ animation: "tk-code 1.8s ease-in-out infinite" }} />
-                  <line x1="63" y1="158" x2="118" y2="158" stroke="#2FE272" strokeWidth="2" strokeLinecap="round"
-                    style={{ animation: "tk-code 1.8s ease-in-out infinite", animationDelay: ".3s" }} />
-                  <line x1="63" y1="166" x2="88" y2="166" stroke="#2FE272" strokeWidth="2" strokeLinecap="round"
-                    style={{ animation: "tk-code 1.8s ease-in-out infinite", animationDelay: ".6s" }} />
-                  <g style={{ transformBox: "fill-box", transformOrigin: "center", animation: "tk-ticket 2.4s cubic-bezier(.6,0,.3,1) infinite" }}>
-                    <rect x="63" y="176" width="18" height="14" rx="3" fill="none" stroke="#2FE272" strokeWidth="2" />
-                    <line x1="83" y1="183" x2="108" y2="183" stroke="#2FE272" strokeWidth="2.5" strokeLinecap="round" />
-                    <path d="M103 178 L110 183 L103 188" fill="none" stroke="#2FE272" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </g>
-                  <rect x="54" y="142" width="82" height="16" fill="#2FE272" opacity="0.16"
-                    style={{ animation: "tk-scan 2.4s ease-in-out infinite" }} />
-                </g>
-                <rect x="62" y="212" width="18" height="22" rx="7" fill="#0f6c37" />
-                <rect x="110" y="212" width="18" height="22" rx="7" fill="#0f6c37" />
-              </svg>
-            </div>
-
-            <div style={{ textAlign: "center", maxWidth: 340 }}>
-              <div style={{
-                fontSize: 26, fontWeight: 600, lineHeight: 1.25,
-                color: "#eafff2", letterSpacing: "-.01em",
-              }}>
-                Vos questions, traitées par nos experts.
+          {/* Ticket animation + tagline */}
+          <div
+            style={{
+              position: "relative", display: "flex", flexDirection: "column",
+              alignItems: "center", gap: 32, padding: "20px 0",
+            }}
+          >
+            <TicketAnimation />
+            <div style={{ textAlign: "center", maxWidth: 300 }}>
+              <div
+                style={{
+                  fontSize: 22, fontWeight: 600, lineHeight: 1.3,
+                  color: "#eafff2", letterSpacing: "-.01em",
+                }}
+              >
+                Toutes vos demandes, une réponse juste et rapide.
               </div>
             </div>
           </div>
@@ -229,13 +378,15 @@ export default function Login() {
         </div>
 
         {/* ── Right form panel ── */}
-        <div style={{
-          flex: "1 1 54%", minWidth: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          padding: "40px 28px",
-          background: theme.bg,
-          transition: "background .2s",
-        }}>
+        <div
+          style={{
+            flex: "1 1 54%", minWidth: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "40px 28px",
+            background: theme.bg,
+            transition: "background .2s",
+          }}
+        >
           <div style={{ width: "100%", maxWidth: 392, animation: "tk-rise .7s ease-out both" }}>
 
             {/* Mobile-only logo */}
