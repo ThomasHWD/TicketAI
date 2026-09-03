@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from celery.exceptions import Retry
 
+from app.crud.question import TicketDisparu, upsert_reponse, upsert_ticket
 from app.database import SessionLocal
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
@@ -11,13 +12,10 @@ from app.services.llm import generate
 from app.services.question_pipeline import (
     SEUIL_COSINUS,  # noqa: F401 — ré-exporté pour les tests qui l'importent depuis ce module
     SEUIL_SUGGESTION,  # noqa: F401
-    TicketDisparu,
     charger_contexte_fil,
     servir_reutilisation,
     ticket_existe,
     trouver_reponse_reutilisable,
-    upsert_reponse,
-    upsert_ticket,
 )
 from app.services.reranker import rerank
 from app.services.search import search_hybrid

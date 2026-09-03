@@ -41,7 +41,7 @@ class TestFiltreAnciens:
         """Les points de `feedback_job` (réponses canoniques) vivent dans la même
         collection : sans le `must` sur doc_id, la mise à jour d'un document
         effacerait des réponses enregistrées."""
-        from app.workers.document_update import filtre_anciens
+        from app.services.qdrant import filtre_anciens
 
         f = filtre_anciens("doc-42", 2)
 
@@ -53,7 +53,7 @@ class TestFiltreAnciens:
         aucune clé `version` : leurs chunks survivraient et le document resterait
         indexé en double. Assertion structurelle, car c'est la structure qui est
         le bug potentiel."""
-        from app.workers.document_update import filtre_anciens
+        from app.services.qdrant import filtre_anciens
 
         f = filtre_anciens("doc-42", 2)
 
@@ -64,7 +64,8 @@ class TestFiltreAnciens:
     def test_capture_et_suppression_partagent_le_filtre(self, qdrant_mock, scenario_maj):
         """Capturer un ensemble et en supprimer un autre laisserait des chunks
         orphelins ou fausserait la détection."""
-        from app.workers.document_update import document_update_job, filtre_anciens
+        from app.services.qdrant import filtre_anciens
+        from app.workers.document_update import document_update_job
 
         document_update_job(**scenario_maj.kwargs)
 
@@ -83,7 +84,7 @@ class TestCapturerChunks:
     def test_pagine_jusqu_au_bout(self, qdrant_mock):
         """Un document dépassant la taille de page laisserait sinon des passages
         hors du calcul, donc des réponses obsolètes non détectées."""
-        from app.workers.document_update import capturer_chunks
+        from app.services.qdrant import capturer_chunks
 
         qdrant_mock.scroll.side_effect = [
             ([_point(0, "a"), _point(1, "b")], "curseur"),
@@ -93,7 +94,7 @@ class TestCapturerChunks:
         assert capturer_chunks("doc-42", 2) == {0: "a", 1: "b", 2: "c"}
 
     def test_ignore_les_points_sans_index(self, qdrant_mock):
-        from app.workers.document_update import capturer_chunks
+        from app.services.qdrant import capturer_chunks
 
         qdrant_mock.scroll.return_value = ([_point(0, "a"), SimpleNamespace(payload={})], None)
 
@@ -107,10 +108,12 @@ class TestCapturerChunks:
 
 @pytest.fixture
 def qdrant_mock(monkeypatch):
+    import app.services.qdrant as qdrant_module
     import app.workers.document_update as maj
 
     mock = MagicMock()
     mock.scroll.return_value = ([], None)
+    monkeypatch.setattr(qdrant_module, "client", mock)
     monkeypatch.setattr(maj, "client", mock)
     return mock
 

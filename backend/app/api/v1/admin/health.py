@@ -1,52 +1,29 @@
 import json as _json
-import os
-import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
-from uuid import UUID
 
 import httpx
 import redis as redis_lib
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.security import AdminUser, CurrentUser
-from app.database import SessionLocal
+from app.core.security import AdminUser
+from app.database import get_db
 from app.models.document import Document
 from app.models.reponse import Reponse
-from app.models.site_config import SiteConfig
 from app.models.ticket import Ticket
 from app.schemas.admin import (
     AlbertModelUsage,
     AlbertQuotasResponse,
-    ConfigPayload,
     FunctionalStats,
     HealthResponse,
-    IncidentsResponse,
     ServiceStatus,
-    TicketIncident,
 )
-from app.services.admin_service import (
-    _CONFIG_DEFAULTS,
-    celery_status_and_count,
-    ping_albert,
-    scan_document_incidents,
-)
-from app.services.broadcast import broadcast_sync
+from app.services.admin_service import celery_status_and_count, ping_albert
 
 router = APIRouter()
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 
 DB = Annotated[Session, Depends(get_db)]
 
@@ -167,7 +144,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
 
 @router.get("/albert-quotas", response_model=AlbertQuotasResponse)
 def get_albert_quotas(_: AdminUser) -> AlbertQuotasResponse:
-    base = settings.albert_llm_url  # e.g. "https://albert.api.etalab.gouv.fr/v1"
+    base = settings.albert_llm_url
     headers = {"Authorization": f"Bearer {settings.albert_api_key}"}
 
     info: dict = {}
@@ -234,186 +211,3 @@ def get_albert_quotas(_: AdminUser) -> AlbertQuotasResponse:
             for model, data in sorted(aggregated.items())
         ],
     )
-
-
-@router.get("/incidents", response_model=IncidentsResponse)
-def get_incidents(_: AdminUser, db: DB) -> IncidentsResponse:
-    echoues = db.query(Ticket).filter(Ticket.statut_job == "ÉCHOUÉ").order_by(Ticket.created_at.desc()).limit(50).all()
-
-    seuil = datetime.now(timezone.utc) - timedelta(minutes=10)
-    bloques = (
-        db.query(Ticket)
-        .filter(Ticket.statut_job == "EN_COURS", Ticket.created_at < seuil)
-        .order_by(Ticket.created_at.desc())
-        .limit(50)
-        .all()
-    )
-
-    def _serialize(t: Ticket) -> TicketIncident:
-        return TicketIncident(
-            id=str(t.id),
-            question=t.question,
-            domaine=t.domaine,
-            statut_job=t.statut_job,
-            erreur=t.erreur,
-            created_at=t.created_at.isoformat() if t.created_at else "",
-        )
-
-    return IncidentsResponse(
-        tickets_echoues=[_serialize(t) for t in echoues],
-        tickets_bloques=[_serialize(t) for t in bloques],
-        documents_echoues=scan_document_incidents(),
-    )
-
-
-@router.delete("/tickets/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_ticket_incident(ticket_id: UUID, _: AdminUser, db: DB):
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if ticket is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket introuvable.")
-    if ticket.statut_job not in ("ÉCHOUÉ", "EN_COURS"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Le ticket a le statut {ticket.statut_job} et ne peut pas être supprimé depuis les incidents.",
-        )
-    db.delete(ticket)
-    db.commit()
-
-
-@router.post("/tickets/{ticket_id}/retry")
-def retry_ticket(ticket_id: UUID, _: AdminUser, db: DB):
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if ticket is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket introuvable.")
-    if ticket.statut_job not in ("ÉCHOUÉ", "EN_COURS"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Le ticket a le statut {ticket.statut_job} et ne peut pas être relancé.",
-        )
-
-    new_job_id = _uuid.uuid4()
-    ticket.job_id = new_job_id
-    ticket.statut_job = "EN_ATTENTE"
-    ticket.erreur = None
-    ticket.nb_retries = (ticket.nb_retries or 0) + 1
-    db.commit()
-
-    from app.workers.question import question_job
-
-    question_job.apply_async(
-        kwargs={"ticket_id": str(ticket.id), "question": ticket.question, "domaine": ticket.domaine},
-        task_id=str(new_job_id),
-        queue="queue_questions",
-    )
-    return {"job_id": str(new_job_id)}
-
-
-@router.post("/documents/reconcile")
-def reconcile_documents(_: AdminUser, db: DB):
-    """Recrée depuis Qdrant les lignes `documents` manquantes. Idempotent."""
-    from app.services.document_backfill import reconcilier_documents
-
-    return reconcilier_documents(db)
-
-
-@router.get("/documents/{task_id}/download")
-def download_document(task_id: str, _: AdminUser):
-    try:
-        r = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=2)
-        raw = r.get(f"celery-task-meta-{task_id}")
-        if not raw:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tâche introuvable.")
-        meta = _json.loads(raw)
-        kwargs = meta.get("kwargs") or {}
-        file_path = kwargs.get("file_path")
-        filename = kwargs.get("filename", "document")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
-
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Fichier temporaire introuvable sur le disque.",
-        )
-
-    return FileResponse(file_path, filename=filename, media_type="application/octet-stream")
-
-
-@router.post("/documents/{task_id}/retry")
-def retry_document(task_id: str, _: AdminUser):
-    try:
-        r = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=2)
-        raw = r.get(f"celery-task-meta-{task_id}")
-        if not raw:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tâche introuvable.")
-        meta = _json.loads(raw)
-        kwargs = meta.get("kwargs") or {}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
-
-    file_path = kwargs.get("file_path")
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Fichier temporaire introuvable — re-uploader le document.",
-        )
-
-    from app.workers.ingestion import ingestion_job
-
-    new_task_id = str(_uuid.uuid4())
-    ingestion_job.apply_async(kwargs=kwargs, task_id=new_task_id, queue="queue_ingestion")
-
-    r.delete(f"celery-task-meta-{task_id}")
-    return {"task_id": new_task_id}
-
-
-@router.delete("/documents/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_document_incident(task_id: str, _: AdminUser):
-    try:
-        r = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=2)
-        raw = r.get(f"celery-task-meta-{task_id}")
-        if not raw:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tâche introuvable.")
-        meta = _json.loads(raw)
-        kwargs = meta.get("kwargs") or {}
-        file_path = kwargs.get("file_path")
-        if file_path and os.path.exists(file_path):
-            os.remove(file_path)
-        r.delete(f"celery-task-meta-{task_id}")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
-
-
-@router.get("/config")
-def get_config(current_user: CurrentUser, db: DB):
-    """Retourne la configuration du site (tout utilisateur authentifié)."""
-    rows = db.query(SiteConfig).all()
-    result = dict(_CONFIG_DEFAULTS)
-    for row in rows:
-        result[row.key] = row.value
-    result["jours_auto_cloture"] = settings.jours_auto_cloture
-    return result
-
-
-@router.put("/config/{key}")
-def set_config(key: str, body: ConfigPayload, _: AdminUser, db: DB):
-    """Met à jour une clé de configuration (admin uniquement)."""
-    if key not in _CONFIG_DEFAULTS:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Clé de configuration inconnue : {key}")
-    row = db.query(SiteConfig).filter(SiteConfig.key == key).first()
-    if row is None:
-        row = SiteConfig(key=key, value=body.value)
-        db.add(row)
-    else:
-        row.value = body.value
-    db.commit()
-    db.refresh(row)
-    if key == "banner":
-        broadcast_sync("sse:global", "banner_updated", {})
-    return {"key": row.key, "value": row.value}
