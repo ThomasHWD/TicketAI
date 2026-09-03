@@ -234,7 +234,7 @@ function PageHeader({ greeting }: { greeting: string }) {
         {greeting}
       </h1>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Votre espace personnel TicketAI
+        Votre espace personnel
       </p>
     </div>
   );
