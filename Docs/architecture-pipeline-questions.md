@@ -5,6 +5,7 @@ Ce document décrit le traitement d'une question depuis sa réception jusqu'à l
 **Fichiers concernés**
 - `backend/app/workers/question.py` — point d'entrée Celery (`question_job`)
 - `backend/app/services/question_pipeline.py` — logique métier (sans dépendance Celery)
+- `backend/app/services/garde_cache.py` — garde LLM du cache canonique
 - `backend/app/services/search.py` — recherche hybride + fusion RRF
 - `backend/app/services/reranker.py` — reranking via Albert
 - `backend/app/services/llm.py` — génération LLM via Albert
@@ -26,9 +27,16 @@ Question de l'utilisateur
         ▼
 [Étape 2] Y a-t-il une réponse VALIDÉE avec score ≥ seuil ?
         │
-        ├─── oui + canonique + score ≥ SEUIL_COSINUS ──► CANONIQUE (servie sans revue)
+        ├─── oui + canonique + score ≥ SEUIL_COSINUS
+        │         │
+        │         ▼
+        │    [Garde] Question posée ≡ question indexée ? (LLM judge)
+        │         │
+        │         ├─── OUI ──► CANONIQUE (servie sans revue humaine)
+        │         │
+        │         └─── NON ──► pipeline RAG (voir ci-dessous)
         │
-        ├─── oui (autre cas) ──────────────────────────► SUGGESTION (revue humaine)
+        ├─── oui (validée, non canonique ou score < SEUIL_COSINUS) ──► SUGGESTION (revue humaine)
         │
         └─── non
               │
@@ -51,11 +59,11 @@ Question de l'utilisateur
 
 | Variable | Valeur par défaut | Rôle |
 |---|---|---|
-| `SEUIL_COSINUS` | 0.90 | Score minimum pour déclencher CANONIQUE ou SUGGESTION |
+| `SEUIL_COSINUS` | 0.90 | Score minimum pour présenter un candidat canonique au garde |
 | `SEUIL_SUGGESTION` | `SEUIL_COSINUS − 0.05` = 0.85 | Score minimum pour la branche SUGGESTION |
 | `SEUIL_CANONIQUE` | 3 | Nombre de validations pour promouvoir une réponse en canonique |
 
-Ces valeurs viennent de `.env` via `app/config.py`. `SEUIL_COSINUS` a été calibré sur un golden set — ne pas le modifier sans relancer `scripts/calibrate_threshold.py`.
+`SEUIL_COSINUS` est un **filtre de coût**, pas un filtre de sécurité : c'est le garde LLM qui décide si la réponse peut être servie sans revue humaine. Abaisser ce seuil augmente le nombre d'appels LLM au garde ; le relever en réduit le nombre mais risque de rater des candidats légitimes.
 
 ---
 
@@ -94,11 +102,11 @@ Si plusieurs réponses validées matchent, on choisit de manière déterministe 
 **Conditions pour CANONIQUE** (servie sans revue humaine) :
 - réponse trouvée avec `reponse.canonique == True`
 - `score_cosinus >= SEUIL_COSINUS`
-- question **brute** (pas une question contextuelle de suivi — voir ci-dessous)
+- le garde LLM confirme que la question posée exprime exactement la même demande que la question indexée (voir [`garde-cache-canonique.md`](garde-cache-canonique.md))
 
 **Conditions pour SUGGESTION** (revue humaine requise) :
 - réponse trouvée avec `reponse.statut == "VALIDÉE"` et `obsolete == False`
-- mais au moins une condition CANONIQUE non remplie : score en dessous de `SEUIL_COSINUS`, ou réponse pas encore canonique, ou contexte de suivi
+- mais au moins une condition CANONIQUE non remplie : score en dessous de `SEUIL_COSINUS`, réponse pas encore canonique, ou garde ayant refusé (→ RAG dans ce dernier cas)
 
 Dans les deux cas, `reponse_source_id` pointe vers la réponse originale. Pour SUGGESTION, `nb_validations` est suivi sur la source, pas sur la copie.
 
@@ -167,7 +175,7 @@ Quand un utilisateur pose une précision sur un ticket existant (`ticket_id` fou
 2. La recherche hybride et le reranking utilisent cette `requete_recherche` enrichie.
 3. La génération LLM reçoit l'`historique` et peut résoudre les références implicites (`"et pour ça ?"`, pronoms anaphoriques…).
 4. Si une réponse de suivi est validée, elle est indexée sous sa propre `question_suivi` (pas la question initiale du ticket).
-5. Un match contextuel ne peut **pas** déclencher CANONIQUE (`autoriser_canonique=False`) — il sort toujours en SUGGESTION, car la contextualisation peut avoir biaisé la recherche.
+5. Un match contextuel **peut** déclencher CANONIQUE si le garde l'approuve. Le garde reçoit alors `requete_recherche` (le fil complet : question initiale + précisions) plutôt que la seule précision brute, afin de pouvoir juger l'équivalence dans son contexte. Voir [`garde-cache-canonique.md`](garde-cache-canonique.md).
 
 ---
 
