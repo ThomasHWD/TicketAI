@@ -18,7 +18,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
-import { getDashboardStats, listDocuments, getTickets } from "../../lib/api";
+import { getDashboardStats, listDocuments, getTickets, getMyAssignedTickets } from "../../lib/api";
 import StatCard from "../../components/dashboard/StatCard";
 import DonutChart from "../../components/dashboard/DonutChart";
 import TicketsBarChart from "../../components/dashboard/TicketsBarChart";
@@ -31,12 +31,12 @@ import HorsDomaineCard from "../../components/dashboard/HorsDomaineCard";
 
 function formatDuration(seconds: number): string {
   if (seconds === 0) return "—";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
   const parts: string[] = [];
+  if (d > 0) parts.push(`${d}j`);
   if (h > 0) parts.push(`${h}h`);
-  if (m > 0) parts.push(`${m}min`);
-  return parts.length > 0 ? parts.join(" ") : "< 1 min";
+  return parts.length > 0 ? parts.join(" ") : "< 1 h";
 }
 
 type Periode = "semaine" | "mois" | "annee";
@@ -133,25 +133,29 @@ export default function Dashboard() {
     enabled: onglet === "overview",
   });
 
+  const { data: assignedData } = useQuery({
+    queryKey: ["my-assigned-tickets"],
+    queryFn: getMyAssignedTickets,
+    staleTime: 30_000,
+    enabled: onglet === "overview",
+  });
+
   useEffect(() => {
     const timestamps = [statsUpdatedAt, docsUpdatedAt, pendingUpdatedAt].filter(t => t > 0);
     if (timestamps.length > 0) setLastUpdated(new Date(Math.max(...timestamps)));
   }, [statsUpdatedAt, docsUpdatedAt, pendingUpdatedAt]);
 
   const pendingCount = pendingData?.total ?? 0;
-  const pendingTruncated = pendingData != null && pendingData.total > pendingData.items.length;
   const variationLabel = { semaine: "vs sem. préc.", mois: "vs mois préc.", annee: "vs an préc." }[periode];
-  const pendingBranchSummary = (() => {
-    const items = pendingData?.items;
-    if (!items?.length) return null;
-    const rag = items.filter((t) => t.reponse_source === "LLM").length;
-    const sugg = items.filter((t) => t.reponse_source === "SUGGESTION").length;
-    const parts: string[] = [];
-    if (rag > 0) parts.push(`${rag} généré${rag > 1 ? "s" : ""} par IA`);
-    if (sugg > 0) parts.push(`${sugg} suggestion${sugg > 1 ? "s" : ""}`);
-    return parts.length > 0 ? parts.join(" · ") : null;
-  })();
+  const assignedCount = assignedData?.length ?? 0;
   const isDataStale = [statsUpdatedAt, docsUpdatedAt, pendingUpdatedAt].some(t => t > 0 && Date.now() - t > 2 * 60_000);
+
+  function assignedColorClass(n: number): string {
+    if (n === 0) return "text-gray-400 dark:text-gray-500";
+    if (n <= 3) return "text-emerald-600 dark:text-emerald-400";
+    if (n <= 7) return "text-amber-600 dark:text-amber-400";
+    return "text-red-600 dark:text-red-400";
+  }
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -160,6 +164,7 @@ export default function Dashboard() {
       queryClient.refetchQueries({ queryKey: ["dashboard-stats", filterDomaine, periode] }),
       queryClient.refetchQueries({ queryKey: ["dashboard-docs", filterDomaine] }),
       queryClient.refetchQueries({ queryKey: ["dashboard-pending", filterDomaine] }),
+      queryClient.refetchQueries({ queryKey: ["my-assigned-tickets"] }),
     ]);
     setRefreshing(false);
     const hadError = (
@@ -424,14 +429,11 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">
                       tickets en attente de validation
                     </p>
-                    {pendingBranchSummary && (
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums mt-0.5">
-                        {pendingBranchSummary}
-                        {pendingTruncated && (
-                          <span className="text-gray-500 dark:text-gray-400 ml-1">(100 premiers)</span>
-                        )}
-                      </p>
-                    )}
+                    <p className={`text-[11px] tabular-nums mt-0.5 ${assignedColorClass(assignedCount)}`}>
+                      {assignedCount === 0
+                        ? "aucun assigné à vous"
+                        : `${assignedCount} assigné${assignedCount > 1 ? "s" : ""} à vous`}
+                    </p>
                   </div>
                 </div>
                 <div className="ml-auto flex items-center gap-2 shrink-0">

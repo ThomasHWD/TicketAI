@@ -1,0 +1,26 @@
+Agis en tant qu'Architecte Logiciel Senior. Le projet est divisé en deux dossiers principaux : `./frontend` (React/TypeScript) et `./backend` (Python).
+Ton objectif est de réduire la taille des fichiers volumineux dans chaque partie en isolant les responsabilités et en créant la structure de dossiers nécessaire.
+
+Plan d'action : 
+     
+1. **Analyse de l'existant :**
+    - Scanne `./frontend` pour lister les fichiers `.tsx`/`.ts` de plus de 200 lignes.
+    - Présente un diagnostic pour le frontend avec les fichiers prioritaires.
+     
+  2. **Refactoring `./frontend` :**
+    - Découpe les composants React massifs en so    -composants.
+    - Isole la logique et les appels API dans des custom hooks (`./frontend/src/hooks`).
+    - Extrais les utilitaires (`/utils`) et interfaces/types (`/types`).
+    - Regroupe le tout de manière cohérente (ex : par fonctionnalités ou composants/pages/hooks).
+
+2. **Refactoring `./frontend` **
+  - Découpe les composants React massifs en so    -composants.
+  - Isole la logique et les appels API dans des custom hooks (`./frontend/src/hooks`).
+  - Extrais les utilitaires (`/utils`) et interfaces/types (`/types`).
+  - Regroupe le tout de manière cohérente (ex : par fonctionnalités ou composants/pages/hooks).
+  
+3. **Règles d'exécution :** 
+  - Traite un fichier à la fois.
+  - Crée automatiquement les nouveaux fichiers et sous-dossiers.
+  - Réécris les imports impactés pour éviter toute cassure.
+  - Ne modifie pas le comportement fonctionnel du code.

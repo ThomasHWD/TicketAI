@@ -102,7 +102,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
       >
         <img
           src={TicketAIMark}
-          alt="TicketAI"
+          alt="ONaCVG"
           className={`shrink-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
             ${collapsed ? "w-7 h-7" : "w-13 h-13"}`}
         />
@@ -111,7 +111,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
             whitespace-nowrap transition-all duration-200 ease-in-out
             ${collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}
         >
-          Ticket<span className="text-emerald-600 dark:text-emerald-400">AI</span>
+          ONaC<span className="text-emerald-600 dark:text-emerald-400">VG</span>
         </span>
       </div>
 

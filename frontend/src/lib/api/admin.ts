@@ -76,6 +76,25 @@ export async function getServicesHealth(): Promise<ServicesHealthData> {
   return res.json();
 }
 
+export interface AlbertModelUsage {
+  nom: string;
+  tokens_aujourd_hui: number;
+  requetes_aujourd_hui: number;
+}
+
+export interface AlbertQuotas {
+  limite_tpd: number | null;
+  limite_rpd: number | null;
+  budget: number | null;
+  modeles: AlbertModelUsage[];
+}
+
+export async function getAlbertQuotas(): Promise<AlbertQuotas> {
+  const res = await apiFetch(`${BASE_URL}/admin/albert-quotas`);
+  if (!res.ok) throw new Error("Erreur récupération quotas Albert");
+  return res.json();
+}
+
 export interface DocumentIncident {
   task_id: string;
   filename: string | null;
