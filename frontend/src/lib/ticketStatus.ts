@@ -45,6 +45,25 @@ export function formatDate(iso: string | null) {
   }).format(new Date(iso));
 }
 
+export function formatDateShort(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+  if (diffDays === 0)
+    return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(d);
+  if (diffDays < 7) return `il y a ${diffDays} j`;
+  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short" }).format(d);
+}
+
+export function formatDateFull(iso: string | null): string {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  }).format(new Date(iso));
+}
+
 export function formatRelativeDate(iso: string | null): string {
   if (!iso) return "—";
   const diff = Date.now() - new Date(iso).getTime();
