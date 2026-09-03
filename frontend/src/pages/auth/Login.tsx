@@ -154,9 +154,9 @@ export default function Login() {
 
           {/* Logo */}
           <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 12 }}>
-            <img src={TicketAIMark} alt="TicketAI" style={{ width: 34, height: 34 }} />
+            <img src={TicketAIMark} alt="ONaCVG" style={{ width: 34, height: 34 }} />
             <span style={{ fontWeight: 700, fontSize: 19, letterSpacing: "-.01em", color: "#eafff2" }}>
-              TicketAI
+              ONaCVG
             </span>
           </div>
 
@@ -215,22 +215,14 @@ export default function Login() {
                 fontSize: 26, fontWeight: 600, lineHeight: 1.25,
                 color: "#eafff2", letterSpacing: "-.01em",
               }}>
-                Vos tickets, résolus par l'intelligence artificielle.
-              </div>
-              <div style={{
-                marginTop: 14,
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 11, letterSpacing: ".34em",
-                textTransform: "uppercase", color: "#7fe0a6",
-              }}>
-                Automatisation Intelligente
+                Vos questions, traitées par nos experts.
               </div>
             </div>
           </div>
 
           {/* Footer */}
           <div style={{ position: "relative", display: "flex", gap: 24, fontSize: 12.5, color: "#5fb886" }}>
-            <span>© 2026 TicketAI</span>
+            <span>© 2026 ONaCVG</span>
             <span>Confidentialité</span>
             <span>Sécurité</span>
           </div>
@@ -248,8 +240,8 @@ export default function Login() {
 
             {/* Mobile-only logo */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }} className="md:hidden">
-              <img src={TicketAIMark} alt="TicketAI" style={{ width: 32, height: 32 }} />
-              <span style={{ fontWeight: 700, fontSize: 18, color: theme.text, letterSpacing: "-.01em" }}>TicketAI</span>
+              <img src={TicketAIMark} alt="ONaCVG" style={{ width: 32, height: 32 }} />
+              <span style={{ fontWeight: 700, fontSize: 18, color: theme.text, letterSpacing: "-.01em" }}>ONaCVG</span>
             </div>
 
             <div style={{ marginBottom: 32 }}>
