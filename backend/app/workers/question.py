@@ -5,6 +5,8 @@ from celery.exceptions import Retry
 
 from app.database import SessionLocal
 from app.models.reponse_chunk import ReponseChunk
+from app.models.ticket import Ticket
+from app.services.garde_cache import approuver
 from app.services.llm import generate
 from app.services.question_pipeline import (
     SEUIL_COSINUS,  # noqa: F401 — ré-exporté pour les tests qui l'importent depuis ce module
@@ -86,21 +88,28 @@ def question_job(
 
             if reponse_liee is not None:
                 print(f"[QUESTION] Score {score_liee:.4f} → réponse validée {reponse_liee.id}")
-                return servir_reutilisation(
-                    db,
-                    job_id,
-                    ticket_uuid,
-                    question,
-                    domaine,
-                    user_uuid,
-                    reponse_liee,
-                    score_liee,
-                    question_suivi,
-                    est_suivi,
-                    self.request.retries,
-                    True,
-                    objet,
-                )
+
+                if reponse_liee.canonique and score_liee >= SEUIL_COSINUS:
+                    ticket_source = db.query(Ticket).filter(Ticket.id == reponse_liee.ticket_id).first()
+                    question_indexee = reponse_liee.question_suivi or (
+                        ticket_source.question if ticket_source else None
+                    )
+                    question_a_comparer = requete_recherche if est_suivi else question
+                    if question_indexee and approuver(question_a_comparer, question_indexee):
+                        print("[QUESTION] Garde : OUI → CANONIQUE")
+                        return servir_reutilisation(
+                            db, job_id, ticket_uuid, question, domaine, user_uuid,
+                            reponse_liee, score_liee, question_suivi, est_suivi,
+                            self.request.retries, True, objet,
+                        )
+                    print("[QUESTION] Garde : NON → pipeline RAG")
+                    # Fall through to RAG
+                else:
+                    return servir_reutilisation(
+                        db, job_id, ticket_uuid, question, domaine, user_uuid,
+                        reponse_liee, score_liee, question_suivi, est_suivi,
+                        self.request.retries, False, objet,
+                    )
 
         finally:
             db.close()

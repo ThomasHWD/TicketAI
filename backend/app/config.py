@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     albert_embeddings_model_name: str
     albert_reranker_url: str
     albert_reranker_model_name: str
+    albert_garde_model_name: str = ""  # vide → utilise albert_llm_model_name
 
     # SEUILS
     seuil_canonique: int
