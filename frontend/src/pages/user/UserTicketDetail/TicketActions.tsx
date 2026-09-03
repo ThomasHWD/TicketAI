@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, CheckCheck, ChevronDown, Loader2, PenLine, Send, X } from "lucide-react";
-import StarPicker from "../../../components/ui/StarPicker";
+import { CheckCheck, Loader2, PenLine, X } from "lucide-react";
+import { TicketRatingPanel } from "../../../components/user/TicketRatingPanel";
+import { TicketActionsBar } from "../../../components/user/TicketActionsBar";
 
 interface ClotureMutation {
   mutate: (withNotes: boolean) => void;
@@ -36,35 +36,11 @@ interface TicketActionsProps {
 }
 
 export default function TicketActions({
-  closed,
-  hasVisibleAnswer,
-  rejected = false,
-  cloture,
-  showRating,
-  setShowRating,
-  noteQualite,
-  noteDelai,
-  setNoteQualite,
-  setNoteDelai,
-  precision,
-  setPrecision,
-  suivi,
-  canSubmitSuivi,
+  closed, hasVisibleAnswer, rejected = false,
+  cloture, showRating, setShowRating,
+  noteQualite, noteDelai, setNoteQualite, setNoteDelai,
+  precision, setPrecision, suivi, canSubmitSuivi,
 }: TicketActionsProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [showPrecision, setShowPrecision] = useState(false);
-
-  useEffect(() => {
-    if (showPrecision) textareaRef.current?.focus();
-  }, [showPrecision]);
-
-  const handlePrecisionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setPrecision(e.target.value);
-    const ta = e.currentTarget;
-    ta.style.height = "auto";
-    ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
-  };
-
   if (closed) {
     if (rejected) return null;
     return (
@@ -74,9 +50,7 @@ export default function TicketActions({
         </span>
         <div>
           <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Demande marquée comme résolue</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Vous avez indiqué que cette réponse vous convenait.
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Vous avez indiqué que cette réponse vous convenait.</p>
         </div>
       </div>
     );
@@ -90,20 +64,13 @@ export default function TicketActions({
           <X size={16} className="text-red-500 dark:text-red-400" aria-hidden="true" />
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-            Aucune réponse disponible
-          </p>
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Aucune réponse disponible</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
-            Le service d'assistance n'a pas pu répondre à cette demande. Vous pouvez
-            reformuler votre question ou fermer le ticket.
+            Le service d'assistance n'a pas pu répondre à cette demande. Vous pouvez reformuler votre question ou fermer le ticket.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to="/nouveau-ticket"
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors"
-            >
-              <PenLine size={14} aria-hidden="true" />
-              Reformuler ma question
+            <Link to="/nouveau-ticket" className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors">
+              <PenLine size={14} aria-hidden="true" />Reformuler ma question
             </Link>
             <button
               type="button"
@@ -111,11 +78,9 @@ export default function TicketActions({
               disabled={cloture.isPending}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40"
             >
-              {cloture.isPending ? (
-                <Loader2 size={15} className="animate-spin" aria-hidden="true" />
-              ) : (
-                <CheckCheck size={15} aria-hidden="true" />
-              )}
+              {cloture.isPending
+                ? <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                : <CheckCheck size={15} aria-hidden="true" />}
               Fermer le ticket
             </button>
           </div>
@@ -129,186 +94,26 @@ export default function TicketActions({
     );
   }
 
-  const showSuiviSuccess = suivi.isSuccess && !suivi.isPending && !precision;
-
   if (showRating) {
     return (
-      <div className="glass-card rounded-2xl p-5 space-y-4">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">
-              Avant de partir…
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Comment évaluez-vous votre expérience ?{" "}
-              <span className="italic">Facultatif.</span>
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowRating(false)}
-            aria-label="Annuler"
-            className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 dark:hover:text-gray-200 transition-colors shrink-0"
-          >
-            <X size={15} aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          <StarPicker
-            label="Qualité de la réponse"
-            value={noteQualite}
-            onChange={setNoteQualite}
-          />
-          <StarPicker
-            label="Rapidité de traitement"
-            value={noteDelai}
-            onChange={setNoteDelai}
-          />
-        </div>
-
-        {cloture.isError && (
-          <div
-            role="alert"
-            className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400"
-          >
-            <AlertCircle size={13} aria-hidden="true" />
-            {cloture.error instanceof Error
-              ? cloture.error.message
-              : "Une erreur est survenue"}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2 pt-0.5">
-          <button
-            type="button"
-            onClick={() => cloture.mutate(true)}
-            disabled={cloture.isPending}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {cloture.isPending ? (
-              <Loader2 size={15} className="animate-spin" aria-hidden="true" />
-            ) : (
-              <CheckCheck size={15} aria-hidden="true" />
-            )}
-            Confirmer
-          </button>
-          <button
-            type="button"
-            onClick={() => cloture.mutate(false)}
-            disabled={cloture.isPending}
-            className="inline-flex items-center text-sm px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Fermer le ticket sans noter
-          </button>
-        </div>
-      </div>
+      <TicketRatingPanel
+        cloture={cloture}
+        noteQualite={noteQualite}
+        noteDelai={noteDelai}
+        setNoteQualite={setNoteQualite}
+        setNoteDelai={setNoteDelai}
+        onCancel={() => setShowRating(false)}
+      />
     );
   }
 
   return (
-    <div className="glass-card rounded-2xl p-5 space-y-3">
-      {showSuiviSuccess && (
-        <div
-          role="status"
-          className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 pb-1"
-        >
-          <CheckCheck size={13} aria-hidden="true" />
-          Votre précision a bien été envoyée.
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
-          Cette réponse vous convient-elle ?
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setShowPrecision(false);
-              setPrecision("");
-              setShowRating(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-3 py-2 transition-colors"
-          >
-            <CheckCheck size={13} aria-hidden="true" />
-            Oui, c'est résolu
-          </button>
-          {!showPrecision && (
-            <button
-              type="button"
-              onClick={() => setShowPrecision(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 text-xs font-medium px-3 py-2 transition-colors"
-            >
-              Non, apporter une précision
-              <ChevronDown size={12} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {showPrecision && (
-        <div className="border-t border-gray-100 dark:border-white/[0.06] pt-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <label
-              htmlFor="precision"
-              className="text-sm font-semibold text-gray-900 dark:text-white"
-            >
-              Apporter une précision
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                setShowPrecision(false);
-                setPrecision("");
-              }}
-              aria-label="Fermer"
-              className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 dark:hover:text-gray-200 transition-colors"
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
-          </div>
-
-          <textarea
-            ref={textareaRef}
-            id="precision"
-            value={precision}
-            onChange={handlePrecisionChange}
-            placeholder="Ex. : Et dans le cas d'un contrat à durée déterminée ?"
-            className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-800 dark:text-gray-100 bg-white dark:bg-white/[0.03] placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none overflow-hidden transition-colors"
-            style={{ minHeight: "80px", maxHeight: "200px" }}
-            aria-describedby={suivi.isError ? "suivi-error" : undefined}
-          />
-
-          {suivi.isError && (
-            <div
-              id="suivi-error"
-              role="alert"
-              className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400"
-            >
-              <AlertCircle size={13} aria-hidden="true" />
-              {suivi.error instanceof Error ? suivi.error.message : "Une erreur est survenue"}
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => suivi.mutate()}
-              disabled={!canSubmitSuivi}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {suivi.isPending ? (
-                <Loader2 size={15} className="animate-spin" aria-hidden="true" />
-              ) : (
-                <Send size={15} aria-hidden="true" />
-              )}
-              Envoyer
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    <TicketActionsBar
+      suivi={suivi}
+      precision={precision}
+      setPrecision={setPrecision}
+      canSubmitSuivi={canSubmitSuivi}
+      onResolve={() => setShowRating(true)}
+    />
   );
 }
