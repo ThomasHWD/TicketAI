@@ -6,6 +6,9 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
 from qdrant_client.models import (
     Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
     PointIdsList,
     SparseIndexParams,
     SparseVectorParams,
@@ -75,6 +78,44 @@ def init_collection():
         field_schema="integer",
     )
     logger.debug("Index payload 'version' assuré.")
+
+
+def filtre_anciens(doc_id: str, version_cible: int) -> Filter:
+    """Les points du document qui ne sont pas ceux de la version en cours d'écriture.
+
+    Utilisé pour la capture *et* pour la suppression afin de porter sur exactement
+    le même ensemble, y compris en présence d'un retry partiel.
+    Les documents backfillés n'ont pas de clé ``version`` dans leur payload :
+    un ``Range`` sur clé absente ne matche pas, d'où le ``must_not`` par valeur.
+    """
+    return Filter(
+        must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))],
+        must_not=[FieldCondition(key="version", match=MatchValue(value=version_cible))],
+    )
+
+
+def capturer_chunks(doc_id: str, version_cible: int) -> dict[int, str]:
+    """``{chunk_index: contenu}`` de la version sortante, lu dans Qdrant.
+
+    À appeler **avant toute suppression** : c'est la seule source du texte sortant.
+    """
+    anciens: dict[int, str] = {}
+    offset = None
+    while True:
+        points, offset = client.scroll(
+            collection_name=COLLECTION_NAME,
+            scroll_filter=filtre_anciens(doc_id, version_cible),
+            with_payload=["chunk_index", "contenu"],
+            with_vectors=False,
+            limit=256,
+            offset=offset,
+        )
+        for p in points:
+            if p.payload and p.payload.get("chunk_index") is not None:
+                anciens[p.payload["chunk_index"]] = p.payload.get("contenu") or ""
+        if offset is None:
+            break
+    return anciens
 
 
 def delete_response_point(reponse_id: str) -> None:
