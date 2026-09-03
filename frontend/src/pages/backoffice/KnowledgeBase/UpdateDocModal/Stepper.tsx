@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import type { Etape } from "./index";
+import type { Etape } from "../../../../hooks/useUpdateDocModal";
 
 /**
  * Les quatre temps de la mise à jour. `submitting` partage le rang de `impact` :
