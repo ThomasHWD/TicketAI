@@ -12,6 +12,7 @@ def chat(
     temperature: float = 0.1,
     max_tokens: int = 512,
     timeout: float = 120,
+    model: str | None = None,
 ) -> str:
     """Appel brut au ``/chat/completions`` d'Albert, sans prompt imposé.
 
@@ -28,7 +29,7 @@ def chat(
             "Content-Type": "application/json",
         },
         json={
-            "model": settings.albert_llm_model_name,
+            "model": model or settings.albert_llm_model_name,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
