@@ -58,80 +58,19 @@ from app.services.obsolescence import (
     racines,
     requeuer_en_attente,
 )
-from app.services.qdrant import COLLECTION_NAME, client
+from app.services.qdrant import COLLECTION_NAME, capturer_chunks, client, filtre_anciens
+from app.services.text_processing import chunk_text, extract_text, texte_complet
 from app.workers.celery_app import celery_app
-from app.workers.ingestion import (
-    chemin_du_fichier,
-    chunk_text,
-    extract_text,
-    point_id,
-    store_file,
-)
-
-
-def filtre_anciens(doc_id: str, version_cible: int) -> Filter:
-    """Les points du document qui ne sont pas ceux de la version en cours d'écriture.
-
-    Deux clauses, toutes deux indispensables :
-
-    * ``must=[doc_id]`` — les points de ``feedback_job`` (réponses canoniques) vivent
-      dans la même collection ; un filtre plus large les effacerait ;
-    * ``must_not=[version == cible]`` plutôt qu'un ``Range(lt=cible)`` — les documents
-      backfillés n'ont **aucune** clé ``version`` dans leur payload, et un ``Range``
-      sur clé absente ne matche pas : leurs chunks survivraient et le document
-      resterait indexé en double.
-
-    Utilisé pour la capture *et* pour la suppression : les deux portent ainsi sur
-    exactement le même ensemble, y compris en présence d'un retry partiel.
-    """
-    return Filter(
-        must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))],
-        must_not=[FieldCondition(key="version", match=MatchValue(value=version_cible))],
-    )
-
-
-def capturer_chunks(doc_id: str, version_cible: int) -> dict[int, str]:
-    """``{chunk_index: contenu}`` de la version sortante, lu dans Qdrant.
-
-    À appeler **avant toute suppression** : c'est la seule source du texte sortant.
-    """
-    anciens: dict[int, str] = {}
-    offset = None
-    while True:
-        points, offset = client.scroll(
-            collection_name=COLLECTION_NAME,
-            scroll_filter=filtre_anciens(doc_id, version_cible),
-            with_payload=["chunk_index", "contenu"],
-            with_vectors=False,
-            limit=256,
-            offset=offset,
-        )
-        for p in points:
-            if p.payload and p.payload.get("chunk_index") is not None:
-                anciens[p.payload["chunk_index"]] = p.payload.get("contenu") or ""
-        if offset is None:
-            break
-    return anciens
-
-
-def texte_complet(pages: list[str]) -> str:
-    """Le texte tel que ``chunk_text`` le verra — donc celui où chercher les passages."""
-    return "\n\n".join(pages)
+from app.workers.ingestion import chemin_du_fichier, point_id, store_file
 
 
 def analyser_sortante(chemin_sortant: str | None, nouveau_texte: str) -> dict | None:
     """Le diff avec la version sortante, lue sur le disque.
 
-    Enrobage d'entrée-sortie autour de ``obsolescence.analyser_changements``, qui
-    porte toute la logique et ne connaît que deux chaînes. L'aperçu fait de même
-    de son côté ; les deux montrent donc nécessairement le même diff.
-
     Renvoie ``None`` quand la version sortante est illisible — fichier disparu
-    (documents backfillés) ou archive corrompue. L'appelant signale alors avec
-    ``RAISON_ILLISIBLE`` plutôt que de se taire : la liste dit elle-même pourquoi
-    elle est bruyante. **Ne jamais** reconstituer le texte sortant en concaténant
-    les chunks capturés — le chevauchement de 128 tokens du splitter fabriquerait
-    une fausse suppression à chaque couture.
+    (documents backfillés) ou archive corrompue. **Ne jamais** reconstituer le
+    texte sortant en concaténant les chunks capturés — le chevauchement de 128
+    tokens du splitter fabriquerait une fausse suppression à chaque couture.
     """
     if chemin_sortant is None:
         return None
@@ -335,26 +274,18 @@ def document_update_job(
             # Étape 9 — Les EN_ATTENTE bâties sur la version sortante. Aucun
             # jugement requis : jamais servies, jamais indexées, et les valider
             # plus tard publierait une réponse fondée sur un texte disparu.
-            # Les VALIDÉE, elles, ne sont plus périmées ici : `indices_modifies`
-            # ne prononce plus de verdict, il ne fait que désigner des suspectes
-            # à la ré-vérification (étape 11).
             a_du_neuf = changements is None or bool(changements["nb_unites"])
             if a_du_neuf:
                 requeuer_en_attente(db, perimer_en_attente(db, doc_id, RAISON_MAJ, new_version))
 
-            # Étape 10 — Mise sous analyse. Après l'étape 9, jamais avant : les
-            # réponses qui viennent de disparaître n'ont pas à être jugées, et
-            # `reponses_obsoletes` les écarte une fois le commit passé.
+            # Étape 10 — Mise sous analyse. Après l'étape 9, jamais avant.
             if changements is None:
-                # Sans texte sortant, aucun diff n'est calculable : rien à donner
-                # à juger, on retombe sur le signalement en bloc.
                 nb_a_relire = len(racines(marquer_a_relire(db, doc_id, new_version, RAISON_ILLISIBLE)))
                 nb_a_analyser = 0
             elif changements["nb_unites"]:
                 nb_a_analyser = len(racines(flaguer_en_analyse(db, doc_id, new_version)))
                 nb_a_relire = 0
             else:
-                # Reformatage pur : le document ne dit rien de neuf, rien à juger.
                 nb_a_relire = nb_a_analyser = 0
         finally:
             db.close()
@@ -379,11 +310,7 @@ def document_update_job(
             },
         )
 
-        # Étape 12 — La ré-vérification, sur `queue_questions` : ce job est de
-        # l'attente réseau Albert, il n'a rien à faire dans la file qui sérialise
-        # les ingestions. Enfilé explicitement plutôt que par `link()`, qui ne se
-        # rejouerait pas depuis le retry admin ; le garde `doc.version ==
-        # new_version` en tête de tâche empêche déjà un retry de ré-enfiler.
+        # Étape 12 — La ré-vérification, sur `queue_questions`.
         if nb_a_analyser:
             from app.workers.reverification import reverification_job  # noqa: PLC0415 — anti-circulaire
 
@@ -392,8 +319,6 @@ def document_update_job(
                     "doc_id": doc_id,
                     "version": new_version,
                     "domaine": domaine,
-                    # Les chunks cités disparus : pas un verdict, une liste de
-                    # suspectes qui court-circuitent le filtre de pertinence.
                     "indices_disparus": sorted(indices),
                 },
                 queue="queue_questions",
