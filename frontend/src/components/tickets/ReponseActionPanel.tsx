@@ -117,7 +117,7 @@ export function RejectionPanel({ textareaRef, loading, error, rejectRaison, onRe
         ref={textareaRef}
         value={rejectRaison}
         onChange={(e) => onReasonChange(e.target.value)}
-        placeholder="Raison du rejet (optionnel)"
+        placeholder="Raison du rejet (obligatoire)"
         rows={2}
         disabled={loading}
         className="w-full text-sm text-gray-700 dark:text-gray-100 bg-white dark:bg-white/5 border border-red-200 dark:border-red-500/30 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
@@ -236,7 +236,7 @@ export function ContextualHelp({ reponse, isRag, nearCanonical }: ContextualHelp
         {nearCanonical && (
           <p className="text-emerald-600 dark:text-emerald-400"><span className="font-medium">Promotion imminente</span> : cette réponse a {reponse.nb_validations} validation(s). La prochaine la rendra canonique.</p>
         )}
-        <p><span className="font-medium">Rejeter</span> : refuse la réponse — elle ne sera pas envoyée. Une raison peut être précisée.</p>
+        <p><span className="font-medium">Rejeter</span> : refuse la réponse — elle ne sera pas envoyée. Un motif est obligatoire.</p>
         <p className="text-gray-500 dark:text-gray-400">
           Raccourcis :{" "}
           <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">V</kbd> Valider ·{" "}

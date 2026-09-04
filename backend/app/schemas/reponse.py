@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class RejeterRequest(BaseModel):
-    raison: str | None = None
+    raison: str
 
 
 class CorrigerRequest(BaseModel):
