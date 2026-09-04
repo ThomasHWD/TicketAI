@@ -120,7 +120,8 @@ def mock_ingestion_job(monkeypatch):
 
 @pytest.fixture
 def qdrant_maj(monkeypatch):
-    """L'aperçu capture les chunks via `document_update.client`, pas celui du routeur."""
+    """Patche le client Qdrant dans services/qdrant (capturer_chunks) et workers/document_update."""
+    import app.services.qdrant as qdrant_module
     import app.workers.document_update as maj_module
 
     mock = MagicMock()
@@ -131,6 +132,7 @@ def qdrant_maj(monkeypatch):
         ],
         None,
     )
+    monkeypatch.setattr(qdrant_module, "client", mock)
     monkeypatch.setattr(maj_module, "client", mock)
     return mock
 

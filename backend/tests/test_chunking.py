@@ -1,4 +1,4 @@
-from app.workers.ingestion import chunk_text, clean_text
+from app.services.text_processing import chunk_text, clean_text
 
 
 def test_chunk_text_it():
