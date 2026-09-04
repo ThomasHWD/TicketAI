@@ -63,9 +63,10 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
   }
 
   async function handleRejeter() {
+    if (!rejectRaison.trim()) { setError("Un motif est obligatoire pour rejeter une réponse."); return; }
     setLoading(true); setError(null);
     try {
-      await rejeterReponse(reponse.id, { validator_id: getValidatorId(), raison: rejectRaison.trim() || undefined });
+      await rejeterReponse(reponse.id, { validator_id: getValidatorId(), raison: rejectRaison.trim() });
       setConfirmingRejection(false);
       setRejectRaison("");
       onChanged();
