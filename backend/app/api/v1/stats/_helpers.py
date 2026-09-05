@@ -10,6 +10,8 @@ def _build_domain_filters(current_user, domaine: str | None) -> tuple[list, list
     """Retourne (domain_filters, reponse_domain_joins) selon l'utilisateur et le domaine demandé."""
     if domaine:
         domaine = domaine.upper()
+        if current_user.role != "ADMIN" and domaine not in {g.domaine for g in current_user.groupes}:
+            return [Ticket.id.is_(None)], [Reponse.id.is_(None)]
         return (
             [Ticket.domaine == domaine],
             [Reponse.ticket.has(Ticket.domaine == domaine)],
