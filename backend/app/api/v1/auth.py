@@ -5,6 +5,7 @@ est créé en base à partir des attributs de l'annuaire, avec le rôle ``USER``
 défaut. Les rôles supérieurs (VALIDATEUR/ADMIN) sont attribués manuellement en base.
 """
 
+import logging
 from typing import Annotated
 
 import redis as redis_lib
@@ -20,6 +21,8 @@ from app.models.groupe import user_groups
 from app.models.user import User
 from app.services import ldap_auth
 from app.services.ldap_auth import LdapIdentity
+
+logger = logging.getLogger(__name__)
 
 _LOGIN_MAX_ATTEMPTS = 10
 _LOGIN_WINDOW_SECONDS = 60
@@ -42,8 +45,12 @@ def _check_login_rate(ip: str) -> None:
             )
     except HTTPException:
         raise
-    except Exception:
-        pass  # Valkey indisponible → on laisse passer (fail-open)
+    except Exception as e:
+        logger.error("Rate limiter indisponible, login bloqué par précaution : %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporairement indisponible, réessayez dans un instant.",
+        ) from e
 
 router = APIRouter()
 

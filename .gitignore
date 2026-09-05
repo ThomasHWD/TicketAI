@@ -16,6 +16,7 @@ REVUE_DOCKER_HEALTHCHECKS.md
 storage/
 uploads_tmp/
 tests_maj_doc/
+.deepsec/
 
 # React / Node
 node_modules/

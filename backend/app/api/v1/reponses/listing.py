@@ -28,7 +28,10 @@ async def lister_reponses_en_attente(
         )
 
         if domaine:
-            query = query.filter(Ticket.domaine == domaine.upper())
+            d = domaine.upper()
+            if current_user.role != "ADMIN" and d not in user_domaines(current_user):
+                return []
+            query = query.filter(Ticket.domaine == d)
         elif current_user.role != "ADMIN":
             query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
 
@@ -71,7 +74,10 @@ async def lister_reponses_canoniques(
         )
 
         if domaine:
-            query = query.filter(Ticket.domaine == domaine.upper())
+            d = domaine.upper()
+            if current_user.role != "ADMIN" and d not in user_domaines(current_user):
+                return {"total": 0, "page": page, "limit": limit, "items": []}
+            query = query.filter(Ticket.domaine == d)
         elif current_user.role != "ADMIN":
             query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
 
@@ -132,7 +138,10 @@ async def lister_reponses_obsoletes(
         )
 
         if domaine:
-            query = query.filter(Ticket.domaine == domaine.upper())
+            d = domaine.upper()
+            if current_user.role != "ADMIN" and d not in user_domaines(current_user):
+                return {"total": 0, "page": page, "limit": limit, "items": []}
+            query = query.filter(Ticket.domaine == d)
         elif current_user.role != "ADMIN":
             query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
 
@@ -200,7 +209,10 @@ async def lister_reponses_a_relire(
         )
 
         if domaine:
-            query = query.filter(Ticket.domaine == domaine.upper())
+            d = domaine.upper()
+            if current_user.role != "ADMIN" and d not in user_domaines(current_user):
+                return {"total": 0, "nb_documents": 0, "page": page, "limit": limit, "items": []}
+            query = query.filter(Ticket.domaine == d)
         elif current_user.role != "ADMIN":
             query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
 
