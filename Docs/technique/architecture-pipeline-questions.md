@@ -1,6 +1,6 @@
 # Pipeline de traitement des questions
 
-Ce document décrit le traitement d'une question depuis sa réception jusqu'à la réponse produite. Il détail le flux, les branchements, et les décisions de conception.
+Ce document décrit le traitement d'une question depuis sa réception jusqu'à la réponse produite. Il détaille le flux, les branchements, et les décisions de conception.
 
 **Fichiers concernés**
 - `backend/app/workers/question.py` — point d'entrée Celery (`question_job`)
@@ -15,42 +15,29 @@ Ce document décrit le traitement d'une question depuis sa réception jusqu'à l
 
 ## Vue d'ensemble
 
-```
-Question de l'utilisateur
-        │
-        ▼
-[Étape 0] Suivi ? ──oui──► Reconstituer le fil (historique + requête enrichie)
-        │
-        ▼
-[Étape 1] Embedding dense (Albert) + recherche hybride Qdrant (top 15)
-        │
-        ▼
-[Étape 2] Y a-t-il une réponse VALIDÉE avec score ≥ seuil ?
-        │
-        ├─── oui + canonique + score ≥ SEUIL_COSINUS
-        │         │
-        │         ▼
-        │    [Garde] Question posée ≡ question indexée ? (LLM judge)
-        │         │
-        │         ├─── OUI ──► CANONIQUE (servie sans revue humaine)
-        │         │
-        │         └─── NON ──► pipeline RAG (voir ci-dessous)
-        │
-        ├─── oui (validée, non canonique ou score < SEUIL_COSINUS) ──► SUGGESTION (revue humaine)
-        │
-        └─── non
-              │
-              ▼
-        [Étape 3] Reranking (Albert, top 5)
-              │
-              ▼
-        [Étape 4] Génération LLM (Albert, temperature=0.1)
-              │
-              ▼
-        [Étape 5] Sauvegarde PostgreSQL + chunks cités
-              │
-              ▼
-             RAG (revue humaine obligatoire)
+```mermaid
+flowchart TD
+    A[Question de l'utilisateur] --> B{Étape 0<br/>Est-ce un suivi ?}
+    B -->|oui| B2[Reconstituer le fil :<br/>historique + requête enrichie]
+    B -->|non| C
+    B2 --> C[Étape 1<br/>Embedding dense Albert<br/>+ recherche Qdrant, top 15]
+
+    C --> D{Étape 2<br/>Une réponse VALIDÉE<br/>avec score ≥ SEUIL_SUGGESTION ?}
+
+    D -->|oui, canonique<br/>et score ≥ SEUIL_COSINUS| E{Garde LLM<br/>Question posée ≡<br/>question indexée ?}
+    D -->|oui, mais non canonique<br/>ou score < SEUIL_COSINUS| F[SUGGESTION<br/>revue humaine requise]
+    D -->|non| G
+
+    E -->|OUI| H[CANONIQUE<br/>servie sans revue humaine]
+    E -->|NON| G[Étape 3<br/>Reranking Albert, top 5]
+
+    G --> I[Étape 4<br/>Génération LLM<br/>temperature = 0.1]
+    I --> J[Étape 5<br/>Sauvegarde PostgreSQL<br/>+ chunks cités]
+    J --> K[RAG<br/>revue humaine obligatoire]
+
+    style H fill:#d1fae5,stroke:#059669
+    style F fill:#fef3c7,stroke:#d97706
+    style K fill:#dbeafe,stroke:#2563eb
 ```
 
 ---
@@ -74,8 +61,9 @@ chunks = search_hybrid(question, domaine, top_k=15)
 ```
 
 **Deux requêtes Qdrant en parallèle :**
-1. Recherche **dense** (vecteur 1024d BGE-M3, cosinus)
-2. Recherche **sparse** (vecteurs BGE-M3 sparse, BM25-like)
+1. Recherche **dense** (vecteur 1024d BGE-M3, cosinus) — la seule qui produit des résultats
+2. Recherche **sparse** (BM25-like) — **le vecteur est vide, cette requête ne remonte
+   jamais rien**. Voir l'avertissement plus bas.
 
 **Fusion manuelle RRF** (`k=60`) :
 
@@ -87,9 +75,21 @@ Le score cosinus brut de la recherche dense est conservé dans `score_cosinus` p
 
 > **Pourquoi RRF manuel ?** Le Prefetch+Fusion natif de Qdrant 1.18 est buggé avec des vecteurs 1024d — comportement silencieusement incorrect. RRF manuel produit un résultat identique à ce qu'on attendrait du natif.
 
-> **Note sur le sparse :** Albert ne génère pas de vecteurs sparse. `embed_texts` retourne `{"dense": [...], "sparse": {"indices": [], "values": []}}`. La recherche sparse est donc actuellement inopérante — elle ne remonte rien et n'impacte pas les résultats. La plomberie est en place pour quand Albert exposera les vecteurs sparse BGE-M3.
+> ⚠️ **La moitié « sparse » est inerte — état vérifié dans le code au 2026-09-05.**
+> `embed_texts` (`app/services/embedding.py`) retourne systématiquement
+> `{"dense": [...], "sparse": {"indices": [], "values": []}}` et **ignore son paramètre
+> `is_query`**. La requête sparse envoyée à Qdrant porte donc un vecteur vide : elle ne
+> remonte aucun point et n'influence pas le classement. En pratique **la recherche est
+> dense seule**, la fusion RRF ne fusionnant qu'une liste non vide.
+>
+> La plomberie (collection, `SparseVectorParams`, requête, fusion) est en place ; il ne
+> manque que la production des vecteurs, qu'Albert n'expose pas. **Si vous lisez ailleurs
+> qu'un encodeur BM25 local est en service, c'est inexact** : il n'existe aucun module
+> `app/services/sparse.py` dans ce dépôt, ni d'appel à `Modifier.IDF`.
 
-**Filtre domaine strict :** chaque requête Qdrant filtre par `domaine` (`IT`, `RH`, `JURIDIQUE`). Aucune fuite inter-domaine n'est possible.
+**Filtre domaine strict :** chaque requête Qdrant filtre par `domaine`. Les domaines sont
+libres et définis par les groupes créés en administration (`RH`, `IT`, `JURIDIQUE`… ne
+sont que des exemples courants). Aucune fuite inter-domaine n'est possible.
 
 ---
 
@@ -189,3 +189,26 @@ celery -A app.workers.celery_app worker -Q queue_ingestion -c 2
 ```
 
 Retries : 3 tentatives max, délai 60s, sur toute exception non-`TicketDisparu`. `TicketDisparu` est catché et retourne `{"statut": "IGNORÉ"}` sans retry — un ticket supprimé ne reviendra jamais.
+
+Les autres tâches planifiées ou déclenchées sont :
+
+| Tâche | File | Déclencheur |
+|---|---|---|
+| `question_job` | `queue_questions` | Nouvelle question ou relance |
+| `feedback_job` | `queue_ingestion` | Validation ou correction d'une réponse |
+| `ingestion_job` | `queue_ingestion` | Import d'un document |
+| `document_update_job` | `queue_ingestion` | Confirmation d'une nouvelle version |
+| `reverification_job` | `queue_questions` | Enchaîné par le job de mise à jour |
+| `auto_cloture_job` | `queue_questions` | **Celery Beat, chaque nuit à 02 h 00** |
+
+---
+
+## Voir aussi
+
+| Document | Sujet |
+|---|---|
+| [Garde du cache canonique](garde-cache-canonique.md) | Le juge de l'étape 2 — **à lire avant de toucher aux seuils** |
+| [Mettre à jour un document](mise-a-jour-documents.md) | Ce qui arrive aux réponses indexées quand un document change |
+| [Référence API](reference-api.md) | Les endpoints qui déclenchent ce pipeline |
+| [Cycle de vie et labels](../fonctionnalites/labels-et-categories.md) | Comment ces branches se traduisent en badges |
+| [Notifications et temps réel](../fonctionnalites/notifications-et-temps-reel.md) | Les événements SSE émis à l'étape 5 |
