@@ -57,9 +57,7 @@ async def _stream(request: Request, user):
     if domaines:
         for domaine in domaines:
             channels.append(f"sse:domain:{domaine}")
-    else:
-        # Pas de groupe configuré (admin sans groupes, ou validateur mal configuré)
-        # → écoute tous les domaines via pattern pour éviter les événements manqués
+    elif user.role == "ADMIN":
         use_domain_pattern = True
 
     r = aioredis.from_url(settings.valkey_url)

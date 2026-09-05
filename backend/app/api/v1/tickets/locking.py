@@ -60,11 +60,13 @@ async def heartbeat_ticket(ticket_id: str, current_user: BackofficeUser):
     tid = parse_ticket_id(ticket_id)
     db = SessionLocal()
     try:
+        existing = db.query(Ticket).filter(Ticket.id == tid).first()
+        if not existing:
+            raise HTTPException(404, "Ticket introuvable")
+        check_domain_write(existing.domaine, current_user)
         ticket = acquire_lock(db, tid, current_user.id)
         if ticket is None:
             ticket = db.query(Ticket).filter(Ticket.id == tid).first()
-            if not ticket:
-                raise HTTPException(404, "Ticket introuvable")
             raise HTTPException(
                 409,
                 {
