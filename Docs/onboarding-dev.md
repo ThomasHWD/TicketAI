@@ -52,9 +52,31 @@ Valeurs minimales à renseigner pour démarrer :
 | `ALBERT_API_KEY` | `<clé API gouvernement>` | oui (LLM/embeddings/reranker) |
 | `JWT_SECRET_KEY` | `openssl rand -hex 32` | oui |
 | `DOCUMENTS_STORAGE_PATH` | `/tmp/ticketai/documents` | oui |
-| `AUTH_MODE` | `db` (local) ou `ldap` (prod) | recommandé : `db` en dev |
+| `SEUIL_CANONIQUE` | `3` | oui |
+| `SEUIL_COSINUS` | `0.90` | oui |
+| `AUTH_MODE` | `local` (dev) ou `ldap` (prod) | recommandé : `local` en dev |
 
-En mode `AUTH_MODE=db`, le login s'appuie uniquement sur la base Postgres (pas besoin d'un Active Directory). Mettre `AUTH_MODE=ldap` uniquement si vous avez accès à un serveur LDAP.
+> ⚠️ **`AUTH_MODE` ne change *rien* au login — piège vérifié dans le code.**
+>
+> Malgré son nom et le commentaire de `app/config.py`, ce réglage n'est lu qu'à **un seul
+> endroit** : `app/api/v1/admin/users.py`, pour décider si `GET /admin/gestionnaires`
+> interroge l'annuaire ou retombe sur la base.
+>
+> **Le login passe systématiquement par le LDAP.** `auth.py` appelle
+> `ldap_auth.authenticate()`, qui appelle `_authenticate_ldap()` sans jamais consulter
+> `auth_mode`. Il n'existe **ni stub, ni repli base de données** pour l'authentification.
+>
+> **Conséquence : il faut un serveur LDAP/AD joignable pour se connecter, même en
+> développement.** Sans annuaire, l'appel à `/auth/login` expire et aucun compte ne peut
+> ouvrir de session — quelle que soit la valeur d'`AUTH_MODE`.
+
+Si vous développez sans accès à l'annuaire, prévoyez soit un tunnel vers l'AD de
+l'entreprise, soit un serveur LDAP de test, soit un contournement explicite dans
+`ldap_auth.authenticate()`.
+
+`SEUIL_CANONIQUE` et `SEUIL_COSINUS` n'ont **pas** de valeur par défaut dans le code : ils
+sont obligatoires et l'application refuse de démarrer s'ils manquent. Les valeurs
+ci-dessus sont celles de `.env.example`.
 
 ### Frontend
 
@@ -128,7 +150,7 @@ pip install -r requirements.txt
 
 ---
 
-## 6. Lancer les tests
+## 4. Lancer les tests
 
 Les tests sont organisés en deux catégories :
 
@@ -167,7 +189,7 @@ npm run test
 
 ---
 
-## 7. Linting
+## 5. Linting
 
 ```bash
 # Backend (depuis backend/)
@@ -182,7 +204,7 @@ Le CI bloque la CI si `ruff check` ou `oxlint` échouent.
 
 ---
 
-## 8. Structure du projet
+## 6. Structure du projet
 
 ```
 TicketAI/
@@ -204,10 +226,13 @@ TicketAI/
 │   └── src/
 │       ├── pages/           # Pages React (backoffice, user, admin)
 │       ├── components/      # Composants réutilisables
-│       ├── lib/api.tsx      # Appels API centralisés
-│       ├── hooks/           # Hooks React Query
-│       └── types/index.tsx  # Types TypeScript partagés
-├── Docs/                    # Documentation fonctionnelle
+│       ├── context/         # Contextes React (suivi des jobs)
+│       ├── lib/api/         # Appels API, découpés par domaine fonctionnel
+│       ├── hooks/           # Hooks React Query, SSE, verrous…
+│       └── types/           # Types TypeScript partagés
+├── Docs/                    # Documentation
+│   ├── fonctionnalites/     # Ce que fait le produit, écran par écran
+│   └── technique/           # Comment le moteur fonctionne
 ├── docker-compose.yml       # Services infra (postgres, qdrant, valkey)
 ├── docker-compose.dev.yml   # Surcharge dev (hot-reload backend + frontend)
 ├── docker-compose.prod.yml  # Surcharge prod (nginx, build optimisé)
@@ -216,33 +241,61 @@ TicketAI/
 
 ---
 
-## 9. Rôles utilisateurs
+## 7. Rôles utilisateurs
 
-| Rôle | Accès |
-|---|---|
-| `USER` | Soumettre des tickets, voir ses réponses |
-| `VALIDATEUR` | Valider/corriger/rejeter les réponses en attente |
-| `ADMIN` | configuration, gestion utilisateurs |
+⚠️ **Il n'existe que deux rôles en base : `USER` et `ADMIN`.** Il n'y a pas de rôle
+`VALIDATEUR`. L'accès se joue sur **deux axes indépendants** :
 
-En mode `AUTH_MODE=db`, les rôles sont attribués directement en base. En production (`AUTH_MODE=ldap`), les groupes LDAP `LDAP_GROUP_GESTIONNAIRE` et `LDAP_GROUP_ADMIN` déterminent le rôle au login.
+| Axe | Valeurs | D'où il vient |
+|---|---|---|
+| **Rôle** | `USER` \| `ADMIN` | L'annuaire (groupe AD `LDAP_GROUP_ADMIN`), gravé dans le JWT |
+| **Appartenance à un groupe** | 0 à N groupes | Attribuée à la main par un admin |
+
+Ce qui donne trois profils effectifs :
+
+| Profil | Composition | Accès |
+|---|---|---|
+| **Employé** | `USER`, aucun groupe | Soumettre des tickets, voir **ses** réponses |
+| **Validateur** | `USER` **ou** `ADMIN`, ≥ 1 groupe | Backoffice, limité aux domaines de ses groupes |
+| **Administrateur** | `ADMIN` | Pages d'administration. **Sans groupe, il ne peut ni valider ni importer de document** |
+
+C'est donc bien la **présence d'un groupe** — et non le rôle — qui ouvre le backoffice.
+
+En production (`AUTH_MODE=ldap`), `LDAP_GROUP_ADMIN` détermine le rôle à chaque login, et
+`LDAP_GROUP_GESTIONNAIRE` alimente le drapeau `is_gestionnaire` (qui ne donne aucun droit
+en soi). Dans les autres modes, le rôle est celui inscrit en base.
+
+Les règles complètes sont dans [`technique/auth-et-roles.md`](technique/auth-et-roles.md).
 
 ---
 
-## 10. Les trois branches de réponse
+## 8. Les trois branches de réponse
 
 Comprendre ces branches est central pour travailler sur le pipeline :
 
 | Branche | Déclencheur | Validation humaine ? |
 |---|---|---|
-| **CANONIQUE** | Score cosinus ≥ seuil **et** réponse validée indexée dans Qdrant | Non — réponse directe |
-| **SUGGESTION** | Score cosinus ≥ seuil mais pas encore canonique | Oui |
-| **RAG** | Score sous le seuil — génération LLM à partir des chunks | Oui |
+| **CANONIQUE** | Candidat canonique avec `score_cosinus ≥ SEUIL_COSINUS` **et** un juge LLM qui confirme que la question posée est équivalente à la question indexée | Non — réponse directe |
+| **SUGGESTION** | Réponse validée réutilisable, mais pas encore canonique ou score sous `SEUIL_COSINUS` | Oui |
+| **RAG** | Aucun candidat réutilisable, **ou garde ayant refusé** — génération LLM à partir des chunks | Oui |
+
+Deux points que le tableau ne dit pas assez fort :
+
+- **`SEUIL_COSINUS` est un filtre de coût, pas un filtre de sécurité.** Il limite le
+  nombre de candidats envoyés au juge. C'est **le garde seul** qui décide si une réponse
+  peut être servie sans revue humaine.
+- **Un refus du garde n'entraîne pas de repli en SUGGESTION** : la question part au
+  pipeline RAG complet.
 
 Une réponse devient canonique après `SEUIL_CANONIQUE` (défaut : 3) validations humaines.
+Être canonique n'en fait qu'un **candidat** — le garde tranche question par question.
+
+⚠️ **Lisez [`technique/garde-cache-canonique.md`](technique/garde-cache-canonique.md)
+avant de toucher aux seuils, au prompt du juge ou à la condition de la branche CANONIQUE.**
 
 ---
 
-## 11. Workflow de développement
+## 9. Workflow de développement
 
 ```
 feature/ma-feature
@@ -262,11 +315,28 @@ Le CI tourne la suite complète (unitaires + intégration) avec Postgres, Valkey
 
 ---
 
-## 12. Documentation à lire ensuite
+## 10. Documentation à lire ensuite
+
+### Pour comprendre le moteur
 
 | Document | Sujet |
 |---|---|
-| [`Docs/architecture-pipeline-questions.md`](architecture-pipeline-questions.md) | Détail du pipeline question → réponse |
-| [`Docs/mise-a-jour-documents.md`](mise-a-jour-documents.md) | Pipeline de mise à jour de documents et vérification de cohérence |
-| [`Docs/labels-et-categories.md`](labels-et-categories.md) | Statuts, badges, et cycle de vie d'un ticket |
-| [`CLAUDE.md`](../CLAUDE.md) | Référence technique rapide pour les contributeurs IA |
+| [`technique/architecture-pipeline-questions.md`](technique/architecture-pipeline-questions.md) | Détail du pipeline question → réponse |
+| [`technique/garde-cache-canonique.md`](technique/garde-cache-canonique.md) | Le juge LLM de la branche CANONIQUE — **à lire avant de toucher aux seuils** |
+| [`technique/mise-a-jour-documents.md`](technique/mise-a-jour-documents.md) | Mise à jour documentaire et ré-vérification des réponses |
+| [`technique/auth-et-roles.md`](technique/auth-et-roles.md) | Rôles, groupes, domaines, LDAP, JWT |
+| [`technique/reference-api.md`](technique/reference-api.md) | Tous les endpoints et leurs gardes d'accès |
+
+### Pour comprendre le produit
+
+| Document | Sujet |
+|---|---|
+| [`fonctionnalites/labels-et-categories.md`](fonctionnalites/labels-et-categories.md) | Statuts, badges et cycle de vie d'un ticket |
+| [`fonctionnalites/espace-utilisateur.md`](fonctionnalites/espace-utilisateur.md) | Le parcours de l'employé |
+| [`fonctionnalites/backoffice-tickets.md`](fonctionnalites/backoffice-tickets.md) | Le travail du validateur, verrous et assignation |
+| [`fonctionnalites/notifications-et-temps-reel.md`](fonctionnalites/notifications-et-temps-reel.md) | SSE, canaux Redis, catalogue des événements |
+| [`fonctionnalites/administration.md`](fonctionnalites/administration.md) | Groupes, santé, incidents, configuration |
+
+Le sommaire complet est dans [`Docs/README.md`](README.md), et
+[`CLAUDE.md`](../CLAUDE.md) sert de référence technique condensée pour les contributeurs
+assistés par IA.

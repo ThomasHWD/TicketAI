@@ -24,40 +24,78 @@ Chaque validation renforce la base : au bout de trois validations, une réponse 
 
 ## Les trois branches de réponse
 
+```mermaid
+flowchart TD
+    A[Question de l'employé] --> B[Recherche hybride Qdrant<br/>filtrée par domaine]
+    B --> C{Une réponse validée<br/>est-elle réutilisable ?}
+
+    C -->|Canonique<br/>et score ≥ SEUIL_COSINUS| D{Garde LLM :<br/>les deux questions<br/>demandent-elles<br/>la même chose ?}
+    C -->|Validée mais pas canonique,<br/>ou score plus bas| F[SUGGESTION]
+    C -->|Aucune| G[RAG]
+
+    D -->|OUI| E[CANONIQUE]
+    D -->|NON| G
+
+    E --> H[Servie immédiatement<br/>sans revue humaine]
+    F --> I[Revue humaine requise]
+    G --> J[Rerank + génération LLM<br/>revue humaine requise]
+
+    style E fill:#d1fae5,stroke:#059669
+    style F fill:#fef3c7,stroke:#d97706
+    style G fill:#dbeafe,stroke:#2563eb
 ```
-Question de l'employé
-        │
-        ▼
-  Recherche hybride (dense + sparse, Qdrant)
-        │
-        ├── Score élevé + réponse canonique ──► CANONIQUE   (instantané, sans revue)
-        │
-        ├── Score élevé + réponse validée ───► SUGGESTION   (revue humaine requise)
-        │
-        └── Pas de réponse réutilisable ──────► RAG          (génération LLM, revue humaine requise)
-```
 
-**CANONIQUE** — la question est très proche d'une question déjà traitée et sa réponse a été validée suffisamment de fois. Aucune intervention humaine.
+**CANONIQUE** — une réponse déjà validée plusieurs fois a été retrouvée, **et un juge LLM a
+confirmé que la question posée demande exactement la même chose** que celle sous laquelle
+la réponse est indexée. Aucune intervention humaine.
 
-**SUGGESTION** — une réponse validée existe mais la confiance n'est pas assez haute pour la servir sans relecture. L'expert confirme ou corrige.
+**SUGGESTION** — une réponse validée existe mais n'est pas encore canonique, ou son score
+est trop bas. Elle est réutilisée, mais l'expert doit confirmer ou corriger.
 
-**RAG** — aucune réponse réutilisable. Le système reranke les chunks de documents pertinents et génère une réponse via LLM (Albert API). Elle est toujours soumise à validation avant d'être publiée.
+**RAG** — aucune réponse réutilisable, **ou le garde a refusé**. Le système reranke les
+chunks de documents pertinents et génère une réponse via LLM (Albert API). Elle est
+toujours soumise à validation avant d'être publiée.
+
+> **Le seuil de similarité ne décide pas de ce qui est sûr.** Deux questions peuvent être
+> quasi identiques vectoriellement et appeler des réponses opposées (« puis-je
+> télétravailler ? » vs « puis-je *refuser* de télétravailler ? »). Le seuil ne fait que
+> limiter le nombre de candidats soumis au juge ; **c'est le garde qui tranche**. Voir
+> [Garde du cache canonique](technique/garde-cache-canonique.md).
 
 ---
 
 ## Boucle de feedback
 
-```
-Validation humaine
-        │
-        ▼
-Réindexation dans Qdrant (vecteur de la question → payload reponse_id)
-        │
-        ▼
-nb_validations atteint le seuil ──► réponse promue CANONIQUE
+```mermaid
+flowchart LR
+    A[Validation humaine] --> B[Réindexation dans Qdrant<br/>vecteur de la <b>question</b><br/>→ payload reponse_id]
+    B --> C{nb_validations<br/>≥ SEUIL_CANONIQUE ?}
+    C -->|non| D[Réutilisable<br/>en SUGGESTION]
+    C -->|oui| E[Réponse promue<br/>CANONIQUE]
+    D --> A
+    E --> F[Candidate au service<br/>automatique, sous réserve<br/>de l'accord du garde]
 ```
 
 La base de connaissances s'enrichit naturellement au fil des validations, sans action manuelle.
+
+> **Pourquoi indexer la question et non la réponse ?** La similarité question↔question
+> atteint des scores élevés pour deux formulations proches, alors que question↔réponse
+> plafonne autour de 0,50 et n'atteint jamais le seuil. C'est un choix structurant du
+> système.
+
+---
+
+## Panorama des fonctionnalités
+
+| Domaine | Ce que le système offre | Détail |
+|---|---|---|
+| **Poser et suivre** | Soumission d'une question, fil de conversation avec relances, clôture, notation 1–5 | [Espace utilisateur](fonctionnalites/espace-utilisateur.md) |
+| **Valider** | File de tickets filtrable, verrou collaboratif, assignation, valider / corriger / rejeter, timeline complète | [Traiter les tickets](fonctionnalites/backoffice-tickets.md) |
+| **Capitaliser** | Réponses canoniques, file « à relire », réponses obsolètes, restauration | [Réponses enregistrées](fonctionnalites/reponses-enregistrees.md) |
+| **Documenter** | Import PDF/DOCX/TXT/MD, versionnement, chunks consultables, angles morts | [Base de connaissances](fonctionnalites/base-de-connaissances.md) |
+| **Rester informé** | Cloche de notifications, mises à jour temps réel sans rechargement | [Notifications et temps réel](fonctionnalites/notifications-et-temps-reel.md) |
+| **Piloter** | Tableau de bord par domaine, répartition des branches, satisfaction, stats d'équipe | [Statistiques et pilotage](fonctionnalites/statistiques-et-pilotage.md) |
+| **Administrer** | Groupes et domaines, santé des services, incidents, quotas Albert, bannière, suggestions | [Administration](fonctionnalites/administration.md) |
 
 ---
 
