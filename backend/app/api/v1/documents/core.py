@@ -133,15 +133,23 @@ async def list_documents(
     limit = min(limit, 1000)
     q = db.query(Document).filter(Document.statut.in_(STATUTS_VIVANTS))
 
-    if domaines:
-        q = q.filter(Document.domaine.in_([d.strip().upper() for d in domaines.split(",") if d.strip()]))
-    elif domaine:
-        q = q.filter(Document.domaine == domaine.upper())
-    elif current_user.role != "ADMIN":
-        allowed = list(user_domaines(current_user))
+    if current_user.role != "ADMIN":
+        allowed = user_domaines(current_user)
+        if domaines:
+            requested = {d.strip().upper() for d in domaines.split(",") if d.strip()}
+            allowed = allowed & requested
+        elif domaine:
+            d = domaine.upper()
+            if d not in allowed:
+                return {"total": 0, "items": []}
+            allowed = {d}
         if not allowed:
             return {"total": 0, "items": []}
         q = q.filter(Document.domaine.in_(allowed))
+    elif domaines:
+        q = q.filter(Document.domaine.in_([d.strip().upper() for d in domaines.split(",") if d.strip()]))
+    elif domaine:
+        q = q.filter(Document.domaine == domaine.upper())
 
     docs = q.order_by(Document.updated_at.desc()).limit(limit).all()
 
