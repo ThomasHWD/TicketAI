@@ -81,14 +81,43 @@ Un utilisateur backoffice ne peut pas valider, rejeter ou corriger une réponse 
 
 ## Authentification
 
+![L'écran de connexion](../images/00-login.png)
+
+Le champ *Identifiant* attend le `sAMAccountName` de l'annuaire, au format `prénom.nom`.
+
 ### LDAP / Active Directory
 
 À chaque connexion, le système effectue deux opérations LDAP :
 
-1. Bind du compte de service → recherche de l'utilisateur par son identifiant.
+1. Bind du compte de service → recherche de l'utilisateur par son identifiant
+   (`sAMAccountName` par défaut).
 2. Re-bind avec les identifiants de l'utilisateur → vérification réelle du mot de passe.
 
 Si le LDAP primaire est injoignable, un serveur secondaire peut être configuré (`ldap_server_url_secondary`).
+
+> ⚠️ **`AUTH_MODE` ne conditionne pas l'authentification.** Malgré son nom et le
+> commentaire de `app/config.py`, ce réglage n'est lu qu'à **un seul endroit** :
+> `app/api/v1/admin/users.py`, pour décider si `GET /admin/gestionnaires` interroge
+> l'annuaire ou retombe sur la base.
+>
+> `auth.py` appelle `ldap_auth.authenticate()`, qui appelle `_authenticate_ldap()` **sans
+> jamais consulter `auth_mode`**. Il n'existe ni stub, ni repli base de données. **Un
+> serveur LDAP joignable est donc requis pour se connecter, y compris en développement.**
+
+> ⚠️ **Un échec LDAP est indiscernable d'un mot de passe incorrect.** `authenticate()`
+> intercepte `LDAPException` et renvoie `None` :
+>
+> ```python
+> try:
+>     return _authenticate_ldap(username, password)
+> except LDAPException:
+>     return None   # serveur injoignable, timeout, filtre invalide…
+> ```
+>
+> L'API répond alors `401 Identifiant ou mot de passe incorrect`. **Un annuaire
+> injoignable, un timeout réseau ou un compte de service expiré produisent exactement le
+> même message qu'une faute de frappe dans le mot de passe.** En cas d'échec de connexion
+> inexpliqué, vérifiez la joignabilité du serveur avant de suspecter les identifiants.
 
 ### Provisioning juste-à-temps (JIT)
 
@@ -129,7 +158,7 @@ Le login est limité à **10 tentatives par minute et par IP** (Valkey). Si Valk
 
 | Variable | Rôle |
 |---|---|
-| `AUTH_MODE` | `ldap` (production) ou `local` (dev, stub LDAP) |
+| `AUTH_MODE` | **N'affecte pas le login** — voir l'avertissement ci-dessous. Sert uniquement à `GET /admin/gestionnaires` |
 | `LDAP_SERVER_URL` | URL primaire Active Directory |
 | `LDAP_SERVER_URL_SECONDARY` | Basculement automatique si le primaire est injoignable |
 | `LDAP_BIND_DN` | DN du compte de service |
@@ -176,3 +205,36 @@ Tous sous `/api/v1/admin/`, protégés par `AdminUser`.
 | `DELETE /groupes/{id}/membres/{user_id}` | Retire un membre |
 | `PUT /groupes/{id}/membres/{user_id}/chef` | Désigne ou révoque le chef |
 | `GET /gestionnaires` | Liste les gestionnaires depuis l'AD (avec fallback base) |
+
+### Les autres endpoints d'administration
+
+Également sous `/api/v1/admin/`, protégés par `AdminUser` :
+
+| Route | Effet |
+|---|---|
+| `GET /health` | État des services et indicateurs fonctionnels |
+| `GET /albert-quotas` | Consommation Albert du jour, par modèle |
+| `GET /incidents` | Tickets échoués, tickets bloqués, documents échoués |
+| `POST /tickets/{id}/retry` · `DELETE /tickets/{id}` | Réparation d'un ticket |
+| `POST /documents/{task_id}/retry` · `DELETE /documents/{task_id}` · `GET /documents/{task_id}/download` | Réparation d'une ingestion |
+| `POST /documents/reconcile` | Recrée les lignes `documents` manquantes depuis Qdrant |
+| `PUT /config/{key}` | Modifie une clé de configuration |
+
+**Exception notable :** `GET /admin/config` est ouvert à **tout utilisateur
+authentifié**, et non aux seuls admins — l'interface a besoin d'y lire la bannière pour
+tout le monde. Seule l'écriture (`PUT`) est réservée aux administrateurs.
+
+Le détail complet est dans [Référence API](reference-api.md), et les écrans
+correspondants dans [Administration](../fonctionnalites/administration.md).
+
+---
+
+## Ce que les rôles ne font pas
+
+Trois idées reçues, corrigées :
+
+| Idée reçue | Réalité |
+|---|---|
+| « Il existe un rôle `VALIDATEUR` » | **Non.** Seuls `USER` et `ADMIN` existent en base. Un validateur est un `USER` **appartenant à au moins un groupe**. |
+| « Un admin peut tout faire » | **Non.** Un admin sans groupe ne peut ni importer de document, ni valider de ticket : les gardes d'écriture n'ont **aucune exception** pour l'admin. |
+| « `is_gestionnaire` donne des droits » | **Non.** Ce drapeau ne sert qu'à faire apparaître l'utilisateur dans le sélecteur d'ajout de membre. |

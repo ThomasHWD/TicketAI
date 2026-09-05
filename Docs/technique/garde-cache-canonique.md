@@ -80,7 +80,14 @@ Le juge peut alors évaluer l'équivalence dans son contexte réel.
 |---|---|---|
 | `ALBERT_GARDE_MODEL_NAME` | *(vide)* | Modèle LLM dédié au garde. Si vide, utilise `ALBERT_LLM_MODEL_NAME`. |
 
-Utiliser un modèle dédié est recommandé : Albert applique ses quotas (jetons et requêtes) par modèle. Partager le modèle de génération laisse les appels de génération épuiser le quota du garde, ce qui produit des refus `INDISPONIBLE` qui ressemblent à des refus légitimes.
+Utiliser un modèle dédié est recommandé : Albert applique ses quotas (jetons et requêtes) par modèle. Partager le modèle de génération laisse les appels de génération épuiser le quota du garde.
+
+⚠️ **Un quota épuisé est silencieux.** Le garde n'a pas de verdict « indisponible » :
+`approuver()` renvoie un booléen, et toute exception — dont un `429` d'Albert — devient
+`False`, donc un refus. Un quota vidé se manifeste par des questions qui basculent
+massivement en RAG, **sans message d'erreur ni trace distinctive en base**. Devant une
+chute inexpliquée du taux de réponses canoniques, vérifier les quotas avant de suspecter
+le prompt.
 
 ---
 

@@ -442,6 +442,12 @@ redeviennent valables.
 | Archive | `GET /documents/{doc_id}/versions/{v}/download` | Fichier de la version `v`. |
 | Restauration | `POST /documents/{doc_id}/versions/{v}/restaurer` | Stage le fichier archivé → **renvoie le même aperçu**, à confirmer par `confirm`. |
 
+**L'aperçu expire.** Le fichier mis en staging a une durée de vie limitée
+(`STAGING_TTL`, 1 h) ; au-delà, `confirm` répond `409 Cet aperçu a expiré, veuillez
+redéposer le fichier` — de même si le fichier de staging a disparu du disque. C'est la
+contrepartie de la garantie ci-dessous : plutôt que de confirmer sur un fichier qui n'est
+peut-être plus celui qu'on a analysé, on redemande le dépôt.
+
 Le flux en deux temps existe pour que la confirmation porte sur **exactement** le fichier analysé.
 Une restauration n'a pas de chemin de code propre : elle appelle `stager_et_analyser`, partagé
 avec la mise à jour, puis le même `confirm`.
@@ -452,7 +458,14 @@ le projet : la confirmation ne crée plus N tâches humaines mais N tâches mach
 minorité seulement remontera. `diff_analysable: False` masque le panneau quand la version courante
 est illisible — afficher « 0 changement » se lirait comme une garantie.
 
-### Le diff — `app/services/obsolescence.py`
+### Le diff — `app/services/diff.py`
+
+> Le calcul du diff vit dans `app/services/diff.py`. `obsolescence.py` **réexporte** son
+> API (`Unite`, `unites_de_changement`, `decouper_en_passages`, `analyser_changements`,
+> `serialiser_unites`, `indices_modifies`…) pour ne pas casser les imports existants —
+> l'implémentation n'y est plus. `obsolescence.py` ne garde que les fonctions qui
+> **modifient l'état** : `marquer_obsoletes`, `retirer_du_service`, `poser_a_relire`,
+> `lever_a_relire`, `confirmer_actualite`, `fermeture_copies`, `flaguer_en_analyse`.
 
 `unites_de_changement(ancien, nouveau)` rend une liste d'`Unite(sens, avant, apres)` :
 
@@ -484,9 +497,16 @@ réponses **prioritaires** dont les unités court-circuitent le filtre de pertin
 correctif du défaut n° 1. `passages_ajoutes` n'est plus qu'une primitive interne du filtre
 anti-reflow.
 
-### La ré-vérification — `app/services/reverification.py`
+### La ré-vérification — trois modules `app/services/reverification*.py`
 
-Sans Celery, donc testable en unitaire. Quatre fonctions, une par étage :
+Sans Celery, donc testable en unitaire. Quatre fonctions, une par étage, réparties sur
+trois modules :
+
+| Module | Contenu |
+|---|---|
+| `reverification_candidates.py` | `rassembler_candidates` — étage 1 |
+| `reverification_scoring.py` | `unites_pertinentes` et `juger` — étages 2 et 3, plus `PROMPT_SYSTEME` |
+| `reverification.py` | `decider`, `signaler_sans_juger`, `tracer` — l'application des verdicts |
 
 | Fonction | Rôle | Point de vigilance |
 |---|---|---|
@@ -560,10 +580,11 @@ sequenceDiagram
     participant R as reverification_job<br/>(queue_questions)
 
     W->>Q: scroll — texte des anciens passages<br/>(AVANT tout delete : seule source)
+    W->>Q: delete des points déjà écrits en v(N+1)<br/>(purge défensive d'un retry partiel)
     W->>W: extraction + diff (unites_de_changement)
     W->>W: découpage + embeddings
     W->>Q: upsert nouveaux points
-    Note over W,Q: upsert avant delete :<br/>l'inverse ouvrirait un trou de service
+    Note over W,Q: upsert avant delete des ANCIENS :<br/>l'inverse ouvrirait un trou de service
     W->>Q: delete anciens points
     W->>PG: commit (version N+1 + changements sérialisés)
 
@@ -576,8 +597,12 @@ sequenceDiagram
     end
 ```
 
-L'upsert précède le delete : l'ordre inverse ouvrirait un trou de service pendant toute la durée
-des embeddings. Le prix est une fenêtre de quelques centaines de millisecondes où les deux
+Une purge défensive précède l'upsert : elle supprime les points **de la version entrante**
+qu'un essai précédent aurait déjà écrits, ce qui rend le job rejouable sans doublonner
+l'index. Elle ne touche pas aux points de la version sortante, qui restent servis.
+
+L'upsert précède ensuite le delete des anciens points : l'ordre inverse ouvrirait un trou de
+service pendant toute la durée des embeddings. Le prix est une fenêtre de quelques centaines de millisecondes où les deux
 versions coexistent dans l'index. L'étape 10 vient après la 9 : les EN_ATTENTE qui viennent d'être
 périmées n'ont pas à être analysées, et `reponses_obsoletes` les écarte une fois le commit passé.
 Le chemin du fichier sortant se lit dans le pré-vol, avec le domaine : la session est fermée

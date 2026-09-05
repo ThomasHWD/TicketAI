@@ -38,112 +38,99 @@ Quand plusieurs conditions sont vraies en même temps, le badge est choisi dans 
 > canonique (servie automatiquement par Qdrant) ou d'une réponse validée manuellement par un
 > expert. La distinction reste visible dans le détail du ticket via la source de réponse.
 
+![Les badges de statut dans la liste des tickets](../images/20-tickets-liste.png)
+
+Cinq des sept badges sont visibles ci-dessus : **En cours**, **Nouvelle**, **Suggestion**,
+**Hors domaine** et **Traitée**. Les deux autres — **Rejetée** (rouge) et **Clôturé**
+(gris) — n'apparaissent que dans l'onglet *Clôturés*, puisqu'un rejet ferme le ticket.
+
 ---
 
 ## 2. Le cycle de vie d'un ticket
 
+```mermaid
+flowchart TD
+    A[TICKET CRÉÉ<br/>Badge : Nouvelle] --> B[L'IA traite<br/>Badge : En cours]
+
+    B --> C[CANONIQUE<br/>Badge : Traitée]
+    B --> D[SUGGESTION ou RAG<br/>Badge : Suggestion]
+    B --> E[Hors domaine<br/>Badge : Hors domaine]
+
+    D --> F{Verdict du validateur}
+    E --> F
+
+    F -->|Valide ou corrige| G[Badge : Traitée<br/>statut = VALIDÉ]
+    F -->|Rejette| H[Badge : Rejetée<br/>statut = REJETÉ<br/>ticket clôturé]
+
+    G --> I{nb_validations<br/>≥ SEUIL_CANONIQUE ?}
+    I -->|oui| J[Réponse promue canonique<br/>réindexée dans Qdrant]
+    I -->|non| K[Reste Traitée<br/>réutilisable en SUGGESTION]
+
+    C --> L{Clôture}
+    J --> L
+    K --> L
+
+    L -->|Manuelle<br/>par le demandeur| M[CLÔTURÉ<br/>Badge : Gris]
+    L -->|Automatique<br/>VALIDÉ depuis ≥ 7 jours| M
+    H --> M
+
+    style C fill:#d1fae5,stroke:#059669
+    style G fill:#d1fae5,stroke:#059669
+    style J fill:#d1fae5,stroke:#059669
+    style D fill:#fef3c7,stroke:#d97706
+    style E fill:#ede9fe,stroke:#7c3aed
+    style H fill:#fee2e2,stroke:#dc2626
+    style M fill:#f3f4f6,stroke:#6b7280
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         TICKET CRÉÉ                                 │
-│                        Badge: Nouvelle                              │
-└─────────────────────────┬───────────────────────────────────────────┘
-                          │
-                          ▼
-              ┌───────────────────────┐
-              │  L'IA traite          │
-              │  Badge: En cours      │
-              └───────────┬───────────┘
-                          │
-          ┌───────────────┼───────────────────┐
-          ▼               ▼                   ▼
-  ┌──────────────┐ ┌─────────────┐   ┌───────────────────┐
-  │  Score élevé │ │Score moyen  │   │  Hors domaine     │
-  │  + réponse   │ │             │   │  Badge:           │
-  │  canonique   │ │             │   │  Hors domaine     │
-  │  existante   │ │             │   └─────────┬─────────┘
-  └──────┬───────┘ └──────┬──────┘             │
-         │                │                    │
-         ▼                ▼                    │
-  ┌────────────┐   ┌──────────────┐           │
-  │ CANONIQUE  │   │  SUGGESTION  │           │
-  │ Badge:     │   │  Badge:      │           │
-  │ Traitée    │   │  Suggestion  │           │
-  └──────┬─────┘   └──────┬───────┘           │
-         │                │                   │
-         │         ┌──────┴──────┐            │
-         │         ▼             ▼            │
-         │   ┌──────────┐ ┌──────────┐       │
-         │   │ Validée  │ │ Rejetée  │       │
-         │   │ Badge:   │ │ Badge:   │       │
-         │   │ Traitée  │ │ Rejetée  │       │
-         │   └──────┬───┘ └──────────┘       │
-         │          │                         │
-         └────┬─────┘             ┌───────────┘
-              │                   │
-              ▼                   ▼
-       ┌──────────────────────────────────┐
-       │  Validations ≥ seuil canonique ? │
-       └───────────────┬──────────────────┘
-                       │
-              Oui ◄────┴────► Non
-               │               │
-               ▼               │
-       ┌──────────────┐        │ (reste Traitée)
-       │  CANONIQUE   │        │
-       │  Badge:      │        │
-       │  Traitée     │        │
-       └──────────────┘        │
-                               │
-    ┌──────────────────────┬────────────────────────────┐
-    │  Clôture manuelle    │  Auto-clôture (Celery)     │
-    │  par le demandeur    │  ticket VALIDÉ depuis       │
-    │  (endpoint POST      │  ≥ jours_auto_cloture       │
-    │  /cloturer)          │  (défaut : 7 jours)         │
-    └──────────┬───────────┴────────────┬───────────────┘
-               │                        │
-               └───────────┬────────────┘
-                           ▼
-                   ┌───────────────┐
-                   │   CLÔTURÉ     │
-                   │   Badge: Gris │
-                   └───────────────┘
-```
+
+> **Le rejet clôture le ticket.** Contrairement à ce qu'on pourrait attendre, rejeter une
+> réponse ne renvoie pas la question dans la file : le ticket passe `REJETÉ` **et**
+> `closed_at` est renseigné dans la foulée.
 
 ---
 
 ## 3. La branche canonique en détail
 
 La branche canonique est le chemin le plus automatisé : aucune intervention humaine n'est
-requise si la réponse est déjà connue avec haute confiance.
+requise. C'est aussi le seul endroit du système où une réponse atteint un employé sans que
+personne ne l'ait relue — d'où la garde qui la protège.
 
+```mermaid
+flowchart TD
+    A[Question entrante] --> B[Embedding + recherche<br/>hybride Qdrant]
+    B --> C{Un point porte-t-il un reponse_id<br/>avec score ≥ SEUIL_SUGGESTION ?}
+
+    C -->|non| G[Reranking + génération LLM<br/><b>RAG</b>]
+    C -->|oui| D{Réponse canonique<br/>ET score ≥ SEUIL_COSINUS ?}
+
+    D -->|non| F[<b>SUGGESTION</b><br/>Badge : Suggestion<br/>revue humaine requise]
+    D -->|oui| E{<b>Garde LLM</b><br/>Les deux questions demandent-elles<br/>exactement la même chose ?}
+
+    E -->|court-circuit :<br/>questions identiques| H
+    E -->|OUI| H[<b>CANONIQUE</b><br/>Badge : Traitée<br/>servie sans revue]
+    E -->|NON| G
+
+    G --> I[Badge : Suggestion<br/>attente de validation]
+
+    style H fill:#d1fae5,stroke:#059669
+    style F fill:#fef3c7,stroke:#d97706
+    style G fill:#dbeafe,stroke:#2563eb
 ```
-Question entrante
-      │
-      ▼
- Embedding  ──►  Qdrant (recherche hybride dense + sparse)
-                          │
-                          ▼
-              ┌───────────────────────┐
-              │  Score cosinus        │
-              │  ≥ seuil    │
-              └─────────┬─────────────┘
-                        │
-             Oui ◄──────┴──────► Non
-              │                   │
-              ▼                   ▼
-   ┌─────────────────┐     Reranking + LLM
-   │ reponse_id dans │     Badge: Suggestion
-   │ le payload      │     (attente validation)
-   │ Qdrant ?        │
-   └────────┬────────┘
-            │
-   Oui ◄───┴───► Non
-    │              │
-    ▼              ▼
- CANONIQUE     Cherche une réponse
- Badge:        VALIDÉE liée au doc
- Traitée       Badge: Suggestion
-```
+
+Trois choses à retenir de ce schéma :
+
+| | |
+|---|---|
+| **Le seuil ne suffit pas** | `SEUIL_COSINUS` limite le nombre de candidats envoyés au juge — c'est un contrôle de **coût**. Le garde décide seul de ce qui est servi sans revue. |
+| **Un refus du garde n'a pas de repli** | Il envoie la question au **RAG complet**, pas en SUGGESTION. |
+| **Le court-circuit évite un appel LLM** | Si la question posée est typographiquement identique à la question indexée (casse, ponctuation, espaces), la réponse est servie sans consulter le juge. |
+
+> **Conséquence pour le débogage :** un refus du garde produit une réponse RAG ordinaire,
+> **indiscernable en base d'un cas où aucun candidat n'avait été trouvé**. La décision du
+> juge est journalisée, pas stockée dans le modèle.
+
+Le fonctionnement du garde est détaillé dans
+[Garde du cache canonique](../technique/garde-cache-canonique.md).
 
 ---
 
@@ -244,8 +231,8 @@ Jour 1 — Arrivée
   └─► Badge: Nouvelle  →  onglet En attente
 
 Jour 1 — Traitement IA (quelques secondes)
-  Score cosinus : 0.82  ≥  seuil 0.70
-  Aucune réponse canonique trouvée dans Qdrant
+  Score cosinus : 0.87  ≥  SEUIL_SUGGESTION (0.85)
+  mais aucune réponse canonique dans Qdrant
   └─► Badge: Suggestion  →  onglet En attente
 
 Jour 1 — Validation
@@ -266,6 +253,32 @@ Jour 3 — Seuil canonique atteint (défaut : 3)
   └─► Badge: Traitée  →  onglet Traités
 
 Jour 4 — Ticket identique suivant
-  Score : 0.94  +  reponse_id trouvé dans Qdrant
+  "Procédure pour poser des RTT ?"
+  Score : 0.94  ≥  SEUIL_COSINUS (0.90)  +  réponse canonique trouvée
+  Garde LLM : « Procédure pour poser des RTT ? » ≡ « Procédure RTT ? »
+              → OUI
   └─► Badge: Traitée  →  aucune validation requise
+
+Jour 5 — Une question qui ressemble, mais n'est pas la même
+  "Procédure pour poser des RTT quand on est en préavis ?"
+  Score : 0.92  ≥  SEUIL_COSINUS  +  réponse canonique trouvée
+  Garde LLM : la seconde restreint la portée de la première
+              → NON
+  └─► Bascule en RAG  →  Badge: Suggestion  →  onglet En attente
 ```
+
+Le jour 5 est le cas qui justifie l'existence du garde : le score cosinus (0,92) est plus
+élevé que celui du jour 1, et pourtant la réponse ne convient pas. **Aucun seuil, si haut
+soit-il, ne sépare ces deux situations** — seule une comparaison sémantique des deux
+questions le peut.
+
+---
+
+## 7. Voir aussi
+
+| Document | Sujet |
+|---|---|
+| [Traiter les tickets](backoffice-tickets.md) | Les actions concrètes derrière ces changements d'état |
+| [Espace utilisateur](espace-utilisateur.md) | La clôture manuelle et automatique, vues côté employé |
+| [Garde du cache canonique](../technique/garde-cache-canonique.md) | Pourquoi le score seul ne suffit pas |
+| [Pipeline de traitement des questions](../technique/architecture-pipeline-questions.md) | Le détail technique des trois branches |
