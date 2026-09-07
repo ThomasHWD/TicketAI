@@ -12,7 +12,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ── Retrait complet ───────────────────────────────────────────────────────────
 
 
@@ -24,9 +23,8 @@ def test_retrait_supprime_tous_les_points_de_la_reponse():
     servable depuis ses alias, et un retrait pour obsolescence ou contradiction
     serait sans effet.
     """
-    from qdrant_client.models import Filter
-
     from app.services import qdrant as module
+    from qdrant_client.models import Filter
 
     rid = str(uuid.uuid4())
     with patch.object(module.client, "delete") as suppression:
