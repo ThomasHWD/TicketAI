@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReponseCanonique, ReponseSignalee } from "../../../types";
+import { useAuth } from "../../../lib/auth";
 import DeleteModal from "./DeleteModal";
 import RetraitModal from "./RetraitModal";
 import UnsavedDraftModal from "./UnsavedDraftModal";
@@ -14,10 +15,12 @@ import { useSavedAnswersData } from "./useSavedAnswersData";
 import { contenuServi, grouper, LIMIT, type CibleSuppression, type Onglet } from "./utils";
 
 export default function SavedAnswers() {
+  const { userDomaines } = useAuth();
   const [searchParams] = useSearchParams();
   const [onglet, setOnglet] = useState<Onglet>(
     (searchParams.get("onglet") as Onglet | null) ?? "canoniques"
   );
+  const [domaine, setDomaine] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -37,7 +40,7 @@ export default function SavedAnswers() {
   }, []);
 
   const { canoniques, obsoletes, aRelire, nbObsoletes, nbDocsARelire, requete } =
-    useSavedAnswersData(onglet, page, searchQuery);
+    useSavedAnswersData(onglet, page, searchQuery, domaine);
 
   const { editMutation, confirmMutation, confirmLotMutation, retirerMutation, deleteMutation, restoreMutation } =
     useSavedAnswersMutations({
@@ -67,6 +70,11 @@ export default function SavedAnswers() {
     setEditingId(null);
     setDraft("");
     setEditingOriginal("");
+  }
+
+  function changerDomaine(d: string | undefined) {
+    setDomaine(d);
+    setPage(1);
   }
 
   function changerSearch(q: string) {
@@ -130,8 +138,11 @@ export default function SavedAnswers() {
           error={error}
           total={total}
           canoniquesCount={canoniquesItems.length}
+          domaines={userDomaines}
+          domaine={domaine}
           onOngletChange={changerOnglet}
           onSearchChange={changerSearch}
+          onDomaine={changerDomaine}
         />
 
         <div
