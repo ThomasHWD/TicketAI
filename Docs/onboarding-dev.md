@@ -53,7 +53,7 @@ Valeurs minimales à renseigner pour démarrer :
 | `JWT_SECRET_KEY` | `openssl rand -hex 32` | oui |
 | `DOCUMENTS_STORAGE_PATH` | `/tmp/ticketai/documents` | oui |
 | `SEUIL_CANONIQUE` | `3` | oui |
-| `SEUIL_COSINUS` | `0.90` | oui |
+| `SEUIL_COSINUS` | `0.80` | oui |
 | `AUTH_MODE` | `local` (dev) ou `ldap` (prod) | recommandé : `local` en dev |
 
 > ⚠️ **`AUTH_MODE` ne change *rien* au login — piège vérifié dans le code.**
@@ -276,19 +276,22 @@ Comprendre ces branches est central pour travailler sur le pipeline :
 | Branche | Déclencheur | Validation humaine ? |
 |---|---|---|
 | **CANONIQUE** | Candidat canonique avec `score_cosinus ≥ SEUIL_COSINUS` **et** un juge LLM qui confirme que la question posée est équivalente à la question indexée | Non — réponse directe |
-| **SUGGESTION** | Réponse validée réutilisable, mais pas encore canonique ou score sous `SEUIL_COSINUS` | Oui |
-| **RAG** | Aucun candidat réutilisable, **ou garde ayant refusé** — génération LLM à partir des chunks | Oui |
+| **SUGGESTION** | Réponse validée réutilisable, mais pas encore canonique, score sous `SEUIL_COSINUS`, **ou garde ayant refusé** | Oui |
+| **RAG** | Aucun candidat réutilisable — génération LLM à partir des chunks | Oui |
 
 Deux points que le tableau ne dit pas assez fort :
 
 - **`SEUIL_COSINUS` est un filtre de coût, pas un filtre de sécurité.** Il limite le
   nombre de candidats envoyés au juge. C'est **le garde seul** qui décide si une réponse
   peut être servie sans revue humaine.
-- **Un refus du garde n'entraîne pas de repli en SUGGESTION** : la question part au
-  pipeline RAG complet.
+- **Un refus du garde sort en SUGGESTION, pas en RAG.** Il disqualifie le service *sans
+  revue*, pas la proposition au relecteur. Sans ce repli le seuil était non monotone : le
+  franchir pouvait faire perdre un candidat au lieu d'en gagner un.
 
 Une réponse devient canonique après `SEUIL_CANONIQUE` (défaut : 3) validations humaines.
-Être canonique n'en fait qu'un **candidat** — le garde tranche question par question.
+Être canonique n'en fait qu'un **candidat** — le garde tranche question par question. Elle
+est alors indexée sous **une question par validation humaine**, pas une seule : chaque
+copie SUGGESTION validée ajoute sa propre formulation comme point Qdrant.
 
 ⚠️ **Lisez [`technique/garde-cache-canonique.md`](technique/garde-cache-canonique.md)
 avant de toucher aux seuils, au prompt du juge ou à la condition de la branche CANONIQUE.**

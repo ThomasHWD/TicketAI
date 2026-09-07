@@ -17,6 +17,12 @@ storage/
 uploads_tmp/
 tests_maj_doc/
 .deepsec/
+# FAQ interne ONACVG servant de fixture de test : donnée métier réelle, non versionnée.
+# Le motif précédent (« DFE_FAQ(1).xlsx ») ratait le fichier une fois renommé.
+DFE_FAQ*.xlsx
+# Sorties brutes des campagnes de test du cache sémantique : artefacts d'exécution,
+# les chiffres qui comptent sont consignés dans le rapport.
+backend/scripts/resultats_passe_*.json
 
 # React / Node
 node_modules/
