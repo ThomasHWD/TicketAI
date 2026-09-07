@@ -238,7 +238,7 @@ entrées de cette table :
 | Variable | Rôle |
 |---|---|
 | `SEUIL_CANONIQUE` | Validations requises pour promouvoir une réponse (**défaut : 3**) |
-| `SEUIL_COSINUS` | Filtre de coût avant le garde (**défaut : 0.90**) |
+| `SEUIL_COSINUS` | Filtre de coût avant le garde (**défaut : 0.80**) |
 | `JOURS_AUTO_CLOTURE` | Délai avant clôture automatique (**défaut : 7**) |
 | `LOCK_TTL_SECONDS` | Durée du verrou de ticket (**défaut : 300**) |
 | `ALBERT_GARDE_MODEL_NAME` | Modèle dédié au garde |

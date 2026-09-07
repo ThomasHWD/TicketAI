@@ -11,10 +11,12 @@ from datetime import datetime, timezone
 from app.config import settings
 from app.crud.question import TicketDisparu, upsert_reponse, upsert_ticket  # noqa: F401 — ré-exportés
 from app.database import SessionLocal
+from app.models.garde_decision import GardeDecision
 from app.models.notification import Notification
 from app.models.reponse import Reponse
 from app.models.ticket import Ticket
 from app.services.broadcast import broadcast_sync
+from app.services.garde_cache import Decision
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -28,6 +30,54 @@ def ticket_existe(ticket_id: uuid.UUID) -> bool:
     db = SessionLocal()
     try:
         return db.query(Ticket.id).filter(Ticket.id == ticket_id).first() is not None
+    finally:
+        db.close()
+
+
+def journaliser_garde(
+    decision: Decision,
+    *,
+    job_id: uuid.UUID | None,
+    ticket_id: uuid.UUID | None,
+    domaine: str | None,
+    est_suivi: bool,
+    question_posee: str,
+    question_indexee: str,
+    reponse_id: uuid.UUID | None,
+    score_cosinus: float | None,
+) -> None:
+    """Consigne une décision du garde dans `garde_decisions`.
+
+    Session dédiée, et non celle du pipeline : la trace doit survivre à l'échec
+    de la question qui l'a produite. Un `verdict=True` autorise un service sans
+    revue humaine — c'est la seule ligne qui permette d'auditer après coup une
+    réponse que personne n'a relue.
+
+    Ne lève jamais : un journal d'audit indisponible ne doit pas faire échouer
+    une question.
+    """
+    db = SessionLocal()
+    try:
+        db.add(
+            GardeDecision(
+                job_id=job_id,
+                ticket_id=ticket_id,
+                domaine=domaine,
+                est_suivi=est_suivi,
+                question_posee=question_posee,
+                question_indexee=question_indexee,
+                reponse_id=reponse_id,
+                score_cosinus=score_cosinus,
+                verdict=decision.verdict,
+                court_circuit=decision.court_circuit,
+                modele=decision.modele,
+                erreur=decision.erreur,
+            )
+        )
+        db.commit()
+    except Exception as exc:
+        logger.warning("Journal du garde indisponible : %s", exc)
+        db.rollback()
     finally:
         db.close()
 
@@ -68,22 +118,33 @@ def charger_contexte_fil(ticket_id: uuid.UUID, precision: str) -> tuple[list[dic
         db.close()
 
 
-def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> tuple[Reponse | None, float | None]:
+def trouver_reponse_reutilisable(
+    db: Session, chunks: list[dict]
+) -> tuple[Reponse | None, float | None, str | None]:
     """Cherche, parmi les chunks, une réponse VALIDÉE réutilisable au-dessus de SEUIL_SUGGESTION.
 
     Plusieurs réponses validées peuvent matcher → on retient le meilleur score par
     `reponse_id`, puis on choisit de façon déterministe (canonique, plus validée,
-    meilleur score, id). Renvoie `(reponse, score)` ou `(None, None)`.
+    meilleur score, id).
+
+    Renvoie `(reponse, score, question_indexee)` ou `(None, None, None)`.
+    `question_indexee` est la question portée par le **point qui a matché** — une
+    réponse en a une par formulation validée. Elle vaut `None` pour les points
+    écrits avant l'introduction des formulations multiples ; l'appelant retombe
+    alors sur `Ticket.question`.
     """
     scores_par_reponse: dict[str, float] = {}
+    questions_par_reponse: dict[str, str | None] = {}
     for c in chunks:
         rid = c.get("reponse_id")
         if rid and c["score_cosinus"] >= SEUIL_SUGGESTION:
             rid = str(rid)
+            if c["score_cosinus"] > scores_par_reponse.get(rid, -1.0):
+                questions_par_reponse[rid] = c.get("question_indexee")
             scores_par_reponse[rid] = max(scores_par_reponse.get(rid, 0.0), c["score_cosinus"])
 
     if not scores_par_reponse:
-        return None, None
+        return None, None, None
 
     candidats = (
         db.query(Reponse)
@@ -95,7 +156,7 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> tuple[Repon
         .all()
     )
     if not candidats:
-        return None, None
+        return None, None, None
 
     reponse_liee = max(
         candidats,
@@ -106,7 +167,8 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> tuple[Repon
             str(r.id),
         ),
     )
-    return reponse_liee, scores_par_reponse[str(reponse_liee.id)]
+    cle = str(reponse_liee.id)
+    return reponse_liee, scores_par_reponse[cle], questions_par_reponse.get(cle)
 
 
 def servir_reutilisation(

@@ -7,12 +7,13 @@ from app.crud.question import TicketDisparu, upsert_reponse, upsert_ticket
 from app.database import SessionLocal
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
-from app.services.garde_cache import approuver
+from app.services.garde_cache import statuer
 from app.services.llm import generate
 from app.services.question_pipeline import (
     SEUIL_COSINUS,  # noqa: F401 — ré-exporté pour les tests qui l'importent depuis ce module
     SEUIL_SUGGESTION,  # noqa: F401
     charger_contexte_fil,
+    journaliser_garde,
     servir_reutilisation,
     ticket_existe,
     trouver_reponse_reutilisable,
@@ -82,26 +83,61 @@ def question_job(
         chunks_ctx: list[dict] | None = None
         db = SessionLocal()
         try:
-            reponse_liee, score_liee = trouver_reponse_reutilisable(db, chunks)
+            reponse_liee, score_liee, question_du_point = trouver_reponse_reutilisable(db, chunks)
 
             if reponse_liee is not None:
                 print(f"[QUESTION] Score {score_liee:.4f} → réponse validée {reponse_liee.id}")
 
                 if reponse_liee.canonique and score_liee >= SEUIL_COSINUS:
-                    ticket_source = db.query(Ticket).filter(Ticket.id == reponse_liee.ticket_id).first()
-                    question_indexee = reponse_liee.question_suivi or (
-                        ticket_source.question if ticket_source else None
-                    )
+                    # La question portée par le point qui a matché fait foi : une
+                    # réponse est indexée sous autant de formulations qu'elle a de
+                    # validations humaines, et le garde doit juger celle-là. Repli
+                    # sur le ticket d'origine pour les points antérieurs, qui ne
+                    # portent pas encore `question_indexee` dans leur payload.
+                    question_indexee = question_du_point
+                    if not question_indexee:
+                        ticket_source = db.query(Ticket).filter(Ticket.id == reponse_liee.ticket_id).first()
+                        question_indexee = reponse_liee.question_suivi or (
+                            ticket_source.question if ticket_source else None
+                        )
                     question_a_comparer = requete_recherche if est_suivi else question
-                    if question_indexee and approuver(question_a_comparer, question_indexee):
+
+                    decision = None
+                    if question_indexee:
+                        decision = statuer(question_a_comparer, question_indexee, est_suivi=est_suivi)
+                        journaliser_garde(
+                            decision,
+                            job_id=job_id,
+                            ticket_id=ticket_uuid,
+                            domaine=domaine,
+                            est_suivi=est_suivi,
+                            question_posee=question_a_comparer,
+                            question_indexee=question_indexee,
+                            reponse_id=reponse_liee.id,
+                            score_cosinus=score_liee,
+                        )
+
+                    if decision is not None and decision.verdict:
                         print("[QUESTION] Garde : OUI → CANONIQUE")
                         return servir_reutilisation(
                             db, job_id, ticket_uuid, question, domaine, user_uuid,
                             reponse_liee, score_liee, question_suivi, est_suivi,
                             self.request.retries, True, objet,
                         )
-                    print("[QUESTION] Garde : NON → pipeline RAG")
-                    # Fall through to RAG
+                    # Refus du garde → SUGGESTION, pas RAG. Le garde répond
+                    # « pas la même demande », ce qui disqualifie le service sans
+                    # revue — pas la proposition au relecteur. Sans ce repli, le
+                    # système était non monotone : un candidat à 0,84 sortait en
+                    # SUGGESTION sans être jugé, alors que le même à 0,86 était
+                    # soumis au garde et, sur refus, renvoyé au RAG sans candidat.
+                    # Franchir SEUIL_COSINUS dégradait donc l'issue. Le refus reste
+                    # tracé dans `garde_decisions`.
+                    print("[QUESTION] Garde : NON → SUGGESTION (revue humaine)")
+                    return servir_reutilisation(
+                        db, job_id, ticket_uuid, question, domaine, user_uuid,
+                        reponse_liee, score_liee, question_suivi, est_suivi,
+                        self.request.retries, False, objet,
+                    )
                 else:
                     return servir_reutilisation(
                         db, job_id, ticket_uuid, question, domaine, user_uuid,
