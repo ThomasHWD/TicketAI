@@ -49,10 +49,11 @@ flowchart TD
 confirmé que la question posée demande exactement la même chose** que celle sous laquelle
 la réponse est indexée. Aucune intervention humaine.
 
-**SUGGESTION** — une réponse validée existe mais n'est pas encore canonique, ou son score
-est trop bas. Elle est réutilisée, mais l'expert doit confirmer ou corriger.
+**SUGGESTION** — une réponse validée existe mais n'est pas encore canonique, son score est
+trop bas, **ou le garde a refusé de la servir sans revue**. Elle est réutilisée, mais
+l'expert doit confirmer ou corriger.
 
-**RAG** — aucune réponse réutilisable, **ou le garde a refusé**. Le système reranke les
+**RAG** — aucune réponse réutilisable. Le système reranke les
 chunks de documents pertinents et génère une réponse via LLM (Albert API). Elle est
 toujours soumise à validation avant d'être publiée.
 

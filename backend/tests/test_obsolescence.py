@@ -621,7 +621,7 @@ class TestMarquerARelire:
         r = scenario(chunks=[1], canonique=True)
         marquer_a_relire(scenario.db, scenario.doc_id, 2)
 
-        trouvee, _ = _trouver_reponse_reutilisable(
+        trouvee, _, _ = _trouver_reponse_reutilisable(
             scenario.db, [{"reponse_id": str(r.id), "score_cosinus": SEUIL_COSINUS + 0.1}]
         )
 
@@ -653,7 +653,7 @@ class TestReutilisationBloquee:
 
         r = scenario(chunks=[1], canonique=True)
 
-        trouvee, score = _trouver_reponse_reutilisable(scenario.db, self._chunks(r))
+        trouvee, score, _ = _trouver_reponse_reutilisable(scenario.db, self._chunks(r))
 
         assert trouvee is not None
         assert trouvee.id == r.id
@@ -665,4 +665,4 @@ class TestReutilisationBloquee:
         r = scenario(chunks=[1], canonique=True)
         marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=2, indices={1})
 
-        assert _trouver_reponse_reutilisable(scenario.db, self._chunks(r)) == (None, None)
+        assert _trouver_reponse_reutilisable(scenario.db, self._chunks(r)) == (None, None, None)

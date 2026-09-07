@@ -108,7 +108,7 @@ flowchart TD
 
     E -->|court-circuit :<br/>questions identiques| H
     E -->|OUI| H[<b>CANONIQUE</b><br/>Badge : Traitée<br/>servie sans revue]
-    E -->|NON| G
+    E -->|NON| F
 
     G --> I[Badge : Suggestion<br/>attente de validation]
 
@@ -122,12 +122,12 @@ Trois choses à retenir de ce schéma :
 | | |
 |---|---|
 | **Le seuil ne suffit pas** | `SEUIL_COSINUS` limite le nombre de candidats envoyés au juge — c'est un contrôle de **coût**. Le garde décide seul de ce qui est servi sans revue. |
-| **Un refus du garde n'a pas de repli** | Il envoie la question au **RAG complet**, pas en SUGGESTION. |
+| **Un refus du garde sort en SUGGESTION** | Le garde tranche sur le service *sans revue*, pas sur l'utilité du candidat pour le relecteur. Un NON retire la réponse du service direct et la propose à la revue — il ne relance pas le RAG. |
 | **Le court-circuit évite un appel LLM** | Si la question posée est typographiquement identique à la question indexée (casse, ponctuation, espaces), la réponse est servie sans consulter le juge. |
 
-> **Conséquence pour le débogage :** un refus du garde produit une réponse RAG ordinaire,
-> **indiscernable en base d'un cas où aucun candidat n'avait été trouvé**. La décision du
-> juge est journalisée, pas stockée dans le modèle.
+> **Conséquence pour le débogage :** un refus du garde produit une SUGGESTION ordinaire,
+> **indiscernable en base d'une SUGGESTION née d'un score trop bas**. La décision du juge
+> est journalisée dans `garde_decisions`, pas stockée dans le modèle `Reponse`.
 
 Le fonctionnement du garde est détaillé dans
 [Garde du cache canonique](../technique/garde-cache-canonique.md).
@@ -231,7 +231,7 @@ Jour 1 — Arrivée
   └─► Badge: Nouvelle  →  onglet En attente
 
 Jour 1 — Traitement IA (quelques secondes)
-  Score cosinus : 0.87  ≥  SEUIL_SUGGESTION (0.85)
+  Score cosinus : 0.87  ≥  SEUIL_SUGGESTION (0.75)
   mais aucune réponse canonique dans Qdrant
   └─► Badge: Suggestion  →  onglet En attente
 
@@ -254,7 +254,7 @@ Jour 3 — Seuil canonique atteint (défaut : 3)
 
 Jour 4 — Ticket identique suivant
   "Procédure pour poser des RTT ?"
-  Score : 0.94  ≥  SEUIL_COSINUS (0.90)  +  réponse canonique trouvée
+  Score : 0.94  ≥  SEUIL_COSINUS (0.80)  +  réponse canonique trouvée
   Garde LLM : « Procédure pour poser des RTT ? » ≡ « Procédure RTT ? »
               → OUI
   └─► Badge: Traitée  →  aucune validation requise
@@ -264,7 +264,8 @@ Jour 5 — Une question qui ressemble, mais n'est pas la même
   Score : 0.92  ≥  SEUIL_COSINUS  +  réponse canonique trouvée
   Garde LLM : la seconde restreint la portée de la première
               → NON
-  └─► Bascule en RAG  →  Badge: Suggestion  →  onglet En attente
+  └─► Sort en SUGGESTION  →  Badge: Suggestion  →  onglet En attente
+      (le relecteur voit quand même la réponse candidate)
 ```
 
 Le jour 5 est le cas qui justifie l'existence du garde : le score cosinus (0,92) est plus

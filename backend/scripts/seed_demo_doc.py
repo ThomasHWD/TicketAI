@@ -7,10 +7,19 @@ Les identifiants sont **déterministes** (uuid5) : relancer le script est
 idempotent, et `--purger` supprime exactement ce qu'il a créé, rien d'autre.
 
     PYTHONPATH=. python scripts/seed_demo_doc.py            # crée / met à jour
+    PYTHONPATH=. python scripts/seed_demo_doc.py --indexer   # + indexation Qdrant
     PYTHONPATH=. python scripts/seed_demo_doc.py --purger   # supprime
 
-⚠️  Écrit dans la base de développement. N'écrit rien dans Qdrant : toutes les
-vues visées sont des requêtes PostgreSQL pures.
+⚠️  Écrit dans la base de développement. Par défaut, n'écrit **rien dans Qdrant** :
+toutes les vues visées sont des requêtes PostgreSQL pures.
+
+⚠️  Conséquence à connaître : sans `--indexer`, les réponses marquées
+`canonique=True` ici ne sont **pas** indexées, donc `trouver_reponse_reutilisable`
+ne les trouvera jamais et la branche CANONIQUE est inatteignable sur ce jeu de
+données. C'est sans effet sur les captures, mais tout test du cache sémantique
+mené sur ces données mesurerait le vide. `--indexer` fait passer les réponses
+VALIDÉE par le vrai `feedback_job` et lève cette limite, au prix d'un appel
+d'embedding Albert par réponse.
 """
 
 import os
@@ -237,6 +246,23 @@ def main():
 
         db.commit()
         print(f"{len(TICKETS)} tickets de démonstration créés/mis à jour dans le domaine {DOMAINE}.")
+
+        if "--indexer" in sys.argv:
+            # Le vrai `feedback_job`, et non une écriture directe : c'est lui qui
+            # pose le point Qdrant portant `reponse_id`, sans lequel une réponse
+            # canonique reste invisible du cache.
+            from app.workers.feedback import feedback_job
+
+            indexees = 0
+            for cle, *_ in TICKETS:
+                r = db.get(Reponse, sid(f"r-{cle}"))
+                if r is not None and r.statut == "VALIDÉE" and not r.obsolete:
+                    feedback_job.apply(args=[str(r.id)]).get()
+                    indexees += 1
+            print(f"{indexees} réponse(s) validée(s) indexée(s) dans Qdrant.")
+        else:
+            print("Sans --indexer : rien dans Qdrant, la branche CANONIQUE reste inatteignable.")
+
         print("Purge : PYTHONPATH=. python scripts/seed_demo_doc.py --purger")
     finally:
         db.close()

@@ -29,8 +29,9 @@ flowchart TD
     D -->|non| G
 
     E -->|OUI| H[CANONIQUE<br/>servie sans revue humaine]
-    E -->|NON| G[Étape 3<br/>Reranking Albert, top 5]
+    E -->|NON| F
 
+    G[Étape 3<br/>Reranking Albert, top 5]
     G --> I[Étape 4<br/>Génération LLM<br/>temperature = 0.1]
     I --> J[Étape 5<br/>Sauvegarde PostgreSQL<br/>+ chunks cités]
     J --> K[RAG<br/>revue humaine obligatoire]
@@ -46,11 +47,13 @@ flowchart TD
 
 | Variable | Valeur par défaut | Rôle |
 |---|---|---|
-| `SEUIL_COSINUS` | 0.90 | Score minimum pour présenter un candidat canonique au garde |
-| `SEUIL_SUGGESTION` | `SEUIL_COSINUS − 0.05` = 0.85 | Score minimum pour la branche SUGGESTION |
+| `SEUIL_COSINUS` | 0.80 | Score minimum pour présenter un candidat canonique au garde |
+| `SEUIL_SUGGESTION` | `SEUIL_COSINUS − 0.05` = 0.75 | Score minimum pour la branche SUGGESTION |
 | `SEUIL_CANONIQUE` | 3 | Nombre de validations pour promouvoir une réponse en canonique |
 
-`SEUIL_COSINUS` est un **filtre de coût**, pas un filtre de sécurité : c'est le garde LLM qui décide si la réponse peut être servie sans revue humaine. Abaisser ce seuil augmente le nombre d'appels LLM au garde ; le relever en réduit le nombre mais risque de rater des candidats légitimes.
+`SEUIL_COSINUS` est un **filtre de coût**, pas un filtre de sécurité : c'est le garde LLM qui décide si la réponse peut être servie sans revue humaine. Abaisser ce seuil augmente le nombre d'appels LLM au garde ; le relever en réduit le nombre mais risque de rater des candidats légitimes. Porté de 0,90 à 0,85 le 05/09/2026 : à 0,90 il refusait à la place du juge et écartait des reformulations équivalentes. Puis à 0,80 le 07/09/2026, campagne rejouée à l'identique : CANONIQUE 14 → 19 sur 48, appels au juge 15 → 22, toujours aucun faux positif. Ne pas descendre plus bas — la bande [0,80 ; 0,85) contenait 5 reformulations équivalentes, la bande [0,75 ; 0,80) n'en contient aucune sur 4. Voir [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md), § 12.
+
+Le seuil ne peut plus **dégrader** l'issue en étant franchi : un refus du garde rend le candidat à la branche SUGGESTION, il ne le renvoie pas au RAG.
 
 ---
 
@@ -104,9 +107,13 @@ Si plusieurs réponses validées matchent, on choisit de manière déterministe 
 - `score_cosinus >= SEUIL_COSINUS`
 - le garde LLM confirme que la question posée exprime exactement la même demande que la question indexée (voir [`garde-cache-canonique.md`](garde-cache-canonique.md))
 
+La « question indexée » est celle portée par le **point qui a matché** (payload `question_indexee`), remontée par `trouver_reponse_reutilisable` avec la réponse et le score. Une réponse en porte une par formulation validée ; la redériver de `Ticket.question` soumettrait au garde une paire que la recherche n'a pas produite. Repli sur `Ticket.question` / `Reponse.question_suivi` pour les points antérieurs à cette clé.
+
 **Conditions pour SUGGESTION** (revue humaine requise) :
 - réponse trouvée avec `reponse.statut == "VALIDÉE"` et `obsolete == False`
-- mais au moins une condition CANONIQUE non remplie : score en dessous de `SEUIL_COSINUS`, réponse pas encore canonique, ou garde ayant refusé (→ RAG dans ce dernier cas)
+- mais au moins une condition CANONIQUE non remplie : score en dessous de `SEUIL_COSINUS`, réponse pas encore canonique, **ou garde ayant refusé**
+
+Un refus du garde sort donc en SUGGESTION, pas en RAG : le garde tranche sur le service *sans revue*, pas sur la pertinence du candidat pour un relecteur. Le refus reste tracé dans `garde_decisions` — en base, la SUGGESTION produite est indiscernable des autres.
 
 Dans les deux cas, `reponse_source_id` pointe vers la réponse originale. Pour SUGGESTION, `nb_validations` est suivi sur la source, pas sur la copie.
 
@@ -161,7 +168,11 @@ Après validation humaine (`statut → VALIDÉE`), `feedback_job` est déclench�
 - Question↔question : cosinus élevé pour des questions proches → seuil facilement atteint.
 - Question↔réponse : cosinus plafonné vers ~0.50, n'atteint jamais le seuil.
 
-Le payload du point inclut `reponse_id`, ce qui permet à `trouver_reponse_reutilisable` de retrouver la réponse lors d'une future question similaire. L'identifiant du point est un UUID5 déterministe dérivé de `reponse_id` (un upsert ultérieur écrase proprement l'ancien).
+Le payload du point inclut `reponse_id`, ce qui permet à `trouver_reponse_reutilisable` de retrouver la réponse lors d'une future question similaire, et `question_indexee`, la question sous laquelle **ce** point est indexé, que le garde jugera.
+
+**Une réponse porte un point par formulation validée par un humain.** Quand un validateur approuve une copie SUGGESTION, il confirme que la réponse source répond aussi à la question de *ce* ticket-là : `valider_reponse` émet alors un second `feedback_job(source_id, formulation_id)` qui indexe cette question sur un point distinct, `uuid5(f"{source.id}:{copie.id}")`. Sans cela, une réponse promue canonique à trois validations n'était atteignable que depuis **une seule** formulation — les deux autres, pourtant validées explicitement, étaient perdues.
+
+L'identifiant du point d'origine reste un UUID5 déterministe dérivé de `reponse_id` (un upsert ultérieur écrase proprement l'ancien). Corollaire : **`delete_response_point` supprime par filtre de payload `reponse_id`, pas par id de point** — supprimer par id laisserait la réponse servable depuis ses alias, et un retrait pour obsolescence serait sans effet.
 
 Quand `nb_validations` atteint `SEUIL_CANONIQUE` (défaut : 3), la réponse passe `canonique=True`. Elle est alors servie directement sur de nouvelles questions similaires, sans revue humaine.
 

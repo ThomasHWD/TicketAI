@@ -77,6 +77,10 @@ Si l'information n'est pas dans le contexte fourni, commence ta réponse EXACTEM
 "[HORS_DOMAINE]" puis explique brièvement à l'utilisateur ce que tu n'as pas pu trouver, \
 sans mentionner le contexte ni les documents. N'invente rien.
 Appuie-toi en priorité sur les extraits dont la pertinence est la plus élevée.
+Ne décris aucune étape, aucun champ de formulaire, aucune option d'interface et aucune pièce \
+à fournir qui ne figure pas explicitement dans le contexte. Sur une procédure, un détail \
+plausible mais absent des extraits est une erreur, pas une aide : reste au niveau de ce que \
+le contexte affirme, quitte à être moins précis.
 
 Règles de format :
 - Réponds en français, de manière formelle et concise.

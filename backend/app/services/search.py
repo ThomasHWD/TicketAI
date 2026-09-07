@@ -34,6 +34,10 @@ def reciprocal_rank_fusion(dense_results, sparse_results, k: int = 60) -> list[d
             "doc_id": payloads[pid].get("doc_id"),
             "chunk_index": payloads[pid].get("chunk_index"),
             "reponse_id": payloads[pid].get("reponse_id"),  # ← réponse canonique liée (Phase 4)
+            # Question sous laquelle ce point est indexé. Une réponse peut en avoir
+            # plusieurs (une par formulation humainement validée) : c'est celle-ci
+            # que le garde doit juger, pas celle du ticket d'origine.
+            "question_indexee": payloads[pid].get("question_indexee"),
         }
         for pid in sorted_ids
     ]
