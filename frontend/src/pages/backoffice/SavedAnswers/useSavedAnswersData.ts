@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getReponsesARelire, getReponsesCanoniques, getReponsesObsoletes } from "../../../lib/api";
 import { LIMIT, type Onglet } from "./utils";
 
-export function useSavedAnswersData(onglet: Onglet, page: number, search: string = "") {
+export function useSavedAnswersData(onglet: Onglet, page: number, search: string = "", domaine?: string) {
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -11,24 +11,25 @@ export function useSavedAnswersData(onglet: Onglet, page: number, search: string
   }, [search]);
 
   const q = debouncedSearch || undefined;
+  const d = domaine || undefined;
 
   const canoniques = useQuery({
-    queryKey: ["reponses-canoniques", page, debouncedSearch],
-    queryFn: () => getReponsesCanoniques({ page, limit: LIMIT, q }),
+    queryKey: ["reponses-canoniques", page, debouncedSearch, domaine],
+    queryFn: () => getReponsesCanoniques({ page, limit: LIMIT, q, domaine: d }),
     placeholderData: (prev) => prev,
     enabled: onglet === "canoniques",
   });
 
   const obsoletes = useQuery({
-    queryKey: ["reponses-obsoletes", "liste", page, debouncedSearch],
-    queryFn: () => getReponsesObsoletes({ page, limit: LIMIT, q }),
+    queryKey: ["reponses-obsoletes", "liste", page, debouncedSearch, domaine],
+    queryFn: () => getReponsesObsoletes({ page, limit: LIMIT, q, domaine: d }),
     placeholderData: (prev) => prev,
     enabled: onglet === "obsoletes",
   });
 
   const aRelire = useQuery({
-    queryKey: ["reponses-a-relire", "liste", page, debouncedSearch],
-    queryFn: () => getReponsesARelire({ page, limit: LIMIT, q }),
+    queryKey: ["reponses-a-relire", "liste", page, debouncedSearch, domaine],
+    queryFn: () => getReponsesARelire({ page, limit: LIMIT, q, domaine: d }),
     placeholderData: (prev) => prev,
     enabled: onglet === "a_relire",
   });

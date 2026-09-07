@@ -15,6 +15,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TOKEN_KEY } from "../lib/api";
+import { AuthProvider } from "../lib/auth";
 import SavedAnswers from "../pages/backoffice/SavedAnswers";
 import type { ReponseCanonique, ReponseSignalee } from "../types";
 
@@ -103,7 +104,9 @@ function afficher() {
   render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <SavedAnswers />
+        <AuthProvider>
+          <SavedAnswers />
+        </AuthProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
