@@ -47,6 +47,7 @@ Cette documentation couvre l'intégralité du produit — le parcours des utilis
 
 | Document | Contenu |
 |---|---|
+| [Choix techniques](technique/choix-techniques.md) | Stack retenue et raisons de chaque choix : FastAPI, Celery, Valkey, PostgreSQL, Qdrant, Albert, React. |
 | [Pipeline de traitement des questions](technique/architecture-pipeline-questions.md) | Embedding, recherche hybride, branches CANONIQUE / SUGGESTION / RAG, mode suivi, boucle de feedback. |
 | [Garde du cache canonique](technique/garde-cache-canonique.md) | Le juge LLM qui décide si une réponse canonique est servie sans revue humaine. |
 | [Mettre à jour un document](technique/mise-a-jour-documents.md) | Versionnement, diff, ré-vérification des réponses, obsolescence et file « À relire ». |
