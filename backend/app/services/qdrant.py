@@ -1,5 +1,4 @@
 import logging
-import uuid
 
 from app.config import settings
 from qdrant_client import QdrantClient
@@ -9,7 +8,6 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
-    PointIdsList,
     SparseIndexParams,
     SparseVectorParams,
     VectorParams,
@@ -119,15 +117,23 @@ def capturer_chunks(doc_id: str, version_cible: int) -> dict[int, str]:
 
 
 def delete_response_point(reponse_id: str) -> None:
-    """Supprime de Qdrant le point associé à une réponse.
+    """Supprime de Qdrant **tous** les points associés à une réponse.
 
-    Réutilise l'ID déterministe employé à l'upsert dans le feedback_job
-    (uuid5 dérivé de l'id de la réponse), afin de retrouver le même point.
+    Sélection par le payload `reponse_id`, et non par l'id déterministe du point.
+    C'est ce qui rend le retrait complet : une réponse porte un point par
+    formulation validée (`feedback_job(..., formulation_id=...)`), et non plus un
+    seul. Supprimer par id ne retirerait que la question d'origine et laisserait
+    la réponse servable depuis ses alias — un retrait pour obsolescence ou
+    contradiction serait alors sans effet.
+
+    Filtrer sur le payload couvre aussi les points écrits avant l'introduction
+    des formulations multiples.
     """
-    point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(reponse_id)))
     client.delete(
         collection_name=COLLECTION_NAME,
-        points_selector=PointIdsList(points=[point_id]),
+        points_selector=Filter(
+            must=[FieldCondition(key="reponse_id", match=MatchValue(value=str(reponse_id)))]
+        ),
     )
 
 

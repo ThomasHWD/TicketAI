@@ -120,10 +120,15 @@ def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
     de réponse.
 
     ``must_not=[IsEmpty("reponse_id")]`` est le seul moyen d'isoler ces points :
-    ``feedback_job`` les écrit avec ``{reponse_id, ticket_id, contenu, domaine}``
-    et **sans** ``doc_id``, dans la même collection que les chunks de document.
+    ``feedback_job`` les écrit avec
+    ``{reponse_id, ticket_id, contenu, domaine, question_indexee}`` et **sans**
+    ``doc_id``, dans la même collection que les chunks de document.
     Aucun index de payload sur ``reponse_id`` — Qdrant filtre donc en scan, ce qui
     reste acceptable à cette volumétrie et se paye une fois par mise à jour.
+
+    Une réponse porte un point par formulation humainement validée : le scroll peut
+    donc la remonter plusieurs fois, sous des ``question_indexee`` différentes. D'où
+    le ``set`` de ``reponse_id`` — c'est la réponse qu'on juge, pas la formulation.
 
     Une panne d'embedding ou de Qdrant rend une liste vide et n'interrompt rien :
     les citantes, elles, sont connues sans appel réseau et restent jugées.

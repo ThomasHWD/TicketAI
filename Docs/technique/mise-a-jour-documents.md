@@ -533,9 +533,18 @@ effacerait le signal posé par la mise à jour d'un **autre** document.
 Le rappel vectoriel est **dense uniquement**. `embed_texts` renvoie toujours un vecteur sparse
 vide (`{"indices": [], "values": []}`) — bug préexistant, hors périmètre — et `search_hybrid` ne
 sait de toute façon pas cibler les points de réponse. Ceux-ci sont écrits par `feedback_job` avec
-`{reponse_id, ticket_id, contenu, domaine}` et **sans `doc_id`** : `must_not=[IsEmpty("reponse_id")]`
-est le seul moyen de les isoler. Pas d'index de payload sur `reponse_id`, Qdrant filtre donc en
-scan — acceptable à cette volumétrie, et payé une fois par mise à jour.
+`{reponse_id, ticket_id, contenu, domaine, question_indexee}` et **sans `doc_id`** :
+`must_not=[IsEmpty("reponse_id")]` est le seul moyen de les isoler. Pas d'index de payload sur
+`reponse_id`, Qdrant filtre donc en scan — acceptable à cette volumétrie, et payé une fois par
+mise à jour.
+
+**Une réponse porte plusieurs points**, un par formulation humainement validée
+(`feedback_job(source_id, formulation_id)`), chacun sous sa propre `question_indexee`. Le rappel
+peut donc remonter la même réponse depuis plusieurs alias — sans conséquence ici, les candidates
+sont dédupliquées par `reponse_id`. Le **retrait**, lui, en dépend : `delete_response_point`
+supprime par filtre de payload `reponse_id` et non par id de point, faute de quoi un
+`CONTREDITE_PAR_MAJ` ne retirerait que la question d'origine et laisserait la réponse servable
+depuis ses alias — un retrait silencieusement sans effet.
 
 ### Le worker — `app/workers/reverification.py`, file `queue_questions`
 
@@ -667,7 +676,9 @@ entrer ou d'en sortir.
 
 **`feedback_job` upserte sans condition** et `valider_reponse` le déclenche sur la source : le
 point Qdrant d'une réponse retirée peut donc réapparaître. Le filtre `obsolete.is_(False)` de
-`question.py` reste la vraie garantie — à ne pas présenter comme un retrait définitif.
+`question.py` reste la vraie garantie — à ne pas présenter comme un retrait définitif. Depuis
+l'indexation multi-formulations, `valider_reponse` en déclenche **deux** sur ce chemin (la source
+et la formulation validée) : ce sont donc deux points qui peuvent réapparaître, pas un.
 
 **Changer `clean_text`, le splitter ou ses paramètres** modifie le texte extrait de *tous* les
 documents : le prochain diff de chaque document deviendrait un océan d'unités fantômes et
