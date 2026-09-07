@@ -13,8 +13,11 @@ interface SavedAnswersHeaderProps {
   error: unknown;
   total: number;
   canoniquesCount: number;
+  domaines: string[];
+  domaine: string | undefined;
   onOngletChange: (o: Onglet) => void;
   onSearchChange: (q: string) => void;
+  onDomaine: (d: string | undefined) => void;
 }
 
 function Tab({
@@ -96,8 +99,11 @@ export default function SavedAnswersHeader({
   error,
   total,
   canoniquesCount,
+  domaines,
+  domaine,
   onOngletChange,
   onSearchChange,
+  onDomaine,
 }: SavedAnswersHeaderProps) {
   const tablistRef = useRef<HTMLDivElement>(null);
   const searching = isFetching && searchQuery.trim().length > 0;
@@ -162,6 +168,28 @@ export default function SavedAnswersHeader({
             onKeyDown={(e) => handleTabKeyDown(e, 2)}
           />
         </div>
+
+        {/* Filtre domaine — visible seulement si l'utilisateur a plusieurs domaines */}
+        {domaines.length > 1 && (
+          <div className="py-2 flex items-center gap-1" role="group" aria-label="Filtrer par domaine">
+            {([undefined, ...domaines] as Array<string | undefined>).map((d) => (
+              <button
+                key={d ?? "tous"}
+                type="button"
+                onClick={() => onDomaine(d)}
+                aria-pressed={domaine === d}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  domaine === d
+                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                }`}
+              >
+                {d ?? "Tous"}
+              </button>
+            ))}
+            <span aria-hidden="true" className="ml-1 h-4 w-px bg-gray-200 dark:bg-white/10" />
+          </div>
+        )}
 
         {/* Search — visible for all tabs */}
         <div className="py-2 w-56">
