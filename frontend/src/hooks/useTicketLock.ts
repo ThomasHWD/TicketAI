@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { lockTicket, unlockTicket, LockConflictError } from "../lib/api";
+import { lockTicket, unlockTicket, heartbeatTicket, LockConflictError } from "../lib/api";
 import { getValidatorId } from "../lib/currentUser";
 
 // File d'attente par ticket : garantit que lock / unlock s'exécutent dans l'ordre
@@ -71,8 +71,14 @@ export function useTicketLock(ticketId: string | undefined): TicketLock {
         if (active) setChecking(false);
       });
 
+    // Renouvelle le verrou toutes les 2 minutes tant que la page est ouverte
+    const heartbeatInterval = setInterval(() => {
+      if (acquired) void heartbeatTicket(ticketId, validatorId);
+    }, 2 * 60 * 1000);
+
     return () => {
       active = false;
+      clearInterval(heartbeatInterval);
       if (!acquired) return;
       // Différé de 50 ms : si le composant se remonte immédiatement (StrictMode),
       // le prochain effet annule ce timer avant qu'il parte.
