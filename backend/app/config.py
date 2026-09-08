@@ -1,5 +1,6 @@
 from functools import cached_property
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -44,6 +45,9 @@ class Settings(BaseSettings):
     # Documents storage
     documents_storage_path: str
 
+    # CORS — origines autorisées (liste JSON dans .env, ex. ["https://app.example.fr"])
+    allowed_origins: list[str] = ["http://localhost:5173", "http://localhost:4173"]
+
     # ── Authentification ─────────────────────────────────────────────
     # auth_mode == "ldap" → interroge l'Active Directory.
     # Toute autre valeur → fallback base de données seule (tests, offline).
@@ -65,8 +69,17 @@ class Settings(BaseSettings):
     ldap_group_gestionnaire: str = ""
     ldap_group_admin: str = ""
     ldap_server_url_secondary: str = ""
-    ldap_tls_validate: bool = False
+    ldap_tls_validate: bool = True
     ldap_timeout: int = 5
+
+    @model_validator(mode="after")
+    def _validate_jwt_secret(self) -> "Settings":
+        if len(self.jwt_secret_key) < 32:
+            raise ValueError(
+                "JWT_SECRET_KEY doit faire au moins 32 caractères "
+                "(générer avec : openssl rand -hex 32)"
+            )
+        return self
 
     @cached_property
     def database_url(self) -> str:

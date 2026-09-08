@@ -185,7 +185,7 @@ export default function TeamStatsPanel({ periode }: Props) {
                   <td colSpan={3} className="px-5 py-10 text-center text-sm">
                     <p className="text-red-500 dark:text-red-400 mb-3">Erreur de chargement.</p>
                     <button
-                      onClick={refetch}
+                      onClick={() => refetch()}
                       className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400 underline underline-offset-2 hover:no-underline transition-all duration-150"
                     >
                       <RefreshCw size={13} aria-hidden="true" />

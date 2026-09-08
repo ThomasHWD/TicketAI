@@ -1,17 +1,9 @@
 DOCKER_COMPOSE = docker compose
 BACKEND = cd backend && source .venv/bin/activate &&
-DC_INFRA = $(DOCKER_COMPOSE) -f docker-compose.yml
-DC_DEV   = $(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
-DC_PROD  = $(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml
+DC_DEV  = $(DOCKER_COMPOSE) -f docker-compose.dev.yml
+DC_PROD = $(DOCKER_COMPOSE) -f docker-compose.prod.yml
 
-# Infra seule (postgres, qdrant, valkey)
-up:
-	$(DC_INFRA) up -d
-
-down:
-	$(DC_INFRA) down
-
-# Dev : infra + backend + workers + frontend (hot-reload)
+# Dev : infra (ports décalés) + backend + workers + frontend (hot-reload)
 dev:
 	$(DC_DEV) up
 
@@ -21,7 +13,7 @@ dev-build:
 dev-down:
 	$(DC_DEV) down
 
-# Prod : tout en mode optimisé + nginx
+# Prod : infra + backend + workers + nginx (port 80)
 prod:
 	$(DC_PROD) up -d --build
 
@@ -34,11 +26,14 @@ build:
 logs:
 	$(DC_DEV) logs -f
 
+logs-prod:
+	$(DC_PROD) logs -f
+
 clean:
 	$(DC_PROD) down --rmi all --volumes --remove-orphans
 
 # Recrée le schéma Postgres et insère les utilisateurs de dev.
-# À relancer après chaque `make clean` + `make up`.
+# À relancer après chaque `make dev-down --volumes` + `make dev`.
 reset-db:
 	$(BACKEND) alembic stamp base
 	$(BACKEND) alembic upgrade head
