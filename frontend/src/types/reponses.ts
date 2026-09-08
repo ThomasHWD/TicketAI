@@ -20,6 +20,7 @@ export interface TicketReponse {
   created_at: string | null;
   validator_email: string | null;
   validator_nom_complet: string | null;
+  raison_rejet: string | null;
 }
 
 export interface ReponseEnAttente {

@@ -23,7 +23,7 @@ export function reponseStatutLabel(statut: StatutReponse, canonique: boolean, so
   return statut;
 }
 
-export function reponseStatutClass(statut: StatutReponse, canonique: boolean, source?: string | null) {
+export function reponseStatutClass(statut: StatutReponse, _canonique: boolean, source?: string | null) {
   if (statut === "REJETÉE")
     return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (statut === "VALIDÉE" || statut === "CORRIGÉE")

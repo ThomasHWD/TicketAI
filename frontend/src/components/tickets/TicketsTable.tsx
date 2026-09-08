@@ -104,7 +104,7 @@ export function TicketsTable({
               </tr>
             ))}
 
-            {!isLoading && error && errorMsg && (
+            {!isLoading && !!error && errorMsg && (
               <tr>
                 <td colSpan={colCount} className="px-5 py-12 text-center">
                   <div className="flex flex-col items-center gap-4" role="alert">

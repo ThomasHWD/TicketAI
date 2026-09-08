@@ -1,13 +1,12 @@
 import { CheckCheck, MessageSquare, UserPlus } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import type { Notification, Ticket } from "../../types";
 import { formatNotifDate } from "../../hooks/useNotificationBell";
 
 interface NotificationDropdownProps {
   panelId: string;
   dropdownPos: { top: number; right: number; width: number };
-  dropdownRef: React.RefObject<HTMLDivElement>;
-  scrollRef: React.RefObject<HTMLDivElement>;
+  dropdownRef: React.RefObject<HTMLDivElement | null>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
   showFade: boolean;
   visibleAssigned: Ticket[];
   notifications: Notification[];
@@ -22,8 +21,6 @@ export function NotificationDropdown({
   visibleAssigned, notifications,
   onToutLire, onNotifClick, onDismissAll, onAssignClick,
 }: NotificationDropdownProps) {
-  const navigate = useNavigate();
-
   return (
     <div
       ref={dropdownRef}
