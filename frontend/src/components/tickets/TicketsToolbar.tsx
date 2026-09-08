@@ -3,7 +3,7 @@ import {
   ChevronDown, ChevronUp, Layers, Search, HelpCircle, X,
 } from "lucide-react";
 import {
-  FILTER_TABS, TAB_HINTS, LEGEND_ITEMS,
+  FILTER_TABS, LEGEND_ITEMS,
   type FilterView,
 } from "../../lib/ticketFilters";
 

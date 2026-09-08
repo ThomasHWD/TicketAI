@@ -24,11 +24,6 @@ const STATUT_META: Record<string, { prefix: string; label: string }> = {
   REJETÉ:  { prefix: "✕", label: "Rejeté" },
 };
 
-const BRANCHE_BADGE: Record<string, { label: string; className: string; ariaLabel: string }> = {
-  CANONIQUE:  { label: "Auto",       className: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300", ariaLabel: "Réponse automatique (canonique)" },
-  SUGGESTION: { label: "Suggestion", className: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300",          ariaLabel: "Réponse suggérée à vérifier" },
-  LLM:        { label: "IA",         className: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",              ariaLabel: "Réponse générée par IA" },
-};
 
 function StatutBadge({ statut }: { statut: string }) {
   const style = STATUT_STYLE[statut] ?? "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300";
