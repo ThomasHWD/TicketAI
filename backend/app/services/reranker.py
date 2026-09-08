@@ -5,19 +5,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# from sentence_transformers import CrossEncoder
-# _reranker = None
-# def get_reranker() -> CrossEncoder:
-#     global _reranker
-#     if _reranker is None:
-#         print("[RERANKER] Chargement bge-reranker-v2-m3...")
-#         _reranker = CrossEncoder(
-#             'BAAI/bge-reranker-v2-m3',
-#             max_length=512
-#         )
-#         print("[RERANKER] Reranker prêt")
-#     return _reranker
-
 
 def rerank(question: str, chunks: list[dict], top_k: int = 3) -> list[dict]:
     if not chunks:
