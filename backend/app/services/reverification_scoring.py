@@ -7,6 +7,7 @@ sur la question de cette réponse ?
 
 import json
 
+from app.config import settings
 from app.services.llm import chat
 from app.services.obsolescence import Unite
 from app.services.reranker import rerank
@@ -115,7 +116,8 @@ def juger(question: str, reponse_servie: str, unites: list[Unite]) -> tuple[str,
             ),
         },
     ]
-    return _lire_verdict(chat(messages, temperature=0, max_tokens=2048, timeout=60))
+    modele = settings.albert_reverif_model_name or settings.albert_llm_model_name
+    return _lire_verdict(chat(messages, temperature=0, max_tokens=2048, timeout=60, model=modele))
 
 
 def _formater(unite: Unite) -> str:
