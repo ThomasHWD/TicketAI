@@ -1,8 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
 import TicketAIMark from "../../assets/ticketai_mark_v2.svg";
-import { LayoutDashboard, Lightbulb } from "lucide-react";
-import UserAvatar from "../ui/UserAvatar";
+import { LayoutDashboard, Lightbulb, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { navMain, navSettings, navAdmin } from "./nav-items";
 import { useSidebarBadges } from "./useSidebarBadges";
 
@@ -77,12 +76,11 @@ function NavItem({
 
 interface SidebarProps {
   collapsed: boolean;
+  onToggle: () => void;
 }
 
-export default function Sidebar({ collapsed }: SidebarProps) {
+export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, userDomaines } = useAuth();
-  const greetingName = user?.prenom || user?.email || "";
-  const avatarName = [user?.prenom, user?.nom].filter(Boolean).join(" ") || user?.email || "?";
   const { hasIncidents, badge } = useSidebarBadges();
 
   return (
@@ -167,25 +165,31 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         </nav>
       </div>
 
-      {/* User footer */}
-      <div
-        className={`flex items-center shrink-0 overflow-hidden
-          border-t border-gray-100 dark:border-[#1a1a1a]
-          py-3 transition-all duration-300
-          ${collapsed ? "justify-center px-0" : "px-3 gap-2.5"}`}
-      >
-        <UserAvatar name={avatarName} size={32} />
-        <div
-          className={`flex flex-col flex-1 min-w-0 transition-all duration-200 ease-in-out
-            ${collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}
+      {/* Collapse toggle */}
+      <div className="shrink-0 border-t border-gray-100 dark:border-[#1a1a1a] px-1.5 py-2">
+        <button
+          onClick={onToggle}
+          title={collapsed ? "Déplier le menu" : "Replier le menu"}
+          aria-label={collapsed ? "Déplier le menu latéral" : "Replier le menu latéral"}
+          className={`flex items-center gap-2.5 text-sm rounded-md w-full
+            transition-colors duration-150
+            text-gray-500 dark:text-gray-400
+            hover:bg-gray-100 dark:hover:bg-white/[0.05] hover:text-gray-700 dark:hover:text-gray-200
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1
+            ${collapsed ? "w-9 h-9 justify-center mx-auto px-0 py-0" : "px-2.5 py-[7px]"}`}
         >
-          <p className="text-xs text-gray-500 dark:text-gray-400 leading-none mb-0.5">
-            Connecté en tant que
-          </p>
-          <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate leading-none">
-            {greetingName}
-          </p>
-        </div>
+          <span className="shrink-0">
+            {collapsed
+              ? <PanelLeftOpen size={15} strokeWidth={1.7} />
+              : <PanelLeftClose size={15} strokeWidth={1.7} />}
+          </span>
+          <span
+            className={`whitespace-nowrap transition-all duration-200 ease-in-out
+              ${collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}
+          >
+            Replier
+          </span>
+        </button>
       </div>
     </aside>
   );
