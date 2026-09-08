@@ -1,6 +1,12 @@
-# Dépendances d'infra communes aux services applicatifs.
-# Les ancres YAML ne traversent pas la frontière `-f base -f prod`, d'où une
-# définition par fichier.
+name: ticketai
+
+x-infra-healthcheck: &infra-healthcheck
+  interval: 10s
+  start_interval: 1s
+  timeout: 5s
+  retries: 10
+  start_period: 10s
+
 x-infra-deps: &infra-deps
   postgres:
     condition: service_healthy
@@ -10,6 +16,46 @@ x-infra-deps: &infra-deps
     condition: service_healthy
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER:-postgres}" -d "$${POSTGRES_DB:-postgres}"',
+        ]
+      <<: *infra-healthcheck
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.0
+    restart: always
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/6333"]
+      <<: *infra-healthcheck
+
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      <<: *infra-healthcheck
+
   backend:
     build: ./backend
     command: >
@@ -28,8 +74,6 @@ services:
     depends_on: *infra-deps
     restart: unless-stopped
     healthcheck:
-      # curl (installé dans backend/Dockerfile) plutôt qu'un `python -c` : ~5 ms
-      # contre ~111 ms par sonde, et plus de triple niveau d'échappement.
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 10s
       start_interval: 1s
@@ -73,19 +117,12 @@ services:
     depends_on: *infra-deps
     restart: unless-stopped
 
-  # Nginx embarqué dans l'image frontend (multi-stage build)
-  # Sert le build React ET proxie /api vers backend
   frontend:
     build:
       context: ./frontend
       target: prod
     ports:
       - "80:80"
-    # service_started et non service_healthy : nginx n'a besoin que de résoudre
-    # le nom `backend` au chargement de sa conf. Gater sur la santé transformait
-    # toute panne backend en panne totale — le port 80 n'était jamais ouvert,
-    # donc même le shell statique devenait injoignable au lieu de servir la SPA
-    # avec des 502 sur /api.
     depends_on:
       backend:
         condition: service_started
@@ -97,3 +134,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  documents_storage:
