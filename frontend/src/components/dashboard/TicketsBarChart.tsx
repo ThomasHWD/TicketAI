@@ -81,7 +81,7 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
         role="img"
         aria-label={`Graphique d'activité — ${TITRE[periode].toLowerCase()}. Deux séries : nouveaux tickets (bleu) et tickets en traitement (vert).`}
       >
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minHeight={220}>
           <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
             <CartesianGrid
               strokeDasharray="3 3"

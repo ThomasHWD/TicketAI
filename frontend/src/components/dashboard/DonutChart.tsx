@@ -98,7 +98,7 @@ export default function DonutChart({ data, loading = false, periode = "semaine" 
         role="img"
         aria-label={`Répartition des tickets ${PERIODE_LABEL[periode]} : ${visibleData.map(d => `${STATUT_CONFIG[d.statut]?.label ?? d.statut} ${d.pct}%`).join(', ')}. Total : ${total} tickets.`}
       >
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minHeight={208}>
           <PieChart>
             <Pie
               data={visibleData}
