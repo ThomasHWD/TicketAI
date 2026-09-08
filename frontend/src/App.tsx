@@ -12,7 +12,6 @@ import { useSSE } from "./hooks/useSSE";
 import Login from "./pages/auth/Login";
 import Sidebar from "./components/layout/Sidebar";
 import Navbar from "./components/layout/Navbar";
-import SidebarToggle from "./components/layout/SidebarToggle";
 import JobTracker from "./components/ui/JobTracker";
 import { JobsProvider } from "./context/JobsContext";
 
@@ -37,9 +36,7 @@ function Layout() {
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-gray-50 dark:bg-[#0d0d0d]">
-      <Sidebar collapsed={collapsed} />
-
-      <SidebarToggle collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
+      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
 
       <div className="relative flex-1 overflow-hidden">
         <Navbar />
