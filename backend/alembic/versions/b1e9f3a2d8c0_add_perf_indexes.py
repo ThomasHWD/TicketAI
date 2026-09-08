@@ -31,12 +31,8 @@ def upgrade() -> None:
     op.create_index("ix_reponses_reponse_source_id", "reponses", ["reponse_source_id"])
     op.create_index("ix_reponses_validator_id", "reponses", ["validator_id"])
 
-    op.create_index("ix_garde_decisions_ticket_id", "garde_decisions", ["ticket_id"])
-
 
 def downgrade() -> None:
-    op.drop_index("ix_garde_decisions_ticket_id", table_name="garde_decisions")
-
     op.drop_index("ix_reponses_validator_id", table_name="reponses")
     op.drop_index("ix_reponses_reponse_source_id", table_name="reponses")
     op.drop_index("ix_reponses_canonique", table_name="reponses")

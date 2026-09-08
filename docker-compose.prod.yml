@@ -23,6 +23,8 @@ services:
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
+      # Remplacer par l'URL publique avant déploiement, ex :
+      # ALLOWED_ORIGINS: '["https://ticketai.mon-entreprise.fr"]'
     depends_on: *infra-deps
     restart: unless-stopped
     healthcheck:
