@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { Star } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Check, Copy, Star } from "lucide-react";
 import { formatDate, type FilStatut } from "./utils";
 import type { Ticket } from "../../../types";
 
@@ -47,6 +47,27 @@ function StarDisplay({ value }: { value: number }) {
 }
 
 export default function TicketInfoSidebar({ ticket, filStatut, joursAutoCloture }: TicketInfoSidebarProps) {
+  const [copied, setCopied] = useState(false);
+  function copyRef() {
+    const text = ticket.id;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
+  function fallbackCopy(text: string) {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.style.position = "fixed";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
+  }
   const closed = !!ticket.closed_at;
   const hasRatings = ticket.note_qualite !== null || ticket.note_delai !== null;
 
@@ -114,8 +135,13 @@ export default function TicketInfoSidebar({ ticket, filStatut, joursAutoCloture 
         <div className="pt-4 border-t border-gray-100 dark:border-white/[0.06]">
           <dl>
             <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Référence</dt>
-            <dd className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={ticket.id}>
-              {ticket.id}
+            <dd className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-mono cursor-default" title={`Référence complète : ${ticket.id}`}>
+                {ticket.id.slice(0, 8)}…
+              </span>
+              <button onClick={copyRef} className="shrink-0 p-0.5 rounded text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-colors" aria-label="Copier la référence" title="Copier la référence complète">
+                {copied ? <Check size={11} className="text-emerald-500" aria-hidden="true" /> : <Copy size={11} aria-hidden="true" />}
+              </button>
             </dd>
           </dl>
         </div>
