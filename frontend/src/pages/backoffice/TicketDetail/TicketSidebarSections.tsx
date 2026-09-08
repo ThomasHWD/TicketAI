@@ -61,9 +61,24 @@ export function StatutBadge({ statut, canonique, closed, processing, failed }: {
 export function DetailsSection({ ticket, processing, failed }: { ticket: Ticket; processing: boolean; failed: boolean }) {
   const [copied, setCopied] = useState(false);
   function copyRef() {
-    navigator.clipboard.writeText(ticket.id);
+    const text = ticket.id;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
+  }
+  function fallbackCopy(text: string) {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.style.position = "fixed";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
   }
   return (
     <SidebarSection>
@@ -88,8 +103,8 @@ export function DetailsSection({ ticket, processing, failed }: { ticket: Ticket;
         <div className="flex items-start justify-between gap-2">
           <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Référence</dt>
           <dd className="flex items-center gap-1 min-w-0">
-            <span className="text-xs font-mono text-gray-500 dark:text-gray-400 truncate min-w-0 cursor-default select-all" title={`Référence complète : ${ticket.id}`}>
-              {ticket.id}
+            <span className="text-xs font-mono text-gray-500 dark:text-gray-400 cursor-default" title={`Référence complète : ${ticket.id}`}>
+              {ticket.id.slice(0, 8)}…
             </span>
             <button onClick={copyRef} className="shrink-0 p-0.5 rounded text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-colors" aria-label="Copier la référence" title="Copier la référence complète">
               {copied ? <Check size={11} className="text-emerald-500" aria-hidden="true" /> : <Copy size={11} aria-hidden="true" />}
