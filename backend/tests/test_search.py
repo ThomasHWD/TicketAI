@@ -86,12 +86,7 @@ def test_rag_precision_golden_set(case):
 
     query = case["query"]
     expected_file = case["expected_file"]
-
-    # Détection dynamique du domaine requis par ta fonction search_hybrid
-    # Si le fichier attendu contient "Teletravail" ou "RGPD", on cherche en RH, sinon en IT
-    domaine = "IT"
-    if expected_file and any(k in expected_file for k in ["Teletravail", "RGPD", "Salarie"]):
-        domaine = "RH"
+    domaine = case.get("domaine", "IT")
 
     with (
         patch("app.services.search.embed_texts", return_value=fake_embeddings(1)),
