@@ -109,7 +109,7 @@ export function TicketHistoryTable({
           </thead>
           <tbody className="divide-y divide-gray-50 dark:divide-white/[0.04]" aria-busy={isLoading}>
             {isLoading && Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
-            {!isLoading && error && <ErrorState error={error} onRetry={onRetry} />}
+            {!isLoading && !!error && <ErrorState error={error} onRetry={onRetry} />}
             {!isLoading && !error && tickets.length === 0 && (
               <EmptyState isFiltered={isFiltered} onNew={onNew} onReset={onReset} />
             )}

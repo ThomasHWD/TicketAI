@@ -28,6 +28,7 @@ def rerank(question: str, chunks: list[dict], top_k: int = 3) -> list[dict]:
             "documents": documents,
             "top_n": top_k,
         },
+        timeout=15,
     )
 
     # Sécurité pour voir le détail de la validation

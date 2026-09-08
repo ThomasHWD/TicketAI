@@ -46,7 +46,7 @@ function StarDisplay({ value }: { value: number }) {
   );
 }
 
-export default function TicketInfoSidebar({ ticket, filStatut, joursAutoCloture }: TicketInfoSidebarProps) {
+export default function TicketInfoSidebar({ ticket, filStatut: _filStatut, joursAutoCloture }: TicketInfoSidebarProps) {
   const [copied, setCopied] = useState(false);
   function copyRef() {
     const text = ticket.id;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { setChefGroupe } from "../../../lib/api";
-import type { Groupe, MembreSummary, UserSummary } from "../../../types/index.tsx";
+import type { Groupe, MembreSummary } from "../../../types/index.tsx";
 import {
   fetchGroupes,
   fetchGestionnaires,

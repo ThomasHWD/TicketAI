@@ -1,6 +1,12 @@
-# Dépendances d'infra communes aux services applicatifs.
-# Les ancres YAML ne traversent pas la frontière `-f base -f dev`, d'où une
-# définition par fichier.
+name: ticketai-dev
+
+x-infra-healthcheck: &infra-healthcheck
+  interval: 10s
+  start_interval: 1s
+  timeout: 5s
+  retries: 10
+  start_period: 10s
+
 x-infra-deps: &infra-deps
   postgres:
     condition: service_healthy
@@ -10,9 +16,49 @@ x-infra-deps: &infra-deps
     condition: service_healthy
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER:-postgres}" -d "$${POSTGRES_DB:-postgres}"',
+        ]
+      <<: *infra-healthcheck
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.0
+    ports:
+      - "6335:6333"
+      - "6336:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/6333"]
+      <<: *infra-healthcheck
+
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      <<: *infra-healthcheck
+
   backend:
     build: ./backend
-    command: watchmedo auto-restart --directory=/app --pattern='*.py' --recursive -- uvicorn app.main:app --host 0.0.0.0 --port 8000
+    command: >
+      sh -c "alembic upgrade head &&
+             watchmedo auto-restart --directory=/app --pattern='*.py' --recursive --
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       - ./backend:/app
       - documents_storage:/app/storage
@@ -20,7 +66,6 @@ services:
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
-      DATABASE_URL: postgresql://user:test@postgres:5432/ticketai_db
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
@@ -29,8 +74,6 @@ services:
       - "8000:8000"
     depends_on: *infra-deps
     healthcheck:
-      # curl (installé dans backend/Dockerfile) plutôt qu'un `python -c` : ~5 ms
-      # contre ~111 ms par sonde, et plus de triple niveau d'échappement.
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 10s
       start_interval: 1s
@@ -48,7 +91,6 @@ services:
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
-      DATABASE_URL: postgresql://user:test@postgres:5432/ticketai_db
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
@@ -63,7 +105,6 @@ services:
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
-      DATABASE_URL: postgresql://user:test@postgres:5432/ticketai_db
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
     depends_on: *infra-deps
@@ -76,7 +117,6 @@ services:
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
-      DATABASE_URL: postgresql://user:test@postgres:5432/ticketai_db
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
     depends_on: *infra-deps
@@ -92,13 +132,11 @@ services:
       VITE_API_URL: http://backend:8000
     ports:
       - "5173:5173"
-    # Volontairement PAS `condition: service_healthy` : Vite proxifie /api/v1
-    # paresseusement à chaque requête, il n'a aucune dépendance au boot. Gater
-    # dessus empêchait tout travail front dès que le backend ne démarrait pas,
-    # et sérialisait le `npm install` derrière la santé du backend.
     depends_on:
       - backend
 
 volumes:
+  postgres_data:
+  qdrant_data:
   documents_storage:
   uploads_tmp:
