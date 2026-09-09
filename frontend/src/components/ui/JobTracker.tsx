@@ -30,6 +30,7 @@ function JobCard({ job }: { job: TrackedJob }) {
     queryKey: ["job-tracker", job.jobId],
     queryFn: () => getDocumentStatus(job.jobId),
     enabled: !isTerminal,
+    refetchInterval: isTerminal ? false : 5000,
   });
 
   useEffect(() => {

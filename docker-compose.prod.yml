@@ -63,12 +63,14 @@ services:
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
     volumes:
       - documents_storage:/app/storage
+      - uploads_tmp:/app/uploads_tmp
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
+      UPLOAD_DIR: /app/uploads_tmp
       # Remplacer par l'URL publique avant déploiement, ex :
       # ALLOWED_ORIGINS: '["https://ticketai.mon-entreprise.fr"]'
     depends_on: *infra-deps
@@ -86,12 +88,14 @@ services:
     command: celery -A app.workers.celery_app worker -Q queue_ingestion -c 2 -l info
     volumes:
       - documents_storage:/app/storage
+      - uploads_tmp:/app/uploads_tmp
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
+      UPLOAD_DIR: /app/uploads_tmp
     depends_on: *infra-deps
     restart: unless-stopped
 
@@ -139,3 +143,4 @@ volumes:
   postgres_data:
   qdrant_data:
   documents_storage:
+  uploads_tmp:

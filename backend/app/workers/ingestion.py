@@ -184,6 +184,12 @@ def ingestion_job(
 
     except Exception as exc:
         print(f"[INGESTION] ❌ Erreur : {exc}")
+        if self.request.retries >= self.max_retries and uploaded_by:
+            broadcast_sync(
+                f"sse:user:{uploaded_by}",
+                "job_completed",
+                {"job_id": self.request.id, "status": "FAILURE", "erreur": str(exc)},
+            )
         raise self.retry(exc=exc) from exc
 
 
