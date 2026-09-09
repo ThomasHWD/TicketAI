@@ -15,9 +15,21 @@ export interface BannerConfig {
   url: string;
 }
 
+export interface MaintenanceConfig {
+  active: boolean;
+  message: string;
+}
+
 export interface SiteConfigData {
   banner: BannerConfig;
+  maintenance: MaintenanceConfig;
   jours_auto_cloture: number;
+}
+
+export async function getMaintenancePublic(): Promise<MaintenanceConfig> {
+  const res = await fetch("/api/v1/public/maintenance");
+  if (!res.ok) return { active: false, message: "" };
+  return res.json();
 }
 
 export async function getSiteConfig(): Promise<SiteConfigData> {

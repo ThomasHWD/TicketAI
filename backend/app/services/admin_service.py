@@ -13,6 +13,7 @@ from app.schemas.admin import DocumentIncident, ServiceStatus
 
 _CONFIG_DEFAULTS: dict[str, Any] = {
     "banner": {"active": False, "message": "", "url": ""},
+    "maintenance": {"active": False, "message": ""},
 }
 
 

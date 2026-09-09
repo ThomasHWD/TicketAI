@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -7,6 +7,7 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./lib/auth";
 import { useSSE } from "./hooks/useSSE";
 import Login from "./pages/auth/Login";
@@ -14,6 +15,9 @@ import Sidebar from "./components/layout/Sidebar";
 import Navbar from "./components/layout/Navbar";
 import JobTracker from "./components/ui/JobTracker";
 import { JobsProvider } from "./context/JobsContext";
+import MaintenancePage from "./pages/MaintenancePage";
+import { getMaintenancePublic } from "./lib/api/admin";
+import { USER_KEY } from "./lib/api/client";
 
 const Dashboard = lazy(() => import("./pages/backoffice/Dashboard"));
 const UserDashboard = lazy(() => import("./pages/user/UserDashboard"));
@@ -91,6 +95,41 @@ function BackofficeRoute() {
 }
 
 export default function App() {
+  const { data: maintenanceData } = useQuery({
+    queryKey: ["maintenance-public"],
+    queryFn: getMaintenancePublic,
+    refetchInterval: 30_000,
+    staleTime: 10_000,
+  });
+
+  const [maintenanceEvent, setMaintenanceEvent] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setMaintenanceEvent(true);
+    window.addEventListener("ticketai:maintenance", handler);
+    return () => window.removeEventListener("ticketai:maintenance", handler);
+  }, []);
+
+  // Réinitialise le flag d'événement dès que le serveur confirme la fin de maintenance
+  useEffect(() => {
+    if (maintenanceData?.active === false && maintenanceEvent) {
+      setMaintenanceEvent(false);
+    }
+  }, [maintenanceData?.active, maintenanceEvent]);
+
+  const storedRole = (() => {
+    try {
+      const raw = localStorage.getItem(USER_KEY);
+      return raw ? (JSON.parse(raw) as { role?: string }).role ?? null : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  if ((maintenanceData?.active || maintenanceEvent) && storedRole !== null && storedRole !== "ADMIN") {
+    return <MaintenancePage message={maintenanceData?.message} />;
+  }
+
   return (
     <JobsProvider>
     <BrowserRouter>
