@@ -215,7 +215,7 @@ d'écrire n'importe quoi dans la table.
 
 ### La bannière
 
-Clé `banner`, la seule clé modifiable à ce jour :
+Clé `banner` :
 
 ```json
 { "active": false, "message": "", "url": "" }
@@ -225,6 +225,37 @@ C'est le bandeau défilant affiché en haut de l'application à tous les utilisa
 maintenance planifiée, information générale. Sa modification diffuse un événement
 `banner_updated` sur le canal global : **le bandeau apparaît chez tous les utilisateurs
 connectés sans qu'ils rechargent la page.**
+
+### Le mode maintenance
+
+Clé `maintenance` :
+
+```json
+{ "active": false, "message": "" }
+```
+
+Quand le mode est activé, **tous les utilisateurs non-admins sont bloqués dès la couche
+réseau** et voient une page dédiée à la place de l'application. Les admins continuent
+d'accéder au site normalement — ce qui permet de finaliser une intervention pendant que
+les employés sont déjà sur la page de maintenance.
+
+Le `message` est facultatif. S'il est vide, la page affiche un texte par défaut.
+
+Deux mécanismes assurent l'affichage côté frontend :
+
+- **Au démarrage** — l'application interroge l'état de maintenance avant de rendre la
+  moindre page, y compris la page de connexion. Un employé qui ouvre le site pendant la
+  maintenance voit directement la page dédiée, sans jamais être redirigé vers `/login`.
+- **En cours de session** — si la maintenance est activée alors qu'un employé navigue
+  déjà, la première requête bloquée déclenche l'affichage de la page dans les secondes
+  qui suivent.
+
+La désactivation est perçue dans les **5 à 35 secondes** (cache backend 5 s + vérification
+frontend 30 s).
+
+> **La bannière et le mode maintenance sont indépendants.** Activer l'une ne désactive pas
+> l'autre. L'usage typique est : activer la bannière en amont pour prévenir, puis passer en
+> mode maintenance au moment de l'intervention.
 
 ### Les valeurs en lecture seule
 

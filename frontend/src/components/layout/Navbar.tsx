@@ -1,5 +1,5 @@
 import { useNavigate, useMatch } from "react-router-dom";
-import { Sun, Moon, Plus, LogOut } from "lucide-react";
+import { Sun, Moon, Plus, LogOut, TriangleAlert } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../hooks/useTheme";
@@ -45,8 +45,22 @@ export default function Navbar() {
         border-b border-gray-200 dark:border-[#1f1f1f]
         px-4 gap-2"
     >
-      {/* Banner or spacer */}
-      {banner?.active && banner.message ? (
+      {/* Warning maintenance (admin uniquement) ou bannière ou spacer */}
+      {siteConfig?.maintenance?.active && user?.role === "ADMIN" ? (
+        <div className="flex flex-1 items-center gap-2 min-w-0 overflow-hidden
+          bg-amber-400/15 dark:bg-amber-400/10
+          border border-amber-300/60 dark:border-amber-400/20
+          rounded-lg px-3 py-1.5 mx-1">
+          <TriangleAlert
+            size={14}
+            className="text-amber-600 dark:text-amber-400 shrink-0 animate-pulse"
+            aria-hidden="true"
+          />
+          <span className="text-xs font-semibold text-amber-700 dark:text-amber-300 truncate">
+            Mode maintenance actif — les autres utilisateurs ne peuvent pas accéder au site
+          </span>
+        </div>
+      ) : banner?.active && banner.message ? (
         <MarqueeBanner message={banner.message} url={banner.url || undefined} />
       ) : (
         <div className="flex-1" />

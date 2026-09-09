@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.core.security import AdminUser, CurrentUser
 from app.database import get_db
+from app.middleware.maintenance import invalidate_maintenance_cache
 from app.models.site_config import SiteConfig
 from app.schemas.admin import ConfigPayload
 from app.services.admin_service import _CONFIG_DEFAULTS
@@ -42,4 +43,7 @@ def set_config(key: str, body: ConfigPayload, _: AdminUser, db: DB):
     db.refresh(row)
     if key == "banner":
         broadcast_sync("sse:global", "banner_updated", {})
+    if key == "maintenance":
+        invalidate_maintenance_cache()
+        broadcast_sync("sse:global", "maintenance_updated", {})
     return {"key": row.key, "value": row.value}
