@@ -5,7 +5,7 @@ DC_PROD = $(DOCKER_COMPOSE) -f docker-compose.prod.yml
 
 # Dev : infra (ports décalés) + backend + workers + frontend (hot-reload)
 dev:
-	$(DC_DEV) up
+	$(DC_DEV) up -d
 
 dev-build:
 	$(DC_DEV) build
