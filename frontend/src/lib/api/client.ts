@@ -67,5 +67,8 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
       window.location.assign("/login");
     }
   }
+  if (res.status === 503) {
+    window.dispatchEvent(new CustomEvent("ticketai:maintenance"));
+  }
   return res;
 }

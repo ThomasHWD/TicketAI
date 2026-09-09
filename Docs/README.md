@@ -41,7 +41,7 @@ Cette documentation couvre l'intégralité du produit — le parcours des utilis
 | [Base de connaissances](fonctionnalites/base-de-connaissances.md) | Importer un document, doublons et homonymes, consulter les chunks, versions, angles morts. |
 | [Notifications et temps réel](fonctionnalites/notifications-et-temps-reel.md) | Cloche de notification, flux SSE, canaux Redis, liste des événements et de leurs effets. |
 | [Statistiques et pilotage](fonctionnalites/statistiques-et-pilotage.md) | Tableau de bord backoffice, vue globale admin, statistiques par membre, satisfaction. |
-| [Administration](fonctionnalites/administration.md) | Groupes et domaines, membres et chefs, configuration du site, bannière, santé, incidents, quotas Albert, suggestions. |
+| [Administration](fonctionnalites/administration.md) | Groupes et domaines, membres et chefs, configuration du site, bannière, mode maintenance, santé, incidents, quotas Albert, suggestions. |
 
 ### Technique
 
