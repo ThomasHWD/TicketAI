@@ -340,12 +340,8 @@ def test_set_chef_groupe_inexistant_404(client, admin_headers, user_factory):
 
 
 @pytest.mark.integration
-def test_list_gestionnaires(client, admin_factory, auth_header, db_session, monkeypatch):
-    from app.config import settings
+def test_list_gestionnaires(client, admin_factory, auth_header, db_session):
     from app.models.user import User
-
-    # Force le fallback base (indépendant de AUTH_MODE=ldap dans l'environnement)
-    monkeypatch.setattr(settings, "auth_mode", "db")
 
     admin = admin_factory()
     headers = auth_header(admin)
@@ -365,12 +361,8 @@ def test_list_gestionnaires(client, admin_factory, auth_header, db_session, monk
 
 
 @pytest.mark.integration
-def test_list_gestionnaires_exclut_non_gestionnaires(client, admin_factory, auth_header, db_session, monkeypatch):
-    from app.config import settings
+def test_list_gestionnaires_exclut_non_gestionnaires(client, admin_factory, auth_header, db_session):
     from app.models.user import User
-
-    # Force le fallback base (indépendant de AUTH_MODE=ldap dans l'environnement)
-    monkeypatch.setattr(settings, "auth_mode", "db")
 
     admin = admin_factory()
     headers = auth_header(admin)

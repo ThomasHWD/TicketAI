@@ -34,60 +34,59 @@ def list_gestionnaires(_: AdminUser, db: DB):
     from app.config import settings
     from app.services.ldap_auth import _make_server
 
-    if settings.auth_mode == "ldap":
-        try:
-            server = _make_server(settings.ldap_server_url)
-            svc = Connection(
-                server,
-                user=settings.ldap_bind_dn,
-                password=settings.ldap_bind_password,
-                auto_bind=True,
-                receive_timeout=settings.ldap_timeout,
-            )
-            svc.search(settings.ldap_user_search_base, f"(cn={settings.ldap_group_gestionnaire})", attributes=["cn"])
-            if not svc.entries:
-                svc.unbind()
-                return []
-            group_dn = svc.entries[0].entry_dn
-
-            svc.search(
-                settings.ldap_user_search_base,
-                f"(memberOf:1.2.840.113556.1.4.1941:={group_dn})",
-                attributes=[
-                    settings.ldap_attr_email,
-                    settings.ldap_attr_firstname,
-                    settings.ldap_attr_lastname,
-                    settings.ldap_attr_department,
-                ],
-            )
-
-            result = []
-            emails_vus: set[str] = set()
-            for e in svc.entries:
-                email = entry_value(e, settings.ldap_attr_email)
-                if not email or email in emails_vus:
-                    continue
-                emails_vus.add(email)
-                db_user = db.query(User).filter(User.email == email).first()
-                result.append(
-                    {
-                        "id": str(db_user.id) if db_user else None,
-                        "email": email,
-                        "prenom": entry_value(e, settings.ldap_attr_firstname),
-                        "nom": entry_value(e, settings.ldap_attr_lastname),
-                        "departement": entry_value(e, settings.ldap_attr_department),
-                        "is_gestionnaire": True,
-                        "role": db_user.role if db_user else "USER",
-                    }
-                )
+    try:
+        server = _make_server(settings.ldap_server_url)
+        svc = Connection(
+            server,
+            user=settings.ldap_bind_dn,
+            password=settings.ldap_bind_password,
+            auto_bind=True,
+            receive_timeout=settings.ldap_timeout,
+        )
+        svc.search(settings.ldap_user_search_base, f"(cn={settings.ldap_group_gestionnaire})", attributes=["cn"])
+        if not svc.entries:
             svc.unbind()
-            db_gestionnaires = db.query(User).filter(User.is_gestionnaire.is_(True)).all()
-            for u in db_gestionnaires:
-                if u.email and u.email not in emails_vus:
-                    result.append(serialize_user_summary(u))
-            return sorted(result, key=lambda u: (u["nom"] or "", u["prenom"] or ""))
-        except Exception:
-            pass
+            return []
+        group_dn = svc.entries[0].entry_dn
+
+        svc.search(
+            settings.ldap_user_search_base,
+            f"(memberOf:1.2.840.113556.1.4.1941:={group_dn})",
+            attributes=[
+                settings.ldap_attr_email,
+                settings.ldap_attr_firstname,
+                settings.ldap_attr_lastname,
+                settings.ldap_attr_department,
+            ],
+        )
+
+        result = []
+        emails_vus: set[str] = set()
+        for e in svc.entries:
+            email = entry_value(e, settings.ldap_attr_email)
+            if not email or email in emails_vus:
+                continue
+            emails_vus.add(email)
+            db_user = db.query(User).filter(User.email == email).first()
+            result.append(
+                {
+                    "id": str(db_user.id) if db_user else None,
+                    "email": email,
+                    "prenom": entry_value(e, settings.ldap_attr_firstname),
+                    "nom": entry_value(e, settings.ldap_attr_lastname),
+                    "departement": entry_value(e, settings.ldap_attr_department),
+                    "is_gestionnaire": True,
+                    "role": db_user.role if db_user else "USER",
+                }
+            )
+        svc.unbind()
+        db_gestionnaires = db.query(User).filter(User.is_gestionnaire.is_(True)).all()
+        for u in db_gestionnaires:
+            if u.email and u.email not in emails_vus:
+                result.append(serialize_user_summary(u))
+        return sorted(result, key=lambda u: (u["nom"] or "", u["prenom"] or ""))
+    except Exception:
+        pass
 
     users = db.query(User).filter(User.is_gestionnaire.is_(True)).order_by(User.nom, User.prenom).all()
     return [serialize_user_summary(u) for u in users]
