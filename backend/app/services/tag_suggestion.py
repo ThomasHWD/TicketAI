@@ -54,7 +54,7 @@ def suggerer_tag(
             timeout=15,
             model=settings.albert_tag_model_name,
         )
-        tag = re.sub(r"[\"'`_\-/\\|]", " ", tag)
+        tag = re.sub(r"[\"'`_\-/\\|«»]", " ", tag)
         tag = re.sub(r"\s+", " ", tag).strip()
         return tag[:100] if tag else None
     except Exception as exc:
