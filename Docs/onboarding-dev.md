@@ -54,25 +54,10 @@ Valeurs minimales à renseigner pour démarrer :
 | `DOCUMENTS_STORAGE_PATH` | `/tmp/ticketai/documents` | oui |
 | `SEUIL_CANONIQUE` | `3` | oui |
 | `SEUIL_COSINUS` | `0.80` | oui |
-| `AUTH_MODE` | `local` (dev) ou `ldap` (prod) | recommandé : `local` en dev |
 
-> ⚠️ **`AUTH_MODE` ne change *rien* au login — piège vérifié dans le code.**
->
-> Malgré son nom et le commentaire de `app/config.py`, ce réglage n'est lu qu'à **un seul
-> endroit** : `app/api/v1/admin/users.py`, pour décider si `GET /admin/gestionnaires`
-> interroge l'annuaire ou retombe sur la base.
->
-> **Le login passe systématiquement par le LDAP.** `auth.py` appelle
-> `ldap_auth.authenticate()`, qui appelle `_authenticate_ldap()` sans jamais consulter
-> `auth_mode`. Il n'existe **ni stub, ni repli base de données** pour l'authentification.
->
-> **Conséquence : il faut un serveur LDAP/AD joignable pour se connecter, même en
-> développement.** Sans annuaire, l'appel à `/auth/login` expire et aucun compte ne peut
-> ouvrir de session — quelle que soit la valeur d'`AUTH_MODE`.
-
-Si vous développez sans accès à l'annuaire, prévoyez soit un tunnel vers l'AD de
-l'entreprise, soit un serveur LDAP de test, soit un contournement explicite dans
-`ldap_auth.authenticate()`.
+> ⚠️ **Un serveur LDAP/AD joignable est requis pour se connecter, y compris en
+> développement.** Sans annuaire, `/auth/login` expire et aucun compte ne peut ouvrir de
+> session. Prévoyez soit un tunnel vers l'AD de l'entreprise, soit un serveur LDAP de test.
 
 `SEUIL_CANONIQUE` et `SEUIL_COSINUS` n'ont **pas** de valeur par défaut dans le code : ils
 sont obligatoires et l'application refuse de démarrer s'ils manquent. Les valeurs
@@ -81,7 +66,7 @@ ci-dessus sont celles de `.env.example`.
 ### Frontend
 
 ```bash
-cp frontend/.env.exemple frontend/.env
+cp frontend/.env.example frontend/.env
 ```
 
 Le fichier contient une seule variable :
@@ -261,9 +246,8 @@ Ce qui donne trois profils effectifs :
 
 C'est donc bien la **présence d'un groupe** — et non le rôle — qui ouvre le backoffice.
 
-En production (`AUTH_MODE=ldap`), `LDAP_GROUP_ADMIN` détermine le rôle à chaque login, et
-`LDAP_GROUP_GESTIONNAIRE` alimente le drapeau `is_gestionnaire` (qui ne donne aucun droit
-en soi). Dans les autres modes, le rôle est celui inscrit en base.
+`LDAP_GROUP_ADMIN` détermine le rôle à chaque login, et `LDAP_GROUP_GESTIONNAIRE` alimente
+le drapeau `is_gestionnaire` (qui ne donne aucun droit en soi).
 
 Les règles complètes sont dans [`technique/auth-et-roles.md`](technique/auth-et-roles.md).
 
