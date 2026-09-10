@@ -24,12 +24,14 @@ export async function getReponsesCanoniques(params?: {
   limit?: number;
   domaine?: Domaine;
   q?: string;
+  tag?: string;
 }): Promise<ReponsesCanoniquesResponse> {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.domaine) query.set("domaine", params.domaine);
   if (params?.q) query.set("q", params.q);
+  if (params?.tag) query.set("tag", params.tag);
   const res = await apiFetch(`${BASE_URL}/reponses/canoniques?${query}`);
   if (!res.ok) throw new Error("Erreur chargement réponses canoniques");
   return res.json();
@@ -147,5 +149,25 @@ export async function corrigerReponse(reponseId: string, payload: CorrigerPayloa
   });
   if (res.status === 409) throw await toLockConflict(res, "Erreur correction");
   if (!res.ok) throw new Error("Erreur correction");
+  return res.json();
+}
+
+export async function updateTag(reponseId: string, tag: string | null): Promise<{ tag: string | null }> {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/tag`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tag }),
+  });
+  if (!res.ok) throw new Error("Erreur mise à jour du tag");
+  return res.json();
+}
+
+export async function getTags(domaine?: string, canoniques?: boolean): Promise<string[]> {
+  const query = new URLSearchParams();
+  if (domaine) query.set("domaine", domaine);
+  if (canoniques) query.set("canoniques", "true");
+  const qs = query.toString();
+  const res = await apiFetch(`${BASE_URL}/tags${qs ? `?${qs}` : ""}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Erreur chargement des tags");
   return res.json();
 }

@@ -21,6 +21,7 @@ export default function SavedAnswers() {
     (searchParams.get("onglet") as Onglet | null) ?? "canoniques"
   );
   const [domaine, setDomaine] = useState<string | undefined>(undefined);
+  const [tag, setTag] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -39,8 +40,8 @@ export default function SavedAnswers() {
     toastTimer.current = setTimeout(() => setSuccessMsg(null), 3000);
   }, []);
 
-  const { canoniques, obsoletes, aRelire, nbObsoletes, nbDocsARelire, requete } =
-    useSavedAnswersData(onglet, page, searchQuery, domaine);
+  const { canoniques, obsoletes, aRelire, nbObsoletes, nbDocsARelire, requete, tagsDisponibles } =
+    useSavedAnswersData(onglet, page, searchQuery, domaine, tag);
 
   const { editMutation, confirmMutation, confirmLotMutation, retirerMutation, deleteMutation, restoreMutation } =
     useSavedAnswersMutations({
@@ -67,6 +68,7 @@ export default function SavedAnswers() {
     setOnglet(cible);
     setPage(1);
     setSearchQuery("");
+    setTag(undefined);
     setEditingId(null);
     setDraft("");
     setEditingOriginal("");
@@ -74,6 +76,12 @@ export default function SavedAnswers() {
 
   function changerDomaine(d: string | undefined) {
     setDomaine(d);
+    setTag(undefined);
+    setPage(1);
+  }
+
+  function changerTag(t: string | undefined) {
+    setTag(t);
     setPage(1);
   }
 
@@ -140,9 +148,12 @@ export default function SavedAnswers() {
           canoniquesCount={canoniquesItems.length}
           domaines={userDomaines}
           domaine={domaine}
+          tag={tag}
+          tagsDisponibles={tagsDisponibles}
           onOngletChange={changerOnglet}
           onSearchChange={changerSearch}
           onDomaine={changerDomaine}
+          onTag={changerTag}
         />
 
         <div

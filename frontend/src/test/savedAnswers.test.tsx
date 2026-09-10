@@ -60,6 +60,7 @@ function canonique(overrides: Partial<ReponseCanonique> = {}): ReponseCanonique 
     a_relire: false,
     validated_at: "2026-07-01T10:00:00Z",
     created_at: "2026-07-01T10:00:00Z",
+    tag: null,
     ...overrides,
   };
 }
@@ -79,6 +80,10 @@ function router(reponses: {
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       envoyees.push({ url, init });
+      // /tags renvoie un tableau brut, pas un objet paginé
+      if (url.includes("/tags")) {
+        return new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } });
+      }
       const items =
         url.includes("/a-relire") ? (reponses.aRelire ?? [])
         : url.includes("/canoniques") ? (reponses.canoniques ?? [])

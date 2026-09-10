@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getReponsesARelire, getReponsesCanoniques, getReponsesObsoletes } from "../../../lib/api";
+import { getReponsesARelire, getReponsesCanoniques, getReponsesObsoletes, getTags } from "../../../lib/api";
 import { LIMIT, type Onglet } from "./utils";
 
-export function useSavedAnswersData(onglet: Onglet, page: number, search: string = "", domaine?: string) {
+export function useSavedAnswersData(onglet: Onglet, page: number, search: string = "", domaine?: string, tag?: string) {
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -14,8 +14,8 @@ export function useSavedAnswersData(onglet: Onglet, page: number, search: string
   const d = domaine || undefined;
 
   const canoniques = useQuery({
-    queryKey: ["reponses-canoniques", page, debouncedSearch, domaine],
-    queryFn: () => getReponsesCanoniques({ page, limit: LIMIT, q, domaine: d }),
+    queryKey: ["reponses-canoniques", page, debouncedSearch, domaine, tag],
+    queryFn: () => getReponsesCanoniques({ page, limit: LIMIT, q, domaine: d, tag }),
     placeholderData: (prev) => prev,
     enabled: onglet === "canoniques",
   });
@@ -46,9 +46,18 @@ export function useSavedAnswersData(onglet: Onglet, page: number, search: string
     staleTime: 60_000,
   });
 
+  const tagsQuery = useQuery({
+    queryKey: ["tags-canoniques", domaine],
+    queryFn: () => getTags(domaine, true),
+    staleTime: 0,
+    gcTime: 0,
+    enabled: onglet === "canoniques",
+  });
+
   const nbObsoletes = compteur?.total ?? 0;
   const nbDocsARelire = compteurARelire?.nb_documents ?? 0;
   const requete = onglet === "canoniques" ? canoniques : onglet === "obsoletes" ? obsoletes : aRelire;
+  const tagsDisponibles = tagsQuery.data ?? [];
 
-  return { canoniques, obsoletes, aRelire, nbObsoletes, nbDocsARelire, requete };
+  return { canoniques, obsoletes, aRelire, nbObsoletes, nbDocsARelire, requete, tagsDisponibles };
 }

@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Check, Pencil, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { Check, Pencil, Tag, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import type { TicketReponse } from "../../types";
 
 interface EditingPanelProps {
@@ -65,16 +65,42 @@ interface ValidationConfirmPanelProps {
   confirmRef: RefObject<HTMLButtonElement | null>;
   loading: boolean;
   error: string | null;
+  tagDraft: string;
+  tags: string[];
+  onTagChange: (v: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function ValidationConfirmPanel({ confirmRef, loading, error, onConfirm, onCancel }: ValidationConfirmPanelProps) {
+export function ValidationConfirmPanel({
+  confirmRef, loading, error, tagDraft, tags, onTagChange, onConfirm, onCancel,
+}: ValidationConfirmPanelProps) {
   return (
-    <div role="alert" className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 space-y-2.5">
+    <div role="alert" className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 space-y-3">
       <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
         Confirmer la validation de cette réponse générée par l'IA ?
       </p>
+
+      <div className="space-y-1">
+        <label htmlFor="tag-validation-input" className="flex items-center gap-1 text-xs text-amber-700/70 dark:text-amber-400/70">
+          <Tag size={10} aria-hidden="true" />
+          Catégorie <span className="text-amber-600/50 dark:text-amber-500/50">(optionnel)</span>
+        </label>
+        <input
+          id="tag-validation-input"
+          list="tag-validation-list"
+          value={tagDraft}
+          onChange={(e) => onTagChange(e.target.value)}
+          placeholder="Ex : congés, télétravail, paie…"
+          maxLength={100}
+          disabled={loading}
+          className="w-full px-2.5 py-1.5 text-xs rounded-md border border-amber-200 dark:border-amber-500/30 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 disabled:opacity-50 transition-colors"
+        />
+        <datalist id="tag-validation-list">
+          {tags.map((t) => <option key={t} value={t} />)}
+        </datalist>
+      </div>
+
       {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
       <div className="flex items-center gap-2">
         <button

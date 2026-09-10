@@ -65,6 +65,57 @@ Chaque ligne affiche :
 Tri par date de validation décroissante. Recherche (`q`) sur la question du ticket et sur
 la question de suivi. Pagination classique.
 
+### Filtres
+
+La barre de filtres apparaît uniquement sur l'onglet Canoniques (les deux autres onglets
+n'ont pas de tags).
+
+**Domaine** — visible seulement si l'utilisateur appartient à plusieurs domaines. Permet
+de restreindre la liste à un domaine précis ; changer de domaine réinitialise le filtre
+tag.
+
+**Tag** — combobox déroulant alimenté par `GET /tags?canoniques=true&domaine=<d>`.
+N'affiche que les tags effectivement utilisés sur des réponses canoniques non obsolètes du
+domaine sélectionné. La liste est fraîche à chaque ouverture de l'onglet (pas de cache
+côté client) et se met à jour en temps réel via SSE lorsqu'une réponse est validée,
+corrigée, rejetée ou modifiée.
+
+Au-delà de 5 tags disponibles, un champ de recherche apparaît en tête de liste. La
+sélection d'un tag filtre la liste et affiche un bouton ✕ pour effacer le filtre sans
+rouvrir le combobox. Sélectionner le tag déjà actif le désélectionne.
+
+### Tags — génération automatique
+
+Chaque réponse reçoit un **tag thématique** au moment où la question est traitée par le
+pipeline, avant toute validation humaine. Le tag est produit par un appel LLM distinct
+(`GET /tags?canoniques=true` → `suggerer_tag`) :
+
+```
+Question + contenu de la réponse (800 premiers caractères)
+    + liste des tags déjà utilisés dans le domaine
+  ──────────────────────────────────────────────────
+  → tag : 1 à 3 mots, lettres et espaces uniquement
+```
+
+Le modèle reçoit deux consignes complémentaires :
+
+1. **Nommer la catégorie thématique, pas l'objet précis de la question** — exemples
+   contrastés fournis dans le prompt (`"perte carte Swile"` → `"ticket restaurant"`, pas
+   `"Carte Swile"`).
+2. **Réutiliser un tag existant s'il convient** — la liste des tags déjà en production
+   pour ce domaine est injectée dans le contexte. Le modèle en crée un nouveau uniquement
+   si aucun existant ne couvre le thème.
+
+Ce mécanisme converge progressivement : les premiers tickets créent le vocabulaire, les
+suivants le consolident. Il n'y a pas de liste fermée imposée a priori — un thème nouveau
+produit un tag nouveau.
+
+Le tag est nettoyé après génération : les caractères spéciaux (`"`, `'`, `-`, `/`…) sont
+remplacés par des espaces, les espaces multiples normalisés, la longueur plafonnée à 100
+caractères. Si l'appel LLM échoue, `tag = null` et la réponse reste non taguée.
+
+Le tag peut être modifié manuellement depuis le backoffice via `PATCH /reponses/{id}/tag`.
+
 ### Les actions
 
 | Action | Endpoint | Effet |
