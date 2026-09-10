@@ -5,6 +5,7 @@ from celery.exceptions import Retry
 
 from app.crud.question import TicketDisparu, upsert_reponse, upsert_ticket
 from app.database import SessionLocal
+from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
 from app.services.garde_cache import statuer
@@ -201,16 +202,15 @@ def question_job(
                 if hors_domaine:
                     tag_suggere = None
                 else:
-                    from app.models.reponse import Reponse as ReponseModel
-                    from app.models.ticket import Ticket as TicketModel
                     rows = (
-                        db.query(ReponseModel.tag)
-                        .join(TicketModel, TicketModel.id == ReponseModel.ticket_id)
+                        db.query(Reponse.tag)
+                        .join(Ticket, Ticket.id == Reponse.ticket_id)
                         .filter(
-                            ReponseModel.tag.isnot(None),
-                            ReponseModel.canonique.is_(True),
-                            ReponseModel.obsolete.is_(False),
-                            TicketModel.domaine == domaine,
+                            Reponse.tag.isnot(None),
+                            Reponse.canonique.is_(True),
+                            Reponse.reponse_source_id.is_(None),
+                            Reponse.obsolete.is_(False),
+                            Ticket.domaine == domaine,
                         )
                         .distinct()
                         .all()

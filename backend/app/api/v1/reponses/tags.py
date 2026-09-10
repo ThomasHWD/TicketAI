@@ -39,7 +39,7 @@ async def lister_tags(
         if domaine:
             d = domaine.upper()
             if current_user.role != "ADMIN" and d not in user_domaines(current_user):
-                return []
+                return JSONResponse(content=[], headers={"Cache-Control": "no-store"})
             query = query.filter(Ticket.domaine == d)
         elif current_user.role != "ADMIN":
             query = query.filter(Ticket.domaine.in_(user_domaines(current_user)))
