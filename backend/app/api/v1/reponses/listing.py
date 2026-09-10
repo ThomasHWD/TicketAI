@@ -59,6 +59,7 @@ async def lister_reponses_canoniques(
     current_user: BackofficeUser,
     domaine: str | None = None,
     q: str | None = None,
+    tag: str | None = None,
     page: int = 1,
     limit: int = 20,
 ):
@@ -87,6 +88,9 @@ async def lister_reponses_canoniques(
                 Ticket.question.ilike(terme) | Reponse.question_suivi.ilike(terme)
             )
 
+        if tag:
+            query = query.filter(Reponse.tag == tag)
+
         total = query.count()
         resultats = (
             query.order_by(Reponse.validated_at.desc().nullslast()).offset((page - 1) * limit).limit(limit).all()
@@ -109,6 +113,7 @@ async def lister_reponses_canoniques(
                     "a_relire": r.a_relire,
                     "validated_at": r.validated_at.isoformat() if r.validated_at else None,
                     "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "tag": r.tag,
                 }
                 for r, t in resultats
             ],

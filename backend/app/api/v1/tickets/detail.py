@@ -47,6 +47,7 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
                 "validator_email": r.validator.email if r.validator else None,
                 "validator_nom_complet": full_name(r.validator) or (r.validator.email if r.validator else None),
                 "raison_rejet": r.raison_rejet,
+                "tag": r.tag,
             }
             for r in reponses
         ]

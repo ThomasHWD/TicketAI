@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     albert_reranker_model_name: str
     albert_garde_model_name: str = ""   # vide → utilise albert_llm_model_name
     albert_reverif_model_name: str = ""  # vide → utilise albert_llm_model_name
+    albert_tag_model_name: str = "mistralai/Ministral-3-8B-Instruct-2512"  # quota séparé du modèle de génération
 
     # SEUILS
     seuil_canonique: int
