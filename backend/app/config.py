@@ -50,14 +50,11 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = ["http://localhost:5173", "http://localhost:4173"]
 
     # ── Authentification ─────────────────────────────────────────────
-    # auth_mode == "ldap" → interroge l'Active Directory.
-    # Toute autre valeur → fallback base de données seule (tests, offline).
-    auth_mode: str
     jwt_secret_key: str
     jwt_algorithm: str
     access_token_expire_minutes: int
 
-    # LDAP / Active Directory (utilisés uniquement quand auth_mode == "ldap")
+    # LDAP / Active Directory
     ldap_server_url: str = ""
     ldap_bind_dn: str = ""
     ldap_bind_password: str = ""

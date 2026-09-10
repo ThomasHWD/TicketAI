@@ -95,14 +95,8 @@ Le champ *Identifiant* attend le `sAMAccountName` de l'annuaire, au format `pré
 
 Si le LDAP primaire est injoignable, un serveur secondaire peut être configuré (`ldap_server_url_secondary`).
 
-> ⚠️ **`AUTH_MODE` ne conditionne pas l'authentification.** Malgré son nom et le
-> commentaire de `app/config.py`, ce réglage n'est lu qu'à **un seul endroit** :
-> `app/api/v1/admin/users.py`, pour décider si `GET /admin/gestionnaires` interroge
-> l'annuaire ou retombe sur la base.
->
-> `auth.py` appelle `ldap_auth.authenticate()`, qui appelle `_authenticate_ldap()` **sans
-> jamais consulter `auth_mode`**. Il n'existe ni stub, ni repli base de données. **Un
-> serveur LDAP joignable est donc requis pour se connecter, y compris en développement.**
+> ⚠️ **Un serveur LDAP joignable est requis pour se connecter, y compris en
+> développement.** Il n'existe ni stub, ni repli base de données.
 
 > ⚠️ **Un échec LDAP est indiscernable d'un mot de passe incorrect.** `authenticate()`
 > intercepte `LDAPException` et renvoie `None` :
@@ -158,7 +152,6 @@ Le login est limité à **10 tentatives par minute et par IP** (Valkey). Si Valk
 
 | Variable | Rôle |
 |---|---|
-| `AUTH_MODE` | **N'affecte pas le login** — voir l'avertissement ci-dessous. Sert uniquement à `GET /admin/gestionnaires` |
 | `LDAP_SERVER_URL` | URL primaire Active Directory |
 | `LDAP_SERVER_URL_SECONDARY` | Basculement automatique si le primaire est injoignable |
 | `LDAP_BIND_DN` | DN du compte de service |
