@@ -42,7 +42,7 @@ export default function TagEditor({ reponseId, domaine, currentTag, onUpdated }:
       onUpdated?.(tag || null);
       setEditing(false);
     } catch {
-      // silently ignore — tag is non-critical
+      setEditing(false);
     } finally {
       setSaving(false);
     }
@@ -55,7 +55,11 @@ export default function TagEditor({ reponseId, domaine, currentTag, onUpdated }:
 
   function handleBlur(e: React.FocusEvent<HTMLDivElement>) {
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      save(value.trim());
+      if (value.trim() !== (currentTag ?? "")) {
+        save(value.trim());
+      } else {
+        setEditing(false);
+      }
     }
   }
 
@@ -117,7 +121,7 @@ export default function TagEditor({ reponseId, domaine, currentTag, onUpdated }:
                 role="option"
                 aria-selected={t === value}
                 onMouseDown={(e) => { e.preventDefault(); save(t); }}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
+                className="w-full text-left px-3 py-1.5 text-xs text-violet-950 dark:text-violet-50 hover:bg-violet-50 hover:text-violet-800 dark:hover:bg-violet-500/10 dark:hover:text-violet-100 transition-colors"
               >
                 {t}
               </button>
