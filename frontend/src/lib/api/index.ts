@@ -29,6 +29,8 @@ export {
   validerReponse,
   rejeterReponse,
   corrigerReponse,
+  updateTag,
+  getTags,
 } from "./reponses";
 
 export {

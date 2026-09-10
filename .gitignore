@@ -17,6 +17,7 @@ storage/
 uploads_tmp/
 tests_maj_doc/
 .deepsec/
+.compound-engineering/
 # FAQ interne ONACVG servant de fixture de test : donnée métier réelle, non versionnée.
 # Le motif précédent (« DFE_FAQ(1).xlsx ») ratait le fichier une fois renommé.
 DFE_FAQ*.xlsx

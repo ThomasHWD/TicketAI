@@ -73,6 +73,7 @@ interface BackofficeThreadProps {
   question: string;
   created_at: string | null;
   userName: string;
+  domaine: string;
   reponses: TicketReponse[];
   readOnly: boolean;
   onChanged: () => void;
@@ -83,6 +84,7 @@ export default function BackofficeThread({
   question,
   created_at,
   userName,
+  domaine,
   reponses,
   readOnly,
   onChanged,
@@ -114,6 +116,7 @@ export default function BackofficeThread({
               )}
               <ReponseItem
                 reponse={r}
+                domaine={domaine}
                 readOnly={readOnly}
                 onChanged={onChanged}
                 onLockConflict={onLockConflict}

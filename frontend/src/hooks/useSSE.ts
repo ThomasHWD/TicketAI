@@ -66,6 +66,7 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
         queryClient.invalidateQueries({ queryKey: ["ticket", payload.ticket_id] });
       }
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      queryClient.invalidateQueries({ queryKey: ["tags-canoniques"] });
       break;
 
     case "notification_created":
@@ -92,6 +93,7 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
       // Confirmer, corriger ou retirer lève le drapeau : le badge doit tomber
       // chez les autres validateurs du domaine, pas seulement chez l'auteur.
       queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      queryClient.invalidateQueries({ queryKey: ["tags-canoniques"] });
       break;
 
     // Fin du job de mise à jour : la version, les chunks et éventuellement des

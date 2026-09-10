@@ -21,6 +21,7 @@ export interface TicketReponse {
   validator_email: string | null;
   validator_nom_complet: string | null;
   raison_rejet: string | null;
+  tag: string | null;
 }
 
 export interface ReponseEnAttente {
@@ -47,6 +48,7 @@ export interface ReponseCanonique {
   a_relire: boolean;
   validated_at: string | null;
   created_at: string | null;
+  tag: string | null;
 }
 
 export interface ReponsesCanoniquesResponse {

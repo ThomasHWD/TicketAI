@@ -218,6 +218,30 @@ l'assignation.
 
 > 📸 **[CAPTURE D'ÉCRAN COMPLÉMENTAIRE]** : *La zone de saisie du motif de rejet ouverte, pour montrer qu'elle est obligatoire.*
 
+### Vérifier le tag au moment de valider
+
+Lorsqu'une réponse est en attente de verdict, l'interface propose un champ **Tag** dans le
+panneau de validation. Ce tag a été suggéré automatiquement par le pipeline au moment où la
+question a été traitée : c'est une proposition, pas une valeur définitive.
+
+**Pourquoi s'en préoccuper ?** Les tags sont le seul mécanisme de filtrage thématique sur
+la page Réponses enregistrées. Une base de connaissances sans tags cohérents est difficile
+à parcourir ; un tag trop spécifique (`"perte carte Swile"`) ou trop générique
+(`"avantages sociaux"`) réduit l'utilité des filtres pour l'équipe entière.
+
+**Ce que le validateur doit faire :**
+
+1. Lire le tag proposé — il est pré-rempli dans le champ.
+2. Le corriger s'il est mal catégorisé : préférer le thème large (`"ticket restaurant"`)
+   au terme précis de la question (`"carte Swile"`).
+3. Réutiliser un tag existant chaque fois que c'est possible — la liste de complétion
+   propose les tags déjà utilisés dans le domaine.
+4. Ne pas laisser le champ vide si la réponse relève clairement d'un thème identifiable.
+
+Le tag peut être modifié à tout moment depuis la page Réponses enregistrées, même après
+validation — mais le corriger dès la validation évite la prolifération de synonymes dans
+la liste de filtres.
+
 ### Les quatre gardes avant tout verdict
 
 Chaque action de verdict vérifie, dans cet ordre :
@@ -282,7 +306,8 @@ réel sur le canal du domaine, et les listes concernées se rechargent seules :
 | `ticket_created`, `ticket_answered` | La file de tickets |
 | `ticket_locked`, `ticket_unlocked` | Les cadenas dans la liste |
 | `ticket_assigned`, `ticket_unassigned` | La liste et « Mes assignations » |
-| `reponse_validated`, `reponse_corrected`, `reponse_rejected` | Le ticket et les réponses enregistrées |
+| `reponse_validated`, `reponse_corrected`, `reponse_rejected` | Le ticket, les réponses enregistrées **et la liste des tags disponibles** |
+| `saved_answers_updated` | Les trois onglets de Réponses enregistrées et la liste des tags |
 | `ticket_closed` | La file et les compteurs |
 
 Le mécanisme complet est décrit dans

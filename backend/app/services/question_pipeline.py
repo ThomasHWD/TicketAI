@@ -225,6 +225,7 @@ def servir_reutilisation(
             canonique=True,
             question_suivi=question_suivi,
             nouveau=est_suivi,
+            tag=reponse_liee.tag,
         )
 
         ticket_source = db.query(Ticket).filter(Ticket.id == reponse_liee.ticket_id).first()
@@ -285,6 +286,7 @@ def servir_reutilisation(
         reponse_source_id=reponse_liee.id,
         question_suivi=question_suivi,
         nouveau=est_suivi,
+        tag=reponse_liee.tag,
     )
     ticket_id_str_sug = str(ticket.id)
     db.commit()
