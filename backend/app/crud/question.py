@@ -52,6 +52,7 @@ def upsert_reponse(
     canonique: bool = False,
     question_suivi: str | None = None,
     nouveau: bool = False,
+    tag: str | None = None,
 ) -> Reponse:
     reponse = (
         None
@@ -69,6 +70,7 @@ def upsert_reponse(
             reponse_source_id=reponse_source_id,
             canonique=canonique,
             question_suivi=question_suivi,
+            tag=tag,
         )
         db.add(reponse)
     else:

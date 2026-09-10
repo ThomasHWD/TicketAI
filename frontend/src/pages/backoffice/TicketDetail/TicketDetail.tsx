@@ -166,6 +166,7 @@ export default function TicketDetail() {
               question={ticket.question}
               created_at={ticket.created_at}
               userName={userName ?? "Utilisateur"}
+              domaine={ticket.domaine}
               reponses={reponses}
               readOnly={readOnly}
               onChanged={refresh}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { corrigerReponse, validerReponse, rejeterReponse, LockConflictError } from "../lib/api";
+import { corrigerReponse, validerReponse, rejeterReponse, updateTag, LockConflictError } from "../lib/api";
 import { getValidatorId } from "../lib/currentUser";
 import type { TicketReponse } from "../types";
 
@@ -22,6 +22,7 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tagDraft, setTagDraft] = useState(reponse.tag ?? "");
   const [confirmingValidation, setConfirmingValidation] = useState(false);
   const [justValidated, setJustValidated] = useState(false);
   const [confirmingRejection, setConfirmingRejection] = useState(false);
@@ -45,6 +46,10 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
     setConfirmingValidation(false);
     setLoading(true); setError(null);
     try {
+      if (reponse.nb_validations === 0) {
+        // Première validation : on fixe le tag (silencieux — ne bloque pas la validation)
+        await updateTag(reponse.id, tagDraft.trim() || null).catch(() => null);
+      }
       await validerReponse(reponse.id, { validator_id: getValidatorId() });
       setJustValidated(true);
       setTimeout(() => onChanged(), 250);
@@ -83,6 +88,7 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
     isHorsDomaine, isRag, canAct,
     editing, setEditing,
     draft, updateDraft,
+    tagDraft, setTagDraft,
     loading,
     error, setError,
     confirmingValidation, setConfirmingValidation,

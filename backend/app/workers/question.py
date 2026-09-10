@@ -20,6 +20,7 @@ from app.services.question_pipeline import (
 )
 from app.services.reranker import rerank
 from app.services.search import search_hybrid
+from app.services.tag_suggestion import suggerer_tag
 from app.workers.celery_app import celery_app
 
 # Aliases privés maintenus pour la compatibilité des imports existants (tests, etc.)
@@ -197,6 +198,25 @@ def question_job(
 
             reponse_id = None
             if reponse_texte:
+                if hors_domaine:
+                    tag_suggere = None
+                else:
+                    from app.models.reponse import Reponse as ReponseModel
+                    from app.models.ticket import Ticket as TicketModel
+                    rows = (
+                        db.query(ReponseModel.tag)
+                        .join(TicketModel, TicketModel.id == ReponseModel.ticket_id)
+                        .filter(
+                            ReponseModel.tag.isnot(None),
+                            ReponseModel.canonique.is_(True),
+                            ReponseModel.obsolete.is_(False),
+                            TicketModel.domaine == domaine,
+                        )
+                        .distinct()
+                        .all()
+                    )
+                    tags_existants = sorted(r.tag for r in rows) or None
+                    tag_suggere = suggerer_tag(question, reponse_texte, db, tags_existants)
                 reponse = upsert_reponse(
                     db,
                     ticket,
@@ -205,6 +225,7 @@ def question_job(
                     source="HORS_DOMAINE" if hors_domaine else "LLM",
                     question_suivi=question_suivi,
                     nouveau=est_suivi,
+                    tag=tag_suggere,
                 )
                 reponse_id = str(reponse.id)
 

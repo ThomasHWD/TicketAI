@@ -1,29 +1,31 @@
 import { useRef, useEffect } from "react";
 import { AlertCircle, Bot, Check, Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import UserAvatar from "../../../components/ui/UserAvatar";
 import { useReponseActions } from "../../../hooks/useReponseActions";
 import {
   EditingPanel, ValidationConfirmPanel, RejectionPanel,
   ActionButtons, ContextualHelp,
 } from "../../../components/tickets/ReponseActionPanel";
+import { getTags } from "../../../lib/api";
 import type { TicketReponse, StatutReponse } from "../../../types";
 import { formatDate, BotAvatar } from "./utils";
 import { renderMarkdown } from "../../../components/ticket/utils";
 
-export const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
+const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
   SUGGESTION:   { label: "Suggestion",   icon: Sparkles },
   CANONIQUE:    { label: "Canonique",    icon: Bot },
   HORS_DOMAINE: { label: "Hors domaine", icon: AlertCircle },
 };
 
-export function reponseStatutLabel(statut: StatutReponse, canonique: boolean, source?: string | null) {
+function reponseStatutLabel(statut: StatutReponse, canonique: boolean, source?: string | null) {
   if (statut === "VALIDÉE" || statut === "CORRIGÉE") return canonique ? "Canonique" : "Validée";
   if (statut === "REJETÉE") return "Rejetée";
   if (statut === "EN_ATTENTE") return source === "SUGGESTION" ? "Suggestion" : "En attente";
   return statut;
 }
 
-export function reponseStatutClass(statut: StatutReponse, _canonique: boolean, source?: string | null) {
+function reponseStatutClass(statut: StatutReponse, _canonique: boolean, source?: string | null) {
   if (statut === "REJETÉE")
     return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (statut === "VALIDÉE" || statut === "CORRIGÉE")
@@ -41,11 +43,13 @@ function confidenceChip(score: number) {
 
 export default function ReponseItem({
   reponse,
+  domaine,
   readOnly,
   onChanged,
   onLockConflict,
 }: {
   reponse: TicketReponse;
+  domaine: string;
   readOnly: boolean;
   onChanged: () => void;
   onLockConflict: (message: string) => void;
@@ -56,6 +60,14 @@ export default function ReponseItem({
   const actions = useReponseActions(reponse, { onChanged, onLockConflict });
   const { isHorsDomaine, isRag, canAct: canActRaw } = actions;
   const canAct = canActRaw && !readOnly;
+
+  // Tags canoniques du domaine — pour l'autocomplete dans le panel de validation
+  const { data: tags = [] } = useQuery({
+    queryKey: ["tags-canoniques", domaine],
+    queryFn: () => getTags(domaine, true),
+    staleTime: 0,
+    enabled: isRag && canAct,
+  });
 
   const errorId = `edit-error-${reponse.id}`;
   const reponseDate = formatDate(reponse.created_at);
@@ -163,6 +175,9 @@ export default function ReponseItem({
                 confirmRef={validateConfirmRef}
                 loading={actions.loading}
                 error={actions.error}
+                tagDraft={actions.tagDraft}
+                tags={tags}
+                onTagChange={actions.setTagDraft}
                 onConfirm={actions.handleValider}
                 onCancel={() => actions.setConfirmingValidation(false)}
               />

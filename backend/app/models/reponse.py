@@ -71,5 +71,7 @@ class Reponse(Base):
     # [{"sens": ..., "avant": ..., "apres": ...}]
     analyse_extraits = Column(JSON, nullable=True)
 
+    tag = Column(String(100), nullable=True)
+
     ticket = relationship("Ticket", back_populates="reponses")
     validator = relationship("User", foreign_keys=[validator_id])
