@@ -124,6 +124,7 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
       queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
+      queryClient.invalidateQueries({ queryKey: ["tags-canoniques"] });
       break;
 
     case "job_completed":
