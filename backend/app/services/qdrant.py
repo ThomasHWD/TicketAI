@@ -77,6 +77,16 @@ def init_collection():
     )
     logger.debug("Index payload 'version' assuré.")
 
+    # Index payload pour cibler les points de réponse sans scanner la collection :
+    # `delete_response_point` filtre dessus, et la FAQ ne cherche que parmi eux
+    # (`FILTRE_POINTS_REPONSE`, services/search.py).
+    client.create_payload_index(
+        collection_name=COLLECTION_NAME,
+        field_name="reponse_id",
+        field_schema="keyword",
+    )
+    logger.debug("Index payload 'reponse_id' assuré.")
+
 
 def filtre_anciens(doc_id: str, version_cible: int) -> Filter:
     """Les points du document qui ne sont pas ceux de la version en cours d'écriture.

@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
 import TicketAIMark from "../../assets/ticketai_mark_v2.svg";
-import { LayoutDashboard, Lightbulb, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { HelpCircle, LayoutDashboard, Lightbulb, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { navMain, navSettings, navAdmin } from "./nav-items";
 import { useSidebarBadges } from "./useSidebarBadges";
 
@@ -158,6 +158,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <nav className="flex flex-col gap-0.5 px-1.5">
           <SectionLabel label="Espace personnel" collapsed={collapsed} />
           <NavItem to="/mon-espace" icon={LayoutDashboard} label="Mon espace" collapsed={collapsed} />
+          <NavItem to="/faq" icon={HelpCircle} label="Questions fréquentes" collapsed={collapsed} />
           {navSettings.map((item) => (
             <NavItem key={item.to} {...item} collapsed={collapsed} />
           ))}
