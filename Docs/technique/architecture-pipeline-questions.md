@@ -64,9 +64,9 @@ chunks = search_hybrid(question, domaine, top_k=15)
 ```
 
 **Deux requêtes Qdrant en parallèle :**
-1. Recherche **dense** (vecteur 1024d BGE-M3, cosinus) — la seule qui produit des résultats
-2. Recherche **sparse** (BM25-like) — **le vecteur est vide, cette requête ne remonte
-   jamais rien**. Voir l'avertissement plus bas.
+1. Recherche **dense** (vecteur 1024d BGE-M3, cosinus)
+2. Recherche **creuse** (BM25) — tokens et saturation TF calculés localement par
+   `app/services/bm25.py`, l'IDF étant fourni par Qdrant (`Modifier.IDF`)
 
 **Fusion manuelle RRF** (`k=60`) :
 
@@ -74,21 +74,26 @@ chunks = search_hybrid(question, domaine, top_k=15)
 score_rrf(point) = Σ  1 / (k + rang_dans_liste)
 ```
 
-Le score cosinus brut de la recherche dense est conservé dans `score_cosinus` pour les décisions de seuil. Le score RRF sert uniquement au tri final.
-
 > **Pourquoi RRF manuel ?** Le Prefetch+Fusion natif de Qdrant 1.18 est buggé avec des vecteurs 1024d — comportement silencieusement incorrect. RRF manuel produit un résultat identique à ce qu'on attendrait du natif.
 
-> ⚠️ **La moitié « sparse » est inerte — état vérifié dans le code au 2026-09-05.**
-> `embed_texts` (`app/services/embedding.py`) retourne systématiquement
-> `{"dense": [...], "sparse": {"indices": [], "values": []}}` et **ignore son paramètre
-> `is_query`**. La requête sparse envoyée à Qdrant porte donc un vecteur vide : elle ne
-> remonte aucun point et n'influence pas le classement. En pratique **la recherche est
-> dense seule**, la fusion RRF ne fusionnant qu'une liste non vide.
->
-> La plomberie (collection, `SparseVectorParams`, requête, fusion) est en place ; il ne
-> manque que la production des vecteurs, qu'Albert n'expose pas. **Si vous lisez ailleurs
-> qu'un encodeur BM25 local est en service, c'est inexact** : il n'existe aucun module
-> `app/services/sparse.py` dans ce dépôt, ni d'appel à `Modifier.IDF`.
+> ⚠️ **Le score RRF ne sert qu'au tri, jamais à une décision.** Il ne dépend que du rang :
+> le premier d'un lot sans intérêt le vaut comme le premier d'un lot parfait. Les seuils
+> portent donc sur chaque signal séparément, sur sa propre échelle — `score_cosinus` d'un
+> côté, BM25 **par terme** de l'autre. On ne seuille pas une fusion.
+
+**Deux portes, pas une moyenne.** Un candidat est examiné si son cosinus franchit
+`SEUIL_SUGGESTION` **ou** si son BM25 par terme franchit `SEUIL_LEXICAL_PAR_TERME`
+(`franchit_le_rappel`, `services/search.py`). C'est une disjonction parce que c'est là
+qu'est l'intérêt de BM25 : un sigle, une référence d'article ou un nom propre que le modèle
+d'embedding ne connaît pas a un cosinus médiocre et un recouvrement lexical parfait. Un score
+mélangé (cosinus + bonus plafonné) ne peut structurellement pas les faire remonter — il a été
+essayé, puis retiré pour cette raison exacte. `SEUIL_LEXICAL_PAR_TERME = 0` referme la porte
+lexicale et restaure le comportement d'avant BM25.
+
+**Le remplissage miroir est porteur** (`_completer_scores`). Un point hors du top-k d'une
+branche hériterait sinon d'un `0.0` sur celle-ci : sans la direction dense, BM25 devient
+inutile (le point est trouvé, puis jeté par le seuil) ; sans la direction lexicale, le
+classement bascule. Deux requêtes Qdrant de plus, zéro appel Albert.
 
 **Filtre domaine strict :** chaque requête Qdrant filtre par `domaine`. Les domaines sont
 libres et définis par les groupes créés en administration (`RH`, `IT`, `JURIDIQUE`… ne

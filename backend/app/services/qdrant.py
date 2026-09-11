@@ -8,6 +8,7 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
+    Modifier,
     SparseIndexParams,
     SparseVectorParams,
     VectorParams,
@@ -33,7 +34,18 @@ def init_collection():
                         distance=Distance.COSINE,
                     )
                 },
-                sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
+                # `Modifier.IDF` : Qdrant pondère les termes par leur rareté dans la
+                # collection, ce que le client ne peut pas faire — l'IDF change à
+                # chaque insertion. `services/bm25.py` ne fournit que l'autre moitié,
+                # les indices de tokens et leur saturation TF.
+                # Ce paramètre se fixe **à la création** : une collection existante
+                # créée sans lui doit être recréée pour en bénéficier.
+                sparse_vectors_config={
+                    "sparse": SparseVectorParams(
+                        index=SparseIndexParams(on_disk=False),
+                        modifier=Modifier.IDF,
+                    )
+                },
             )
             logger.info("Collection '%s' créée.", COLLECTION_NAME)
         except UnexpectedResponse as exc:

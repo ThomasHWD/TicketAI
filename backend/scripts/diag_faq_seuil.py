@@ -20,6 +20,10 @@ REQUETES = [
     "hauteur fruit",
     "combien mesure une pomme ?",
     "quelle est la capitale de la Mongolie ?",
+    # Entrées par la porte lexicale : la FAQ n'ayant pas de juge, elles ne
+    # doivent jamais sortir en réponse, seulement en piste.
+    "engagement de dépense",
+    "certificat administratif modèle",
 ]
 
 print(f"seuil pertinence = {settings.faq_seuil_pertinence} · seuil incertain = {settings.faq_seuil_incertain}\n")

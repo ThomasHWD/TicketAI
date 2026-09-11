@@ -1,8 +1,10 @@
+from app.config import settings
 from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
 from qdrant_client.models import (
     FieldCondition,
     Filter,
+    HasIdCondition,
     IsEmptyCondition,
     MatchValue,
     PayloadField,
@@ -15,7 +17,82 @@ from qdrant_client.models import (
 FILTRE_POINTS_REPONSE = Filter(must_not=[IsEmptyCondition(is_empty=PayloadField(key="reponse_id"))])
 
 
-def reciprocal_rank_fusion(dense_results, sparse_results, k: int = 60) -> list[dict]:
+def franchit_le_rappel(chunk: dict, seuil_cosinus: float) -> bool:
+    """Le candidat mérite-t-il d'être examiné ? **Disjonction, pas mélange.**
+
+    On ne seuille pas la fusion, on seuille chaque signal sur sa propre échelle —
+    c'est la réponse habituelle à « comment couper sur une recherche hybride ».
+    Aucun score de fusion n'est absolu : le RRF ne dépend que du rang (premier
+    d'un lot inutile vaut premier d'un lot parfait), et une fusion par
+    distribution normalise **par requête**, donc le meilleur vaut toujours ≈ 1.
+    Les signaux bruts, eux, disent quelque chose.
+
+    Cet étage est un filtre de **rappel**, pas de sûreté : il limite le nombre
+    d'appels au juge, et c'est le juge qui décide ce qui peut être servi sans
+    revue humaine (cf. `services/garde_cache.py`). Élargir la porte coûte donc des
+    appels Albert, pas de la sûreté.
+
+    La porte lexicale est ce qui rend BM25 utile : un sigle, une référence
+    d'article, un nom propre que le modèle d'embedding ne connaît pas ont un
+    cosinus médiocre et un recouvrement lexical parfait. Sans cette porte, le cas
+    d'usage principal de BM25 resterait hors de portée.
+    """
+    if chunk.get("score_cosinus", 0.0) >= seuil_cosinus:
+        return True
+    if settings.seuil_lexical_par_terme <= 0:  # porte lexicale fermée
+        return False
+    return chunk.get("score_lexical", 0.0) >= settings.seuil_lexical_par_terme
+
+
+def _completer_scores(vecteur, using: str, filtre: Filter, ids_manquants: list) -> dict:
+    """Score réel, sur la branche `using`, des points que l'autre branche a seule retrouvés.
+
+    **Les deux sens sont nécessaires, et l'oubli de l'un s'est vu en mesure.**
+
+    Un point absent du top-k d'une branche hérite sinon d'un score `0.0` sur
+    celle-ci, alors qu'il y aurait peut-être bien figuré avec un rang plus large.
+    Côté dense, ce zéro le faisait écarter par tous les seuils du système — BM25
+    n'aurait servi à rien. Côté lexical, il le privait de son bonus : mesuré, la
+    question « Combien mesure une poire » passait ainsi devant « Combien fait une
+    pomme en hauteur ? » pour la requête « combien mesure une pomme ? », la seconde
+    ayant pourtant les deux mots en commun.
+
+    Une requête Qdrant par sens, aucun appel Albert.
+    """
+    if not ids_manquants:
+        return {}
+
+    cible = Filter(must=[*(filtre.must or []), HasIdCondition(has_id=ids_manquants)], must_not=filtre.must_not)
+    res = client.query_points(
+        collection_name=COLLECTION_NAME,
+        query=vecteur,
+        using=using,
+        query_filter=cible,
+        limit=len(ids_manquants),
+        with_payload=False,
+    )
+    return {point.id: point.score for point in res.points}
+
+
+def reciprocal_rank_fusion(
+    dense_results,
+    sparse_results,
+    k: int = 60,
+    cosinus_rattrapes: dict | None = None,
+    lexicaux_rattrapes: dict | None = None,
+    nb_termes_requete: int = 1,
+) -> list[dict]:
+    """Fusion RRF des deux branches — pour **ordonner**, jamais pour décider.
+
+    Les deux dictionnaires de rattrapage complètent le score qu'un point n'a pas
+    obtenu faute d'être entré dans le top-k de l'autre branche (cf.
+    `_completer_scores`). Ils sont appliqués ici, à l'endroit unique où les scores
+    sont constitués, pour ne pas avoir à redériver l'ordre du tri ailleurs.
+
+    `nb_termes_requete` sert à ramener le score BM25 au terme : un score brut est
+    une somme sur les termes de la requête, donc incomparable d'une question à
+    l'autre. C'est cette valeur normalisée que la porte lexicale seuille.
+    """
     scores = {}
     for rank, point in enumerate(dense_results.points):
         pid = point.id
@@ -26,20 +103,30 @@ def reciprocal_rank_fusion(dense_results, sparse_results, k: int = 60) -> list[d
 
     payloads = {}
     dense_scores = {}
+    sparse_scores = {}
     for point in dense_results.points:
         if point.id not in payloads:
             payloads[point.id] = point.payload
-            dense_scores[point.id] = point.score  # ← score cosinus brut
+        dense_scores[point.id] = point.score  # ← score cosinus brut
     for point in sparse_results.points:
         if point.id not in payloads:
             payloads[point.id] = point.payload
+        sparse_scores[point.id] = point.score  # ← score BM25 (IDF appliqué par Qdrant)
+
+    dense_scores.update(cosinus_rattrapes or {})
+    sparse_scores.update(lexicaux_rattrapes or {})
 
     sorted_ids = sorted(scores, key=lambda x: scores[x], reverse=True)
 
     return [
         {
+            # `score_rrf` ordonne. Les deux signaux bruts décident, chacun sur son
+            # échelle — le cosinus reste par ailleurs la valeur auditée dans
+            # `garde_decisions`, et `score_sparse` est conservé pour la mesure.
             "score_rrf": scores[pid],
-            "score_cosinus": dense_scores.get(pid, 0.0),  # ← exposé
+            "score_cosinus": dense_scores.get(pid, 0.0),
+            "score_sparse": sparse_scores.get(pid, 0.0),
+            "score_lexical": sparse_scores.get(pid, 0.0) / max(nb_termes_requete, 1),
             "contenu": payloads[pid].get("contenu"),
             "source": payloads[pid].get("source"),
             "domaine": payloads[pid].get("domaine"),
@@ -84,7 +171,27 @@ def _rechercher(question: str, filtre: Filter, top_k: int) -> list[dict]:
         with_payload=True,
     )
 
-    return reciprocal_rank_fusion(dense_results, sparse_results, k=60)[:top_k]
+    vus_en_dense = {point.id for point in dense_results.points}
+    vus_en_creux = {point.id for point in sparse_results.points}
+
+    vecteur_creux = SparseVector(indices=emb["sparse"]["indices"], values=emb["sparse"]["values"])
+    cosinus_rattrapes = _completer_scores(
+        emb["dense"], "dense", filtre, [pid for pid in vus_en_creux if pid not in vus_en_dense]
+    )
+    lexicaux_rattrapes = _completer_scores(
+        vecteur_creux, "sparse", filtre, [pid for pid in vus_en_dense if pid not in vus_en_creux]
+    )
+
+    return reciprocal_rank_fusion(
+        dense_results,
+        sparse_results,
+        k=60,
+        cosinus_rattrapes=cosinus_rattrapes,
+        lexicaux_rattrapes=lexicaux_rattrapes,
+        # Les indices du vecteur creux de la requête *sont* ses termes retenus,
+        # élisions et mots-outils déjà écartés : pas besoin de retokeniser.
+        nb_termes_requete=len(emb["sparse"]["indices"]),
+    )[:top_k]
 
 
 def search_hybrid(question: str, domaine: str, top_k: int = 10) -> list[dict]:

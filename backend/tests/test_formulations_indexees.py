@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from app.services.question_pipeline import Candidat
 
 # ── Retrait complet ───────────────────────────────────────────────────────────
 
@@ -118,15 +119,15 @@ def test_le_garde_juge_la_question_du_point_qui_a_matche():
 
     chunks = [
         {"reponse_id": str(reponse.id), "score_cosinus": SEUIL_SUGGESTION + 0.01,
-         "question_indexee": "Comment poser un congé ?"},
+         "score_rrf": 0.01, "question_indexee": "Comment poser un congé ?"},
         {"reponse_id": str(reponse.id), "score_cosinus": SEUIL_SUGGESTION + 0.10,
-         "question_indexee": "Quelle démarche pour un congé ?"},
+         "score_rrf": 0.02, "question_indexee": "Quelle démarche pour un congé ?"},
     ]
 
-    _, score, question = trouver_reponse_reutilisable(db, chunks)
+    candidat = trouver_reponse_reutilisable(db, chunks)
 
-    assert score == pytest.approx(SEUIL_SUGGESTION + 0.10)
-    assert question == "Quelle démarche pour un congé ?"
+    assert candidat.score_cosinus == pytest.approx(SEUIL_SUGGESTION + 0.10)
+    assert candidat.question_indexee == "Quelle démarche pour un congé ?"
 
 
 def test_question_indexee_absente_du_payload_ne_casse_pas():
@@ -139,11 +140,11 @@ def test_question_indexee_absente_du_payload_ne_casse_pas():
     db = MagicMock()
     db.query.return_value.filter.return_value.all.return_value = [reponse]
 
-    _, _, question = trouver_reponse_reutilisable(
+    candidat = trouver_reponse_reutilisable(
         db, [{"reponse_id": str(reponse.id), "score_cosinus": SEUIL_SUGGESTION + 0.1}]
     )
 
-    assert question is None
+    assert candidat.question_indexee is None
 
 
 # ── Refus du garde : SUGGESTION, pas RAG ──────────────────────────────────────
@@ -171,7 +172,9 @@ def test_refus_du_garde_sert_une_suggestion_sans_relancer_le_rag():
             patch("app.workers.question.search_hybrid", return_value=[]),
             patch(
                 "app.workers.question.trouver_reponse_reutilisable",
-                return_value=(reponse, SEUIL_COSINUS + 0.05, "Comment poser un congé ?"),
+                return_value=Candidat(
+                    reponse, SEUIL_COSINUS + 0.05, SEUIL_COSINUS + 0.05, "Comment poser un congé ?"
+                ),
             ),
             patch("app.workers.question.statuer", return_value=Decision(verdict=False)),
             patch("app.workers.question.journaliser_garde"),

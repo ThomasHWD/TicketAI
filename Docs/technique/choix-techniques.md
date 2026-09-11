@@ -130,9 +130,17 @@ pgvector aurait simplifié l'infrastructure (une seule base), mais Qdrant apport
 
 Pinecone est managé (données sortent de l'organisation, incompatible avec les contraintes de souveraineté d'un projet gouvernemental). Weaviate et Elasticsearch sont trop lourds à opérer pour une équipe réduite. Qdrant est léger, auto-hébergeable, et couvre exactement les besoins.
 
-**Vecteurs denses uniquement en pratique**
+**Une recherche réellement hybride, l'IDF côté serveur**
 
-Le système prévoit une recherche hybride (dense + sparse, fusion RRF manuelle). La partie sparse est inerte : Albert n'expose pas de vecteurs sparse, et `embed_texts` retourne un vecteur sparse vide. La recherche est donc dense-only. La mécanique hybride reste dans le code pour le jour où un encodeur sparse sera disponible, mais elle n'apporte rien aujourd'hui.
+Albert n'expose pas de vecteurs creux. La moitié lexicale a donc longtemps été inerte : `embed_texts` renvoyait un vecteur vide, la fusion RRF ne fusionnait qu'une seule liste, et chaque point stockait un creux vide. Elle est désormais calculée localement (`services/bm25.py`), sans dépendance de modèle ni téléchargement au runtime.
+
+Le partage des rôles est le point à retenir : BM25 se décompose en l'**IDF**, qui dépend des statistiques du corpus et change à chaque insertion, et la **saturation TF**, qui ne dépend que du texte courant. Qdrant calcule la première (`Modifier.IDF` sur la configuration du vecteur creux) ; le client ne produit que la seconde. C'est le découpage que fait `fastembed` en interne — sans la dépendance.
+
+Deux conséquences opérationnelles :
+- `Modifier.IDF` se fixe **à la création de la collection**. L'ajouter à une collection existante suppose de la recréer et de tout réindexer (`scripts/reinitialiser_index.py`).
+- L'IDF étant en log(N), **toute l'échelle lexicale se déplace quand le corpus grossit** : `SEUIL_LEXICAL_PAR_TERME` est à recalibrer périodiquement. Sa valeur par défaut a été mesurée sur 24 points.
+
+Le score de fusion, lui, ne sert **qu'à l'ordonnancement**. Aucun score RRF n'est absolu — il ne dépend que du rang, et le premier d'un lot sans intérêt vaut autant que le premier d'un lot parfait. Les décisions se prennent donc sur chaque signal pris séparément, sur sa propre échelle : cosinus **ou** BM25 par terme.
 
 ---
 
@@ -216,3 +224,11 @@ Les trois services ont des contraintes de version (PostgreSQL 16 pour certaines 
 **Limitation connue : `env_file` figé**
 
 `env_file:` dans `docker-compose.yml` est lu à la création du conteneur, pas au démarrage. Les valeurs chargées au moment de `docker compose up` sont figées — une modification ultérieure de `.env` n'atteint pas le conteneur en cours d'exécution. Il faut recréer les conteneurs (`docker compose up --force-recreate`) et vérifier depuis l'intérieur qu'une clé a bien changé. Ce comportement est documenté dans [Onboarding développeur](../onboarding-dev.md).
+
+**Limitation connue : l'état d'un conteneur n'est pas l'état de son image**
+
+Même piège, seconde forme. Un `pip install` lancé *dans* un conteneur survit à un `restart` mais disparaît à la recréation suivante, et `docker compose ps` affiche malgré tout tout le monde *running*. Ce qui trahit la situation, c'est `RunningFor` : s'il est antérieur au `up` que l'on vient de lancer, Compose n'a rien recréé parce que l'image n'a pas changé.
+
+La perte de `snowballstemmer` par ce chemin ne dégrade pas le système, elle l'arrête : `embed_texts` calcule le vecteur creux **avant** l'appel Albert, donc tout embedding lève. Après toute modification de `requirements.txt`, il faut donc `make dev-build && make dev`, puis vérifier l'import depuis l'intérieur de chacun des quatre conteneurs Python.
+
+⚠️ Ne jamais utiliser `make clean` pour cela : la cible est `down --rmi all --volumes`, elle détruit les volumes Qdrant et PostgreSQL.
