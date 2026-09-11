@@ -21,6 +21,15 @@ export default function NewTicket() {
       <div>
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Besoin d'un renseignement ?</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Décrivez votre demande, un expert vous répondra.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+          Votre question a peut-être déjà une réponse —{" "}
+          <Link
+            to="/faq"
+            className="font-medium text-emerald-600 dark:text-emerald-400 hover:underline underline-offset-2"
+          >
+            consulter les questions fréquentes
+          </Link>
+        </p>
       </div>
 
       {tk.submitted ? (

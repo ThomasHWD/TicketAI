@@ -37,6 +37,22 @@ class Settings(BaseSettings):
     seuil_canonique: int
     seuil_cosinus: float
 
+    # FAQ — consultation des réponses canoniques par les utilisateurs.
+    # `faq_seuil_pertinence` vaut par défaut SEUIL_SUGGESTION (seuil_cosinus − 0,05,
+    # cf. services/question_pipeline.py:25) : le niveau à partir duquel le système
+    # juge déjà qu'une réponse vaut la peine d'être proposée à un humain.
+    # `faq_rate_limit_par_minute` protège le quota Albert (1 000 requêtes/jour/modèle) :
+    # une recherche = un embedding. 0 désactive la limite.
+    faq_max_resultats: int = 5
+    faq_seuil_pertinence: float = 0.75
+    faq_rate_limit_par_minute: int = 20
+    # Second rang, proposé explicitement comme incertain quand rien ne franchit
+    # `faq_seuil_pertinence`. Mesuré : la bande sous le seuil mélange bonnes et
+    # mauvaises correspondances (« hauteur fruit » → 0,67 juste, une demande
+    # étrangère → 0,71 fausse), et aucun seuil ne les sépare. On ne peut donc pas
+    # l'annoncer comme une réponse — seulement comme une piste.
+    faq_seuil_incertain: float = 0.55
+
     # Verrou de ticket (durée du bail en secondes, prolongé par heartbeat)
     lock_ttl_seconds: int = 300
 

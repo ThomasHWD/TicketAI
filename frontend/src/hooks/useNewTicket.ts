@@ -39,7 +39,11 @@ export function getErrorMessage(error: unknown): string {
 export function useNewTicket() {
   const queryClient = useQueryClient();
   const [objet, setObjet] = useState("");
-  const [question, setQuestion] = useState("");
+  // Pré-remplissage depuis la FAQ (`?question=…`, quand aucune réponse validée ne
+  // correspondait). Initialisation paresseuse : l'utilisateur reste libre d'éditer.
+  const [question, setQuestion] = useState(
+    () => new URLSearchParams(window.location.search).get("question") ?? "",
+  );
   const [domaine, setDomaine] = useState<Domaine>("");
 
   const { data: domaines = [], isLoading: domainesLoading, isError: domainesError } = useQuery({
