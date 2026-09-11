@@ -34,6 +34,7 @@ const SiteConfigPage = lazy(() => import("./pages/admin/SiteConfig"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const NotFound = lazy(() => import("./pages/404"));
 const SuggestionBox = lazy(() => import("./pages/user/SuggestionBox"));
+const Faq = lazy(() => import("./pages/user/Faq"));
 
 function Layout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -162,6 +163,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="*" element={<NotFound />} />
             <Route path="/mon-espace" element={<UserDashboard />} />
+            <Route path="/faq" element={<Faq />} />
             <Route path="/nouveau-ticket" element={<NewTicket />} />
             <Route path="/historique" element={<UserTicketHistory />} />
             <Route path="/historique/:id" element={<UserTicketDetail />} />
