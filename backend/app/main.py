@@ -3,7 +3,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import admin, auth, documents, notifications, public, reponses, sse, stats, suggestions, tickets
+from app.api.v1 import (
+    admin,
+    auth,
+    documents,
+    faq,
+    notifications,
+    public,
+    reponses,
+    sse,
+    stats,
+    suggestions,
+    tickets,
+)
 from app.config import settings
 from app.middleware.maintenance import MaintenanceMiddleware
 from app.services.qdrant import init_collection
@@ -51,3 +63,4 @@ app.include_router(sse.router, prefix="/api/v1")
 app.include_router(stats.router, prefix="/api/v1/stats", tags=["stats"])
 app.include_router(suggestions.router, prefix="/api/v1")
 app.include_router(public.router, prefix="/api/v1")
+app.include_router(faq.router, prefix="/api/v1")

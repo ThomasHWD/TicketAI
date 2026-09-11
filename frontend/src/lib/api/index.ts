@@ -48,6 +48,9 @@ export {
   restoreDocumentVersion,
 } from "./documents";
 
+export { rechercherFaq } from "./faq";
+export type { FaqResultat, FaqRecherche } from "./faq";
+
 export type { MembreGroupe } from "./assignation";
 export {
   getValidateursByDomaine,
