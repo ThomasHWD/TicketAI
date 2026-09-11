@@ -142,6 +142,8 @@ Deux conséquences opérationnelles :
 
 Le score de fusion, lui, ne sert **qu'à l'ordonnancement**. Aucun score RRF n'est absolu — il ne dépend que du rang, et le premier d'un lot sans intérêt vaut autant que le premier d'un lot parfait. Les décisions se prennent donc sur chaque signal pris séparément, sur sa propre échelle : cosinus **ou** BM25 par terme.
 
+**Quand BM25 sert, et quand il ne sert pas.** Sur des reformulations en langage naturel il n'apporte rien : c'est le travail de l'embedding, et il le fait bien. Mesuré sur 48 cas, la porte lexicale y consomme 29 % du budget du juge pour un gain net d'un cas. Sur des termes hors distribution du modèle — référence d'article, nom propre, valeur exacte — elle rattrape **7 requêtes sur 7** que le dense perdait entièrement, à des cosinus de 0,34 à 0,61. BM25 est donc utile *à la condition* que le corpus contienne ce vocabulaire ; sur un corpus purement rédactionnel, le bon réglage serait `SEUIL_LEXICAL_PAR_TERME = 0`. Les deux mesures et leur réconciliation : § 14.2 de [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md).
+
 ---
 
 ## IA : Albert API

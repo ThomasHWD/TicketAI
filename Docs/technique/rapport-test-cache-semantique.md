@@ -1064,6 +1064,20 @@ Deux conséquences :
 ### 14.11 Autres limites connues
 - La tokenisation perd le suffixe des références : `L3262-1` et `L3262-5` produisent le même
   token `l3262`. Sans effet sur ce corpus, à surveiller sur un corpus juridique.
+- **`AVG_LEN` est une constante unique pour un corpus qui n'en a pas.** BM25 normalise la
+  saturation TF par la longueur moyenne des documents ; un client ne la connaît pas, et
+  l'interroger coûterait un aller-retour par encodage — `fastembed` fait le même choix. Mais
+  notre corpus mélange des questions d'~8 tokens et des chunks de 384 : aucune valeur unique
+  ne convient aux deux. Distorsion mesurée le 11/09/2026 : **×2,59** entre une question de 4
+  tokens et un chunk de 102.
+
+  **C'est sans conséquence aujourd'hui, mais par câblage et non par conception.** Le seuil
+  lexical ne voit jamais un chunk de document : `question_pipeline.py` et `faq.py` écartent
+  les points sans `reponse_id` **avant** d'appeler `franchit_le_rappel`. La comparaison ne se
+  fait donc qu'entre questions, à échelle homogène. ⚠️ Appliquer `franchit_le_rappel` à des
+  chunks de document — par exemple pour seuiller le rappel RAG — rendrait la distorsion
+  active immédiatement, et il faudrait alors deux `AVG_LEN` distincts. Cette propriété ne se
+  devine pas à la lecture de `bm25.py`.
 - `services/reverification_candidates.py` reste **délibérément dense seul** : un rapprochement
   paragraphe↔question est noyé dans le vocabulaire commun au domaine, et l'étage suivant n'a
   pas de juge derrière lui pour rattraper un candidat entré par les seuls mots. L'IDF répond en
