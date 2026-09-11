@@ -621,11 +621,11 @@ class TestMarquerARelire:
         r = scenario(chunks=[1], canonique=True)
         marquer_a_relire(scenario.db, scenario.doc_id, 2)
 
-        trouvee, _, _ = _trouver_reponse_reutilisable(
+        candidat = _trouver_reponse_reutilisable(
             scenario.db, [{"reponse_id": str(r.id), "score_cosinus": SEUIL_COSINUS + 0.1}]
         )
 
-        assert trouvee is not None and trouvee.id == r.id
+        assert candidat.reponse is not None and candidat.reponse.id == r.id
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -653,11 +653,11 @@ class TestReutilisationBloquee:
 
         r = scenario(chunks=[1], canonique=True)
 
-        trouvee, score, _ = _trouver_reponse_reutilisable(scenario.db, self._chunks(r))
+        candidat = _trouver_reponse_reutilisable(scenario.db, self._chunks(r))
 
-        assert trouvee is not None
-        assert trouvee.id == r.id
-        assert score is not None
+        assert candidat.reponse is not None
+        assert candidat.reponse.id == r.id
+        assert candidat.score_cosinus is not None
 
     def test_reponse_obsolete_jamais_reutilisee(self, scenario, _qdrant_muet):
         from app.workers.question import _trouver_reponse_reutilisable
@@ -665,4 +665,4 @@ class TestReutilisationBloquee:
         r = scenario(chunks=[1], canonique=True)
         marquer_obsoletes(scenario.db, scenario.doc_id, RAISON_MAJ, version=2, indices={1})
 
-        assert _trouver_reponse_reutilisable(scenario.db, self._chunks(r)) == (None, None, None)
+        assert _trouver_reponse_reutilisable(scenario.db, self._chunks(r)).reponse is None

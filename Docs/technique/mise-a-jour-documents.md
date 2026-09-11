@@ -530,13 +530,20 @@ flowchart TD
 `lever_a_relire` n'est appelé que si `r.a_relire_doc_id == doc_id` : sans cette garde, ce job
 effacerait le signal posé par la mise à jour d'un **autre** document.
 
-Le rappel vectoriel est **dense uniquement**. `embed_texts` renvoie toujours un vecteur sparse
-vide (`{"indices": [], "values": []}`) — bug préexistant, hors périmètre — et `search_hybrid` ne
-sait de toute façon pas cibler les points de réponse. Ceux-ci sont écrits par `feedback_job` avec
+Le rappel vectoriel reste **dense uniquement**, désormais par choix et non par défaut : BM25 est
+vivant partout ailleurs (`services/bm25.py`), mais il n'est délibérément pas branché ici. Deux
+raisons. D'abord, le rapprochement porte sur un **paragraphe contre une question**, et leur
+recouvrement lexical est dominé par le vocabulaire commun au domaine — le signal serait du bruit.
+Ensuite, à cette étape le rappel doit privilégier la sensibilité sur la précision, et rien
+derrière `unites_pertinentes` ne viendrait rattraper un candidat retenu sur le seul recouvrement
+de mots : il n'y a pas de juge sur cette branche. La décision mérite d'être mesurée séparément,
+avec son propre profil de risque.
+
+Les points de réponse sont écrits par `feedback_job` avec
 `{reponse_id, ticket_id, contenu, domaine, question_indexee}` et **sans `doc_id`** :
-`must_not=[IsEmpty("reponse_id")]` est le seul moyen de les isoler. Pas d'index de payload sur
-`reponse_id`, Qdrant filtre donc en scan — acceptable à cette volumétrie, et payé une fois par
-mise à jour.
+`must_not=[IsEmpty("reponse_id")]` est le seul moyen de les isoler. `init_collection` pose un
+index de payload `keyword` sur `reponse_id` (`services/qdrant.py`), le filtre ne dégénère donc
+pas en scan.
 
 **Une réponse porte plusieurs points**, un par formulation humainement validée
 (`feedback_job(source_id, formulation_id)`), chacun sous sa propre `question_indexee`. Le rappel

@@ -77,7 +77,12 @@ def question_job(
         print(f"[QUESTION] {len(chunks)} chunks trouvés")
 
         for i, chunk in enumerate(chunks[:3]):
-            print(f"[QUESTION] #{i + 1} score_cosinus={chunk['score_cosinus']:.4f} source={chunk['source']}")
+            # Les deux signaux sont tracés : la porte se franchit par l'un ou
+            # l'autre, donc lire les journaux exige de voir les deux.
+            print(
+                f"[QUESTION] #{i + 1} cosinus={chunk['score_cosinus']:.4f} "
+                f"lexical={chunk.get('score_lexical', 0.0):.2f}/terme source={chunk['source']}"
+            )
 
         top_score = chunks[0]["score_cosinus"] if chunks else 0.0
 
@@ -85,12 +90,14 @@ def question_job(
         chunks_ctx: list[dict] | None = None
         db = SessionLocal()
         try:
-            reponse_liee, score_liee, question_du_point = trouver_reponse_reutilisable(db, chunks)
+            candidat = trouver_reponse_reutilisable(db, chunks)
+            reponse_liee, score_liee = candidat.reponse, candidat.score_cosinus
+            question_du_point = candidat.question_indexee
 
             if reponse_liee is not None:
                 print(f"[QUESTION] Score {score_liee:.4f} → réponse validée {reponse_liee.id}")
 
-                if reponse_liee.canonique and score_liee >= SEUIL_COSINUS:
+                if reponse_liee.canonique and candidat.franchit(SEUIL_COSINUS):
                     # La question portée par le point qui a matché fait foi : une
                     # réponse est indexée sous autant de formulations qu'elle a de
                     # validations humaines, et le garde doit juger celle-là. Repli
@@ -116,15 +123,31 @@ def question_job(
                             question_posee=question_a_comparer,
                             question_indexee=question_indexee,
                             reponse_id=reponse_liee.id,
-                            score_cosinus=score_liee,
+                            # Les deux signaux séparément : le cosinus garde le
+                            # sens qu'il avait avant BM25, ce qui rend les décisions
+                            # comparables d'une version à l'autre, et le lexical dit
+                            # par quelle porte le candidat est passé.
+                            score_cosinus=candidat.score_cosinus,
+                            score_lexical=candidat.score_lexical,
                         )
 
                     if decision is not None and decision.verdict:
                         print("[QUESTION] Garde : OUI → CANONIQUE")
                         return servir_reutilisation(
-                            db, job_id, ticket_uuid, question, domaine, user_uuid,
-                            reponse_liee, score_liee, question_suivi, est_suivi,
-                            self.request.retries, True, objet,
+                            db,
+                            job_id,
+                            ticket_uuid,
+                            question,
+                            domaine,
+                            user_uuid,
+                            reponse_liee,
+                            score_liee,
+                            question_suivi,
+                            est_suivi,
+                            self.request.retries,
+                            True,
+                            objet,
+                            score_lexical=candidat.score_lexical or 0.0,
                         )
                     # Refus du garde → SUGGESTION, pas RAG. Le garde répond
                     # « pas la même demande », ce qui disqualifie le service sans
@@ -134,18 +157,50 @@ def question_job(
                     # soumis au garde et, sur refus, renvoyé au RAG sans candidat.
                     # Franchir SEUIL_COSINUS dégradait donc l'issue. Le refus reste
                     # tracé dans `garde_decisions`.
-                    print("[QUESTION] Garde : NON → SUGGESTION (revue humaine)")
+                    #
+                    # Sauf si le candidat n'est entré que par la porte lexicale :
+                    # le juge vient de le refuser et rien d'autre ne le soutient,
+                    # le proposer à un relecteur serait lui montrer du bruit.
+                    if candidat.servable:
+                        print("[QUESTION] Garde : NON → SUGGESTION (revue humaine)")
+                        return servir_reutilisation(
+                            db,
+                            job_id,
+                            ticket_uuid,
+                            question,
+                            domaine,
+                            user_uuid,
+                            reponse_liee,
+                            score_liee,
+                            question_suivi,
+                            est_suivi,
+                            self.request.retries,
+                            False,
+                            objet,
+                            score_lexical=candidat.score_lexical or 0.0,
+                        )
+                    print("[QUESTION] Garde : NON + candidat lexical seul → RAG")
+                elif candidat.servable:
                     return servir_reutilisation(
-                        db, job_id, ticket_uuid, question, domaine, user_uuid,
-                        reponse_liee, score_liee, question_suivi, est_suivi,
-                        self.request.retries, False, objet,
+                        db,
+                        job_id,
+                        ticket_uuid,
+                        question,
+                        domaine,
+                        user_uuid,
+                        reponse_liee,
+                        score_liee,
+                        question_suivi,
+                        est_suivi,
+                        self.request.retries,
+                        False,
+                        objet,
+                        score_lexical=candidat.score_lexical or 0.0,
                     )
                 else:
-                    return servir_reutilisation(
-                        db, job_id, ticket_uuid, question, domaine, user_uuid,
-                        reponse_liee, score_liee, question_suivi, est_suivi,
-                        self.request.retries, False, objet,
-                    )
+                    # Candidat retenu par les seuls mots, et non canonique : aucun
+                    # juge ne le verra, donc il ne doit pas être proposé.
+                    print("[QUESTION] Candidat lexical seul, non canonique → RAG")
 
         finally:
             db.close()
