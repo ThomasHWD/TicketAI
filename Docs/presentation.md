@@ -108,7 +108,7 @@ La base de connaissances s'enrichit naturellement au fil des validations, sans a
 | **Workers** | Celery (files `queue_questions` et `queue_ingestion`) |
 | **Broker** | Valkey (Redis-compatible) |
 | **Base de données** | PostgreSQL 16 |
-| **Recherche vectorielle** | Qdrant (vecteurs denses 1024d BGE-M3, fusion RRF manuelle) |
+| **Recherche vectorielle** | Qdrant, réellement hybride — denses 1024d BGE-M3 + BM25 creux (IDF côté serveur), fusion RRF manuelle pour l'ordre seul |
 | **IA** | Albert API (gouvernement français) — embeddings, reranker, LLM |
 | **Frontend** | React 19, Vite, TypeScript, Tailwind CSS v4 |
 | **Infra locale** | Docker Compose (Postgres + Qdrant + Valkey) |

@@ -173,6 +173,43 @@ Voir [Notifications et temps réel](../fonctionnalites/notifications-et-temps-re
 
 ---
 
+## FAQ
+
+| Méthode | Route | Accès | Description |
+|---|---|---|---|
+| `GET` | `/faq/recherche?q=…` | 🔵 | Recherche sémantique dans les réponses canoniques. `429` si le quota par minute est dépassé |
+
+Consultation **en lecture seule**, ouverte à tout utilisateur authentifié — `CurrentUser`
+et non `BackofficeUser`. Aucun ticket n'est créé, aucune génération LLM ne tourne, **le
+garde n'est jamais appelé** : la page *montre* ce qu'un humain a déjà validé au moins
+`SEUIL_CANONIQUE` fois, elle ne *sert* rien sans revue. C'est pourquoi elle peut se passer
+du juge là où la branche CANONIQUE ne le peut pas.
+
+Trois points qui surprennent à la lecture du code :
+
+- **Pas de filtrage par domaine**, contrairement à `check_domain_read` partout ailleurs.
+  C'est délibéré et c'est le seul choix possible : un utilisateur lambda n'appartient à
+  aucun groupe, filtrer par `user_domaines` ne renverrait rien.
+- **Le score cosinus ne sort jamais de l'API.** Il ordonne les résultats, mais il n'a aucun
+  sens pour un utilisateur final et invite aux mauvaises lectures.
+- **Deux rangs.** `resultats` franchit `FAQ_SEUIL_PERTINENCE` ; `incertains` ne franchit que
+  `FAQ_SEUIL_INCERTAIN` et n'est renvoyé **que si `resultats` est vide**. Un candidat retenu
+  par la seule porte lexicale atterrit toujours dans `incertains` : sans juge sur cette
+  branche, rien ne peut confirmer qu'un recouvrement de mots vaut une réponse.
+
+> ⚠️ **Ne pas « corriger » un raté en abaissant `FAQ_SEUIL_PERTINENCE`.** Mesuré le
+> 11/09/2026, la bande sous le seuil entrelace vrais et faux positifs sans valeur
+> séparatrice : `hauteur fruit` → 0,6706 (correct) contre une demande sans rapport à 0,7110
+> (faux). Le faux positif note *au-dessus* du vrai — aucun seuil ne les sépare. D'où deux
+> rangs plutôt qu'un seuil déplacé.
+
+Une recherche = un embedding Albert. D'où la soumission explicite (jamais de recherche à la
+frappe), le cache React Query, et `FAQ_RATE_LIMIT_PAR_MINUTE` par utilisateur — vérifié
+**avant** l'appel Albert. Ce limiteur est **fail-open**, contrairement au fail-closed du
+login : une page en lecture seule ne doit pas tomber sur un hoquet de Valkey.
+
+---
+
 ## Suggestions
 
 | Méthode | Route | Accès | Description |

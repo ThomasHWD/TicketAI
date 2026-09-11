@@ -54,6 +54,7 @@ Valeurs minimales à renseigner pour démarrer :
 | `DOCUMENTS_STORAGE_PATH` | `/tmp/ticketai/documents` | oui |
 | `SEUIL_CANONIQUE` | `3` | oui |
 | `SEUIL_COSINUS` | `0.80` | oui |
+| `SEUIL_LEXICAL_PAR_TERME` | `1.0` | non (défaut dans le code) |
 
 > ⚠️ **Un serveur LDAP/AD joignable est requis pour se connecter, y compris en
 > développement.** Sans annuaire, `/auth/login` expire et aucun compte ne peut ouvrir de
@@ -62,6 +63,15 @@ Valeurs minimales à renseigner pour démarrer :
 `SEUIL_CANONIQUE` et `SEUIL_COSINUS` n'ont **pas** de valeur par défaut dans le code : ils
 sont obligatoires et l'application refuse de démarrer s'ils manquent. Les valeurs
 ci-dessus sont celles de `.env.example`.
+
+`SEUIL_LEXICAL_PAR_TERME`, lui, a un défaut. C'est la **porte lexicale** du rappel : un
+candidat est examiné si son cosinus franchit le seuil **ou** si son BM25 par terme franchit
+celui-ci. Le mettre à `0` referme la porte et restaure exactement le comportement d'avant
+BM25 — c'est l'échappatoire si une calibration tourne mal.
+
+> ⚠️ Toute clé absente de `Settings` (`app/config.py`) est **silencieusement ignorée**
+> (`extra: "ignore"`) : ni erreur, ni log, le défaut du code s'applique. Une faute de frappe
+> dans un nom de variable ne se voit donc pas.
 
 ### Frontend
 
