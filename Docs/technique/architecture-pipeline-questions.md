@@ -47,9 +47,15 @@ flowchart TD
 
 | Variable | Valeur par défaut | Rôle |
 |---|---|---|
-| `SEUIL_COSINUS` | 0.80 | Score minimum pour présenter un candidat canonique au garde |
-| `SEUIL_SUGGESTION` | `SEUIL_COSINUS − 0.05` = 0.75 | Score minimum pour la branche SUGGESTION |
+| `SEUIL_COSINUS` | 0.80 | Cosinus minimum pour présenter un candidat canonique au garde |
+| `SEUIL_SUGGESTION` | `SEUIL_COSINUS − 0.05` = 0.75 | Cosinus minimum pour la branche SUGGESTION |
+| `SEUIL_LEXICAL_PAR_TERME` | 1.0 | BM25 **par terme** minimum — la porte lexicale, en disjonction du cosinus. `0` la referme |
 | `SEUIL_CANONIQUE` | 3 | Nombre de validations pour promouvoir une réponse en canonique |
+
+Les deux premiers et le troisième ne se combinent pas : ils s'appliquent **chacun sur son
+signal**, et un candidat passe s'il franchit l'un **ou** l'autre. `SEUIL_LEXICAL_PAR_TERME`
+est à recalibrer quand le corpus grossit — l'IDF de Qdrant est en log(N), donc toute
+l'échelle lexicale se déplace. Sa valeur par défaut a été mesurée sur 24 points.
 
 `SEUIL_COSINUS` est un **filtre de coût**, pas un filtre de sécurité : c'est le garde LLM qui décide si la réponse peut être servie sans revue humaine. Abaisser ce seuil augmente le nombre d'appels LLM au garde ; le relever en réduit le nombre mais risque de rater des candidats légitimes. Porté de 0,90 à 0,85 le 05/09/2026 : à 0,90 il refusait à la place du juge et écartait des reformulations équivalentes. Puis à 0,80 le 07/09/2026, campagne rejouée à l'identique : CANONIQUE 14 → 19 sur 48, appels au juge 15 → 22, toujours aucun faux positif. Ne pas descendre plus bas — la bande [0,80 ; 0,85) contenait 5 reformulations équivalentes, la bande [0,75 ; 0,80) n'en contient aucune sur 4. Voir [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md), § 12.
 
@@ -103,20 +109,20 @@ sont que des exemples courants). Aucune fuite inter-domaine n'est possible.
 
 ## Étape 2 — Branche CANONIQUE ou SUGGESTION
 
-La fonction `trouver_reponse_reutilisable` parcourt les 15 chunks retournés et cherche si l'un d'eux porte un `reponse_id` (lien vers une réponse validée, inscrit lors du feedback) **avec un score cosinus ≥ `SEUIL_SUGGESTION`**.
+La fonction `trouver_reponse_reutilisable` parcourt les 15 chunks retournés et cherche si l'un d'eux porte un `reponse_id` (lien vers une réponse validée, inscrit lors du feedback) **qui franchit le rappel** : cosinus ≥ `SEUIL_SUGGESTION` **ou** BM25 par terme ≥ `SEUIL_LEXICAL_PAR_TERME` (`franchit_le_rappel`, `services/search.py`).
 
 Si plusieurs réponses validées matchent, on choisit de manière déterministe : `canonique` d'abord, puis `nb_validations`, puis meilleur score, puis UUID.
 
 **Conditions pour CANONIQUE** (servie sans revue humaine) :
 - réponse trouvée avec `reponse.canonique == True`
-- `score_cosinus >= SEUIL_COSINUS`
+- le candidat franchit le rappel **au niveau `SEUIL_COSINUS`** : `score_cosinus >= SEUIL_COSINUS` **ou** BM25 par terme ≥ `SEUIL_LEXICAL_PAR_TERME`
 - le garde LLM confirme que la question posée exprime exactement la même demande que la question indexée (voir [`garde-cache-canonique.md`](garde-cache-canonique.md))
 
 La « question indexée » est celle portée par le **point qui a matché** (payload `question_indexee`), remontée par `trouver_reponse_reutilisable` avec la réponse et le score. Une réponse en porte une par formulation validée ; la redériver de `Ticket.question` soumettrait au garde une paire que la recherche n'a pas produite. Repli sur `Ticket.question` / `Reponse.question_suivi` pour les points antérieurs à cette clé.
 
 **Conditions pour SUGGESTION** (revue humaine requise) :
 - réponse trouvée avec `reponse.statut == "VALIDÉE"` et `obsolete == False`
-- mais au moins une condition CANONIQUE non remplie : score en dessous de `SEUIL_COSINUS`, réponse pas encore canonique, **ou garde ayant refusé**
+- mais au moins une condition CANONIQUE non remplie : rappel franchi seulement au niveau `SEUIL_SUGGESTION`, réponse pas encore canonique, **ou garde ayant refusé**
 
 Un refus du garde sort donc en SUGGESTION, pas en RAG : le garde tranche sur le service *sans revue*, pas sur la pertinence du candidat pour un relecteur. Le refus reste tracé dans `garde_decisions` — en base, la SUGGESTION produite est indiscernable des autres.
 

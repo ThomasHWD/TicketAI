@@ -16,7 +16,16 @@ jamais dans le backoffice.
 | **Nouveau ticket** | `/nouveau-ticket` | Poser une question |
 | **Mon historique** | `/historique` | Tous ses tickets, ouverts et clôturés |
 | **Détail d'un ticket** | `/historique/{id}` | Le fil de conversation, les actions |
+| **FAQ** | `/faq` | Chercher parmi les réponses déjà validées, sans créer de ticket |
 | **Boîte à suggestions** | `/suggestion` | Proposer une amélioration du produit |
+
+La **FAQ** est une consultation en lecture seule : elle montre des réponses qu'un humain a
+déjà validées au moins `SEUIL_CANONIQUE` fois, tous domaines confondus. Aucun ticket n'est
+créé et aucun texte n'est généré — c'est le seul endroit où un employé obtient une réponse
+sans passer par la file de validation, précisément parce que rien n'y est produit sur le
+moment. Si rien ne correspond assez bien, la page propose au mieux des *pistes* et invite à
+poser une question. Détail des rangs et des seuils dans
+[Référence API](../technique/reference-api.md#faq).
 
 Un utilisateur qui n'appartient à aucun groupe et qui visite `/` est automatiquement
 redirigé vers `/mon-espace`.
