@@ -833,6 +833,47 @@ Requêtes à terme rare contre le *Guide des avantages salariés* (10 chunks) :
 Aucun ne franchit `SEUIL_COSINUS = 0,80` : **le dense seul n'en trouvait aucun**. Le bon
 chunk sort au rang 1 dans les sept cas — le RRF ordonne correctement.
 
+Rejoué le 11/09/2026 après retokenisation et réindexation : **toujours 7/7**, à des valeurs
+légèrement différentes (`L3262-1` 3,204 au lieu de 3,272 ; `article L1222-9` 1,038 au lieu de
+1,056). L'écart est la dérive d'échelle du § 14.7, pas un changement de comportement. Il a une
+conséquence pratique : `article L1222-9` est passé **sous** 1,056 tout en restant au-dessus de
+1,0 — la marge du seuil par défaut est plus étroite qu'elle n'en avait l'air.
+
+#### Ce que cette porte coûte par ailleurs
+
+Sur les 48 cas de la campagne DFE, la même porte lexicale donne un résultat très différent. En
+reprenant `campagne3.json` candidat par candidat, **12 candidats n'ont été trouvés que par
+elle** (cosinus sous `SEUIL_SUGGESTION`) :
+
+| issue | cas | appels juge |
+|---|---|---|
+| CANONIQUE conforme à l'attendu | **1** | 0 *(court-circuit typographique)* |
+| CANONIQUE imprévu, sur la bonne cible, garde d'accord | 1 | 1 |
+| correctement refusés, repartis au RAG | 10 | 8 |
+| **total** | **12** | **9 sur 31** |
+
+**29 % du budget du juge pour un gain net d'un cas.** Le rendement est mauvais, et il faut le
+dire tel quel plutôt que de ne citer que le tableau précédent.
+
+#### Les deux mesures ne se contredisent pas : elles portent sur deux populations
+
+C'est le point à retenir de tout le § 14. La campagne DFE est faite de **reformulations en
+langage naturel** — c'est exactement le travail de l'embedding, il le fait bien, et BM25 n'a
+rien à y ajouter. Le tableau des sept requêtes est fait de **termes hors distribution du
+modèle** — référence d'article, nom propre, valeur exacte ; là le cosinus s'effondre entre
+0,34 et 0,61 et le recouvrement de mots est parfait.
+
+**La campagne ne contient pas un seul cas de la seconde population.** Elle ne peut donc pas
+arbitrer sur l'utilité de BM25 : elle mesure ce que la porte coûte sans pouvoir mesurer ce
+qu'elle rapporte. C'est exactement pourquoi le balayage du § 14.6 recommande de durcir le
+seuil, et pourquoi il ne faut pas le suivre.
+
+**Conclusion opérationnelle** : BM25 est utile *à la condition* que le corpus contienne du
+vocabulaire hors distribution du modèle d'embedding. Sur un corpus purement rédactionnel, il
+ne ferait que consommer des appels au juge — et la bonne décision serait alors
+`SEUIL_LEXICAL_PAR_TERME = 0`. Sur celui-ci — code du travail, outils nommés, montants — il
+rattrape sept requêtes sur sept que le dense perdait entièrement.
+
 ### 14.3 Les trois régimes, mêmes 48 cas, même fixture DFE
 
 | | CANONIQUE | SUGGESTION | RAG | conformes | appels juge | **Faux positifs** |
@@ -904,8 +945,17 @@ Deux enseignements :
 2. **Fermer la porte lexicale coûte 2 CANONIQUE** (20 → 18), qui repartent au RAG.
 
 Ce qui fixe la valeur n'est donc pas cette campagne, mais les requêtes à terme rare du
-§ 14.2 : `article L1222-9` sort à **1,056**/terme et tomberait dès `1,2`. **`1,0` est le
-réglage qui les couvre toutes, et il ne coûte que ~10 appels au juge de plus.**
+§ 14.2 : `article L1222-9` sort à **1,056**/terme — **1,038** à la remesure du 11/09 — et
+tomberait dès `1,2`. **`1,0` est le réglage qui les couvre toutes, et il ne coûte que ~10
+appels au juge de plus.**
+
+> ⚠️ **Ne pas régler ce seuil sur ce balayage.** Restreint aux 12 candidats entrés par la
+> seule porte lexicale, il désigne très clairement `5,0` : on garderait l'unique CANONIQUE
+> conforme, on perdrait le CANONIQUE imprévu, et les appels au juge tomberaient de 9 à 1.
+> C'est un piège. Aucun des 48 cas ne contient de terme hors distribution du modèle, donc le
+> balayage optimise le coût d'une porte dont il ne peut pas voir le bénéfice — et `5,0`
+> fermerait sur `article L1222-9` à 1,038. **Un balayage ne peut pas arbitrer sur une
+> population que son jeu de test ne contient pas.**
 
 Rejouée après la retokenisation du § 14.10 et la réindexation, la campagne donne la même
 forme — plat de `1,0` à `4,0`, **zéro faux positif partout**, 21 CANONIQUE au lieu de 19 si
