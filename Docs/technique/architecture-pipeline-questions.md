@@ -57,6 +57,14 @@ signal**, et un candidat passe s'il franchit l'un **ou** l'autre. `SEUIL_LEXICAL
 est à recalibrer quand le corpus grossit — l'IDF de Qdrant est en log(N), donc toute
 l'échelle lexicale se déplace. Sa valeur par défaut a été mesurée sur 24 points.
 
+> ⚠️ **Lire le § 14 de [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md)
+> avant de toucher `SEUIL_LEXICAL_PAR_TERME`, la tokenisation ou la condition de rappel.**
+> Le piège principal y est mesuré : sur le jeu de 48 cas, un balayage désigne très
+> clairement `5,0` — ce qui fermerait la porte sur `article L1222-9`, à 1,038/terme, c'est-à-dire
+> exactement le cas qui la justifie. Le jeu de test ne contient aucun terme hors distribution
+> du modèle d'embedding, donc il mesure ce que la porte coûte sans voir ce qu'elle rapporte.
+> **Un balayage ne peut pas arbitrer sur une population absente de son jeu de test.**
+
 `SEUIL_COSINUS` est un **filtre de coût**, pas un filtre de sécurité : c'est le garde LLM qui décide si la réponse peut être servie sans revue humaine. Abaisser ce seuil augmente le nombre d'appels LLM au garde ; le relever en réduit le nombre mais risque de rater des candidats légitimes. Porté de 0,90 à 0,85 le 05/09/2026 : à 0,90 il refusait à la place du juge et écartait des reformulations équivalentes. Puis à 0,80 le 07/09/2026, campagne rejouée à l'identique : CANONIQUE 14 → 19 sur 48, appels au juge 15 → 22, toujours aucun faux positif. Ne pas descendre plus bas — la bande [0,80 ; 0,85) contenait 5 reformulations équivalentes, la bande [0,75 ; 0,80) n'en contient aucune sur 4. Voir [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md), § 12.
 
 Le seuil ne peut plus **dégrader** l'issue en étant franchi : un refus du garde rend le candidat à la branche SUGGESTION, il ne le renvoie pas au RAG.
