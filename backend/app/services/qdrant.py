@@ -18,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 client = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
 
-COLLECTION_NAME = "ticketai"
+# Vaut "ticketai" partout sauf sous pytest, où conftest force un suffixe `_test`
+# avant l'import de ce module. Attention : `search.py` et `workers/document_update.py`
+# importent cette constante PAR VALEUR (`from ... import COLLECTION_NAME`), donc la
+# réaffecter après coup n'atteint pas ces modules — c'est l'environnement qui doit
+# être fixé avant l'import, pas la constante après.
+COLLECTION_NAME = settings.qdrant_collection
 
 
 def init_collection():

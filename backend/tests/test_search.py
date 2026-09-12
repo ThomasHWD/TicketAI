@@ -4,8 +4,6 @@ import random
 from unittest.mock import MagicMock, patch
 
 import pytest
-from qdrant_client import QdrantClient
-from qdrant_client.http import models
 
 # Ce module exige un vrai Qdrant (fixture setup_test_qdrant ci-dessous) → catégorie
 # intégration : exécuté sur GitHub Actions, auto-skippé en local sans infra.
@@ -23,15 +21,43 @@ else:
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_qdrant():
-    client = QdrantClient(host="localhost", port=6333)
+    """Garantit l'existence de la collection de test, via le code de production.
 
-    if not client.collection_exists("ticketai"):
-        client.create_collection(
-            collection_name="ticketai",
-            vectors_config={"dense": models.VectorParams(size=1024, distance=models.Distance.COSINE)},
-            sparse_vectors_config={"sparse": models.SparseVectorParams()},
-        )
+    Cette fixture construisait sa propre collection à la main, sur `localhost:6333`
+    (la prod) et sous le nom `"ticketai"` (celui de la prod). Elle a donc pu créer
+    la collection de production avec une configuration sparse *divergente* — sans
+    `modifier=Modifier.IDF` — que `init_collection` n'aurait jamais corrigée
+    ensuite, puisqu'il se contente de constater qu'elle existe.
+
+    Deux changements, et c'est tout ce qui compte ici :
+    - le nom vient de `settings.qdrant_collection`, que conftest a suffixé `_test` ;
+    - la création passe par `init_collection()`, donc par la configuration réelle.
+      Une divergence est désormais impossible par construction : il n'y a plus
+      qu'une seule définition de la collection dans le dépôt.
+    """
+    from app.services.qdrant import COLLECTION_NAME, client, init_collection
+
+    # Ceinture et bretelles : si le forçage de conftest n'a pas eu lieu (module
+    # importé autrement, variable écrasée), on refuse plutôt que d'écrire sur la
+    # collection de production.
+    assert "test" in COLLECTION_NAME.lower(), (
+        f"Collection ciblée « {COLLECTION_NAME} » : refus d'exécuter les tests "
+        "d'intégration hors d'une collection de test."
+    )
+
+    try:
+        init_collection()
+    except Exception as exc:  # Qdrant injoignable → on saute, on ne casse pas
+        pytest.skip(f"Qdrant injoignable ({exc!r}) — tests d'intégration ignorés")
+
     yield
+
+    # La collection est jetable : on la retire pour ne pas laisser de résidu sur
+    # l'instance visée (qui peut être celle de la prod, cf. conftest).
+    try:
+        client.delete_collection(collection_name=COLLECTION_NAME)
+    except Exception:
+        pass
 
 
 def fake_embeddings(n: int = 1) -> list[dict]:
