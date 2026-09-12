@@ -139,6 +139,11 @@ Cette commande enchaîne `alembic stamp base`, `alembic upgrade head`, et l'inse
 validateurs fictifs (`validateur.a@entreprise.fr`, `validateur.b@entreprise.fr`). À relancer
 chaque fois que vous avez détruit les volumes de dev (voir ci-dessous).
 
+> ⚠️ **`make reset-db` s'exécute depuis le venv local, pas dans un conteneur** : elle lit
+> `backend/.env`, qui pointe vers le port `5432`. Si une stack de prod tourne sur la même
+> machine, **c'est elle que la commande initialise**. Voir
+> [§ 10](#10-scripts-utilitaires-et-pièges-dexploitation).
+
 ### Swagger / Docs API
 
 `http://localhost:8000/docs`
@@ -436,11 +441,34 @@ local, `PYTHONPATH=.` et `cd backend`. Les plus utiles :
 | `test_garde_reel.py` | Exerce le garde contre le vrai Albert | appels LLM |
 | `backfill_documents.py` | Reconstruit les lignes `documents` depuis Qdrant | — |
 
-> ⚠️ **Les scripts lisent Qdrant et Postgres via `Settings`, donc via `backend/.env`, qui
-> décrit la *prod*.** Ceux ci-dessus forcent les ports de dev eux-mêmes ;
-> `test_cache_semantique.py` ne le fait **pas** et doit être lancé avec les variables sur la
-> ligne de commande. Se tromper interroge une instance vide et rend un résultat parfaitement
-> propre et parfaitement faux.
+### ⚠️ Par défaut, un script lancé à la main vise la **prod**
+
+Les scripts lisent Qdrant et Postgres via `Settings`, donc via `backend/.env` — qui décrit les
+ports standard (`5432`, `6333`), c'est-à-dire la prod. Et comme les deux stacks sont des projets
+Compose distincts, **elles peuvent tourner en même temps** : se tromper de cible n'échoue pas,
+ça réussit silencieusement contre les mauvaises données.
+
+**Forcent les ports de dev eux-mêmes** (`os.environ.setdefault` en tête de fichier) :
+`diag_bm25`, `diag_faq_seuil`, `mesurer_longueurs`, `reencoder_vecteurs_creux`,
+`reinitialiser_index`, `test_faq_campagne`, `test_lexical_reel`,
+`test_reverification_rappel_reel`.
+
+**Tous les autres visent la prod**, y compris `run_search`, `calibrate_threshold`,
+`test_garde_reel`, `backfill_documents`, `seed_validators` et `test_cache_semantique`. Passez
+les variables sur la ligne de commande :
+
+```bash
+QDRANT_PORT=6335 POSTGRES_PORT=5433 PYTHONPATH=. python scripts/<script>.py
+```
+
+> ⚠️ **`make reset-db` est dans ce cas, et c'est le plus grave.** La cible s'exécute depuis le
+> venv local (`cd backend && source .venv/bin/activate && alembic …`), lit donc `backend/.env`
+> et vise le port `5432` — la base de **prod**. Elle y fait `alembic stamp base`,
+> `upgrade head`, puis insère les fixtures. Pour initialiser la base de dev :
+>
+> ```bash
+> cd backend && POSTGRES_PORT=5433 .venv/bin/alembic upgrade head
+> ```
 
 ### Les quotas Albert sont attachés au **modèle**
 
