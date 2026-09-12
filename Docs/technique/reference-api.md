@@ -196,6 +196,10 @@ Trois points qui surprennent à la lecture du code :
   `FAQ_SEUIL_INCERTAIN` et n'est renvoyé **que si `resultats` est vide**. Un candidat retenu
   par la seule porte lexicale atterrit toujours dans `incertains` : sans juge sur cette
   branche, rien ne peut confirmer qu'un recouvrement de mots vaut une réponse.
+  Les deux rangs ne sont pas plafonnés pareil : `resultats` est tronqué à
+  `FAQ_MAX_RESULTATS` (5, configurable), `incertains` à `MAX_INCERTAINS` — **une constante de
+  `services/faq.py` valant 3**, délibérément absente de la configuration. Rallonger une liste
+  de pistes n'ajoute pas d'information, seulement du bruit.
 
 > ⚠️ **Ne pas « corriger » un raté en abaissant `FAQ_SEUIL_PERTINENCE`.** Mesuré le
 > 11/09/2026, la bande sous le seuil entrelace vrais et faux positifs sans valeur
