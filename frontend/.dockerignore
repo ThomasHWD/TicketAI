@@ -1,0 +1,11 @@
+# `frontend/Dockerfile` fait `COPY . .` après son `npm ci` : sans ce fichier, les
+# 321 Mo de node_modules de l'hôte étaient envoyés au démon puis écrasaient la
+# couche installée dans l'image — plus lent, et non reproductible.
+node_modules/
+dist/
+.vite/
+coverage/
+*.local
+.env
+.env.*
+!.env.example
