@@ -20,12 +20,46 @@ from functools import lru_cache
 import regex
 import xxhash
 
-# Paramètres BM25 standards. `AVG_LEN` est une constante assumée : un client ne
-# connaît pas la longueur moyenne du corpus, et l'interroger à chaque encodage
-# coûterait un aller-retour par texte. Même choix que `fastembed`.
+# Paramètres BM25. `AVG_LEN` reste une constante assumée : un client ne connaît
+# pas la longueur moyenne du corpus, et l'interroger à chaque encodage coûterait
+# un aller-retour par texte. Même choix que `fastembed`.
 K1 = 1.2
-B = 0.75
-AVG_LEN = 40  # en tokens — ordre de grandeur d'une question, pas d'un document
+
+# `B` et `AVG_LEN` vont **par paire**, et leur valeur vient d'une mesure.
+#
+# Le corpus est bimodal. Mesuré le 12/09/2026 sur les 618 points de la
+# collection (`scripts/mesurer_longueurs.py`) :
+#
+#   chunks de documents   n=578   moyenne  95,6 tokens BM25   CV 0,24
+#   points-réponses       n= 40   moyenne   4,4 tokens BM25   CV 0,71
+#
+# Les deux populations sont resserrées autour de leur moyenne et séparées d'un
+# facteur 20. La normalisation par la longueur, prévue pour une population
+# homogène, n'agit donc presque pas *à l'intérieur* de chacune — c'est ce que
+# dit le CV des documents — et agit massivement **entre** les deux.
+#
+# Avec `AVG_LEN = 40`, sous-estimant de moitié la moyenne réelle des documents,
+# le poids TF d'un terme vu une fois valait 1,558 sur une question contre 0,637
+# sur un chunk moyen : un facteur 2,44 en faveur des questions, qui évince les
+# chunks du top-k creux qu'ils partagent.
+#
+# Les deux valeurs sont donc choisies ensemble sous une contrainte : ramener
+# `AVG_LEN` sur la moyenne réelle des documents — qui est ce que BM25 appelle
+# avgdl, et que 40 n'a jamais été — **sans déplacer l'échelle des questions**,
+# puisque c'est elle que seuille `SEUIL_LEXICAL_PAR_TERME`, calibré à 1,0 par la
+# mesure du 11/09. Résoudre w(5) = 1,558 à AVG_LEN = 96 donne B ≈ 0,70.
+#
+# Résultat : un chunk de longueur moyenne pèse 1,0 (la normalisation devient
+# neutre là où elle doit l'être), la question garde 1,567 (+0,6 %), et l'écart
+# tombe de 2,44 à 1,56. `SEUIL_LEXICAL_PAR_TERME` n'a pas à bouger.
+#
+# ⚠️ Changer l'une de ces deux constantes **invalide les vecteurs déjà écrits** :
+# la saturation TF est figée à l'écriture, contrairement à l'IDF que Qdrant
+# recalcule. Il faut réindexer (`scripts/reinitialiser_index.py`). Et recalibrer
+# `AVG_LEN` quand la part des points-réponses dans le corpus deviendra
+# significative — le script `scripts/mesurer_longueurs.py` refait la mesure.
+B = 0.70
+AVG_LEN = 96  # tokens BM25 — moyenne mesurée des chunks de documents
 
 # Lettres et chiffres, la ponctuation et les symboles écartés d'emblée.
 _MOT = regex.compile(r"[\p{L}\p{N}][\p{L}\p{N}]*", regex.UNICODE)
@@ -54,7 +88,17 @@ def _est_bruit_numerique(mot: str) -> bool:
 # `l` et `abonnement` : le premier est du bruit pur, et il est fréquent au point
 # de peser dans l'index. Le découpage naïf sur les apostrophes est le défaut le
 # plus courant des tokeniseurs appliqués au français.
-_ELISIONS = frozenset(["l", "d", "j", "n", "s", "t", "c", "m", "qu", "lorsqu", "puisqu", "quoiqu", "jusqu"])
+#
+# **Retiré par position, pas par appartenance.** Une forme élidée n'est du bruit
+# que devant son apostrophe : écarter le jeu de lettres partout supprimait aussi
+# les tokens d'une lettre qui portent du sens — « disque C », « permis C »,
+# « vitamine D », « langage C ». Sur un helpdesk IT ce n'est pas un cas d'école.
+#
+# Les deux apostrophes sont couvertes : U+0027 et U+2019, la seconde étant celle
+# que produisent les traitements de texte d'où viennent les documents ingérés.
+# Alternatives les plus longues en premier, pour que « jusqu' » l'emporte sur
+# « j » ou « qu ».
+_ELISION = regex.compile(r"\b(?:lorsqu|puisqu|quoiqu|jusqu|qu|[ldjnstcm])['’]")
 
 # Mots-outils français. Ils ne discriminent rien et, sans IDF côté requête, ils
 # domineraient le score par leur seule fréquence.
@@ -97,11 +141,13 @@ def _sans_accents(texte: str) -> str:
 
 
 def tokeniser(texte: str) -> list[str]:
-    """Texte → radicaux signifiants, élisions et mots-outils écartés."""
-    brut = _sans_accents(texte.lower())
-    mots = [
-        m for m in _MOT.findall(brut) if m not in _ELISIONS and m not in _STOP_WORDS and not _est_bruit_numerique(m)
-    ]
+    """Texte → radicaux signifiants, élisions et mots-outils écartés.
+
+    L'élision est retirée **avant** le découpage en mots, parce qu'elle se
+    définit par sa position devant l'apostrophe, que le découpage efface.
+    """
+    brut = _ELISION.sub("", _sans_accents(texte.lower()))
+    mots = [m for m in _MOT.findall(brut) if m not in _STOP_WORDS and not _est_bruit_numerique(m)]
     if not mots:
         return []
     return [r for r in _radicaliseur().stemWords(mots) if r]
