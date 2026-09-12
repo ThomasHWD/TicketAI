@@ -7,6 +7,29 @@ x-infra-healthcheck: &infra-healthcheck
   retries: 10
   start_period: 10s
 
+# `celery inspect ping` interroge le worker À TRAVERS le broker : c'est le seul
+# moyen de distinguer « le process tourne » de « le worker consomme encore ». Un
+# worker qui a perdu Valkey reste sinon affiché « Up » indéfiniment.
+# `-d celery@$$HOSTNAME` cible CE nœud précis : sans le `-d`, la commande répond
+# OK dès qu'un worker quelconque du cluster répond — y compris un autre conteneur,
+# ce qui rendrait le check vert sur un worker mort. (`$$` échappe l'interpolation
+# Compose, pour que `$HOSTNAME` arrive intact au shell du conteneur.)
+x-celery-healthcheck: &celery-healthcheck
+  test:
+    [
+      "CMD-SHELL",
+      "celery -A app.workers.celery_app inspect ping -d celery@$$HOSTNAME -t 5 >/dev/null 2>&1",
+    ]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+
+# Infra publiée sur 127.0.0.1 uniquement — voir le commentaire détaillé dans
+# docker-compose.prod.yml. Qdrant et Valkey n'ont pas d'authentification, donc
+# `0.0.0.0` offrait le corpus de dev et la file Celery à tout le réseau local.
+# Les ports applicatifs (backend 8000, frontend 5173) restent sur toutes les
+# interfaces : c'est ce qu'on veut pour tester depuis un téléphone ou une VM.
 x-infra-deps: &infra-deps
   postgres:
     condition: service_healthy
@@ -23,7 +46,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -37,8 +60,8 @@ services:
   qdrant:
     image: qdrant/qdrant:v1.18.0
     ports:
-      - "6335:6333"
-      - "6336:6334"
+      - "127.0.0.1:6335:6333"
+      - "127.0.0.1:6336:6334"
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
@@ -48,17 +71,23 @@ services:
   valkey:
     image: valkey/valkey:7.2-alpine
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       <<: *infra-healthcheck
 
   backend:
     build: ./backend
-    command: >
-      sh -c "alembic upgrade head &&
-             watchmedo auto-restart --directory=/app --pattern='*.py' --recursive --
-             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    # ⚠️ Une seule ligne, volontairement. En bloc replié (`>`), YAML ne replie PAS
+    # les lignes sur-indentées : il conserve leur saut de ligne tel quel. `sh -c`
+    # recevait donc un vrai \n après `--recursive --`, ce qui terminait là la
+    # commande watchmedo — sans argument, d'où « error: the following arguments
+    # are required: command » — puis lançait uvicorn comme commande suivante,
+    # hors surveillance. L'API tournait sans hot-reload, silencieusement, alors
+    # que les workers (commande sur une ligne) redémarraient bien.
+    # `exec` : uvicorn remplace le shell et reçoit SIGTERM directement, au lieu
+    # d'attendre les 10 s de grâce avant SIGKILL à chaque `down`.
+    command: ["sh", "-c", "alembic upgrade head && exec watchmedo auto-restart --directory=/app --pattern='*.py' --recursive -- uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     volumes:
       - ./backend:/app
       - documents_storage:/app/storage
@@ -96,6 +125,7 @@ services:
       DOCUMENTS_STORAGE_PATH: /app/storage
       UPLOAD_DIR: /app/uploads_tmp
     depends_on: *infra-deps
+    healthcheck: *celery-healthcheck
 
   worker_questions:
     build: ./backend
@@ -108,26 +138,45 @@ services:
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
     depends_on: *infra-deps
+    healthcheck: *celery-healthcheck
 
   worker_beat:
     build: ./backend
-    command: watchmedo auto-restart --directory=/app --pattern='*.py' --recursive -- celery -A app.workers.celery_app beat -l info
+    # --schedule : hors de /app, qui est le dépôt bind-monté en dev. Par défaut
+    # beat écrit `celerybeat-schedule` dans le WORKDIR, donc directement dans
+    # l'arbre git, en root.
+    command: watchmedo auto-restart --directory=/app --pattern='*.py' --recursive -- celery -A app.workers.celery_app beat -l info --schedule=/var/lib/celery/celerybeat-schedule
     volumes:
       - ./backend:/app
+      - beat_schedule:/var/lib/celery
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
       QDRANT_HOST: qdrant
       VALKEY_HOST: valkey
     depends_on: *infra-deps
+    # Pas de healthcheck, volontairement. beat n'est pas un worker : il ne répond
+    # pas à `inspect ping`, et son seul schedule est `crontab(hour=2, minute=0)`
+    # — une écriture par jour, donc la fraîcheur du fichier de schedule ne prouve
+    # rien non plus. Un check vert en permanence vaudrait moins que pas de check.
+    # Ce qui protège réellement beat : s'il meurt, il est le process principal du
+    # conteneur, donc le conteneur sort et `restart:` le relance (en prod).
 
   frontend:
     image: node:22-alpine
     working_dir: /app
-    command: sh -c "npm install && npm run dev -- --host"
+    # `npm install` tourne à CHAQUE démarrage du conteneur (29 s mesurés).
+    # --no-audit / --no-fund suppriment deux allers-retours réseau dont la sortie
+    # n'était de toute façon que du bruit dans les logs ; --prefer-offline fait
+    # servir le cache plutôt que le registre.
+    # `exec` : vite reçoit SIGTERM au lieu de se faire tuer après 10 s.
+    command: ["sh", "-c", "npm install --prefer-offline --no-audit --no-fund && exec npm run dev -- --host"]
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      # Sans ce volume, le cache npm vit dans la couche inscriptible du conteneur
+      # et meurt à chaque recréation : tout retélécharger depuis le registre.
+      - npm_cache:/root/.npm
     environment:
       VITE_API_URL: http://backend:8000
     ports:
@@ -140,3 +189,5 @@ volumes:
   qdrant_data:
   documents_storage:
   uploads_tmp:
+  npm_cache:
+  beat_schedule:
