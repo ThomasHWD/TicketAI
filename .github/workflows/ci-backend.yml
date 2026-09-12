@@ -5,11 +5,13 @@ on:
     branches: [main, "dev"]
     paths:
       - "backend/**"
+      - "docker-compose.*.yml"
       - ".github/workflows/ci-backend.yml"
   pull_request:
     branches: [main, "dev", "staging"]
     paths:
       - "backend/**"
+      - "docker-compose.*.yml"
       - ".github/workflows/ci-backend.yml"
 
 jobs:
@@ -30,6 +32,148 @@ jobs:
 
       - name: Run Ruff
         run: ruff check .
+
+  # Construit l'image telle qu'elle partira en production, et l'éprouve.
+  #
+  # Jusqu'ici la CI validait le code (ruff, pytest) mais jamais l'artefact qui
+  # tourne réellement : ni le Dockerfile, ni les fichiers Compose n'étaient
+  # touchés. Les trois défauts corrigés le 2026-09-12 sont précisément ceux
+  # qu'un build en CI aurait arrêtés, et qui ont vécu en dev sans rien faire
+  # rougir :
+  #   - `backend/.venv` (6,1 Go) versé dans le contexte faute de .dockerignore,
+  #     plus 4,6 Go de torch/CUDA importés nulle part → image de 19,2 Go ;
+  #   - `docx2txt` absent : tout upload .docx levait ImportError à l'ingestion,
+  #     alors que le format est documenté comme supporté ;
+  #   - `/app/.env` embarqué dans une couche, avec ALBERT_API_KEY dedans.
+  #
+  # D'où les assertions ci-dessous : chacune correspond à une régression déjà
+  # survenue, pas à une précaution abstraite. En ajouter une quand un défaut
+  # d'image passe en production est la bonne réaction.
+  image:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Le Dockerfile utilise `--mount=type=cache`, que seul BuildKit lit. Sans
+      # buildx le build échoue sur le builder legacy — c'est ce qui arrive sur
+      # une machine où le plugin n'est pas installé.
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build de l'image backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          load: true
+          tags: ticketai-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Plafond volontairement large (les couches totalisent ~800 Mo) : il ne sert
+      # pas à traquer les mégaoctets mais à arrêter un retour de torch/CUDA ou
+      # d'un .venv dans le contexte, qui se comptent en gigaoctets.
+      #
+      # La somme des couches de `docker history`, et non `image inspect .Size` :
+      # ce dernier ne veut pas dire la même chose selon le store d'images. Avec le
+      # snapshotter containerd il renvoie la taille COMPRESSÉE (227 Mo pour cette
+      # image), avec le store classique la taille déployée (1,02 Go) — soit un
+      # facteur 4,5 entre deux machines, pour un seuil censé être absolu.
+      - name: Taille de l'image sous le plafond
+        run: |
+          LIMITE_MO=1500
+          TAILLE_MO=$(docker history ticketai-backend:ci --format '{{.Size}}' | python3 -c '
+          import sys
+          FACTEURS = {"B": 1, "kB": 1e3, "MB": 1e6, "GB": 1e9, "TB": 1e12}
+          total = 0
+          for ligne in sys.stdin:
+              ligne = ligne.strip()
+              if not ligne:
+                  continue
+              for suffixe in ("TB", "GB", "MB", "kB", "B"):
+                  if ligne.endswith(suffixe):
+                      total += float(ligne[: -len(suffixe)]) * FACTEURS[suffixe]
+                      break
+          print(int(total / 1e6))
+          ')
+          echo "Somme des couches : ${TAILLE_MO} Mo (plafond ${LIMITE_MO} Mo)"
+          if [ "$TAILLE_MO" -gt "$LIMITE_MO" ]; then
+            echo "::error::L'image dépasse le plafond. Vérifier .dockerignore et requirements.txt."
+            exit 1
+          fi
+
+      - name: Aucun secret embarqué dans l'image
+        run: |
+          if docker run --rm --entrypoint sh ticketai-backend:ci -c '[ -e /app/.env ]'; then
+            echo "::error::/app/.env est présent dans l'image : .dockerignore ne le filtre plus."
+            exit 1
+          fi
+          echo "Pas de /app/.env dans l'image."
+
+      - name: L'image tourne en utilisateur non privilégié
+        run: |
+          UTILISATEUR=$(docker run --rm ticketai-backend:ci id -un)
+          echo "Utilisateur : ${UTILISATEUR}"
+          if [ "$UTILISATEUR" = "root" ]; then
+            echo "::error::L'image tourne en root ; la directive USER a disparu."
+            exit 1
+          fi
+
+      # `--network none` est le cœur du test : il prouve que le tokenizer BGE-M3
+      # est bien dans l'image et non tiré de huggingface.co au premier découpage.
+      # Sans lui, l'ingestion dépend du réseau vers HF et de ses quotas anonymes.
+      - name: Découpage opérationnel sans réseau
+        run: |
+          docker run --rm --network none -e PYTHONPATH=/app ticketai-backend:ci \
+            python -c "
+          from app.services.text_processing import chunk_text
+          chunks = chunk_text(['Le salarié en congé parental conserve ses droits. ' * 50])
+          assert chunks, 'chunk_text n a rien produit'
+          print(f'{len(chunks)} chunk(s) produits hors ligne')
+          "
+
+      # Les loaders de langchain importent leur backend à l'APPEL, pas à
+      # l'import du module : un `import app.main` réussit donc même si docx2txt
+      # manque. Il faut viser les backends eux-mêmes.
+      - name: Backends d'extraction présents
+        run: |
+          docker run --rm --network none ticketai-backend:ci \
+            python -c "import docx2txt, fitz; print('docx2txt et pymupdf présents')"
+
+      - name: L'application démarre
+        run: |
+          docker run --rm --network none -e PYTHONPATH=/app \
+            -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 \
+            -e POSTGRES_DB=ci -e POSTGRES_USER=ci -e POSTGRES_PASSWORD=ci \
+            -e QDRANT_HOST=localhost -e QDRANT_PORT=6333 -e QDRANT_GRPC_PORT=6334 \
+            -e VALKEY_HOST=localhost -e VALKEY_PORT=6379 \
+            -e ALBERT_API_KEY=ci -e ALBERT_LLM_URL=https://localhost/v1 \
+            -e ALBERT_LLM_MODEL_NAME=ci -e ALBERT_EMBEDDINGS_URL=https://localhost/v1 \
+            -e ALBERT_EMBEDDINGS_MODEL_NAME=ci \
+            -e ALBERT_RERANKER_URL=https://localhost/v1/rerank \
+            -e ALBERT_RERANKER_MODEL_NAME=ci \
+            -e SEUIL_CANONIQUE=3 -e SEUIL_COSINUS=0.80 \
+            -e DOCUMENTS_STORAGE_PATH=/app/storage \
+            -e JWT_SECRET_KEY=cle-de-ci-suffisamment-longue-pour-le-validateur \
+            -e JWT_ALGORITHM=HS256 -e ACCESS_TOKEN_EXPIRE_MINUTES=480 \
+            ticketai-backend:ci \
+            python -c "import app.main; print('app.main importé')"
+
+      # Les deux fichiers Compose ne sont vérifiés nulle part ailleurs, alors
+      # qu'ils portent les branchements de production (ports, volumes, healthchecks).
+      # `config -q` ne valide que la syntaxe et la résolution des ancres — c'est peu,
+      # mais c'est plus que rien, et ça coûte deux secondes.
+      - name: Fichiers Compose valides
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        run: |
+          touch backend/.env
+          docker compose -f docker-compose.dev.yml config -q
+          docker compose -f docker-compose.prod.yml config -q
+          echo "docker-compose.dev.yml et docker-compose.prod.yml valides"
 
   # Tests (suite complète : unitaires + intégration)
   # GitHub Actions est l'environnement de référence pour les tests d'intégration :
