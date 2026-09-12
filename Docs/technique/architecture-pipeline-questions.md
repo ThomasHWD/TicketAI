@@ -57,8 +57,21 @@ signal**, et un candidat passe s'il franchit l'un **ou** l'autre. `SEUIL_LEXICAL
 est à recalibrer quand le corpus grossit — l'IDF de Qdrant est en log(N), donc toute
 l'échelle lexicale se déplace. Sa valeur par défaut a été mesurée sur 24 points.
 
-> ⚠️ **Lire le § 14 de [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md)
+**« Par terme » est planché à deux termes.** Le diviseur est le nombre de termes de la
+requête, appariés ou non — l'appariement partiel doit coûter. Mais à un seul terme il vaut 1
+et la normalisation ne fait plus rien : franchir 1,0 ne demande alors qu'un IDF ≥ 0,64,
+c'est-à-dire n'importe quel mot présent dans moins de la moitié du corpus. Toute requête d'un
+mot ouvrait donc la porte lexicale, et chaque ouverture coûte un appel au juge. D'où
+`DIVISEUR_MINIMAL = 2` (`services/search.py`) : un vrai terme rare passe toujours (« RGPD »,
+IDF ≈ 3 → ≈ 2,3), un mot courant ne passe plus (IDF ≈ 0,7 → ≈ 0,53). **Aucun effet au-delà
+d'un terme**, donc aucun effet sur la valeur calibrée du seuil.
+
+> ⚠️ **Lire les § 14 et 15 de [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md)
 > avant de toucher `SEUIL_LEXICAL_PAR_TERME`, la tokenisation ou la condition de rappel.**
+> Le § 15 ajoute une contrainte que le § 14 n'avait pas : `AVG_LEN` et `B` forment une paire
+> calibrée, et les modifier **invalide tout vecteur creux déjà écrit** — la saturation TF est
+> figée à l'écriture, contrairement à l'IDF. Le rattrapage se fait avec
+> `scripts/reencoder_vecteurs_creux.py`, pas avec `reinitialiser_index.py`.
 > Le piège principal y est mesuré : sur le jeu de 48 cas, un balayage désigne très
 > clairement `5,0` — ce qui fermerait la porte sur `article L1222-9`, à 1,038/terme, c'est-à-dire
 > exactement le cas qui la justifie. Le jeu de test ne contient aucun terme hors distribution
