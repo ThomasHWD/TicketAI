@@ -1064,20 +1064,25 @@ Deux conséquences :
 ### 14.11 Autres limites connues
 - La tokenisation perd le suffixe des références : `L3262-1` et `L3262-5` produisent le même
   token `l3262`. Sans effet sur ce corpus, à surveiller sur un corpus juridique.
-- **`AVG_LEN` est une constante unique pour un corpus qui n'en a pas.** BM25 normalise la
-  saturation TF par la longueur moyenne des documents ; un client ne la connaît pas, et
-  l'interroger coûterait un aller-retour par encodage — `fastembed` fait le même choix. Mais
-  notre corpus mélange des questions d'~8 tokens et des chunks de 384 : aucune valeur unique
-  ne convient aux deux. Distorsion mesurée le 11/09/2026 : **×2,59** entre une question de 4
-  tokens et un chunk de 102.
+- **`AVG_LEN` est une constante unique pour un corpus bimodal.** BM25 normalise la saturation
+  TF par la longueur moyenne des documents ; un client ne la connaît pas, et l'interroger
+  coûterait un aller-retour par encodage — `fastembed` fait le même choix. Or notre corpus
+  mêle deux populations séparées d'un facteur 20, et elles partagent une collection, un
+  `avgdl` et un top-k creux.
 
-  **C'est sans conséquence aujourd'hui, mais par câblage et non par conception.** Le seuil
-  lexical ne voit jamais un chunk de document : `question_pipeline.py` et `faq.py` écartent
-  les points sans `reponse_id` **avant** d'appeler `franchit_le_rappel`. La comparaison ne se
-  fait donc qu'entre questions, à échelle homogène. ⚠️ Appliquer `franchit_le_rappel` à des
-  chunks de document — par exemple pour seuiller le rappel RAG — rendrait la distorsion
-  active immédiatement, et il faudrait alors deux `AVG_LEN` distincts. Cette propriété ne se
-  devine pas à la lecture de `bm25.py`.
+  > ⚠️ **Ce constat a été recalibré le 12/09/2026 — voir le § 15.** Les chiffres donnés ici
+  > au 11/09 (« questions d'~8 tokens », « chunks de 384 », distorsion « ×2,59 ») étaient
+  > estimés et non mesurés, et l'un d'eux confondait deux échelles : 384 est la taille de
+  > chunk en tokens **BGE-M3**, pas en tokens **BM25**. La mesure réelle donne 95,6 et 4,4,
+  > pour une distorsion de **2,44×** ramenée à **1,56×** par le recalibrage.
+
+  **La distorsion restait sans conséquence, mais par câblage et non par conception** — et
+  c'est cette partie-là du constat qui tient toujours. Le seuil lexical ne voit jamais un
+  chunk de document : `question_pipeline.py` et `faq.py` écartent les points sans
+  `reponse_id` **avant** d'appeler `franchit_le_rappel`. La comparaison ne se fait donc
+  qu'entre questions, à échelle homogène. ⚠️ Appliquer `franchit_le_rappel` à des chunks de
+  document — par exemple pour seuiller le rappel RAG — rendrait la distorsion résiduelle
+  active immédiatement. Cette propriété ne se devine pas à la lecture de `bm25.py`.
 - `services/reverification_candidates.py` reste **délibérément dense seul** : un rapprochement
   paragraphe↔question est noyé dans le vocabulaire commun au domaine, et l'étage suivant n'a
   pas de juge derrière lui pour rattraper un candidat entré par les seuls mots. L'IDF répond en
@@ -1085,3 +1090,212 @@ Deux conséquences :
 - **La réponse propre à terme reste le reclasseur** : son score est le seul vraiment absolu,
   donc seuillable sans dériver. Il est déjà présent (`services/reranker.py`), mais coûterait
   un appel Albert sur le chemin critique de chaque recherche canonique.
+
+---
+
+## 15. Recalibrage sur le corpus mesuré (12/09/2026)
+
+Le § 14 posait BM25 ; celui-ci le règle sur ce que le corpus **est**, et non sur ce qu'on
+supposait qu'il était. Il corrige au passage un chiffre du § 14.11 qui n'avait jamais été
+mesuré.
+
+### 15.1 Le défaut : `AVG_LEN` n'était pas un avgdl
+
+Mesure du 12/09 sur les 618 points de la collection (`scripts/mesurer_longueurs.py`, lecture
+seule, zéro appel Albert) :
+
+| population | n | moyenne (tokens BM25) | médiane | CV |
+|---|---|---|---|---|
+| chunks de documents | 578 | **95,6** | ~96 | 0,24 |
+| points-réponses (indexés sous une question) | 40 | **4,4** | 4 | 0,71 |
+
+Deux lectures, et la seconde est la moins évidente :
+
+1. `AVG_LEN` valait **40**, soit la moitié de la moyenne réelle des documents. Ce n'était donc
+   pas un `avgdl` — c'était l'ordre de grandeur d'une question, appliqué à tout le corpus.
+2. **Le CV des documents vaut 0,24.** La population est resserrée autour de sa moyenne : la
+   normalisation par la longueur n'y sépare presque rien *à l'intérieur*. Tout son effet se
+   joue **entre** les deux populations, séparées d'un facteur 20. `B` n'est donc pas le
+   réglage « pénalise les documents longs » qu'on croit régler — c'est, ici, le réglage du
+   rapport de force entre questions et chunks.
+
+Conséquence chiffrée : un terme vu une fois pesait **1,558** sur une question contre **0,637**
+sur un chunk de longueur moyenne, soit **2,44×** en faveur des questions — qui évinçaient les
+chunks du top-k creux qu'ils partagent.
+
+### 15.2 La contrainte de recalibrage
+
+`AVG_LEN` et `B` ne sont pas deux boutons indépendants : ils se choisissent **ensemble**, sous
+une contrainte qui vient du reste du système.
+
+> Ramener `AVG_LEN` sur l'avgdl mesuré **sans déplacer l'échelle des questions** — puisque
+> c'est elle, et elle seule, que seuille `SEUIL_LEXICAL_PAR_TERME`, calibré à 1,0 par le
+> balayage du § 14.6.
+
+Résoudre w(5) = 1,558 à `AVG_LEN = 96` donne `B ≈ 0,70`.
+
+| | avant | après |
+|---|---|---|
+| `AVG_LEN` | 40 | **96** |
+| `B` | 0,75 | **0,70** |
+| poids d'un terme sur une question de 5 tokens | 1,558 | 1,567 *(+0,6 %)* |
+| poids d'un terme sur un chunk moyen | 0,637 | **1,000** |
+| écart question / chunk | 2,44× | **1,56×** |
+
+La normalisation devient neutre là où elle doit l'être — un document de longueur moyenne pèse
+1,0, ce qui est la définition même d'`avgdl` — et le seuil calibré n'a pas à bouger. C'est
+cette seconde propriété qui rendait le recalibrage jouable sans racheter une campagne de
+calibration.
+
+### 15.3 Réindexer la moitié creuse, et elle seule
+
+Changer `K1`, `B`, `AVG_LEN` ou la tokenisation **invalide tout vecteur creux déjà écrit** :
+la saturation TF est figée à l'écriture, contrairement à l'IDF que Qdrant recalcule à chaque
+requête. Les points anciens portent donc les poids de l'ancienne formule et deviennent
+incomparables aux nouveaux — sans qu'aucune erreur ne le signale.
+
+`scripts/reencoder_vecteurs_creux.py` fait un `update_vectors` sur la seule branche `sparse` :
+**618 points réencodés, zéro appel Albert**. Rejouer l'ingestion via `reinitialiser_index.py`
+aurait racheté un embedding par chunk — ~50 requêtes sur un quota de 1 000/jour — pour
+réécrire une moitié de vecteur que le client calcule localement et gratuitement.
+
+L'opération est exacte parce que **les deux producteurs conservent le texte encodé verbatim en
+payload** : `contenu` pour les chunks (`workers/ingestion.py`), `question_indexee` pour les
+points-réponses (`workers/feedback.py`). Un point-réponse est indexé sous sa *question* :
+réencoder son `contenu` le rendrait introuvable par la recherche lexicale, silencieusement.
+
+> **Piège rencontré, et qui vaut d'être noté.** Qdrant restitue les indices d'un vecteur creux
+> **triés par ordre croissant**, là où `encoder` les produit dans l'ordre de première
+> apparition dans le texte. Comparer les deux listes telles quelles ne détecte jamais un
+> vecteur déjà à jour : le script rapporte « tout à réécrire » après une écriture réussie. La
+> comparaison doit porter sur des dictionnaires, pas sur des listes.
+
+### 15.4 Trois correctifs indépendants, trouvés au même endroit
+
+**Les élisions étaient retirées par appartenance, pas par position.** Filtrer le jeu de lettres
+`l d j n s t c m` partout supprimait aussi les tokens d'une lettre qui portent du sens —
+« disque **C** », « permis **C** », « vitamine **D** », « langage **C** ». Sur un helpdesk IT
+ce n'est pas un cas d'école. Une élision ne se définit que par sa position **devant son
+apostrophe** ; le retrait se fait donc par expression régulière, avant le découpage en mots
+qui efface justement cette position. Au passage, **U+2019 n'était pas traité du tout** — c'est
+pourtant l'apostrophe que produisent les traitements de texte d'où viennent les documents
+ingérés.
+
+**Le score lexical par terme dégénérait à un seul terme.** Le diviseur vaut le nombre de
+termes de la requête, appariés ou non — c'est voulu, l'appariement partiel doit coûter. Mais
+à un terme le diviseur vaut 1 et la normalisation ne fait plus rien : franchir 1,0 ne demande
+alors qu'un poids TF ≈ 1,56 fois un IDF ≥ 0,64, c'est-à-dire **n'importe quel mot présent dans
+moins de la moitié du corpus**. Toute requête d'un seul mot ouvrait la porte lexicale, et
+chaque ouverture coûte un appel au juge. D'où `DIVISEUR_MINIMAL = 2` (`services/search.py`) :
+une requête d'un mot doit apporter l'équivalent de deux termes de preuve. Un vrai terme rare
+passe toujours (« RGPD », IDF ≈ 3 → ≈ 2,3) ; un mot courant ne passe plus (IDF ≈ 0,7 → ≈ 0,53).
+**Aucun effet au-delà d'un terme, donc aucun effet sur les seuils calibrés du § 14.6.**
+
+**Le filtre de rattrapage était recopié clause par clause.** Un `Filter` Qdrant en a quatre —
+`must`, `must_not`, `should`, `min_should` — et `_completer_scores` n'en reprenait que deux. Un
+`should` se perdait **en silence**, et le rattrapage notait alors des points que la recherche
+principale avait exclus : une fuite de périmètre, pas une approximation. Chaque clause accepte
+en outre une liste *ou* une condition nue, si bien que déplier `filtre.must` levait une
+`ValidationError` pydantic sur la seconde forme. Imbriquer le filtre d'origine
+(`Filter(must=[filtre, HasIdCondition(...)])`) traite les deux d'un coup et reste juste si
+Qdrant ajoute une clause demain. Le test correspondant est paramétré sur les quatre formes et
+vérifie la **propriété** — « le filtre d'origine reste opposable » — plus la structure : une
+assertion sur la forme aurait dû être réécrite à chaque refonte.
+
+### 15.5 Ce qu'on ne peut pas faire : élargir le hachage
+
+`xxh32` **n'est pas un choix réglable.** Les indices d'un vecteur creux Qdrant sont des
+`uint32` au niveau du protocole (`qdrant_client/proto/points.proto:130`,
+`repeated uint32 indices`) : un hachage plus large ne peut tout simplement pas être transmis.
+Les collisions fusionnent des fréquences documentaires et déflatent légèrement l'IDF
+côté serveur ; à cette taille de corpus la probabilité est négligeable.
+
+C'est noté ici parce que « passer en xxh64 pour réduire les collisions » est une proposition
+qui revient naturellement à la lecture de `index_du_token`, et qu'elle est impossible.
+
+### 15.6 Campagne rejouée — 48 cas, même fixture DFE
+
+| | 11/09 (§ 14) | 12/09 (recalibré) |
+|---|---|---|
+| **faux positifs** | **0** | **0** |
+| conformes | 36/48 | 36/48 |
+| CANONIQUE | 19 | **21** |
+| SUGGESTION | 12 | 12 |
+| RAG | 17 | 15 |
+| appels au juge | 22 | **31** |
+
+Brut : `scripts/resultats_passe_a_bm25_recalibre.json` contre `scripts/resultats_passe_a_080.json`.
+
+**Le cas qui justifie l'existence de BM25 est enfin attrapé.** « COMMENT FAIT ON UN SERVICE
+FAIT ??? » sort à un cosinus de **0,6343** : les majuscules et le bruit de ponctuation
+détruisent l'embedding, alors que le recouvrement lexical est *parfait*. Le § 9 le décrivait
+comme « n'est récupérable par aucun seuil raisonnable — il relève d'un correctif de code, pas
+de calibration ». **Cette prédiction s'est vérifiée** : c'est bien un correctif de code qui
+l'a récupéré. Passé par la porte lexicale, jugé OUI, servi CANONIQUE.
+
+Le refus du juge à 0,8841 tient et reste le bon comportement — un refus discutable est la
+bonne issue, et le prompt du juge n'a pas à être assoupli pour le « récupérer ».
+
+**Le rappel élargi coûte des appels au juge, pas de la sûreté** — +9 appels, zéro faux positif
+de plus. C'est exactement ce que `SEUIL_LEXICAL_PAR_TERME` promet : un filtre de rappel, pas
+un filtre de sûreté.
+
+**Contrôle d'intégrité.** 19 cosinus ont changé entre les deux passes, ce qui serait alarmant
+si la tokenisation n'avait pas bougé le classement : 17 correspondent à la sélection d'un
+*autre* point (réordonnancement RRF), 2 sont des `None → valeur`, c'est-à-dire des candidats
+devenus atteignables. Aucune anomalie.
+
+### 15.7 Campagne FAQ — elle n'existait pas
+
+`scripts/diag_faq_seuil.py` est un diagnostic de 5 requêtes sans résultat attendu : il montre,
+il ne juge pas. `scripts/test_faq_campagne.py` mesure la page sous **son** contrat, qui n'est
+pas celui du pipeline — la FAQ *montre* ce qu'un humain a validé, elle ne *sert* rien, et
+surtout **il n'y a pas de juge**.
+
+34 cas repris de la vérité terrain DFE. 34 embeddings Albert, **zéro appel LLM**. Deux passes
+pour un seul embedding par question : l'appel est mis en cache, et la seconde passe rejoue
+tout avec `SEUIL_LEXICAL_PAR_TERME = 0`, c'est-à-dire le comportement d'avant BM25.
+
+**Invariants — 0 violation sur 34 cas, dans les deux passes.** Ils ne viennent pas d'un
+jugement mais de `services/faq.py` :
+
+| | |
+|---|---|
+| I1 aucune réponse non canonique exposée, dans aucun rang | ✅ F4/F9/F11 absentes, y compris sur leurs questions quasi mot pour mot |
+| I2 `incertains` rendu seulement si `resultats` est vide | ✅ |
+| I3 tout `resultats` a un cosinus ≥ `FAQ_SEUIL_PERTINENCE` | ✅ |
+| I4 une question absente du corpus ne produit aucun `resultats` | ✅ |
+
+**Ce que la porte lexicale change dans la FAQ : 3 cas sur 34, tous dans `incertains`.** Jamais
+un `resultats`, dans aucun sens. La règle de `faq.py` — un candidat entré par les seuls mots va
+en piste, jamais en réponse, faute de juge pour confirmer qu'un recouvrement de mots vaut une
+réponse — est donc **vérifiée par la mesure**, et plus seulement par lecture du code.
+
+**Le même point, des deux côtés du système.** « COMMENT FAIT ON UN SERVICE FAIT ??? », cosinus
+0,6343 : dans le pipeline, récupéré par la porte, soumis au juge, approuvé, servi CANONIQUE ;
+dans la FAQ, même point Qdrant, même score, aucun juge → **piste, pas réponse**. Deux contrats,
+deux traitements. C'est l'illustration la plus nette du dessin d'ensemble.
+
+À lire, non bloquant : rappel 15/18 ; une confusion de grappe — « Ma facture est réglée mais le
+montant est faux » remonte F5 (*facture non réglée*) à **0,7788**, soit 0,03 au-dessus du
+seuil. **Ne pas relever `FAQ_SEUIL_PERTINENCE` pour autant** : la bande sous le seuil entrelace
+vrais et faux positifs sans valeur séparatrice (§ 14), et c'est précisément pourquoi il y a
+deux rangs plutôt qu'un seuil déplacé.
+
+Brut : `scripts/resultats_faq_campagne.json`.
+
+> **Un piège de méthode, rencontré et à retenir.** `test_cette_campagne` interroge Qdrant et
+> Postgres à travers `Settings`, or `backend/.env` décrit les ports de **production**
+> (`6333`/`5432`) tandis que la pile de développement écoute sur `6335`/`5433`. Sans
+> `os.environ.setdefault` en tête de script, une campagne interroge une instance vide et rend
+> un résultat parfaitement propre, parfaitement faux. Les trois scripts du § 15 forcent ces
+> valeurs ; `test_cache_semantique.py` ne le fait toujours pas et doit être lancé avec les
+> variables en ligne de commande.
+
+### 15.8 À recalibrer plus tard
+
+`AVG_LEN` est mesuré sur un corpus où les points-réponses pèsent **6 %** (40 sur 618). Quand
+cette part deviendra significative, la moyenne des questions cessera d'être un point fixe
+commode et il faudra relancer `scripts/mesurer_longueurs.py` — en se souvenant que les deux
+constantes vont par paire, et que les modifier impose un passage de
+`reencoder_vecteurs_creux.py`.
