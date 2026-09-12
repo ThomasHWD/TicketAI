@@ -5,6 +5,9 @@ Ce document explique le mécanisme qui décide si une réponse canonique peut ê
 **Fichiers concernés**
 - `backend/app/services/garde_cache.py` — implémentation du garde
 - `backend/app/workers/question.py` — point d'appel dans le pipeline (étape 2)
+- `backend/app/services/question_pipeline.py` — condition d'entrée de la branche CANONIQUE
+- `backend/app/services/search.py` — `franchit_le_rappel`, la disjonction cosinus / lexical
+- `backend/app/models/garde_decision.py` — la table d'audit `garde_decisions`
 - `backend/app/config.py` — `ALBERT_GARDE_MODEL_NAME`
 
 ---
@@ -19,6 +22,13 @@ La recherche hybride dans Qdrant mesure une proximité vectorielle : deux questi
 - Ajout de condition : *"Puis-je poser des congés en décembre ?"* vs *"Puis-je poser des congés en décembre **si j'ai moins d'un an d'ancienneté** ?"*
 
 Un seuil cosinus, aussi élevé soit-il, ne sépare pas ces cas : la distribution des scores pour les paires servables et les paires non-servables se chevauche presque entièrement.
+
+**Le second signal ne change rien à ce constat.** Depuis la recherche lexicale, un candidat
+peut aussi atteindre le garde par son recouvrement de mots (BM25 ramené au terme). Les quatre
+pièges ci-dessus le trompent tout autant : *"J'ai droit à combien de jours de RTT ?"* et
+*"…de congé ?"* partagent tous leurs termes sauf un, et la négation de *"Puis-je **refuser** de
+télétravailler ?"* ajoute un mot au lieu d'en retirer — le recouvrement en sort *renforcé*.
+Élargir le rappel amène donc plus de paires au juge, pas des paires plus faciles.
 
 ---
 
@@ -37,7 +47,8 @@ La réponse attendue est **OUI** ou **NON**. Toute réponse autre que `"OUI"` ex
 ## Flux dans le pipeline
 
 ```
-Candidat canonique trouvé (score ≥ SEUIL_COSINUS)
+Candidat canonique franchissant le rappel
+(cosinus ≥ SEUIL_COSINUS  OU  BM25/terme ≥ SEUIL_LEXICAL_PAR_TERME)
         │
         ▼
 Récupérer la question indexée
@@ -68,6 +79,53 @@ Le refus reste tracé dans `garde_decisions` : la SUGGESTION servie est indiscer
 
 ---
 
+## Par quelle porte le candidat est arrivé
+
+La condition d'entrée n'est plus un seuil mais une **disjonction** (`franchit_le_rappel`,
+`services/search.py`, appelée avec `SEUIL_COSINUS` par `question_pipeline.py`) :
+
+| Porte | Signal | Seuil |
+|---|---|---|
+| Dense | `score_cosinus` — cosinus pur, inchangé depuis avant BM25 | `SEUIL_COSINUS` (0,80) |
+| Lexicale | `score_lexical` — BM25 divisé par le nombre de termes de la requête | `SEUIL_LEXICAL_PAR_TERME` (1,0) |
+
+**On ne seuille pas la fusion, on seuille chaque signal sur son échelle.** Aucun score de
+fusion n'est absolu : le RRF ne dépend que du rang — premier d'un lot inutile vaut premier
+d'un lot parfait — et une fusion par distribution normalise par requête. Le RRF ne sert donc
+qu'à **ordonner**.
+
+Ce que cela change pour le garde : **il voit des paires qu'aucun seuil cosinus n'aurait
+laissées passer.** Cas mesuré le 12/09/2026 — `COMMENT FAIT ON UN SERVICE FAIT ???` obtient un
+cosinus de 0,6343 (les majuscules et le bruit de ponctuation démolissent l'embedding) alors
+que son recouvrement lexical est parfait. Il franchit par la porte lexicale, le juge répond
+OUI, la réponse sort en CANONIQUE. C'est exactement le cas pour lequel BM25 existe, et il
+était hors de portée de *n'importe quel* abaissement de `SEUIL_COSINUS`.
+
+**Cet élargissement coûte des appels au juge, pas de la sûreté.** Sur la campagne de 48 cas
+rejouée le 12/09/2026 : CANONIQUE 19 → 21, appels au juge 22 → 31, et **toujours zéro faux
+positif**. `SEUIL_COSINUS` comme `SEUIL_LEXICAL_PAR_TERME` restent des filtres de coût ; c'est
+le garde seul qui décide de servir sans revue.
+
+**`garde_decisions` porte les deux colonnes** (`score_cosinus` **et** `score_lexical`,
+`models/garde_decision.py`) précisément pour qu'on puisse relire *par quelle porte* un candidat
+est passé. Une seule colonne rendrait l'audit ambigu, et `score_cosinus` a été laissé **pur** —
+jamais mélangé au lexical — pour que les décisions antérieures à BM25 restent comparables aux
+nouvelles. `score_lexical` est nul sur les lignes écrites avant la recherche lexicale.
+
+> ⚠️ `SEUIL_LEXICAL_PAR_TERME` est à recalibrer quand le corpus grossit : l'IDF que Qdrant
+> calcule côté serveur suit `log(N)`, donc toute l'échelle se déplace. Le défaut de 1,0 a été
+> mesuré sur 24 points. Le mettre à `0` referme la porte et restaure exactement le
+> comportement d'avant BM25 — c'est l'échappatoire si une calibration tourne mal. Détail dans
+> [`choix-techniques.md`](choix-techniques.md) et
+> [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md) § 15.
+
+**La FAQ, elle, n'a pas de juge** — et en tire la conséquence inverse : un candidat passé par
+la seule porte lexicale y atterrit dans `incertains`, jamais dans `resultats`. Rien, sur cette
+page, ne peut confirmer qu'un recouvrement de mots vaut une réponse. C'est la même porte, deux
+contrats différents.
+
+---
+
 ## Cas du suivi (fil de conversation)
 
 Quand l'utilisateur envoie une précision dans un fil existant, la question brute est souvent elliptique : *"et pour un apprenti ?"*, *"dans ce cas ?"*. Comparer cette demi-phrase à une question indexée complète produirait un refus systématique.
@@ -92,6 +150,11 @@ Le juge peut alors évaluer l'équivalence dans son contexte réel.
 | Variable `.env` | Défaut | Description |
 |---|---|---|
 | `ALBERT_GARDE_MODEL_NAME` | *(vide)* | Modèle LLM dédié au garde. Si vide, utilise `ALBERT_LLM_MODEL_NAME`. |
+| `SEUIL_COSINUS` | *(obligatoire ; `.env.example` : 0.80)* | Porte dense. Filtre de **coût** : combien de candidats atteignent le juge. |
+| `SEUIL_LEXICAL_PAR_TERME` | `1.0` | Porte lexicale, **en disjonction** de la précédente. `0` la referme. |
+
+Les deux seuils règlent le **débit d'appels au juge**, pas la sûreté. Les desserrer coûte du
+quota Albert ; c'est le verdict qui protège, pas le seuil.
 
 Utiliser un modèle dédié est recommandé : Albert applique ses quotas (jetons et requêtes) par modèle. Partager le modèle de génération laisse les appels de génération épuiser le quota du garde.
 

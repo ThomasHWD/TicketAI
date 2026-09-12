@@ -47,12 +47,13 @@ Cette documentation couvre l'intégralité du produit — le parcours des utilis
 
 | Document | Contenu |
 |---|---|
-| [Choix techniques](technique/choix-techniques.md) | Stack retenue et raisons de chaque choix : FastAPI, Celery, Valkey, PostgreSQL, Qdrant, Albert, React. |
-| [Pipeline de traitement des questions](technique/architecture-pipeline-questions.md) | Embedding, recherche hybride, branches CANONIQUE / SUGGESTION / RAG, mode suivi, boucle de feedback. |
-| [Garde du cache canonique](technique/garde-cache-canonique.md) | Le juge LLM qui décide si une réponse canonique est servie sans revue humaine. |
+| [Choix techniques](technique/choix-techniques.md) | Stack retenue et raisons de chaque choix : FastAPI, Celery, Valkey, PostgreSQL, Qdrant, Albert, React — et le raisonnement derrière la recherche hybride (BM25 côté client, IDF côté Qdrant, RRF pour l'ordre seul). |
+| [Pipeline de traitement des questions](technique/architecture-pipeline-questions.md) | Embedding, recherche hybride dense + BM25, porte de rappel disjonctive, branches CANONIQUE / SUGGESTION / RAG, mode suivi, boucle de feedback. |
+| [Garde du cache canonique](technique/garde-cache-canonique.md) | Le juge LLM qui décide si une réponse canonique est servie sans revue humaine — et par quelle porte, dense ou lexicale, un candidat l'atteint. |
 | [Mettre à jour un document](technique/mise-a-jour-documents.md) | Versionnement, diff, ré-vérification des réponses, obsolescence et file « À relire ». |
 | [Auth & rôles](technique/auth-et-roles.md) | Rôles USER / ADMIN, groupes, domaines, règles d'accès, LDAP et JWT. |
 | [Référence API](technique/reference-api.md) | Tous les endpoints HTTP, leurs paramètres et leurs gardes d'accès. |
+| [Campagnes de mesure du cache sémantique](technique/rapport-test-cache-semantique.md) | Le journal des mesures : calibration de `SEUIL_COSINUS`, recalibrage `AVG_LEN`/`B`, campagnes BM25 et FAQ, chiffres bruts. **À consulter avant de déplacer un seuil.** |
 
 ---
 
@@ -67,8 +68,8 @@ flowchart LR
     end
 
     subgraph Moteur["Moteur de réponse"]
-        D[Recherche hybride<br/>Qdrant]
-        E{Réponse<br/>réutilisable ?}
+        D[Recherche hybride<br/>dense + BM25<br/>Qdrant]
+        E{Réponse<br/>franchissant le rappel ?<br/>cosinus ou lexical}
         F[Garde LLM]
         G[RAG : rerank<br/>+ génération]
     end
@@ -89,7 +90,7 @@ flowchart LR
     A --> D --> E
     E -->|canonique| F
     F -->|approuve| C
-    F -->|refuse| G
+    F -->|refuse| H
     E -->|validée| H
     E -->|rien| G
     G --> H

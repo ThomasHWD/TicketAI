@@ -67,7 +67,9 @@ ci-dessus sont celles de `.env.example`.
 `SEUIL_LEXICAL_PAR_TERME`, lui, a un défaut. C'est la **porte lexicale** du rappel : un
 candidat est examiné si son cosinus franchit le seuil **ou** si son BM25 par terme franchit
 celui-ci. Le mettre à `0` referme la porte et restaure exactement le comportement d'avant
-BM25 — c'est l'échappatoire si une calibration tourne mal.
+BM25 — c'est l'échappatoire si une calibration tourne mal. Le défaut de `1.0` a été mesuré sur
+**24 points** : il est à recalibrer quand le corpus grossit, l'IDF que Qdrant calcule côté
+serveur suivant `log(N)`. Voir [§ 9](#9-la-recherche-est-réellement-hybride--ce-quil-faut-savoir-avant-dy-toucher).
 
 > ⚠️ Toute clé absente de `Settings` (`app/config.py`) est **silencieusement ignorée**
 > (`extra: "ignore"`) : ni erreur, ni log, le défaut du code s'applique. Une faute de frappe
@@ -99,9 +101,9 @@ C'est la seule commande nécessaire. Elle lance en parallèle, avec hot-reload :
 
 | Conteneur | Rôle | Port |
 |---|---|---|
-| `postgres` | Base relationnelle | `:5432` |
-| `qdrant` | Index vectoriel | `:6333` / `:6334` |
-| `valkey` | Broker Celery | `:6379` |
+| `postgres` | Base relationnelle | `:5433` |
+| `qdrant` | Index vectoriel | `:6335` / `:6336` |
+| `valkey` | Broker Celery | `:6380` |
 | `backend` | API FastAPI (`watchmedo` auto-restart) | `:8000` |
 | `worker_ingestion` | Worker Celery — ingestion documents | — |
 | `worker_questions` | Worker Celery — pipeline RAG | — |
@@ -109,6 +111,19 @@ C'est la seule commande nécessaire. Elle lance en parallèle, avec hot-reload :
 | `frontend` | Vite dev server (`npm run dev`) | `:5173` |
 
 Les conteneurs applicatifs (backend, workers, frontend) montent le code source en volume : toute modification de fichier est prise en compte sans reconstruire l'image.
+
+> ⚠️ **Les ports d'infra sont décalés en dev** (`5433`, `6335`, `6380`) alors que
+> `docker-compose.prod.yml` et `backend/.env` parlent des ports standard (`5432`, `6333`,
+> `6379`). Un script lancé depuis la machine hôte avec le `.env` tel quel viserait donc la
+> **prod**. Les scripts de `backend/scripts/` forcent les ports de dev par
+> `os.environ.setdefault` en tête de fichier — reprenez ce préambule dans tout nouveau script :
+>
+> ```python
+> os.environ.setdefault("QDRANT_HOST", "localhost")
+> os.environ.setdefault("QDRANT_PORT", "6335")
+> os.environ.setdefault("POSTGRES_HOST", "localhost")
+> os.environ.setdefault("POSTGRES_PORT", "5433")
+> ```
 
 > **Premier démarrage** : Docker doit builder les images backend. C'est plus long la première fois (~2 min). Les fois suivantes, seuls les layers modifiés sont reconstruits.
 
@@ -214,7 +229,11 @@ TicketAI/
 │   │   ├── database.py      # engine + SessionLocal SQLAlchemy
 │   │   └── main.py          # Entrée FastAPI, routers, CORS
 │   ├── alembic/             # Migrations de schéma
-│   ├── scripts/             # Utilitaires (seed, calibration, backfill)
+│   ├── scripts/             # Utilitaires lancés à la main — aucun n'est dans le CI
+│   │                        #   seed_validators, seed_demo_doc, captures_doc
+│   │                        #   calibrate_threshold, test_cache_semantique, test_faq_campagne
+│   │                        #   mesurer_longueurs, reencoder_vecteurs_creux, reinitialiser_index
+│   │                        #   backfill_documents, run_search, diag_bm25, balayer_seuil_lexical…
 │   ├── tests/               # Suite pytest
 │   └── requirements.txt
 ├── frontend/
@@ -269,8 +288,8 @@ Comprendre ces branches est central pour travailler sur le pipeline :
 
 | Branche | Déclencheur | Validation humaine ? |
 |---|---|---|
-| **CANONIQUE** | Candidat canonique avec `score_cosinus ≥ SEUIL_COSINUS` **et** un juge LLM qui confirme que la question posée est équivalente à la question indexée | Non — réponse directe |
-| **SUGGESTION** | Réponse validée réutilisable, mais pas encore canonique, score sous `SEUIL_COSINUS`, **ou garde ayant refusé** | Oui |
+| **CANONIQUE** | Candidat canonique franchissant le rappel — `score_cosinus ≥ SEUIL_COSINUS` **ou** `score_lexical ≥ SEUIL_LEXICAL_PAR_TERME` — **et** un juge LLM qui confirme que la question posée est équivalente à la question indexée | Non — réponse directe |
+| **SUGGESTION** | Réponse validée réutilisable, mais pas encore canonique, sous le rappel des deux côtés, **ou garde ayant refusé** | Oui |
 | **RAG** | Aucun candidat réutilisable — génération LLM à partir des chunks | Oui |
 
 Deux points que le tableau ne dit pas assez fort :
@@ -292,7 +311,81 @@ avant de toucher aux seuils, au prompt du juge ou à la condition de la branche 
 
 ---
 
-## 9. Workflow de développement
+## 9. La recherche est réellement hybride — ce qu'il faut savoir avant d'y toucher
+
+Qdrant porte **deux vecteurs par point** : un dense de 1024 dimensions produit par Albert, et
+un creux BM25 calculé **localement** (`app/services/bm25.py`). Albert n'expose pas de vecteurs
+creux : le client produit les tokens et la saturation TF, et **c'est Qdrant qui fournit l'IDF**
+(`Modifier.IDF` sur la configuration creuse, posé dans `init_collection`).
+
+Ce partage explique la plupart des pièges ci-dessous — le poids final d'un terme est calculé
+moitié à l'écriture, moitié à la lecture.
+
+| Ce qui est figé à l'écriture | Ce qui est recalculé à chaque requête |
+|---|---|
+| tokenisation, saturation TF (`K1`, `B`, `AVG_LEN`) | IDF (dépend du corpus entier) |
+
+### Les pièges, par ordre de méchanceté
+
+**1. `Modifier.IDF` se pose à la création de la collection.** L'ajouter à une collection
+existante impose de la recréer et de tout réindexer (`scripts/reinitialiser_index.py`).
+
+**2. Changer `K1`, `B`, `AVG_LEN` ou la tokenisation invalide tous les vecteurs creux déjà
+écrits.** Le rattrapage se fait avec `scripts/reencoder_vecteurs_creux.py --appliquer`, **pas**
+avec `reinitialiser_index.py` : seule la moitié creuse change, rejouer l'ingestion rachèterait
+un embedding Albert par chunk pour rien. Le ré-encodage est exact parce que les deux
+producteurs stockent le texte encodé tel quel dans le payload (`contenu` pour les chunks,
+`question_indexee` pour les points de réponse).
+
+**3. `AVG_LEN` et `B` forment une paire calibrée, pas deux boutons indépendants.** Le corpus est
+**bimodal** — des chunks de document (mesuré le 12/09/2026 : n=578, moyenne 95,6 tokens BM25) et
+des points de réponse indexés sous une *question* (n=40, moyenne 4,4). La normalisation par
+longueur ne joue donc presque rien *à l'intérieur* de chaque population et tout *entre* elles.
+Valeurs actuelles : `AVG_LEN = 96` (la moyenne documentaire mesurée, ce que BM25 appelle
+`avgdl`), `B = 0.70`. À re-mesurer avec `scripts/mesurer_longueurs.py` dès que les points de
+réponse pèseront une part significative du corpus.
+
+**4. Les indices de tokens viennent de `xxhash`, surtout pas du `hash()` de Python** — celui-ci
+est randomisé par processus via `PYTHONHASHSEED`. Un indice écrit par le worker d'ingestion
+serait introuvable depuis l'API, **silencieusement**.
+
+**5. Les indices creux sont des `uint32`, limite dure du protocole Qdrant**
+(`points.proto:130`, `repeated uint32 indices`). `xxh32` n'est donc pas un réglage : un hash
+plus large ne peut pas être envoyé.
+
+**6. `snowballstemmer` manquant met la stack à terre, il ne la dégrade pas.** `embed_texts`
+calcule le vecteur creux **avant** l'appel Albert : sans le stemmer, *tout* embedding lève.
+Un `pip install` fait à l'intérieur d'un conteneur survit à un `restart` mais meurt à la
+recréation suivante, et `docker compose ps` continue d'afficher *running*. Après avoir touché
+`requirements.txt` : `make dev-build && make dev`, puis vérifier l'import depuis chacun des
+quatre conteneurs Python.
+
+**7. La tokenisation est spécifique au français** — élision (`l'abonnement` → `abon`, et non
+`l` + `abon`), pliage des diacritiques, mots vides, racinisation Snowball. Les élisions sont
+retirées **par position, via une regex**, et non par appartenance à un ensemble de lettres :
+filtrer `l d j n s t c m` partout supprimait aussi des tokens porteurs de sens — « disque **C** »,
+« vitamine **D** ». Couvert par `tests/test_bm25.py`.
+
+**8. Le score lexical est ramené au terme, avec un plancher à 2.** Un score BM25 est une somme
+sur les termes de la requête : brut, il favorise mécaniquement les questions longues. Sans le
+`DIVISEUR_MINIMAL = 2` de `search.py`, une requête d'un seul mot aurait un diviseur de 1 — et
+n'importe quel mot plus rare que la moitié du corpus ouvrait la porte lexicale. Chaque
+ouverture coûte un appel au juge.
+
+**9. Le rattrapage croisé porte la fusion** (`_completer_scores` dans `search.py`). Un point
+hors du top-k d'une branche hériterait sinon d'un `0.0` sur celle-ci. Manquer le sens dense
+rend BM25 inutile (trouvé, puis écarté par le seuil) ; manquer le sens lexical a été mesuré
+comme inversant le classement. Coût : deux requêtes Qdrant, zéro appel Albert.
+
+⚠️ **Le RRF ne sert qu'à ordonner.** Les seuils portent sur **chaque signal brut, sur sa propre
+échelle** — aucun score de fusion n'est absolu.
+
+Le raisonnement complet est dans [`technique/choix-techniques.md`](technique/choix-techniques.md)
+et les mesures dans [`technique/rapport-test-cache-semantique.md`](technique/rapport-test-cache-semantique.md) § 15.
+
+---
+
+## 10. Workflow de développement
 
 ```
 feature/ma-feature
@@ -312,13 +405,14 @@ Le CI tourne la suite complète (unitaires + intégration) avec Postgres, Valkey
 
 ---
 
-## 10. Documentation à lire ensuite
+## 11. Documentation à lire ensuite
 
 ### Pour comprendre le moteur
 
 | Document | Sujet |
 |---|---|
 | [`technique/architecture-pipeline-questions.md`](technique/architecture-pipeline-questions.md) | Détail du pipeline question → réponse |
+| [`technique/choix-techniques.md`](technique/choix-techniques.md) | Pourquoi cette stack — et le raisonnement derrière la recherche hybride (BM25, porte lexicale, RRF pour l'ordre seul) |
 | [`technique/garde-cache-canonique.md`](technique/garde-cache-canonique.md) | Le juge LLM de la branche CANONIQUE — **à lire avant de toucher aux seuils** |
 | [`technique/mise-a-jour-documents.md`](technique/mise-a-jour-documents.md) | Mise à jour documentaire et ré-vérification des réponses |
 | [`technique/auth-et-roles.md`](technique/auth-et-roles.md) | Rôles, groupes, domaines, LDAP, JWT |
