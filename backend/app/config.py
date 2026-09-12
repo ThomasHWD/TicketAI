@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     qdrant_host: str
     qdrant_port: int
     qdrant_grpc_port: int
+    # Réglable pour une seule raison : permettre aux tests d'isoler leur propre
+    # collection, exactement comme `POSTGRES_DB` est forcé en `<base>_test`
+    # (cf. `_force_test_collection` dans tests/conftest.py). Ce n'est pas un
+    # paramètre d'exploitation — le changer en production rend invisible tout ce
+    # qui y est déjà indexé, sans rien signaler.
+    qdrant_collection: str = "ticketai"
 
     # Valkey
     valkey_host: str
