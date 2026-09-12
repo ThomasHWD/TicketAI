@@ -33,6 +33,38 @@ def test_tokenisation(texte, attendu):
     assert tokeniser(texte) == attendu
 
 
+@pytest.mark.parametrize(
+    ("texte", "attendu_present"),
+    [
+        ("disque C", "c"),
+        ("permis C", "c"),
+        ("vitamine D", "d"),
+        ("langage C", "c"),
+    ],
+)
+def test_une_lettre_isolee_survit_hors_elision(texte, attendu_present):
+    """L'élision se définit par sa position, pas par la lettre.
+
+    Écarter le jeu `l d j n s t c m` partout supprimait « disque **C** » — un cas
+    banal sur un helpdesk IT. Ce test rougit si le filtre redevient un test
+    d'appartenance.
+    """
+    assert attendu_present in tokeniser(texte)
+
+
+@pytest.mark.parametrize(
+    ("texte", "attendu"),
+    [
+        ("l'abonnement", ["abon"]),  # apostrophe droite U+0027
+        ("l’abonnement", ["abon"]),  # apostrophe typographique U+2019
+    ],
+    ids=["U+0027", "U+2019"],
+)
+def test_les_deux_apostrophes_sont_couvertes(texte, attendu):
+    """Les documents ingérés viennent de traitements de texte : U+2019 y domine."""
+    assert tokeniser(texte) == attendu
+
+
 def test_meme_radical_pour_singulier_et_pluriel():
     """La radicalisation est ce qui fait qu'« abonnements » retrouve « abonnement »."""
     assert tokeniser("abonnement") == tokeniser("abonnements")
@@ -77,6 +109,30 @@ def test_document_sature_la_frequence():
     dix_fois = encoder(" ".join(["congés"] * 10))["values"][0]
     assert dix_fois > une_fois
     assert dix_fois < 10 * une_fois
+
+
+def test_le_chunk_de_longueur_moyenne_pese_un():
+    """`B` et `AVG_LEN` sont accordés pour que la normalisation soit neutre à avgdl.
+
+    C'est la contrainte qui a fixé les deux valeurs ensemble : un chunk de
+    longueur moyenne ne doit être ni pénalisé ni favorisé. Ce test rougit si
+    l'une des deux constantes bouge sans l'autre.
+    """
+    from app.services.bm25 import AVG_LEN
+
+    chunk_moyen = " ".join(f"terme{i}" for i in range(AVG_LEN))
+    assert encoder(chunk_moyen)["values"][0] == pytest.approx(1.0, abs=0.01)
+
+
+def test_l_echelle_des_questions_ne_bouge_pas():
+    """`SEUIL_LEXICAL_PAR_TERME` est calibré sur cette échelle-là.
+
+    Le recalibrage de `B`/`AVG_LEN` visait l'écart entre documents et questions
+    **sans** déplacer le poids d'une question courte : sinon le seuil de 1,0,
+    mesuré, serait devenu muet. Valeur de référence : 1,558 avant le changement.
+    """
+    question_5_tokens = "combien mesure pomme hauteur poire"
+    assert encoder(question_5_tokens)["values"][0] == pytest.approx(1.558, abs=0.02)
 
 
 def test_texte_sans_token_signifiant():

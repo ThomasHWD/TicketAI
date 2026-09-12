@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 from app.services.search import _rechercher, franchit_le_rappel
-from qdrant_client.models import Filter
+from qdrant_client.models import FieldCondition, Filter, HasIdCondition, MatchValue
 
 
 def point(pid: str, score: float, **payload) -> SimpleNamespace:
@@ -181,17 +181,9 @@ def test_une_requete_sans_aucun_terme_ne_divise_pas_par_zero():
     assert sortie[0]["score_cosinus"] == pytest.approx(0.42)
 
 
-def test_le_filtre_de_rattrapage_conserve_les_contraintes_de_la_recherche():
-    """Sans quoi le rattrapage pourrait scorer un point d'un autre domaine.
-
-    Le filtre d'origine (domaine, points de réponse…) doit être conservé et
-    seulement restreint aux identifiants à re-scorer.
-    """
-    from qdrant_client.models import FieldCondition, MatchValue
-
-    filtre = Filter(must=[FieldCondition(key="domaine", match=MatchValue(value="RH"))])
+def _filtre_de_rattrapage(filtre: Filter) -> Filter:
+    """Le filtre que `_rechercher` construit pour la 3ᵉ requête (rattrapage)."""
     embedding = {"dense": [0.0] * 1024, "sparse": {"indices": [7], "values": [1.0]}}
-
     with (
         patch("app.services.search.embed_texts", return_value=[embedding]),
         patch("app.services.search.client") as qdrant,
@@ -203,7 +195,33 @@ def test_le_filtre_de_rattrapage_conserve_les_contraintes_de_la_recherche():
             resultats(point("dense-1", 1.0)),
         ]
         _rechercher("peu importe", filtre, top_k=10)
+    return qdrant.query_points.call_args_list[2].kwargs["query_filter"]
 
-    filtre_rattrapage = qdrant.query_points.call_args_list[2].kwargs["query_filter"]
-    cles = {c.key for c in filtre_rattrapage.must if isinstance(c, FieldCondition)}
-    assert "domaine" in cles, "le filtre d'origine a été perdu"
+
+@pytest.mark.parametrize(
+    "filtre",
+    [
+        Filter(must=[FieldCondition(key="domaine", match=MatchValue(value="RH"))]),
+        # `should` et `min_should` existent aussi, et l'ancienne construction —
+        # qui recopiait `must` et `must_not` seulement — les perdait en silence.
+        # Un rattrapage plus large que la recherche noterait alors des points
+        # que celle-ci avait exclus.
+        Filter(should=[FieldCondition(key="domaine", match=MatchValue(value="RH"))]),
+        Filter(must_not=[FieldCondition(key="domaine", match=MatchValue(value="RH"))]),
+        # Chaque clause accepte une condition **nue** autant qu'une liste. Déplier
+        # `filtre.must` levait une ValidationError sur cette forme.
+        Filter(must=FieldCondition(key="domaine", match=MatchValue(value="RH"))),
+    ],
+    ids=["must", "should", "must_not", "condition nue"],
+)
+def test_le_filtre_de_rattrapage_conserve_les_contraintes_de_la_recherche(filtre):
+    """Sans quoi le rattrapage pourrait scorer un point que la recherche excluait.
+
+    On vérifie la **propriété**, pas la forme : le filtre d'origine doit rester
+    opposable, quelle que soit la clause utilisée pour l'exprimer. C'est ce qui
+    permet de l'imbriquer plutôt que de recopier ses clauses une à une — une
+    recopie retombe à chaque fois dans l'oubli d'une clause.
+    """
+    rattrapage = _filtre_de_rattrapage(filtre)
+    assert filtre in (rattrapage.must or []), "le filtre d'origine a été perdu"
+    assert any(isinstance(c, HasIdCondition) for c in rattrapage.must), "restriction aux ids manquants perdue"

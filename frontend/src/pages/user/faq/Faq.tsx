@@ -1,4 +1,4 @@
-import { useFaq } from "../../hooks/useFaq";
+import { useFaq } from "../../../hooks/useFaq";
 import FaqComposeur from "./FaqComposeur";
 import FaqReponse from "./FaqReponse";
 

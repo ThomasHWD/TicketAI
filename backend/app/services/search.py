@@ -16,6 +16,22 @@ from qdrant_client.models import (
 # suffit à ne garder que les réponses indexées.
 FILTRE_POINTS_REPONSE = Filter(must_not=[IsEmptyCondition(is_empty=PayloadField(key="reponse_id"))])
 
+# Plancher du diviseur du score lexical par terme.
+#
+# Le score BM25 par terme divise la somme par **tous** les termes de la requête,
+# appariés ou non — c'est voulu, l'appariement partiel doit coûter. Mais à un
+# seul terme le diviseur vaut 1 et la normalisation ne fait plus rien : franchir
+# `SEUIL_LEXICAL_PAR_TERME` (1,0) ne demande alors qu'un poids TF ≈ 1,56 fois un
+# IDF ≥ 0,64, c'est-à-dire n'importe quel mot présent dans moins de la moitié du
+# corpus. Toute requête d'un mot ouvrait donc la porte lexicale, et chaque
+# ouverture coûte un appel au juge sur un quota Albert de 1 000 requêtes/jour.
+#
+# Plancher à 2 : une requête d'un seul mot doit apporter l'équivalent de deux
+# termes de preuve. Un vrai terme rare passe toujours (« RGPD », IDF ≈ 3, donne
+# ≈ 2,3 après division) ; un mot courant ne passe plus (IDF ≈ 0,7 donne ≈ 0,53).
+# Aucun effet au-delà d'un terme, donc aucun effet sur les seuils calibrés.
+DIVISEUR_MINIMAL = 2
+
 
 def franchit_le_rappel(chunk: dict, seuil_cosinus: float) -> bool:
     """Le candidat mérite-t-il d'être examiné ? **Disjonction, pas mélange.**
@@ -58,11 +74,20 @@ def _completer_scores(vecteur, using: str, filtre: Filter, ids_manquants: list) 
     ayant pourtant les deux mots en commun.
 
     Une requête Qdrant par sens, aucun appel Albert.
+
+    **Le filtre d'origine est imbriqué, pas recopié clause par clause.** Un
+    `Filter` Qdrant a quatre clauses — `must`, `must_not`, `should`, `min_should`
+    — et la version précédente n'en reprenait que deux : un `should` se serait
+    perdu en silence, et le rattrapage aurait alors noté des points que la
+    recherche principale avait exclus. Chaque clause accepte en outre *soit* une
+    liste *soit* une condition seule, si bien que déplier `filtre.must` lève une
+    `ValidationError` pydantic sur la seconde forme. L'imbrication traite les
+    deux problèmes d'un coup, et reste juste si Qdrant ajoute une clause demain.
     """
     if not ids_manquants:
         return {}
 
-    cible = Filter(must=[*(filtre.must or []), HasIdCondition(has_id=ids_manquants)], must_not=filtre.must_not)
+    cible = Filter(must=[filtre, HasIdCondition(has_id=ids_manquants)])
     res = client.query_points(
         collection_name=COLLECTION_NAME,
         query=vecteur,
@@ -93,6 +118,8 @@ def reciprocal_rank_fusion(
     une somme sur les termes de la requête, donc incomparable d'une question à
     l'autre. C'est cette valeur normalisée que la porte lexicale seuille.
     """
+    # Le diviseur est planché à `DIVISEUR_MINIMAL` : voir la constante.
+    diviseur = max(nb_termes_requete, DIVISEUR_MINIMAL)
     scores = {}
     for rank, point in enumerate(dense_results.points):
         pid = point.id
@@ -126,7 +153,7 @@ def reciprocal_rank_fusion(
             "score_rrf": scores[pid],
             "score_cosinus": dense_scores.get(pid, 0.0),
             "score_sparse": sparse_scores.get(pid, 0.0),
-            "score_lexical": sparse_scores.get(pid, 0.0) / max(nb_termes_requete, 1),
+            "score_lexical": sparse_scores.get(pid, 0.0) / diviseur,
             "contenu": payloads[pid].get("contenu"),
             "source": payloads[pid].get("source"),
             "domaine": payloads[pid].get("domaine"),

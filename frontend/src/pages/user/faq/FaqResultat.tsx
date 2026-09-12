@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { renderMarkdown } from "../../components/ticket/utils";
-import { DomaineBadge } from "../../components/tickets/StatusBadge";
-import type { FaqResultat as Resultat } from "../../lib/api";
+import { renderMarkdown } from "../../../components/ticket/utils";
+import { DomaineBadge } from "../../../components/tickets/StatusBadge";
+import type { FaqResultat as Resultat } from "../../../lib/api";
 
 /**
  * Une correspondance secondaire, repliée.
