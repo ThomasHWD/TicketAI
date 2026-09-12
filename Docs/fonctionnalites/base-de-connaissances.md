@@ -83,7 +83,7 @@ flowchart LR
     B --> C[Extraction du texte<br/>PDF / DOCX / TXT / MD]
     C --> D[Nettoyage<br/>clean_text]
     D --> E[Découpage<br/>384 tokens, 128 de recouvrement]
-    E --> F[Embedding<br/>Albert BGE-M3]
+    E --> F[Deux vecteurs par chunk :<br/>dense Albert BGE-M3<br/>+ creux BM25 calculé localement]
     F --> G[Upsert Qdrant]
     G --> H[Stockage permanent<br/>du fichier d'origine]
 ```
@@ -101,6 +101,13 @@ part sur la file `queue_ingestion`. L'interface suit l'avancement via
 > jour documentaire compare les versions paragraphe par paragraphe : changer l'extraction
 > ferait apparaître des différences fantômes sur *tous* les documents existants. Voir
 > [Mettre à jour un document](../technique/mise-a-jour-documents.md).
+
+**Chaque chunk reçoit deux vecteurs, pas un.** Le dense vient d'Albert ; le creux (BM25) est
+calculé sur la machine, Albert n'en expose pas. Conséquence pour l'exploitation : changer les
+paramètres BM25 ou la tokenisation invalide les vecteurs creux déjà écrits, et se répare avec
+`scripts/reencoder_vecteurs_creux.py` — **sans** réingérer, donc sans racheter un embedding
+Albert par chunk. Détail dans
+[Onboarding développeur § 9](../onboarding-dev.md#9-la-recherche-est-réellement-hybride--ce-quil-faut-savoir-avant-dy-toucher).
 
 Le champ **description** est facultatif et purement documentaire : il aide les validateurs
 à s'y retrouver, il n'entre pas dans l'index.

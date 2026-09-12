@@ -26,15 +26,15 @@ Chaque validation renforce la base : au bout de trois validations, une réponse 
 
 ```mermaid
 flowchart TD
-    A[Question de l'employé] --> B[Recherche hybride Qdrant<br/>filtrée par domaine]
+    A[Question de l'employé] --> B[Recherche hybride Qdrant<br/>dense + BM25<br/>filtrée par domaine]
     B --> C{Une réponse validée<br/>est-elle réutilisable ?}
 
-    C -->|Canonique<br/>et score ≥ SEUIL_COSINUS| D{Garde LLM :<br/>les deux questions<br/>demandent-elles<br/>la même chose ?}
-    C -->|Validée mais pas canonique,<br/>ou score plus bas| F[SUGGESTION]
+    C -->|Canonique et franchissant le rappel<br/>cosinus ≥ SEUIL_COSINUS OU<br/>BM25/terme ≥ SEUIL_LEXICAL_PAR_TERME| D{Garde LLM :<br/>les deux questions<br/>demandent-elles<br/>la même chose ?}
+    C -->|Validée mais pas canonique,<br/>ou sous le rappel des deux côtés| F[SUGGESTION]
     C -->|Aucune| G[RAG]
 
     D -->|OUI| E[CANONIQUE]
-    D -->|NON| G
+    D -->|NON| F
 
     E --> H[Servie immédiatement<br/>sans revue humaine]
     F --> I[Revue humaine requise]
@@ -62,6 +62,12 @@ toujours soumise à validation avant d'être publiée.
 > télétravailler ? » vs « puis-je *refuser* de télétravailler ? »). Le seuil ne fait que
 > limiter le nombre de candidats soumis au juge ; **c'est le garde qui tranche**. Voir
 > [Garde du cache canonique](technique/garde-cache-canonique.md).
+
+> **Deux signaux, deux portes.** Un candidat atteint le juge par sa proximité vectorielle
+> **ou** par son recouvrement de mots (BM25). La seconde porte existe pour ce que la première
+> ne voit pas : un sigle, une référence d'article, un nom propre inconnu du modèle
+> d'embedding — cosinus médiocre, recouvrement parfait. Élargir le rappel coûte des appels au
+> juge, pas de la sûreté.
 
 ---
 
