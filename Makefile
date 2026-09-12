@@ -1,7 +1,9 @@
 DOCKER_COMPOSE = docker compose
-BACKEND = cd backend && source .venv/bin/activate &&
 DC_DEV  = $(DOCKER_COMPOSE) -f docker-compose.dev.yml
 DC_PROD = $(DOCKER_COMPOSE) -f docker-compose.prod.yml
+# Exécute une commande DANS le conteneur backend de dev. Lancée depuis l'hôte,
+# elle lirait backend/.env — qui pointe vers 5432/6333, c'est-à-dire la PROD.
+DEV_EXEC = $(DC_DEV) exec -T backend
 
 # Dev : infra (ports décalés) + backend + workers + frontend (hot-reload)
 dev:
@@ -32,9 +34,12 @@ logs-prod:
 clean:
 	$(DC_PROD) down --rmi all --volumes --remove-orphans
 
-# Recrée le schéma Postgres et insère les utilisateurs de dev.
-# À relancer après chaque `make dev-down --volumes` + `make dev`.
+# Recrée le schéma Postgres de DEV et insère les utilisateurs de dev.
+# À relancer après `docker compose -f docker-compose.dev.yml down --volumes` + `make dev`.
+# Prérequis : la stack de dev tourne (`make dev`). Voir Docs/onboarding-dev.md § 10.
 reset-db:
-	$(BACKEND) alembic stamp base
-	$(BACKEND) alembic upgrade head
-	$(BACKEND) python -m scripts.seed_validators
+	@$(DC_DEV) ps --status running --services | grep -qx backend \
+		|| { echo "reset-db : le conteneur backend de dev ne tourne pas — lancez 'make dev'."; exit 1; }
+	$(DEV_EXEC) alembic stamp base
+	$(DEV_EXEC) alembic upgrade head
+	$(DEV_EXEC) python -m scripts.seed_validators

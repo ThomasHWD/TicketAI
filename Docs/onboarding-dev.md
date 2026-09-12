@@ -139,10 +139,9 @@ Cette commande enchaîne `alembic stamp base`, `alembic upgrade head`, et l'inse
 validateurs fictifs (`validateur.a@entreprise.fr`, `validateur.b@entreprise.fr`). À relancer
 chaque fois que vous avez détruit les volumes de dev (voir ci-dessous).
 
-> ⚠️ **`make reset-db` s'exécute depuis le venv local, pas dans un conteneur** : elle lit
-> `backend/.env`, qui pointe vers le port `5432`. Si une stack de prod tourne sur la même
-> machine, **c'est elle que la commande initialise**. Voir
-> [§ 10](#10-scripts-utilitaires-et-pièges-dexploitation).
+Elle s'exécute **dans le conteneur `backend` de dev**, et non depuis le venv local : lancée
+depuis l'hôte, elle lirait `backend/.env` et viserait le port `5432`, donc la base de prod.
+Elle refuse donc de démarrer si la stack de dev ne tourne pas — lancez `make dev` d'abord.
 
 ### Swagger / Docs API
 
@@ -461,14 +460,11 @@ les variables sur la ligne de commande :
 QDRANT_PORT=6335 POSTGRES_PORT=5433 PYTHONPATH=. python scripts/<script>.py
 ```
 
-> ⚠️ **`make reset-db` est dans ce cas, et c'est le plus grave.** La cible s'exécute depuis le
-> venv local (`cd backend && source .venv/bin/activate && alembic …`), lit donc `backend/.env`
-> et vise le port `5432` — la base de **prod**. Elle y fait `alembic stamp base`,
-> `upgrade head`, puis insère les fixtures. Pour initialiser la base de dev :
->
-> ```bash
-> cd backend && POSTGRES_PORT=5433 .venv/bin/alembic upgrade head
-> ```
+`make reset-db` **était** dans ce cas — elle tournait depuis le venv local et initialisait donc
+la base de prod. Elle passe maintenant par `docker compose exec backend`, où `POSTGRES_HOST` et
+`QDRANT_HOST` sont fournis par le `environment:` du service et les ports internes sont les bons.
+C'est la parade générale : **exécuter dans le conteneur plutôt que régler des variables sur
+l'hôte** — le conteneur porte déjà la bonne configuration, l'hôte porte celle de la prod.
 
 ### Les quotas Albert sont attachés au **modèle**
 
