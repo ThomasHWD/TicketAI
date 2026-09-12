@@ -28,7 +28,7 @@ Cette documentation couvre l'intégralité du produit — le parcours des utilis
 | Document | Contenu |
 |---|---|
 | [Présentation du projet](presentation.md) | Objectif, utilisateurs, les trois branches de réponse, stack technique, principes de conception. |
-| [Onboarding développeur](onboarding-dev.md) | Prérequis, variables d'environnement, démarrage de la stack, tests, structure du code. |
+| [Onboarding développeur](onboarding-dev.md) | Prérequis, variables d'environnement, démarrage de la stack, tests, structure du code, recherche hybride, scripts utilitaires et pièges d'exploitation (quotas Albert, Docker, `make clean`). |
 
 ### Fonctionnalités
 

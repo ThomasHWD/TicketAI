@@ -1,9 +1,11 @@
-"""Décompose le score hybride : cosinus, BM25 brut, saturation, bonus effectif.
+"""Décompose la recherche hybride : cosinus, BM25 brut, BM25 par terme, porte franchie.
 
 Usage : PYTHONPATH=. python scripts/diag_bm25.py
 
-Un appel d'embedding Albert par requête. Sert à calibrer `bonus_lexical` et
-`k_saturation_bm25` : sans cette décomposition, on règle à l'aveugle.
+Un appel d'embedding Albert par requête. Sert à calibrer `SEUIL_LEXICAL_PAR_TERME` :
+on ne seuille pas la fusion mais **chaque signal sur son échelle**, et sans cette
+décomposition on règle à l'aveugle. La colonne « porte » dit lequel des deux signaux
+a retenu le candidat — le RRF, lui, ne sert qu'à ordonner.
 """
 
 import os
