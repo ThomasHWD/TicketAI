@@ -135,7 +135,9 @@ Une fois la stack `healthy`, initialiser le schéma et les utilisateurs de dev :
 make reset-db
 ```
 
-Cette commande enchaîne `alembic stamp base`, `alembic upgrade head`, et l'insertion de deux validateurs fictifs (`validateur.a@entreprise.fr`, `validateur.b@entreprise.fr`). À relancer après chaque `make clean`.
+Cette commande enchaîne `alembic stamp base`, `alembic upgrade head`, et l'insertion de deux
+validateurs fictifs (`validateur.a@entreprise.fr`, `validateur.b@entreprise.fr`). À relancer
+chaque fois que vous avez détruit les volumes de dev (voir ci-dessous).
 
 ### Swagger / Docs API
 
@@ -144,8 +146,37 @@ Cette commande enchaîne `alembic stamp base`, `alembic upgrade head`, et l'inse
 ### Arrêter
 
 ```bash
-make dev-down
+make dev-down     # arrête les conteneurs, garde les données
 ```
+
+### Repartir de zéro — et le piège de `make clean`
+
+⚠️ **`make clean` ne nettoie pas la stack de dev.** Elle vaut
+`docker compose -f docker-compose.prod.yml down --rmi all --volumes --remove-orphans`, et les
+deux fichiers Compose déclarent des **projets distincts** (`name: ticketai-dev` contre
+`name: ticketai`). Les volumes sont donc séparés :
+
+| Stack | Projet Compose | Volumes |
+|---|---|---|
+| `make dev` | `ticketai-dev` | `ticketai-dev_postgres_data`, `ticketai-dev_qdrant_data`… |
+| `make prod` | `ticketai` | `ticketai_postgres_data`, `ticketai_qdrant_data`… |
+
+Deux conséquences, symétriques et toutes deux désagréables :
+
+- lancée en croyant réinitialiser son environnement de dev, `make clean` **ne le touche pas**
+  — et **détruit les données de prod** si elles vivent sur la même machine ;
+- elle supprime en plus **toutes les images** (`--rmi all`), donc le prochain démarrage
+  rebuilde tout.
+
+Pour réellement repartir de zéro **en dev** :
+
+```bash
+docker compose -f docker-compose.dev.yml down --volumes
+make dev
+make reset-db
+```
+
+`make dev-down` seul conserve les données : c'est ce que vous voulez la plupart du temps.
 
 ### Venv local (pour les tests et le linting uniquement)
 
@@ -385,7 +416,79 @@ et les mesures dans [`technique/rapport-test-cache-semantique.md`](technique/rap
 
 ---
 
-## 10. Workflow de développement
+## 10. Scripts utilitaires et pièges d'exploitation
+
+Aucun script de `backend/scripts/` n'est dans le CI : ils se lancent à la main, depuis le venv
+local, `PYTHONPATH=.` et `cd backend`. Les plus utiles :
+
+| Script | Ce qu'il fait | Coût Albert |
+|---|---|---|
+| `seed_validators.py` | Deux validateurs de dev (appelé par `make reset-db`) | — |
+| `seed_demo_doc.py` | Jeu de démonstration idempotent, `--purger` pour retirer | — |
+| `mesurer_longueurs.py` | Re-mesure le corpus, résout `B` pour un `AVG_LEN` donné (lecture seule) | **zéro** |
+| `reencoder_vecteurs_creux.py --appliquer` | Réécrit les vecteurs **creux** uniquement | **zéro** |
+| `reinitialiser_index.py` | Recrée la collection Qdrant — **réingestion complète ensuite** | élevé |
+| `run_search.py`, `diag_bm25.py` | Sondes ponctuelles sur la recherche hybride | 1 embedding |
+| `balayer_seuil_lexical.py` | Rejoue une campagne déjà mesurée à d'autres `SEUIL_LEXICAL_PAR_TERME` — **vers le haut uniquement** | **zéro** |
+| `calibrate_threshold.py` | Balayage de seuil sur `dataset_calibration.json` | embeddings |
+| `test_faq_campagne.py` | Campagne FAQ : 34 cas, embeddings mis en cache | 34 embeddings, **zéro LLM** |
+| `test_cache_semantique.py` | Campagne du cache canonique | embeddings **+ appels au juge** |
+| `test_garde_reel.py` | Exerce le garde contre le vrai Albert | appels LLM |
+| `backfill_documents.py` | Reconstruit les lignes `documents` depuis Qdrant | — |
+
+> ⚠️ **Les scripts lisent Qdrant et Postgres via `Settings`, donc via `backend/.env`, qui
+> décrit la *prod*.** Ceux ci-dessus forcent les ports de dev eux-mêmes ;
+> `test_cache_semantique.py` ne le fait **pas** et doit être lancé avec les variables sur la
+> ligne de commande. Se tromper interroge une instance vide et rend un résultat parfaitement
+> propre et parfaitement faux.
+
+### Les quotas Albert sont attachés au **modèle**
+
+Albert compte sur **deux compteurs journaliers, par modèle** — `1 280 000` jetons d'entrée
+**et** `1 000` requêtes. Sur des prompts courts, c'est le second qui mord en premier, et le
+`429` n'embarque **aucun `Retry-After`**.
+
+Conséquences pratiques :
+
+- **Changer de clé API ne débloque rien** ; changer de modèle, si.
+- C'est toute la raison d'être de `ALBERT_GARDE_MODEL_NAME` et `ALBERT_REVERIF_MODEL_NAME` :
+  les laisser vides fait retomber sur `ALBERT_LLM_MODEL_NAME`, et les appels de génération
+  vident alors le compteur du juge.
+- **Un quota épuisé ne lève pas d'erreur visible** : le garde n'a pas de verdict
+  « indisponible », toute exception devient un refus. Le symptôme est une chute du taux de
+  réponses CANONIQUE. La cause se lit dans `garde_decisions` (colonne `erreur`), pas dans les
+  logs.
+
+### Éditer `backend/.env` n'atteint pas une stack qui tourne
+
+`env_file:` est lu à la **création** du conteneur, et les valeurs qui en sortent priment sur le
+fichier monté du point de vue de pydantic-settings. Une clé déjà présente reste donc figée à
+son ancienne valeur, **en silence**. Il faut recréer `backend`, `worker_questions` et
+`worker_ingestion`, puis vérifier depuis l'intérieur du conteneur.
+
+### L'état d'un conteneur n'est pas l'état de son image
+
+Même piège, seconde forme : un `pip install` fait à l'intérieur d'un conteneur survit à un
+`restart` mais meurt à la recréation suivante — et `docker compose ps` continue d'afficher
+*running*. Ce qui trahit le problème est la colonne `RunningFor` : si elle est antérieure à
+votre `up`, Compose n'a rien recréé parce que l'image n'a pas changé.
+
+Après avoir touché `requirements.txt` : `make dev-build && make dev`, puis vérifier l'import
+depuis **chacun des quatre conteneurs Python**. Voir le piège n° 6 de la
+[§ 9](#9-la-recherche-est-réellement-hybride--ce-quil-faut-savoir-avant-dy-toucher) pour ce que
+coûte un `snowballstemmer` manquant.
+
+### `watchmedo` relance tout dès qu'un `.py` bouge
+
+Le conteneur `backend` et les workers Celery redémarrent à la moindre modification d'un fichier
+sous `backend/`. C'est le confort du hot-reload en temps normal — et **la mort de toute
+opération longue** : ne touchez pas à un `.py` pendant qu'une campagne de mesure tourne. C'est
+aussi pourquoi le modèle du garde est lu **à l'appel** et non à l'import : un banc peut changer
+de juge par variable d'environnement sans éditer une ligne de code.
+
+---
+
+## 11. Workflow de développement
 
 ```
 feature/ma-feature
@@ -405,7 +508,7 @@ Le CI tourne la suite complète (unitaires + intégration) avec Postgres, Valkey
 
 ---
 
-## 11. Documentation à lire ensuite
+## 12. Documentation à lire ensuite
 
 ### Pour comprendre le moteur
 
@@ -417,6 +520,7 @@ Le CI tourne la suite complète (unitaires + intégration) avec Postgres, Valkey
 | [`technique/mise-a-jour-documents.md`](technique/mise-a-jour-documents.md) | Mise à jour documentaire et ré-vérification des réponses |
 | [`technique/auth-et-roles.md`](technique/auth-et-roles.md) | Rôles, groupes, domaines, LDAP, JWT |
 | [`technique/reference-api.md`](technique/reference-api.md) | Tous les endpoints et leurs gardes d'accès |
+| [`technique/rapport-test-cache-semantique.md`](technique/rapport-test-cache-semantique.md) | Le journal des campagnes de mesure — **à consulter avant de déplacer un seuil** |
 
 ### Pour comprendre le produit
 
@@ -428,6 +532,9 @@ Le CI tourne la suite complète (unitaires + intégration) avec Postgres, Valkey
 | [`fonctionnalites/notifications-et-temps-reel.md`](fonctionnalites/notifications-et-temps-reel.md) | SSE, canaux Redis, catalogue des événements |
 | [`fonctionnalites/administration.md`](fonctionnalites/administration.md) | Groupes, santé, incidents, configuration |
 
-Le sommaire complet est dans [`Docs/README.md`](README.md), et
-[`CLAUDE.md`](../CLAUDE.md) sert de référence technique condensée pour les contributeurs
-assistés par IA.
+Le sommaire complet est dans [`Docs/README.md`](README.md).
+
+> ℹ️ Un fichier `CLAUDE.md` sert de référence condensée aux contributeurs assistés par IA,
+> mais il est **gitignoré** : il n'existe que sur la machine de son auteur. Ne l'utilisez pas
+> comme source — tout ce qu'il contenait d'utile à l'équipe a été versé dans ce document
+> (§ 9 et § 10) et dans `Docs/technique/`.
