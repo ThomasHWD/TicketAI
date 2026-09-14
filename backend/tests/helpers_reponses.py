@@ -31,6 +31,7 @@ def seed_ticket_reponse(
     locked_by=None,
     lock_expires_at=None,
     domaine="IT",
+    faq_visible=False,
 ):
     """Crée un Ticket + sa Reponse et renvoie le couple (ticket, reponse)."""
     ticket = Ticket(
@@ -53,6 +54,7 @@ def seed_ticket_reponse(
         canonique=canonique,
         reponse_source_id=reponse_source_id,
         contenu_corrige=contenu_corrige,
+        faq_visible=faq_visible,
     )
     db.add(reponse)
     db.commit()
