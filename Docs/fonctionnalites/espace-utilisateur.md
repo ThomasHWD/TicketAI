@@ -105,6 +105,11 @@ parce que rien n'y est produit sur le moment : la page *montre* des réponses qu
 a déjà validées au moins `SEUIL_CANONIQUE` fois (défaut : 3), tous domaines confondus.
 Aucun ticket n'est créé, aucun texte n'est généré, le garde n'est pas appelé.
 
+Seules les réponses canoniques **explicitement incluses dans la FAQ** (`faq_visible = true`)
+peuvent apparaître. Un validateur choisit d'inclure une réponse au moment de sa première
+validation ou depuis la page *Réponses enregistrées*. Les réponses canoniques non incluses
+continuent d'être servies par le pipeline, mais restent invisibles dans ce catalogue.
+
 ### Le parcours
 
 | Étape | Ce que voit l'employé |

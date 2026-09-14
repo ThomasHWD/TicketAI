@@ -59,11 +59,18 @@ Chaque ligne affiche :
 | `question` | La question de suivi si c'en est une, sinon la question du ticket |
 | `contenu` / `contenu_corrige` | Le texte servi est **`contenu_corrige` s'il existe**, sinon `contenu` |
 | `nb_validations` | Combien de fois des humains ont validé cette réponse |
-| `occurence` | Combien de fois la question a été reposée |
+| `occurence` | Combien de fois la question a été reposée automatiquement |
+| `faq_visible` | Si la réponse apparaît dans la page FAQ (badge **FAQ** cliquable) |
 | `a_relire` | Si un signalement est en cours sur cette réponse |
 
-Tri par date de validation décroissante. Recherche (`q`) sur la question du ticket et sur
-la question de suivi. Pagination classique.
+Tri configurable via le sélecteur en haut à droite :
+
+| Ordre | Comportement |
+|---|---|
+| **Date** (défaut) | Date de dernière validation, décroissante |
+| **Fois servie** | Nombre d'occurrences, décroissant — met en tête les réponses les plus sollicitées |
+
+Recherche (`q`) sur la question du ticket et sur la question de suivi. Pagination classique.
 
 ### Filtres
 
@@ -120,8 +127,28 @@ Le tag peut être modifié manuellement depuis le backoffice via `PATCH /reponse
 
 | Action | Endpoint | Effet |
 |---|---|---|
+| **Badge FAQ** | `PATCH /reponses/{id}/faq-visible` | Bascule `faq_visible` : inclut ou retire la réponse de la page FAQ |
 | **Éditer** | `PUT /reponses/{id}/editer` | Réécrit `contenu_corrige`, puis **réindexe** la réponse. Si elle était *à relire*, le drapeau tombe |
 | **Supprimer** | `DELETE /reponses/{id}` | Suppression **définitive**, avec toutes ses copies |
+
+#### La visibilité FAQ
+
+Chaque réponse canonique porte un badge **FAQ** dans l'en-tête de la ligne. Son état
+indique si la réponse est actuellement visible dans la page *Questions fréquentes* :
+
+| État | Couleur | Signification |
+|---|---|---|
+| Actif | Bleu | La réponse apparaît dans la FAQ quand elle correspond à une recherche |
+| Inactif | Gris | La réponse est canonique et servie par le pipeline, mais **absente de la FAQ** |
+
+Cliquer sur le badge bascule l'état immédiatement, sans confirmation. Une réponse
+nouvellement promue au rang canonique est **absente de la FAQ par défaut** — le validateur
+doit l'y inclure explicitement, soit au moment de la première validation (case à cocher
+dans le panneau de confirmation), soit depuis cette page.
+
+La distinction est intentionnelle : toutes les réponses canoniques ne sont pas
+nécessairement utiles à afficher dans un catalogue public — une réponse très spécifique à
+une situation individuelle, par exemple, peut avoir sa place dans le cache sans poluer la FAQ.
 
 L'édition ne touche jamais `contenu` : le texte d'origine produit par l'IA reste en base.
 C'est `contenu_corrige` qui est servi et réindexé.
