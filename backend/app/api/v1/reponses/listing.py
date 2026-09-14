@@ -60,6 +60,7 @@ async def lister_reponses_canoniques(
     domaine: str | None = None,
     q: str | None = None,
     tag: str | None = None,
+    ordre: str = "date",
     page: int = 1,
     limit: int = 20,
 ):
@@ -92,9 +93,12 @@ async def lister_reponses_canoniques(
             query = query.filter(Reponse.tag == tag)
 
         total = query.count()
-        resultats = (
-            query.order_by(Reponse.validated_at.desc().nullslast()).offset((page - 1) * limit).limit(limit).all()
+        tri = (
+            Ticket.occurence.desc().nullslast()
+            if ordre == "occurence"
+            else Reponse.validated_at.desc().nullslast()
         )
+        resultats = query.order_by(tri).offset((page - 1) * limit).limit(limit).all()
 
         return {
             "total": total,
@@ -111,6 +115,7 @@ async def lister_reponses_canoniques(
                     "nb_validations": r.nb_validations,
                     "occurence": t.occurence,
                     "a_relire": r.a_relire,
+                    "faq_visible": r.faq_visible,
                     "validated_at": r.validated_at.isoformat() if r.validated_at else None,
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                     "tag": r.tag,

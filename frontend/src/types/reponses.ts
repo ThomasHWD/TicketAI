@@ -46,6 +46,8 @@ export interface ReponseCanonique {
   occurence: number;
   /** Toujours servie, mais son document a changé : cf. `ReponseSignalee`. */
   a_relire: boolean;
+  /** Décision volontaire d'exposition dans la FAQ grand public interne. */
+  faq_visible: boolean;
   validated_at: string | null;
   created_at: string | null;
   tag: string | null;
@@ -164,6 +166,11 @@ export interface ReponsesARelireResponse {
 
 export interface ValiderPayload {
   validator_id: string;
+  faq_visible?: boolean;
+}
+
+export interface FaqVisiblePayload {
+  faq_visible: boolean;
 }
 
 export interface RejeterPayload {

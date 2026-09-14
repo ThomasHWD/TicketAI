@@ -29,6 +29,7 @@ export {
   validerReponse,
   rejeterReponse,
   corrigerReponse,
+  basculerFaqVisible,
   updateTag,
   getTags,
 } from "./reponses";

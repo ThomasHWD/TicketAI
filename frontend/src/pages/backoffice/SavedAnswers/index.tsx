@@ -29,6 +29,7 @@ export default function SavedAnswers() {
   const [retraitTarget, setRetraitTarget] = useState<ReponseSignalee | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [groupesReplies, setGroupesReplies] = useState<Set<string>>(new Set());
+  const [ordre, setOrdre] = useState<"date" | "occurence">("date");
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editingOriginal, setEditingOriginal] = useState("");
@@ -41,7 +42,7 @@ export default function SavedAnswers() {
   }, []);
 
   const { canoniques, obsoletes, aRelire, nbObsoletes, nbDocsARelire, requete, tagsDisponibles } =
-    useSavedAnswersData(onglet, page, searchQuery, domaine, tag);
+    useSavedAnswersData(onglet, page, searchQuery, domaine, tag, ordre);
 
   const { editMutation, confirmMutation, confirmLotMutation, retirerMutation, deleteMutation, restoreMutation } =
     useSavedAnswersMutations({
@@ -154,6 +155,8 @@ export default function SavedAnswers() {
           onSearchChange={changerSearch}
           onDomaine={changerDomaine}
           onTag={changerTag}
+          ordre={ordre}
+          onOrdre={(o) => { setOrdre(o); setPage(1); }}
         />
 
         <div

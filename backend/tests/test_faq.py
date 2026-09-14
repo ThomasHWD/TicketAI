@@ -29,15 +29,15 @@ def point(reponse_id, score, question="Question indexée ?"):
 
 @pytest.mark.parametrize(
     "attribut",
-    ["non_canonique", "obsolete"],
-    ids=["réponse non canonique", "réponse canonique obsolète"],
+    ["non_canonique", "obsolete", "faq_invisible"],
+    ids=["réponse non canonique", "réponse canonique obsolète", "réponse canonique non exposée"],
 )
 def test_seules_les_canoniques_servies_sortent(db_session, attribut):
     """La propriété de sûreté : un score parfait ne suffit pas à être exposé."""
     _, reponse = seed_ticket_reponse(
         db_session,
         statut="VALIDÉE",
-        canonique=(attribut == "obsolete"),
+        canonique=(attribut != "non_canonique"),
         nb_validations=3,
     )
     if attribut == "obsolete":
@@ -82,7 +82,7 @@ def test_un_seul_embedding_et_aucun_filtre_de_domaine(db_session):
 
 def test_dedoublonne_les_formulations_et_garde_la_gagnante(db_session):
     """Deux points (deux formulations) d'une même réponse → un résultat, la meilleure question."""
-    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3)
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3, faq_visible=True)
 
     with patch(
         "app.services.faq.rechercher_points_reponses",
@@ -110,7 +110,7 @@ def test_dedoublonne_les_formulations_et_garde_la_gagnante(db_session):
     ids=["au-dessus du seuil", "entre les deux seuils", "sous le plancher"],
 )
 def test_rang_selon_le_score(db_session, score, attendu):
-    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3)
+    _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3, faq_visible=True)
 
     with patch(
         "app.services.faq.rechercher_points_reponses",
@@ -125,8 +125,8 @@ def test_rang_selon_le_score(db_session, score, attendu):
 
 def test_aucun_incertain_quand_une_reponse_sure_existe(db_session):
     """Une piste à côté d'une réponse sûre ne ferait que la diluer."""
-    _, sure = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3)
-    _, faible = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3)
+    _, sure = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3, faq_visible=True)
+    _, faible = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3, faq_visible=True)
 
     with patch(
         "app.services.faq.rechercher_points_reponses",

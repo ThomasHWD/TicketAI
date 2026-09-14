@@ -6,6 +6,7 @@ import type {
   ReponsesObsoletesResponse,
   ReponsesARelireResponse,
   EditerCanoniquePayload,
+  FaqVisiblePayload,
   ValiderPayload,
   RejeterPayload,
   CorrigerPayload,
@@ -25,6 +26,7 @@ export async function getReponsesCanoniques(params?: {
   domaine?: Domaine;
   q?: string;
   tag?: string;
+  ordre?: "date" | "occurence";
 }): Promise<ReponsesCanoniquesResponse> {
   const query = new URLSearchParams();
   if (params?.page) query.set("page", String(params.page));
@@ -32,6 +34,7 @@ export async function getReponsesCanoniques(params?: {
   if (params?.domaine) query.set("domaine", params.domaine);
   if (params?.q) query.set("q", params.q);
   if (params?.tag) query.set("tag", params.tag);
+  if (params?.ordre && params.ordre !== "date") query.set("ordre", params.ordre);
   const res = await apiFetch(`${BASE_URL}/reponses/canoniques?${query}`);
   if (!res.ok) throw new Error("Erreur chargement réponses canoniques");
   return res.json();
@@ -149,6 +152,16 @@ export async function corrigerReponse(reponseId: string, payload: CorrigerPayloa
   });
   if (res.status === 409) throw await toLockConflict(res, "Erreur correction");
   if (!res.ok) throw new Error("Erreur correction");
+  return res.json();
+}
+
+export async function basculerFaqVisible(reponseId: string, payload: FaqVisiblePayload) {
+  const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/faq-visible`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Erreur mise à jour FAQ");
   return res.json();
 }
 
