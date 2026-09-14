@@ -218,11 +218,15 @@ l'assignation.
 
 > 📸 **[CAPTURE D'ÉCRAN COMPLÉMENTAIRE]** : *La zone de saisie du motif de rejet ouverte, pour montrer qu'elle est obligatoire.*
 
-### Vérifier le tag au moment de valider
+### Le panneau de confirmation de validation
 
-Lorsqu'une réponse est en attente de verdict, l'interface propose un champ **Tag** dans le
-panneau de validation. Ce tag a été suggéré automatiquement par le pipeline au moment où la
-question a été traitée : c'est une proposition, pas une valeur définitive.
+Cliquer sur **Valider** n'envoie pas encore le verdict : un panneau de confirmation
+s'ouvre avec deux options à renseigner avant de confirmer.
+
+#### Catégorie (tag)
+
+Un champ **Catégorie** est pré-rempli avec le tag suggéré automatiquement par le pipeline
+au moment où la question a été traitée : c'est une proposition, pas une valeur définitive.
 
 **Pourquoi s'en préoccuper ?** Les tags sont le seul mécanisme de filtrage thématique sur
 la page Réponses enregistrées. Une base de connaissances sans tags cohérents est difficile
@@ -238,9 +242,26 @@ la page Réponses enregistrées. Une base de connaissances sans tags cohérents 
    propose les tags déjà utilisés dans le domaine.
 4. Ne pas laisser le champ vide si la réponse relève clairement d'un thème identifiable.
 
-Le tag peut être modifié à tout moment depuis la page Réponses enregistrées, même après
-validation — mais le corriger dès la validation évite la prolifération de synonymes dans
-la liste de filtres.
+Le tag est enregistré **uniquement lors de la première validation** de la réponse. Il peut
+être modifié à tout moment depuis la page Réponses enregistrées — mais le corriger dès
+la première validation évite la prolifération de synonymes dans la liste de filtres.
+
+#### Inclure dans la FAQ
+
+Une case à cocher **Inclure dans la FAQ** est présente dans le même panneau. Elle détermine
+si la réponse — si elle atteint le statut canonique — sera visible dans la page *Questions
+fréquentes* accessible à tous les employés.
+
+Par défaut, la case est **décochée** : une réponse nouvellement canonique n'apparaît pas
+dans la FAQ tant qu'un validateur ne l'y a pas explicitement incluse.
+
+**Quand cocher la case ?** Lorsque la réponse traite d'une question générale susceptible
+d'intéresser plusieurs employés (congés, remboursements, procédures courantes…). À
+l'inverse, une réponse très spécifique à une situation individuelle ou à un contexte rare
+n'a pas nécessairement sa place dans un catalogue public.
+
+Cette visibilité peut être modifiée à tout moment depuis la page Réponses enregistrées >
+onglet Canoniques, via le badge **FAQ** de chaque ligne.
 
 ### Les quatre gardes avant tout verdict
 
