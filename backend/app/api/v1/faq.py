@@ -38,6 +38,7 @@ async def rechercher(
 
     # Avant l'appel Albert : une requête rejetée ne doit rien consommer du quota.
     limiter("faq", str(current_user.id), settings.faq_rate_limit_par_minute)
+    limiter("faq_jour", str(current_user.id), settings.faq_rate_limit_par_jour, fenetre_secondes=86400)
 
     db = SessionLocal()
     try:

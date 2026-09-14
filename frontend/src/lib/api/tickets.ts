@@ -18,6 +18,9 @@ export async function soumettreQuestion(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+  if (res.status === 429) {
+    throw new Error("Vous avez atteint votre quota de tickets pour aujourd'hui.");
+  }
   if (!res.ok) throw new Error(await extractApiErrorDetail(res, "Erreur lors de la soumission de la question"));
   return res.json();
 }

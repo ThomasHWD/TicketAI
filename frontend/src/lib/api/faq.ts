@@ -33,7 +33,12 @@ export async function rechercherFaq(q: string, limit?: number): Promise<FaqReche
 
   const res = await apiFetch(`${BASE_URL}/faq/recherche?${params}`);
   if (res.status === 429) {
-    throw new Error("Trop de recherches d'affilée. Patientez quelques instants.");
+    const retryAfter = Number(res.headers.get("Retry-After") ?? 0);
+    const msg =
+      retryAfter > 3600
+        ? "Vous avez atteint votre quota de recherches pour aujourd'hui."
+        : "Trop de recherches d'affilée. Patientez quelques instants.";
+    throw new Error(msg);
   }
   if (!res.ok) {
     throw new Error(await extractApiErrorDetail(res, "La recherche a échoué. Réessayez."));

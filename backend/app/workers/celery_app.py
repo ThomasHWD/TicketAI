@@ -14,6 +14,7 @@ celery_app = Celery(
         "app.workers.feedback",
         "app.workers.reverification",
         "app.workers.auto_cloture",
+        "app.workers.replay_echoues",
     ],
 )
 
@@ -36,6 +37,10 @@ celery_app.conf.update(
         "auto-cloture-tickets": {
             "task": "app.workers.auto_cloture.auto_cloture_job",
             "schedule": crontab(hour=2, minute=0),
-        }
+        },
+        "replay-tickets-echoues": {
+            "task": "app.workers.replay_echoues.replay_echoues_job",
+            "schedule": crontab(minute=0),  # toutes les heures
+        },
     },
 )
