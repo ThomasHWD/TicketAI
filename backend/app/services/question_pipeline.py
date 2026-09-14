@@ -130,12 +130,20 @@ class Candidat(NamedTuple):
     `score_cosinus` est par ailleurs la valeur consignée dans `garde_decisions` —
     la confondre avec autre chose rendrait le journal d'audit incomparable d'une
     version à l'autre du système.
+
+    `score_cosinus_max` est distinct de `score_cosinus` : une réponse peut avoir
+    plusieurs points Qdrant (une formulation par validation humaine), et le chunk
+    dominant par RRF n'est pas forcément celui avec le meilleur cosinus. Sans ce
+    champ séparé, un chunk BM25-dominant à cosinus faible éclipserait une
+    formulation à fort cosinus : la réponse ne serait plus `servable`, partirait
+    en RAG, et `nb_validations` ne monterait jamais au seuil canonique.
     """
 
     reponse: Reponse | None
     score_cosinus: float | None
     score_lexical: float | None
     question_indexee: str | None
+    score_cosinus_max: float | None = None
 
     def franchit(self, seuil_cosinus: float) -> bool:
         """Le candidat passe-t-il la porte, par le sens **ou** par les mots ?"""
@@ -161,8 +169,15 @@ class Candidat(NamedTuple):
         engagement soit validé ? » se voyait offrir la fiche « médecine de
         prévention » à 0,5381 de cosinus. La branche CANONIQUE a un juge pour la
         protéger, la branche SUGGESTION n'en a aucun.
+
+        On utilise `score_cosinus_max` (meilleur cosinus parmi toutes les
+        formulations passant la porte) plutôt que `score_cosinus` (cosinus du
+        chunk meilleur par RRF). Si l'une des formulations a un fort cosinus, la
+        réponse est soutenue sémantiquement, même si c'est une autre formulation
+        (à fort BM25) qui arrive en tête du RRF.
         """
-        return (self.score_cosinus or 0.0) >= SEUIL_SUGGESTION
+        cos = self.score_cosinus_max if self.score_cosinus_max is not None else (self.score_cosinus or 0.0)
+        return cos >= SEUIL_SUGGESTION
 
 
 AUCUN_CANDIDAT = Candidat(None, None, None, None)
@@ -180,17 +195,26 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
     écrits avant l'introduction des formulations multiples ; l'appelant retombe
     alors sur `Ticket.question`.
     """
-    # Un seul dictionnaire : le meilleur *chunk* par réponse, dont on dérive
-    # ensuite tous les signaux. Trois dictionnaires parallèles finissaient
-    # toujours par diverger.
+    # Un seul dictionnaire pour le chunk dominant (RRF) + le cosinus max séparé.
+    # Le chunk dominant fixe question_indexee et score_lexical ; le cosinus max
+    # (toutes formulations confondues) fixe servable. Les deux doivent rester
+    # synchronisés : d'où le dict unique avec un champ supplémentaire plutôt que
+    # deux dicts parallèles qui finissent toujours par diverger.
     meilleur_par_reponse: dict[str, dict] = {}
     for c in chunks:
         rid = c.get("reponse_id")
         if not rid or not franchit_le_rappel(c, SEUIL_SUGGESTION):
             continue
         rid = str(rid)
+        cos = c.get("score_cosinus", 0.0)
         if c.get("score_rrf", 0.0) > meilleur_par_reponse.get(rid, {}).get("score_rrf", -1.0):
             meilleur_par_reponse[rid] = c
+        # score_cosinus_max : meilleur cosinus toutes formulations confondues.
+        # Permet à servable d'être True même quand la formulation BM25-dominante
+        # a un cosinus faible, tant qu'une autre formulation du même reponse_id
+        # a un cosinus ≥ SEUIL_SUGGESTION.
+        if cos > meilleur_par_reponse[rid].get("_score_cosinus_max", 0.0):
+            meilleur_par_reponse[rid]["_score_cosinus_max"] = cos
 
     if not meilleur_par_reponse:
         return AUCUN_CANDIDAT
@@ -222,6 +246,7 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
         point.get("score_cosinus", 0.0),
         point.get("score_lexical", 0.0),
         point.get("question_indexee"),
+        point.get("_score_cosinus_max", point.get("score_cosinus", 0.0)),
     )
 
 

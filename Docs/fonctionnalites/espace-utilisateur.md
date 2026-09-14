@@ -16,16 +16,12 @@ jamais dans le backoffice.
 | **Nouveau ticket** | `/nouveau-ticket` | Poser une question |
 | **Mon historique** | `/historique` | Tous ses tickets, ouverts et clôturés |
 | **Détail d'un ticket** | `/historique/{id}` | Le fil de conversation, les actions |
-| **FAQ** | `/faq` | Chercher parmi les réponses déjà validées, sans créer de ticket |
+| **Questions fréquentes** | `/faq` | Chercher parmi les réponses déjà validées, sans créer de ticket |
 | **Boîte à suggestions** | `/suggestion` | Proposer une amélioration du produit |
 
-La **FAQ** est une consultation en lecture seule : elle montre des réponses qu'un humain a
-déjà validées au moins `SEUIL_CANONIQUE` fois, tous domaines confondus. Aucun ticket n'est
-créé et aucun texte n'est généré — c'est le seul endroit où un employé obtient une réponse
-sans passer par la file de validation, précisément parce que rien n'y est produit sur le
-moment. Si rien ne correspond assez bien, la page propose au mieux des *pistes* et invite à
-poser une question. Détail des rangs et des seuils dans
-[Référence API](../technique/reference-api.md#faq).
+> Le menu latéral l'appelle **« Questions fréquentes »** ; le reste de la documentation et
+> le code disent **FAQ**. C'est la même page. Elle a sa section dédiée :
+> [§ 3. Chercher une réponse déjà validée](#3-chercher-une-réponse-déjà-validée-la-faq).
 
 Un utilisateur qui n'appartient à aucun groupe et qui visite `/` est automatiquement
 redirigé vers `/mon-espace`.
@@ -101,7 +97,69 @@ l'employé : elle attend d'être validée par un expert.
 
 ---
 
-## 3. Suivre son ticket
+## 3. Chercher une réponse déjà validée (la FAQ)
+
+Page `/faq`, intitulée **« Questions fréquentes »** dans le menu. C'est le seul endroit où
+un employé obtient une réponse **sans passer par la file de validation** — précisément
+parce que rien n'y est produit sur le moment : la page *montre* des réponses qu'un humain
+a déjà validées au moins `SEUIL_CANONIQUE` fois (défaut : 3), tous domaines confondus.
+Aucun ticket n'est créé, aucun texte n'est généré, le garde n'est pas appelé.
+
+### Le parcours
+
+| Étape | Ce que voit l'employé |
+|---|---|
+| **Accueil** | Un champ au centre, « Que cherchez-vous ? », et trois questions d'exemple cliquables. Rien d'autre : tant qu'aucune question n'est posée, il n'y a rien à montrer. |
+| **Saisie** | Champ libre, 3 caractères minimum, 500 maximum. **Entrée** lance la recherche, **Maj+Entrée** va à la ligne (l'astuce n'est affichée qu'à l'accueil). |
+| **Recherche** | Un squelette de chargement, puis le résultat remplace le bloc précédent. Le champ conserve la question posée. |
+
+La recherche part **à la soumission uniquement**, jamais à la frappe : chaque recherche
+consomme un embedding Albert. Reposer la même question dans les cinq minutes ne rappelle
+pas Albert (cache React Query), et un usage trop rapide reçoit *« Trop de recherches
+d'affilée. Patientez quelques instants. »* — c'est `FAQ_RATE_LIMIT_PAR_MINUTE`
+(défaut : 20/minute/utilisateur), avec un bouton **Réessayer**.
+
+### Ce qui s'affiche
+
+| Cas | Affichage |
+|---|---|
+| **Une ou plusieurs réponses sûres** | La meilleure est dépliée en entier, avec son domaine. Les suivantes sont listées repliées sous *« Autres réponses proches »* et s'ouvrent au clic. |
+| **Rien de sûr, mais des voisins plausibles** | *« Rien ne correspond exactement à votre question. Peut-être cherchiez-vous ceci ? »* suivi de 3 pistes repliées, au plus. |
+| **Rien du tout** | *« Aucune réponse ne correspond à cette question pour le moment. »* |
+
+Les **pistes ne cohabitent jamais avec des réponses** : le serveur ne les renvoie que
+lorsque le premier rang est vide. C'est une garantie d'API, pas une règle d'affichage —
+sans juge sur cette page, un candidat approximatif se propose sans s'affirmer. Seuils et
+justification : [Référence API](../technique/reference-api.md#faq).
+
+Dans les trois cas, une rangée **« Poser la question à un expert »** ferme l'écran. Elle
+ouvre `/nouveau-ticket` **avec la question déjà recopiée dans le formulaire** — l'employé
+n'a plus qu'à choisir l'objet et le domaine. C'est la porte de sortie de la page, pas son
+action principale.
+
+### Trois points qui surprennent
+
+- **Une question à la fois, sans mémoire.** Contrairement au fil d'un ticket (§ 4), la FAQ
+  n'empile rien : chaque recherche est indépendante et le serveur ne voit jamais les
+  précédentes. Une relance du type *« et pour un apprenti ? »* n'y a donc aucun sens — elle
+  serait cherchée telle quelle. C'est ce que le remplacement du bloc à chaque question, au
+  lieu d'un transcript, sert à rendre évident.
+- **La question affichée n'est pas forcément celle du ticket d'origine.** Une réponse est
+  indexée sous autant de formulations qu'elle a de validations humaines ; la page montre
+  **celle qui a effectivement correspondu**.
+- **Aucun score n'est affiché.** Le cosinus ordonne les résultats mais ne sort jamais de
+  l'API : il n'a pas de sens pour un utilisateur final et invite aux mauvaises lectures.
+
+![L'accueil de la FAQ : le champ centré et les trois amorces cliquables](../images/14-faq.png)
+
+![Un résultat : la réponse dépliée, son domaine, et la sortie vers le formulaire](../images/15-faq-resultats.png)
+
+> La seconde est produite uniquement si `TAI_FAQ_Q` est défini (`captures_doc.py`) : elle
+> déclenche une vraie recherche, donc un embedding Albert.
+
+---
+
+## 4. Suivre son ticket
 
 ### Le fil de conversation
 
@@ -142,7 +200,7 @@ Le détail est décrit dans
 
 ---
 
-## 4. Clôturer un ticket et noter la réponse
+## 5. Clôturer un ticket et noter la réponse
 
 ### Clôture manuelle
 
@@ -187,7 +245,7 @@ moins de deux jours, au rouge à moins d'un jour.
 
 ---
 
-## 5. La boîte à suggestions
+## 6. La boîte à suggestions
 
 Page `/suggestion`. Elle permet à n'importe quel utilisateur authentifié d'envoyer un
 retour libre sur le produit — ce n'est **pas** un ticket, cela ne déclenche aucun
@@ -211,7 +269,7 @@ anonyme (`user_id` passe à `NULL`).
 
 ---
 
-## 6. Ce qu'un employé ne voit jamais
+## 7. Ce qu'un employé ne voit jamais
 
 La séparation est appliquée côté serveur, pas seulement dans l'interface :
 
@@ -225,7 +283,7 @@ Les règles complètes sont dans [Auth & rôles](../technique/auth-et-roles.md).
 
 ---
 
-## 7. Récapitulatif des actions et de leurs règles
+## 8. Récapitulatif des actions et de leurs règles
 
 | Action | Endpoint | Qui | Refus possible |
 |---|---|---|---|
@@ -234,5 +292,6 @@ Les règles complètes sont dans [Auth & rôles](../technique/auth-et-roles.md).
 | Clôturer (+ noter) | `POST /tickets/{id}/cloturer` | le créateur | `403` pas son ticket · `409` déjà clôturé |
 | Consulter un ticket | `GET /tickets/{id}` | le créateur, ou le backoffice du domaine | `403` |
 | Voir la timeline | `GET /tickets/{id}/workflow` | idem | `403` |
+| Chercher dans la FAQ | `GET /faq/recherche?q=…` | tout utilisateur | `429` quota par minute dépassé |
 | Envoyer une suggestion | `POST /suggestions` | tout utilisateur | `422` longueur hors bornes |
 | Marquer une notification lue | `POST /notifications/{id}/lire` | le destinataire | `404` |

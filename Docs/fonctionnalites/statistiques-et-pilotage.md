@@ -108,7 +108,7 @@ branche se déplient via **Afficher les analytiques**.
 ## 4. La satisfaction
 
 Quand un employé clôture son ticket, il peut noter deux choses de 1 à 5 (voir
-[Espace utilisateur](espace-utilisateur.md#4-clôturer-un-ticket-et-noter-la-réponse)) :
+[Espace utilisateur](espace-utilisateur.md#5-clôturer-un-ticket-et-noter-la-réponse)) :
 
 | Mesure | Champ |
 |---|---|

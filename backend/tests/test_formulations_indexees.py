@@ -103,6 +103,56 @@ def test_formulation_supplementaire_ecrit_un_point_distinct(_albert_muet):
     assert point_origine.payload["question_indexee"] == "Comment poser un congé ?"
 
 
+# ── Régression BM25 : formulation dominante par RRF à cosinus faible ─────────
+
+
+def test_servable_utilise_le_meilleur_cosinus_pas_le_meilleur_rrf():
+    """Quand une formulation domine le RRF (BM25) mais a un cosinus faible,
+    une autre formulation du même reponse_id peut avoir un cosinus élevé.
+    La réponse doit rester servable (→ SUGGESTION) grâce à cette formulation,
+    même si c'est la formulation lexicale qui arrive en tête du classement.
+
+    Sans score_cosinus_max, le candidat héritait du cosinus du chunk dominant RRF
+    et devenait non-servable, renvoyant toutes les questions au RAG : nb_validations
+    n'atteignait jamais le seuil et la promotion canonique était bloquée.
+    """
+    from app.services.question_pipeline import SEUIL_COSINUS, SEUIL_SUGGESTION, trouver_reponse_reutilisable
+
+    reponse = SimpleNamespace(id=uuid.uuid4(), canonique=False, nb_validations=2)
+    db = MagicMock()
+    db.query.return_value.filter.return_value.all.return_value = [reponse]
+
+    chunks = [
+        # Formulation 1 : domine le RRF (score_rrf élevé) mais cosinus < SEUIL_SUGGESTION
+        {
+            "reponse_id": str(reponse.id),
+            "score_cosinus": SEUIL_SUGGESTION - 0.05,
+            "score_lexical": 2.0,
+            "score_rrf": 0.02,
+            "question_indexee": "Quelle démarche pour un congé ?",
+        },
+        # Formulation 2 : cosinus élevé mais RRF inférieur
+        {
+            "reponse_id": str(reponse.id),
+            "score_cosinus": SEUIL_COSINUS + 0.01,
+            "score_lexical": 0.3,
+            "score_rrf": 0.01,
+            "question_indexee": "Comment poser un congé ?",
+        },
+    ]
+
+    candidat = trouver_reponse_reutilisable(db, chunks)
+
+    # Le chunk dominant par RRF fixe question_indexee et score_cosinus d'audit
+    assert candidat.question_indexee == "Quelle démarche pour un congé ?"
+    assert candidat.score_cosinus == pytest.approx(SEUIL_SUGGESTION - 0.05)
+    # Mais servable doit être True : une formulation a un bon cosinus
+    assert candidat.servable is True, (
+        "La réponse doit rester servable quand une formulation a un cosinus élevé, "
+        "même si la formulation BM25-dominante a un cosinus faible"
+    )
+
+
 # ── La question jugée par le garde est celle du point retrouvé ────────────────
 
 

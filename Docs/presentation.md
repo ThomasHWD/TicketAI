@@ -97,6 +97,7 @@ La base de connaissances s'enrichit naturellement au fil des validations, sans a
 | Domaine | Ce que le système offre | Détail |
 |---|---|---|
 | **Poser et suivre** | Soumission d'une question, fil de conversation avec relances, clôture, notation 1–5 | [Espace utilisateur](fonctionnalites/espace-utilisateur.md) |
+| **Consulter sans demander** | Page FAQ : recherche sémantique dans les réponses déjà canoniques, tous domaines confondus. Aucun ticket, aucune génération — le seul écran où une réponse s'obtient sans repasser par la file de validation | [Espace utilisateur § 3](fonctionnalites/espace-utilisateur.md#3-chercher-une-réponse-déjà-validée-la-faq) |
 | **Valider** | File de tickets filtrable, verrou collaboratif, assignation, valider / corriger / rejeter, timeline complète | [Traiter les tickets](fonctionnalites/backoffice-tickets.md) |
 | **Capitaliser** | Réponses canoniques, file « à relire », réponses obsolètes, restauration | [Réponses enregistrées](fonctionnalites/reponses-enregistrees.md) |
 | **Documenter** | Import PDF/DOCX/TXT/MD, versionnement, chunks consultables, angles morts | [Base de connaissances](fonctionnalites/base-de-connaissances.md) |
