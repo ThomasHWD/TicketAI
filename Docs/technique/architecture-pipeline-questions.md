@@ -47,9 +47,36 @@ flowchart TD
 
 | Variable | Valeur par défaut | Rôle |
 |---|---|---|
-| `SEUIL_COSINUS` | 0.80 | Score minimum pour présenter un candidat canonique au garde |
-| `SEUIL_SUGGESTION` | `SEUIL_COSINUS − 0.05` = 0.75 | Score minimum pour la branche SUGGESTION |
+| `SEUIL_COSINUS` | 0.80 | Cosinus minimum pour présenter un candidat canonique au garde |
+| `SEUIL_SUGGESTION` | `SEUIL_COSINUS − 0.05` = 0.75 | Cosinus minimum pour la branche SUGGESTION |
+| `SEUIL_LEXICAL_PAR_TERME` | 1.0 | BM25 **par terme** minimum — la porte lexicale, en disjonction du cosinus. `0` la referme |
 | `SEUIL_CANONIQUE` | 3 | Nombre de validations pour promouvoir une réponse en canonique |
+
+Les deux premiers et le troisième ne se combinent pas : ils s'appliquent **chacun sur son
+signal**, et un candidat passe s'il franchit l'un **ou** l'autre. `SEUIL_LEXICAL_PAR_TERME`
+est à recalibrer quand le corpus grossit — l'IDF de Qdrant est en log(N), donc toute
+l'échelle lexicale se déplace. Sa valeur par défaut a été mesurée sur 24 points.
+
+**« Par terme » est planché à deux termes.** Le diviseur est le nombre de termes de la
+requête, appariés ou non — l'appariement partiel doit coûter. Mais à un seul terme il vaut 1
+et la normalisation ne fait plus rien : franchir 1,0 ne demande alors qu'un IDF ≥ 0,64,
+c'est-à-dire n'importe quel mot présent dans moins de la moitié du corpus. Toute requête d'un
+mot ouvrait donc la porte lexicale, et chaque ouverture coûte un appel au juge. D'où
+`DIVISEUR_MINIMAL = 2` (`services/search.py`) : un vrai terme rare passe toujours (« RGPD »,
+IDF ≈ 3 → ≈ 2,3), un mot courant ne passe plus (IDF ≈ 0,7 → ≈ 0,53). **Aucun effet au-delà
+d'un terme**, donc aucun effet sur la valeur calibrée du seuil.
+
+> ⚠️ **Lire les § 14 et 15 de [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md)
+> avant de toucher `SEUIL_LEXICAL_PAR_TERME`, la tokenisation ou la condition de rappel.**
+> Le § 15 ajoute une contrainte que le § 14 n'avait pas : `AVG_LEN` et `B` forment une paire
+> calibrée, et les modifier **invalide tout vecteur creux déjà écrit** — la saturation TF est
+> figée à l'écriture, contrairement à l'IDF. Le rattrapage se fait avec
+> `scripts/reencoder_vecteurs_creux.py`, pas avec `reinitialiser_index.py`.
+> Le piège principal y est mesuré : sur le jeu de 48 cas, un balayage désigne très
+> clairement `5,0` — ce qui fermerait la porte sur `article L1222-9`, à 1,038/terme, c'est-à-dire
+> exactement le cas qui la justifie. Le jeu de test ne contient aucun terme hors distribution
+> du modèle d'embedding, donc il mesure ce que la porte coûte sans voir ce qu'elle rapporte.
+> **Un balayage ne peut pas arbitrer sur une population absente de son jeu de test.**
 
 `SEUIL_COSINUS` est un **filtre de coût**, pas un filtre de sécurité : c'est le garde LLM qui décide si la réponse peut être servie sans revue humaine. Abaisser ce seuil augmente le nombre d'appels LLM au garde ; le relever en réduit le nombre mais risque de rater des candidats légitimes. Porté de 0,90 à 0,85 le 05/09/2026 : à 0,90 il refusait à la place du juge et écartait des reformulations équivalentes. Puis à 0,80 le 07/09/2026, campagne rejouée à l'identique : CANONIQUE 14 → 19 sur 48, appels au juge 15 → 22, toujours aucun faux positif. Ne pas descendre plus bas — la bande [0,80 ; 0,85) contenait 5 reformulations équivalentes, la bande [0,75 ; 0,80) n'en contient aucune sur 4. Voir [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md), § 12.
 
@@ -64,9 +91,9 @@ chunks = search_hybrid(question, domaine, top_k=15)
 ```
 
 **Deux requêtes Qdrant en parallèle :**
-1. Recherche **dense** (vecteur 1024d BGE-M3, cosinus) — la seule qui produit des résultats
-2. Recherche **sparse** (BM25-like) — **le vecteur est vide, cette requête ne remonte
-   jamais rien**. Voir l'avertissement plus bas.
+1. Recherche **dense** (vecteur 1024d BGE-M3, cosinus)
+2. Recherche **creuse** (BM25) — tokens et saturation TF calculés localement par
+   `app/services/bm25.py`, l'IDF étant fourni par Qdrant (`Modifier.IDF`)
 
 **Fusion manuelle RRF** (`k=60`) :
 
@@ -74,21 +101,26 @@ chunks = search_hybrid(question, domaine, top_k=15)
 score_rrf(point) = Σ  1 / (k + rang_dans_liste)
 ```
 
-Le score cosinus brut de la recherche dense est conservé dans `score_cosinus` pour les décisions de seuil. Le score RRF sert uniquement au tri final.
-
 > **Pourquoi RRF manuel ?** Le Prefetch+Fusion natif de Qdrant 1.18 est buggé avec des vecteurs 1024d — comportement silencieusement incorrect. RRF manuel produit un résultat identique à ce qu'on attendrait du natif.
 
-> ⚠️ **La moitié « sparse » est inerte — état vérifié dans le code au 2026-09-05.**
-> `embed_texts` (`app/services/embedding.py`) retourne systématiquement
-> `{"dense": [...], "sparse": {"indices": [], "values": []}}` et **ignore son paramètre
-> `is_query`**. La requête sparse envoyée à Qdrant porte donc un vecteur vide : elle ne
-> remonte aucun point et n'influence pas le classement. En pratique **la recherche est
-> dense seule**, la fusion RRF ne fusionnant qu'une liste non vide.
->
-> La plomberie (collection, `SparseVectorParams`, requête, fusion) est en place ; il ne
-> manque que la production des vecteurs, qu'Albert n'expose pas. **Si vous lisez ailleurs
-> qu'un encodeur BM25 local est en service, c'est inexact** : il n'existe aucun module
-> `app/services/sparse.py` dans ce dépôt, ni d'appel à `Modifier.IDF`.
+> ⚠️ **Le score RRF ne sert qu'au tri, jamais à une décision.** Il ne dépend que du rang :
+> le premier d'un lot sans intérêt le vaut comme le premier d'un lot parfait. Les seuils
+> portent donc sur chaque signal séparément, sur sa propre échelle — `score_cosinus` d'un
+> côté, BM25 **par terme** de l'autre. On ne seuille pas une fusion.
+
+**Deux portes, pas une moyenne.** Un candidat est examiné si son cosinus franchit
+`SEUIL_SUGGESTION` **ou** si son BM25 par terme franchit `SEUIL_LEXICAL_PAR_TERME`
+(`franchit_le_rappel`, `services/search.py`). C'est une disjonction parce que c'est là
+qu'est l'intérêt de BM25 : un sigle, une référence d'article ou un nom propre que le modèle
+d'embedding ne connaît pas a un cosinus médiocre et un recouvrement lexical parfait. Un score
+mélangé (cosinus + bonus plafonné) ne peut structurellement pas les faire remonter — il a été
+essayé, puis retiré pour cette raison exacte. `SEUIL_LEXICAL_PAR_TERME = 0` referme la porte
+lexicale et restaure le comportement d'avant BM25.
+
+**Le remplissage miroir est porteur** (`_completer_scores`). Un point hors du top-k d'une
+branche hériterait sinon d'un `0.0` sur celle-ci : sans la direction dense, BM25 devient
+inutile (le point est trouvé, puis jeté par le seuil) ; sans la direction lexicale, le
+classement bascule. Deux requêtes Qdrant de plus, zéro appel Albert.
 
 **Filtre domaine strict :** chaque requête Qdrant filtre par `domaine`. Les domaines sont
 libres et définis par les groupes créés en administration (`RH`, `IT`, `JURIDIQUE`… ne
@@ -98,20 +130,20 @@ sont que des exemples courants). Aucune fuite inter-domaine n'est possible.
 
 ## Étape 2 — Branche CANONIQUE ou SUGGESTION
 
-La fonction `trouver_reponse_reutilisable` parcourt les 15 chunks retournés et cherche si l'un d'eux porte un `reponse_id` (lien vers une réponse validée, inscrit lors du feedback) **avec un score cosinus ≥ `SEUIL_SUGGESTION`**.
+La fonction `trouver_reponse_reutilisable` parcourt les 15 chunks retournés et cherche si l'un d'eux porte un `reponse_id` (lien vers une réponse validée, inscrit lors du feedback) **qui franchit le rappel** : cosinus ≥ `SEUIL_SUGGESTION` **ou** BM25 par terme ≥ `SEUIL_LEXICAL_PAR_TERME` (`franchit_le_rappel`, `services/search.py`).
 
 Si plusieurs réponses validées matchent, on choisit de manière déterministe : `canonique` d'abord, puis `nb_validations`, puis meilleur score, puis UUID.
 
 **Conditions pour CANONIQUE** (servie sans revue humaine) :
 - réponse trouvée avec `reponse.canonique == True`
-- `score_cosinus >= SEUIL_COSINUS`
+- le candidat franchit le rappel **au niveau `SEUIL_COSINUS`** : `score_cosinus >= SEUIL_COSINUS` **ou** BM25 par terme ≥ `SEUIL_LEXICAL_PAR_TERME`
 - le garde LLM confirme que la question posée exprime exactement la même demande que la question indexée (voir [`garde-cache-canonique.md`](garde-cache-canonique.md))
 
 La « question indexée » est celle portée par le **point qui a matché** (payload `question_indexee`), remontée par `trouver_reponse_reutilisable` avec la réponse et le score. Une réponse en porte une par formulation validée ; la redériver de `Ticket.question` soumettrait au garde une paire que la recherche n'a pas produite. Repli sur `Ticket.question` / `Reponse.question_suivi` pour les points antérieurs à cette clé.
 
 **Conditions pour SUGGESTION** (revue humaine requise) :
 - réponse trouvée avec `reponse.statut == "VALIDÉE"` et `obsolete == False`
-- mais au moins une condition CANONIQUE non remplie : score en dessous de `SEUIL_COSINUS`, réponse pas encore canonique, **ou garde ayant refusé**
+- mais au moins une condition CANONIQUE non remplie : rappel franchi seulement au niveau `SEUIL_SUGGESTION`, réponse pas encore canonique, **ou garde ayant refusé**
 
 Un refus du garde sort donc en SUGGESTION, pas en RAG : le garde tranche sur le service *sans revue*, pas sur la pertinence du candidat pour un relecteur. Le refus reste tracé dans `garde_decisions` — en base, la SUGGESTION produite est indiscernable des autres.
 

@@ -130,9 +130,31 @@ pgvector aurait simplifié l'infrastructure (une seule base), mais Qdrant apport
 
 Pinecone est managé (données sortent de l'organisation, incompatible avec les contraintes de souveraineté d'un projet gouvernemental). Weaviate et Elasticsearch sont trop lourds à opérer pour une équipe réduite. Qdrant est léger, auto-hébergeable, et couvre exactement les besoins.
 
-**Vecteurs denses uniquement en pratique**
+**Une recherche réellement hybride, l'IDF côté serveur**
 
-Le système prévoit une recherche hybride (dense + sparse, fusion RRF manuelle). La partie sparse est inerte : Albert n'expose pas de vecteurs sparse, et `embed_texts` retourne un vecteur sparse vide. La recherche est donc dense-only. La mécanique hybride reste dans le code pour le jour où un encodeur sparse sera disponible, mais elle n'apporte rien aujourd'hui.
+Albert n'expose pas de vecteurs creux. La moitié lexicale a donc longtemps été inerte : `embed_texts` renvoyait un vecteur vide, la fusion RRF ne fusionnait qu'une seule liste, et chaque point stockait un creux vide. Elle est désormais calculée localement (`services/bm25.py`), sans dépendance de modèle ni téléchargement au runtime.
+
+Le partage des rôles est le point à retenir : BM25 se décompose en l'**IDF**, qui dépend des statistiques du corpus et change à chaque insertion, et la **saturation TF**, qui ne dépend que du texte courant. Qdrant calcule la première (`Modifier.IDF` sur la configuration du vecteur creux) ; le client ne produit que la seconde. C'est le découpage que fait `fastembed` en interne — sans la dépendance.
+
+Quatre conséquences opérationnelles :
+- `Modifier.IDF` se fixe **à la création de la collection**. L'ajouter à une collection existante suppose de la recréer et de tout réindexer (`scripts/reinitialiser_index.py`).
+- L'IDF étant en log(N), **toute l'échelle lexicale se déplace quand le corpus grossit** : `SEUIL_LEXICAL_PAR_TERME` est à recalibrer périodiquement. Sa valeur par défaut a été mesurée sur 24 points.
+- **Ce partage des rôles dicte aussi quoi réindexer, et il ne faut pas se tromper d'outil.** La saturation TF est figée **à l'écriture** : changer `K1`, `B`, `AVG_LEN` ou la tokenisation invalide tout vecteur creux déjà écrit, sans qu'aucune erreur ne le signale. Le bon outil est alors `scripts/reencoder_vecteurs_creux.py --appliquer`, **pas** `reinitialiser_index.py` : seule la moitié creuse change, si bien que rejouer l'ingestion rachèterait un embedding Albert par chunk pour réécrire ce que le client calcule localement et gratuitement. L'opération est exacte parce que les deux producteurs conservent le texte encodé verbatim en payload (`contenu` pour les chunks, `question_indexee` pour les points-réponses).
+- **Les indices de tokens sont des `uint32`, limite dure du protocole** (`points.proto:130`, `repeated uint32 indices`). `xxh32` n'est donc pas un choix réglable — un hachage plus large ne peut pas être transmis. Les collisions fusionnent des fréquences documentaires et déflatent légèrement l'IDF ; à cette taille de corpus, négligeable.
+
+**`AVG_LEN` et `B` vont par paire, et leur valeur vient d'une mesure.** Le corpus est bimodal : 578 chunks de documents (moyenne 95,6 tokens BM25, CV 0,24) et 40 points-réponses indexés sous une question (moyenne 4,4), qui partagent une collection, un `avgdl` et un top-k creux. La normalisation par la longueur n'agit donc presque pas *à l'intérieur* de chaque population et massivement **entre** les deux. `AVG_LEN` valait 40 — la moitié de la moyenne réelle des documents — ce qui donnait aux questions un avantage structurel de 2,44×. Les deux constantes sont désormais choisies ensemble sous une contrainte : poser `AVG_LEN` sur l'`avgdl` mesuré **sans déplacer l'échelle des questions**, puisque c'est elle que seuille `SEUIL_LEXICAL_PAR_TERME`. `AVG_LEN = 96`, `B = 0,70` → un chunk moyen pèse 1,0, l'écart tombe à 1,56×, le seuil calibré ne bouge pas. Mesure et résolution : `scripts/mesurer_longueurs.py`, § 15 du rapport.
+
+**Le score lexical est planché à deux termes.** `SEUIL_LEXICAL_PAR_TERME` divise la somme BM25 par le nombre de termes de la requête ; à un seul terme le diviseur vaut 1 et la normalisation ne fait plus rien — n'importe quel mot présent dans moins de la moitié du corpus ouvrait alors la porte lexicale, et chaque ouverture coûte un appel au juge. D'où `DIVISEUR_MINIMAL = 2` (`services/search.py`). Aucun effet au-delà d'un terme, donc aucun effet sur les seuils calibrés.
+
+**La tokenisation française est la partie risquée, pas la formule.** Élision retirée **par position** et non par appartenance — filtrer le jeu de lettres `l d j n s t c m` partout supprimait aussi « disque **C** », « permis **C** », « vitamine **D** » — sur les deux apostrophes, U+0027 **et** U+2019, cette dernière étant celle que produisent les traitements de texte d'où viennent les documents ingérés. Puis repli des diacritiques, mots-outils, radicalisation Snowball (`snowballstemmer`, l'implémentation de référence — rien ici n'est un algorithme maison).
+
+Le score de fusion, lui, ne sert **qu'à l'ordonnancement**. Aucun score RRF n'est absolu — il ne dépend que du rang, et le premier d'un lot sans intérêt vaut autant que le premier d'un lot parfait. Les décisions se prennent donc sur chaque signal pris séparément, sur sa propre échelle : cosinus **ou** BM25 par terme.
+
+**Quand BM25 sert, et quand il ne sert pas.** Sur des reformulations en langage naturel il n'apporte rien : c'est le travail de l'embedding, et il le fait bien. Mesuré sur 48 cas au 11/09, la porte lexicale y consommait 29 % du budget du juge pour un gain net d'un cas. Sur des termes hors distribution du modèle — référence d'article, nom propre, valeur exacte — elle rattrape **7 requêtes sur 7** que le dense perdait entièrement, à des cosinus de 0,34 à 0,61. BM25 est donc utile *à la condition* que le corpus contienne ce vocabulaire ; sur un corpus purement rédactionnel, le bon réglage serait `SEUIL_LEXICAL_PAR_TERME = 0`. Les deux mesures et leur réconciliation : § 14.2 de [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md).
+
+Campagne rejouée le 12/09 après recalibrage d'`AVG_LEN`/`B` : CANONIQUE 19 → **21**, appels au juge 22 → **31**, même conformité 36/48, et **toujours zéro faux positif**. Le rendement de la porte s'améliore sans que la sûreté bouge — elle coûte des appels au juge, pas de la sûreté, ce qui est exactement sa promesse. Le cas emblématique, « COMMENT FAIT ON UN SERVICE FAIT ??? » à un cosinus de 0,6343 (majuscules et ponctuation détruisent l'embedding, le recouvrement lexical est parfait), était décrit comme hors de portée de tout *seuil* : il l'est toujours, mais plus de BM25. Détail : § 15.
+
+**Côté FAQ, la porte ne déplace que des pistes.** Campagne dédiée (`scripts/test_faq_campagne.py`, 34 cas) : zéro violation d'invariant, et les 3 seuls cas que la porte lexicale change restent dans le rang `incertains` — jamais dans `resultats`. C'est la règle de `services/faq.py` — sans juge pour confirmer qu'un recouvrement de mots vaut une réponse, un candidat entré par les seuls mots se propose sans s'affirmer — désormais **mesurée** et plus seulement énoncée. § 15.7.
 
 ---
 
@@ -216,3 +238,11 @@ Les trois services ont des contraintes de version (PostgreSQL 16 pour certaines 
 **Limitation connue : `env_file` figé**
 
 `env_file:` dans `docker-compose.yml` est lu à la création du conteneur, pas au démarrage. Les valeurs chargées au moment de `docker compose up` sont figées — une modification ultérieure de `.env` n'atteint pas le conteneur en cours d'exécution. Il faut recréer les conteneurs (`docker compose up --force-recreate`) et vérifier depuis l'intérieur qu'une clé a bien changé. Ce comportement est documenté dans [Onboarding développeur](../onboarding-dev.md).
+
+**Limitation connue : l'état d'un conteneur n'est pas l'état de son image**
+
+Même piège, seconde forme. Un `pip install` lancé *dans* un conteneur survit à un `restart` mais disparaît à la recréation suivante, et `docker compose ps` affiche malgré tout tout le monde *running*. Ce qui trahit la situation, c'est `RunningFor` : s'il est antérieur au `up` que l'on vient de lancer, Compose n'a rien recréé parce que l'image n'a pas changé.
+
+La perte de `snowballstemmer` par ce chemin ne dégrade pas le système, elle l'arrête : `embed_texts` calcule le vecteur creux **avant** l'appel Albert, donc tout embedding lève. Après toute modification de `requirements.txt`, il faut donc `make dev-build && make dev`, puis vérifier l'import depuis l'intérieur de chacun des quatre conteneurs Python.
+
+⚠️ Ne jamais utiliser `make clean` pour cela : la cible est `down --rmi all --volumes`, elle détruit les volumes Qdrant et PostgreSQL.

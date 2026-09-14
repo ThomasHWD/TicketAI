@@ -113,18 +113,24 @@ def rassembler_candidates(
 def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
     """Réponses validées du domaine dont la question ressemble à un changement.
 
-    Une requête **dense uniquement** : ``embed_texts`` renvoie un vecteur sparse
-    vide (``{"indices": [], "values": []}``), interroger la branche sparse
-    reviendrait à envoyer un vecteur nul à Qdrant. Pour la même raison on
-    n'emprunte pas ``search_hybrid``, qui ne sait pas non plus cibler les points
+    Une requête **dense uniquement**, et c'est désormais un choix, plus une
+    contrainte : depuis le 11/09/2026 ``embed_texts`` produit un vrai vecteur BM25
+    (``services/bm25.py``), la branche lexicale est donc interrogeable ici. On s'en
+    abstient délibérément. Ce qu'on rapproche est un **paragraphe** d'une
+    **question** : leur recouvrement lexical est dominé par le vocabulaire commun au
+    domaine, et l'étage suivant (``unites_pertinentes``, un rerank) n'a pas de juge
+    derrière lui pour rattraper un candidat entré par les seuls mots. Le rappel de
+    cette étape prime sur sa précision, mais pas au prix d'un bruit qu'aucun étage
+    ne filtre. Décision à mesurer séparément, avec son propre protocole.
+    On n'emprunte pas non plus ``search_hybrid``, qui ne sait pas cibler les points
     de réponse.
 
     ``must_not=[IsEmpty("reponse_id")]`` est le seul moyen d'isoler ces points :
     ``feedback_job`` les écrit avec
     ``{reponse_id, ticket_id, contenu, domaine, question_indexee}`` et **sans**
     ``doc_id``, dans la même collection que les chunks de document.
-    Aucun index de payload sur ``reponse_id`` — Qdrant filtre donc en scan, ce qui
-    reste acceptable à cette volumétrie et se paye une fois par mise à jour.
+    ``init_collection`` pose un index de payload ``keyword`` sur ``reponse_id``
+    (``services/qdrant.py``), le filtre ne dégénère donc pas en scan.
 
     Une réponse porte un point par formulation humainement validée : le scroll peut
     donc la remonter plusieurs fois, sous des ``question_indexee`` différentes. D'où

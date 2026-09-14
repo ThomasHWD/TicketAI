@@ -270,6 +270,11 @@ entrées de cette table :
 |---|---|
 | `SEUIL_CANONIQUE` | Validations requises pour promouvoir une réponse (**défaut : 3**) |
 | `SEUIL_COSINUS` | Filtre de coût avant le garde (**défaut : 0.80**) |
+| `SEUIL_LEXICAL_PAR_TERME` | Porte lexicale BM25, en disjonction du cosinus ; `0` la referme (**défaut : 1.0**) |
+| `FAQ_MAX_RESULTATS` | Résultats renvoyés par la page FAQ (**défaut : 5**) |
+| `FAQ_SEUIL_PERTINENCE` | Seuil du rang « réponses » de la FAQ (**défaut : 0.75**) |
+| `FAQ_SEUIL_INCERTAIN` | Seuil du rang « pistes », renvoyé seulement si le premier est vide (**défaut : 0.55**) |
+| `FAQ_RATE_LIMIT_PAR_MINUTE` | Recherches FAQ par utilisateur et par minute ; `0` désactive (**défaut : 20**) |
 | `JOURS_AUTO_CLOTURE` | Délai avant clôture automatique (**défaut : 7**) |
 | `LOCK_TTL_SECONDS` | Durée du verrou de ticket (**défaut : 300**) |
 | `ALBERT_GARDE_MODEL_NAME` | Modèle dédié au garde |

@@ -8,6 +8,7 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
+    Modifier,
     SparseIndexParams,
     SparseVectorParams,
     VectorParams,
@@ -17,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 client = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
 
-COLLECTION_NAME = "ticketai"
+# Vaut "ticketai" partout sauf sous pytest, où conftest force un suffixe `_test`
+# avant l'import de ce module. Attention : `search.py` et `workers/document_update.py`
+# importent cette constante PAR VALEUR (`from ... import COLLECTION_NAME`), donc la
+# réaffecter après coup n'atteint pas ces modules — c'est l'environnement qui doit
+# être fixé avant l'import, pas la constante après.
+COLLECTION_NAME = settings.qdrant_collection
 
 
 def init_collection():
@@ -33,7 +39,18 @@ def init_collection():
                         distance=Distance.COSINE,
                     )
                 },
-                sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
+                # `Modifier.IDF` : Qdrant pondère les termes par leur rareté dans la
+                # collection, ce que le client ne peut pas faire — l'IDF change à
+                # chaque insertion. `services/bm25.py` ne fournit que l'autre moitié,
+                # les indices de tokens et leur saturation TF.
+                # Ce paramètre se fixe **à la création** : une collection existante
+                # créée sans lui doit être recréée pour en bénéficier.
+                sparse_vectors_config={
+                    "sparse": SparseVectorParams(
+                        index=SparseIndexParams(on_disk=False),
+                        modifier=Modifier.IDF,
+                    )
+                },
             )
             logger.info("Collection '%s' créée.", COLLECTION_NAME)
         except UnexpectedResponse as exc:

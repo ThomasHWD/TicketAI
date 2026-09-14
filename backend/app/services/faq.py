@@ -13,7 +13,7 @@ import uuid
 from app.config import settings
 from app.models.reponse import Reponse
 from app.models.ticket import Ticket
-from app.services.search import rechercher_points_reponses
+from app.services.search import franchit_le_rappel, rechercher_points_reponses
 from sqlalchemy.orm import Session
 
 # Une réponse porte un point Qdrant **par formulation validée**
@@ -26,22 +26,24 @@ FACTEUR_SUR_ECHANTILLONNAGE = 4
 MAX_INCERTAINS = 3
 
 
-def _meilleurs_points(chunks: list[dict], seuil: float) -> dict[str, tuple[float, str | None]]:
-    """Agrège les points par `reponse_id` : `{reponse_id: (meilleur_score, question_indexee)}`.
+def _meilleurs_points(chunks: list[dict]) -> dict[str, dict]:
+    """Le meilleur point par `reponse_id`, retenu au **rang RRF**.
 
-    La question retenue est celle du point **qui a obtenu le meilleur score**, pas
-    celle du ticket d'origine : c'est la formulation que l'utilisateur a réellement
-    matchée, donc la seule qu'il ait du sens de lui afficher.
+    La question affichée sera celle de ce point, pas celle du ticket d'origine :
+    c'est la formulation que l'utilisateur a réellement matchée.
+
+    Le tri est le rôle de la fusion ; la sélection, elle, se fait par disjonction
+    sur les signaux bruts (`franchit_le_rappel`) — un point retenu par les seuls
+    mots doit pouvoir entrer, c'est tout l'intérêt de BM25.
     """
-    meilleurs: dict[str, tuple[float, str | None]] = {}
+    meilleurs: dict[str, dict] = {}
     for chunk in chunks:
         reponse_id = chunk.get("reponse_id")
-        score = chunk.get("score_cosinus", 0.0)
-        if not reponse_id or score < seuil:
+        if not reponse_id or not franchit_le_rappel(chunk, settings.faq_seuil_incertain):
             continue
         cle = str(reponse_id)
-        if score > meilleurs.get(cle, (-1.0, None))[0]:
-            meilleurs[cle] = (score, chunk.get("question_indexee"))
+        if chunk.get("score_rrf", 0.0) > meilleurs.get(cle, {}).get("score_rrf", -1.0):
+            meilleurs[cle] = chunk
     return meilleurs
 
 
@@ -50,17 +52,23 @@ def rechercher_faq(db: Session, question: str, limite: int) -> dict[str, list[di
 
     Renvoie deux rangs :
 
-    - `resultats` — ce qui franchit `faq_seuil_pertinence`, au plus `limite` ;
-    - `incertains` — **uniquement si `resultats` est vide**, ce qui atteint au
-      moins `faq_seuil_incertain`. C'est une piste, pas une réponse : la bande
-      sous le seuil mélange bonnes et mauvaises correspondances sans qu'aucune
-      valeur ne les sépare. Le cantonnement au cas « rien trouvé » est une règle
-      métier, pas un choix d'affichage : proposer de l'incertain à côté d'une
-      réponse sûre ne ferait que la diluer.
+    - `resultats` — ce dont le **cosinus** franchit `faq_seuil_pertinence` ;
+    - `incertains` — **uniquement si `resultats` est vide** : ce qui atteint
+      `faq_seuil_incertain`, ou ce qui n'est passé que par la **porte lexicale**.
+
+    Un candidat retenu par les seuls mots va donc en piste, jamais en réponse. La
+    raison tient en une phrase : ailleurs dans le système, un tel candidat est
+    soumis au juge, qui tranche ; ici il n'y a pas de juge, donc rien ne vient
+    confirmer qu'un recouvrement de mots vaut une réponse. On le propose sans
+    l'affirmer.
+
+    Le cantonnement des pistes au cas « rien trouvé » est une règle métier, pas un
+    choix d'affichage : proposer de l'incertain à côté d'une réponse sûre ne
+    ferait que la diluer.
     """
     chunks = rechercher_points_reponses(question, top_k=limite * FACTEUR_SUR_ECHANTILLONNAGE)
 
-    meilleurs = _meilleurs_points(chunks, settings.faq_seuil_incertain)
+    meilleurs = _meilleurs_points(chunks)
     if not meilleurs:
         return {"resultats": [], "incertains": []}
 
@@ -81,11 +89,15 @@ def rechercher_faq(db: Session, question: str, limite: int) -> dict[str, list[di
     certains: list[tuple[float, dict]] = []
     incertains: list[tuple[float, dict]] = []
     for reponse, ticket in resultats:
-        score, question_indexee = meilleurs[str(reponse.id)]
-        rang = certains if score >= settings.faq_seuil_pertinence else incertains
+        point = meilleurs[str(reponse.id)]
+        question_indexee = point.get("question_indexee")
+        # Seul le **cosinus** ouvre le rang des réponses : sans juge pour le
+        # confirmer, un simple recouvrement de mots ne fait qu'une piste.
+        sur = point.get("score_cosinus", 0.0) >= settings.faq_seuil_pertinence
+        rang = certains if sur else incertains
         rang.append(
             (
-                score,
+                point.get("score_rrf", 0.0),
                 {
                     "reponse_id": str(reponse.id),
                     # Repli pour les points écrits avant l'indexation multi-formulations.
@@ -99,8 +111,8 @@ def rechercher_faq(db: Session, question: str, limite: int) -> dict[str, list[di
             )
         )
 
-    # Le score ordonne, mais ne sort pas de l'API : un cosinus brut n'a aucun sens
-    # pour un utilisateur et invite à des interprétations fausses.
+    # Le rang RRF ordonne — c'est son rôle — mais aucun score ne sort de l'API :
+    # ils n'ont aucun sens pour un utilisateur et invitent à des lectures fausses.
     def ordonner(rang: list[tuple[float, dict]], maximum: int) -> list[dict]:
         rang.sort(key=lambda paire: paire[0], reverse=True)
         return [item for _, item in rang[:maximum]]

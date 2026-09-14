@@ -42,7 +42,13 @@ class GardeDecision(Base):
     question_indexee = Column(Text, nullable=False)
 
     reponse_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    # Le cosinus **pur**, qui garde exactement le sens qu'il avait avant BM25 :
+    # sans quoi les décisions antérieures deviendraient incomparables aux nouvelles.
     score_cosinus = Column(Float, nullable=True)
+    # Le second signal, BM25 ramené au terme. La porte se franchit par le cosinus
+    # **ou** par lui : sans les deux colonnes, on ne peut pas relire par quelle
+    # porte un candidat est passé. Nul avant l'arrivée de la recherche lexicale.
+    score_lexical = Column(Float, nullable=True)
 
     verdict = Column(Boolean, nullable=False, index=True)
     # True quand les deux questions étaient typographiquement identiques :
