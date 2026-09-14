@@ -67,6 +67,15 @@ class Settings(BaseSettings):
     faq_max_resultats: int = 5
     faq_seuil_pertinence: float = 0.75
     faq_rate_limit_par_minute: int = 20
+    faq_rate_limit_par_jour: int = 200
+
+    # Quota tickets : protège la queue Celery et le quota Albert contre les abus.
+    # 0 désactive la limite.
+    ticket_rate_limit_par_jour: int = 30
+
+    # Replay des tickets ÉCHOUÉ : âge maximal des tickets à remettre en queue.
+    # Au-delà, on ne rejoue pas sans que l'utilisateur l'ait demandé.
+    replay_max_age_jours: int = 7
     # Second rang, proposé explicitement comme incertain quand rien ne franchit
     # `faq_seuil_pertinence`. Mesuré : la bande sous le seuil mélange bonnes et
     # mauvaises correspondances (« hauteur fruit » → 0,67 juste, une demande
