@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Archive, BadgeCheck, Check, ChevronDown, Loader2, Search, SlidersHorizontal, Tag, X } from "lucide-react";
+import { AlertTriangle, Archive, ArrowUpDown, BadgeCheck, Check, ChevronDown, Loader2, Search, SlidersHorizontal, Tag, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Onglet } from "./utils";
 
@@ -17,10 +17,12 @@ interface SavedAnswersHeaderProps {
   domaine: string | undefined;
   tag: string | undefined;
   tagsDisponibles: string[];
+  ordre: "date" | "occurence";
   onOngletChange: (o: Onglet) => void;
   onSearchChange: (q: string) => void;
   onDomaine: (d: string | undefined) => void;
   onTag: (t: string | undefined) => void;
+  onOrdre: (o: "date" | "occurence") => void;
 }
 
 function Tab({
@@ -72,6 +74,48 @@ function FilterPill({
     >
       {label}
     </button>
+  );
+}
+
+const SORT_OPTIONS: { value: "date" | "occurence"; label: string }[] = [
+  { value: "date",      label: "Date" },
+  { value: "occurence", label: "Fois servie" },
+];
+
+function SortSegment({
+  value,
+  onChange,
+}: {
+  value: "date" | "occurence";
+  onChange: (v: "date" | "occurence") => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <ArrowUpDown size={12} className="text-gray-400 dark:text-gray-500 shrink-0" aria-hidden="true" />
+      <div
+        role="radiogroup"
+        aria-label="Trier par"
+        className="flex items-center gap-px rounded-lg bg-gray-100 dark:bg-white/8 p-0.5"
+      >
+        {SORT_OPTIONS.map(({ value: opt, label }) => (
+          <button
+            key={opt}
+            type="button"
+            role="radio"
+            aria-checked={value === opt}
+            onClick={() => onChange(opt)}
+            className={[
+              "px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 whitespace-nowrap",
+              value === opt
+                ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-50 shadow-sm"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200",
+            ].join(" ")}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -192,7 +236,7 @@ const ONGLETS: Onglet[] = ["canoniques", "a_relire", "obsoletes"];
 
 export default function SavedAnswersHeader({
   onglet, nbDocsARelire, nbObsoletes, searchQuery, loading, isFetching, error, total,
-  canoniquesCount, domaines, domaine, tag, tagsDisponibles, onOngletChange, onSearchChange, onDomaine, onTag,
+  canoniquesCount, domaines, domaine, tag, tagsDisponibles, ordre, onOngletChange, onSearchChange, onDomaine, onTag, onOrdre,
 }: SavedAnswersHeaderProps) {
   const tablistRef = useRef<HTMLDivElement>(null);
   const searching = isFetching && searchQuery.trim().length > 0;
@@ -211,7 +255,7 @@ export default function SavedAnswersHeader({
 
   const hasDomainFilter = domaines.length > 1;
   const hasTagFilter = tagsDisponibles.length > 0;
-  const showFilterBar = onglet === "canoniques" && (hasDomainFilter || hasTagFilter);
+  const showFilterBar = onglet === "canoniques";
   const filtresActifs = domaine !== undefined || tag !== undefined;
 
   return (
@@ -305,11 +349,15 @@ export default function SavedAnswersHeader({
             </div>
           )}
 
+          <div className="ml-auto shrink-0">
+            <SortSegment value={ordre} onChange={onOrdre} />
+          </div>
+
           {filtresActifs && (
             <button
               type="button"
               onClick={() => { onDomaine(undefined); onTag(undefined); }}
-              className="ml-auto flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60 rounded-sm shrink-0"
+              className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60 rounded-sm shrink-0"
             >
               <X size={11} aria-hidden="true" />
               Réinitialiser

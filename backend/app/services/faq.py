@@ -82,6 +82,7 @@ def rechercher_faq(db: Session, question: str, limite: int) -> dict[str, list[di
             Reponse.id.in_([uuid.UUID(r) for r in meilleurs]),
             Reponse.canonique.is_(True),
             Reponse.obsolete.is_(False),
+            Reponse.faq_visible.is_(True),
         )
         .all()
     )

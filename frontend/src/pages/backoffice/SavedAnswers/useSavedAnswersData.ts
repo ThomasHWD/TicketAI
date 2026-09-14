@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getReponsesARelire, getReponsesCanoniques, getReponsesObsoletes, getTags } from "../../../lib/api";
 import { LIMIT, type Onglet } from "./utils";
 
-export function useSavedAnswersData(onglet: Onglet, page: number, search: string = "", domaine?: string, tag?: string) {
+export function useSavedAnswersData(onglet: Onglet, page: number, search: string = "", domaine?: string, tag?: string, ordre: "date" | "occurence" = "date") {
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -14,8 +14,8 @@ export function useSavedAnswersData(onglet: Onglet, page: number, search: string
   const d = domaine || undefined;
 
   const canoniques = useQuery({
-    queryKey: ["reponses-canoniques", page, debouncedSearch, domaine, tag],
-    queryFn: () => getReponsesCanoniques({ page, limit: LIMIT, q, domaine: d, tag }),
+    queryKey: ["reponses-canoniques", page, debouncedSearch, domaine, tag, ordre],
+    queryFn: () => getReponsesCanoniques({ page, limit: LIMIT, q, domaine: d, tag, ordre }),
     placeholderData: (prev) => prev,
     enabled: onglet === "canoniques",
   });

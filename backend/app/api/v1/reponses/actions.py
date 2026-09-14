@@ -10,7 +10,13 @@ from app.database import SessionLocal
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
-from app.schemas.reponse import CorrigerRequest, EditerCanoniqueRequest, RejeterRequest
+from app.schemas.reponse import (
+    CorrigerRequest,
+    EditerCanoniqueRequest,
+    FaqVisibleRequest,
+    RejeterRequest,
+    ValiderRequest,
+)
 from app.services.broadcast import broadcast_async
 from app.services.obsolescence import (
     RAISON_MANUELLE,
@@ -38,7 +44,7 @@ router = APIRouter()
 
 
 @router.post("/reponses/{reponse_id}/valider")
-async def valider_reponse(reponse_id: str, current_user: BackofficeUser):
+async def valider_reponse(reponse_id: str, current_user: BackofficeUser, payload: ValiderRequest | None = None):
     db = SessionLocal()
     try:
         reponse = get_reponse_or_404(db, reponse_id)
@@ -70,6 +76,10 @@ async def valider_reponse(reponse_id: str, current_user: BackofficeUser):
             reponse.nb_validations += 1
             if reponse.nb_validations >= settings.seuil_canonique:
                 reponse.canonique = True
+
+        if payload and payload.faq_visible:
+            cible = reponse_source if reponse_source else reponse
+            cible.faq_visible = True
 
         notifier_employe(db, ticket, reponse_id, current_user.id)
         db.commit()
@@ -207,6 +217,22 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest, current_us
         "contenu_corrige": payload.contenu_corrige,
         "message": "Réponse corrigée.",
     }
+
+
+@router.patch("/reponses/{reponse_id}/faq-visible")
+async def basculer_faq_visible(reponse_id: str, payload: FaqVisibleRequest, current_user: BackofficeUser):
+    """Active ou désactive l'apparition d'une réponse canonique dans la FAQ."""
+    db = SessionLocal()
+    try:
+        reponse = get_reponse_or_404(db, reponse_id)
+        check_reponse_write(db, reponse, current_user)
+        reponse.faq_visible = payload.faq_visible
+        db.commit()
+    finally:
+        db.close()
+
+    await broadcast_async("sse:admin", "saved_answers_updated", {"reponse_id": reponse_id})
+    return {"reponse_id": reponse_id, "faq_visible": payload.faq_visible}
 
 
 @router.post("/reponses/{reponse_id}/retirer")

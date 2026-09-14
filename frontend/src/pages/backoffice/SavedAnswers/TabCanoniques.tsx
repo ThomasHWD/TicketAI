@@ -2,10 +2,46 @@ import { useState } from "react";
 import { AlertTriangle, Check, Pencil, Trash2, X } from "lucide-react";
 import { formatDate } from "../../../lib/ticketStatus";
 import type { ReponseCanonique } from "../../../types";
+import { basculerFaqVisible } from "../../../lib/api";
 import TagEditor from "../../../components/tickets/TagEditor";
 import ExpandableText from "./ExpandableText";
 import InfoTooltip from "./InfoTooltip";
 import { contenuServi, depuis, type CibleSuppression } from "./utils";
+
+function FaqVisibleToggle({ reponseId, initial }: { reponseId: string; initial: boolean }) {
+  const [visible, setVisible] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  async function toggle() {
+    setSaving(true);
+    const next = !visible;
+    try {
+      await basculerFaqVisible(reponseId, { faq_visible: next });
+      setVisible(next);
+    } catch {
+      // silencieux — état inchangé
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={saving}
+      aria-label={visible ? "Retirer de la FAQ" : "Inclure dans la FAQ"}
+      title={visible ? "Visible dans la FAQ — cliquer pour retirer" : "Absente de la FAQ — cliquer pour inclure"}
+      className={[
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-50",
+        visible
+          ? "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20 focus-visible:ring-sky-500/60"
+          : "bg-gray-100 text-gray-400 dark:bg-white/5 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10 focus-visible:ring-gray-400/60",
+      ].join(" ")}
+    >
+      FAQ
+    </button>
+  );
+}
 
 type Props = {
   items: ReponseCanonique[];
@@ -61,6 +97,7 @@ function ReponseCanoniqueItem({
           {r.question}
         </p>
         <div className="flex items-center gap-1.5 shrink-0 pt-px">
+          <FaqVisibleToggle reponseId={r.reponse_id} initial={r.faq_visible} />
           {r.a_relire && (
             <button
               onClick={onTabARelire}
