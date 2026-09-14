@@ -36,6 +36,10 @@ class Reponse(Base):
     raison_rejet = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Inclusion volontaire dans la FAQ publique interne. Défaut False : seul un
+    # validateur ou un gestionnaire peut décider d'y faire figurer une réponse.
+    faq_visible = Column(Boolean, nullable=False, default=False, server_default="false")
+
     # Obsolescence : un drapeau, et non une valeur de `statut`. Les copies
     # SUGGESTION/CANONIQUE SONT les réponses affichées sur les tickets des
     # utilisateurs ; écrire OBSOLÈTE dans `statut` afficherait rétroactivement

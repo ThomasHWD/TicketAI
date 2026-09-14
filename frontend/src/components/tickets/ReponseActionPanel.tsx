@@ -67,13 +67,15 @@ interface ValidationConfirmPanelProps {
   error: string | null;
   tagDraft: string;
   tags: string[];
+  faqVisible: boolean;
   onTagChange: (v: string) => void;
+  onFaqVisibleChange: (v: boolean) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 export function ValidationConfirmPanel({
-  confirmRef, loading, error, tagDraft, tags, onTagChange, onConfirm, onCancel,
+  confirmRef, loading, error, tagDraft, tags, faqVisible, onTagChange, onFaqVisibleChange, onConfirm, onCancel,
 }: ValidationConfirmPanelProps) {
   return (
     <div role="alert" className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 space-y-3">
@@ -100,6 +102,17 @@ export function ValidationConfirmPanel({
           {tags.map((t) => <option key={t} value={t} />)}
         </datalist>
       </div>
+
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={faqVisible}
+          onChange={(e) => onFaqVisibleChange(e.target.checked)}
+          disabled={loading}
+          className="w-3.5 h-3.5 rounded border-amber-300 dark:border-amber-500/40 accent-emerald-600 disabled:opacity-50"
+        />
+        <span className="text-xs text-amber-700/80 dark:text-amber-400/80">Inclure dans la FAQ</span>
+      </label>
 
       {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
       <div className="flex items-center gap-2">

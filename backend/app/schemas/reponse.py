@@ -5,6 +5,14 @@ from pydantic import BaseModel
 # donc été retirés de ces schémas.
 
 
+class ValiderRequest(BaseModel):
+    faq_visible: bool = False
+
+
+class FaqVisibleRequest(BaseModel):
+    faq_visible: bool
+
+
 class RejeterRequest(BaseModel):
     raison: str
 

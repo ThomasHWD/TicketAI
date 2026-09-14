@@ -24,6 +24,7 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
   const [error, setError] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState(reponse.tag ?? "");
   const [confirmingValidation, setConfirmingValidation] = useState(false);
+  const [faqVisible, setFaqVisible] = useState(false);
   const [justValidated, setJustValidated] = useState(false);
   const [confirmingRejection, setConfirmingRejection] = useState(false);
   const [rejectRaison, setRejectRaison] = useState("");
@@ -50,7 +51,7 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
         // Première validation : on fixe le tag (silencieux — ne bloque pas la validation)
         await updateTag(reponse.id, tagDraft.trim() || null).catch(() => null);
       }
-      await validerReponse(reponse.id, { validator_id: getValidatorId() });
+      await validerReponse(reponse.id, { validator_id: getValidatorId(), faq_visible: faqVisible });
       setJustValidated(true);
       setTimeout(() => onChanged(), 250);
     } catch (e) { handleError(e); } finally { setLoading(false); }
@@ -92,6 +93,7 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
     loading,
     error, setError,
     confirmingValidation, setConfirmingValidation,
+    faqVisible, setFaqVisible,
     justValidated,
     confirmingRejection, setConfirmingRejection,
     rejectRaison, setRejectRaison,

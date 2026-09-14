@@ -177,7 +177,9 @@ export default function ReponseItem({
                 error={actions.error}
                 tagDraft={actions.tagDraft}
                 tags={tags}
+                faqVisible={actions.faqVisible}
                 onTagChange={actions.setTagDraft}
+                onFaqVisibleChange={actions.setFaqVisible}
                 onConfirm={actions.handleValider}
                 onCancel={() => actions.setConfirmingValidation(false)}
               />
