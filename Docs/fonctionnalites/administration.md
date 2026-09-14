@@ -290,7 +290,7 @@ entrées de cette table :
 ## 6. La boîte à suggestions
 
 Onglet *Suggestions*. Les retours envoyés par les utilisateurs depuis `/suggestion` (voir
-[Espace utilisateur](espace-utilisateur.md#5-la-boîte-à-suggestions)).
+[Espace utilisateur](espace-utilisateur.md#6-la-boîte-à-suggestions)).
 
 | Action | Endpoint | Accès |
 |---|---|---|
