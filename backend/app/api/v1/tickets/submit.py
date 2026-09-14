@@ -1,7 +1,9 @@
 from celery.result import AsyncResult
 from fastapi import APIRouter, Body, HTTPException
 
+from app.config import settings
 from app.core.permissions import check_ticket_read
+from app.core.rate_limit import limiter
 from app.core.security import CurrentUser
 from app.database import SessionLocal
 from app.models.groupe import Groupe
@@ -29,6 +31,7 @@ async def list_domaines(_: CurrentUser):
 
 @router.post("/tickets")
 async def soumettre_question(payload: QuestionRequest, current_user: CurrentUser):
+    limiter("ticket_jour", str(current_user.id), settings.ticket_rate_limit_par_jour, fenetre_secondes=86400)
     domaine = payload.domaine.upper()
     db = SessionLocal()
     try:
