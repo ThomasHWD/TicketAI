@@ -1,7 +1,7 @@
 import { AlertCircle } from "lucide-react";
-import { renderMarkdown } from "../../components/ticket/utils";
-import { DomaineBadge } from "../../components/tickets/StatusBadge";
-import type { FaqResultat as Resultat } from "../../lib/api";
+import { renderMarkdown } from "../../../components/ticket/utils";
+import { DomaineBadge } from "../../../components/tickets/StatusBadge";
+import type { FaqResultat as Resultat } from "../../../lib/api";
 import FaqRepli from "./FaqRepli";
 import FaqResultat from "./FaqResultat";
 

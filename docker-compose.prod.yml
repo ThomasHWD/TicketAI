@@ -1,5 +1,17 @@
 name: ticketai
 
+# Le pilote json-file de Docker n'a AUCUN plafond par défaut : un conteneur en
+# `restart: unless-stopped` écrit sans limite tant qu'il vit. Le débit mesuré est
+# pourtant faible (~1,2 ko en quelques minutes à vide) — ce n'est pas lui qui
+# justifie ce bloc, c'est le mode de défaillance : disque plein, c'est le démon
+# Docker entier qui tombe, pas un conteneur. 30 Mo par service, borné.
+# À ajouter à tout nouveau service de ce fichier ; rien ne le fait à ta place.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-infra-healthcheck: &infra-healthcheck
   interval: 10s
   start_interval: 1s
@@ -7,6 +19,40 @@ x-infra-healthcheck: &infra-healthcheck
   retries: 10
   start_period: 10s
 
+# Voir docker-compose.dev.yml pour le détail. L'enjeu est ici : `restart:
+# unless-stopped` ne relance QUE ce que Docker voit mourir. Un worker qui a perdu
+# le broker mais dont le process vit reste « Up » pour toujours, et la file
+# s'empile en silence. Ce healthcheck est ce qui rend cet état visible.
+x-celery-healthcheck: &celery-healthcheck
+  test:
+    [
+      "CMD-SHELL",
+      "celery -A app.workers.celery_app inspect ping -d celery@$$HOSTNAME -t 5 >/dev/null 2>&1",
+    ]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+
+# ⚠️ Les trois services d'infra ci-dessous publient sur 127.0.0.1 UNIQUEMENT.
+#
+# Ils écoutaient sur 0.0.0.0. Or ni Qdrant ni Valkey n'ont d'authentification
+# ici : `GET /collections` répondait 200 sans clé, `CONFIG GET requirepass`
+# renvoyait vide. Quiconque atteignait l'hôte lisait donc tout le corpus indexé
+# (RH, IT, Juridique) — et, côté Valkey, pouvait pousser un message dans la file
+# Celery, c'est-à-dire faire exécuter une tâche par `worker_questions`. Pas une
+# fuite en lecture : de l'exécution.
+#
+# Rien n'avait besoin de cette publication : backend et workers joignent
+# `postgres`, `qdrant` et `valkey` par le réseau Compose, sous ces noms-là
+# (cf. POSTGRES_HOST/QDRANT_HOST/VALKEY_HOST plus bas). Seul `frontend:80` a une
+# raison de sortir.
+#
+# Le bind loopback est conservé pour que les scripts de `backend/scripts/`
+# lancés depuis l'hôte continuent d'atteindre la prod (ils lisent backend/.env,
+# qui pointe 5432/6333 — cf. CLAUDE.md). Si ce besoin disparaît, supprimer les
+# blocs `ports:` entièrement : c'est plus strict, et rien dans la stack ne s'en
+# aperçoit.
 x-infra-deps: &infra-deps
   postgres:
     condition: service_healthy
@@ -19,12 +65,13 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: always
+    logging: *logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -38,9 +85,10 @@ services:
   qdrant:
     image: qdrant/qdrant:v1.18.0
     restart: always
+    logging: *logging
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
@@ -50,17 +98,20 @@ services:
   valkey:
     image: valkey/valkey:7.2-alpine
     restart: always
+    logging: *logging
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       <<: *infra-healthcheck
 
   backend:
     build: ./backend
-    command: >
-      sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"
+    # Une seule ligne : même piège de bloc replié qu'en dev (cf. le commentaire
+    # dans docker-compose.dev.yml). Ici le `&&` en fin de ligne servait de
+    # continuation shell, donc ça marchait — par chance, pas par construction.
+    # `exec` : uvicorn devient PID 1 et reçoit SIGTERM sans passer par le shell.
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"]
     volumes:
       - documents_storage:/app/storage
       - uploads_tmp:/app/uploads_tmp
@@ -75,6 +126,7 @@ services:
       # ALLOWED_ORIGINS: '["https://ticketai.mon-entreprise.fr"]'
     depends_on: *infra-deps
     restart: unless-stopped
+    logging: *logging
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 10s
@@ -98,6 +150,8 @@ services:
       UPLOAD_DIR: /app/uploads_tmp
     depends_on: *infra-deps
     restart: unless-stopped
+    logging: *logging
+    healthcheck: *celery-healthcheck
 
   worker_questions:
     build: ./backend
@@ -109,10 +163,16 @@ services:
       VALKEY_HOST: valkey
     depends_on: *infra-deps
     restart: unless-stopped
+    logging: *logging
+    healthcheck: *celery-healthcheck
 
   worker_beat:
     build: ./backend
-    command: celery -A app.workers.celery_app beat -l info
+    # --schedule : hors de /app, pour que le code n'ait pas besoin d'être
+    # inscriptible par l'utilisateur non privilégié du conteneur.
+    command: celery -A app.workers.celery_app beat -l info --schedule=/var/lib/celery/celerybeat-schedule
+    volumes:
+      - beat_schedule:/var/lib/celery
     env_file: ./backend/.env
     environment:
       POSTGRES_HOST: postgres
@@ -120,6 +180,11 @@ services:
       VALKEY_HOST: valkey
     depends_on: *infra-deps
     restart: unless-stopped
+    logging: *logging
+    # Pas de healthcheck, volontairement : beat n'est pas un worker et ne répond
+    # pas à `inspect ping`. Ici il est le process principal du conteneur, donc
+    # sa mort fait sortir le conteneur et `restart: unless-stopped` le relance —
+    # c'est ce qui le couvre, à la place d'un check qui serait toujours vert.
 
   frontend:
     build:
@@ -131,6 +196,7 @@ services:
       backend:
         condition: service_started
     restart: unless-stopped
+    logging: *logging
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost/"]
       interval: 30s
@@ -144,3 +210,4 @@ volumes:
   qdrant_data:
   documents_storage:
   uploads_tmp:
+  beat_schedule:

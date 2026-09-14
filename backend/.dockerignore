@@ -1,0 +1,42 @@
+# Contexte de build envoyé au démon Docker à CHAQUE build, puis figé dans la
+# couche `COPY . .`. Sans ce fichier, `backend/.venv` (6,1 Go) partait dedans :
+# un venv de l'hôte, inutilisable dans l'image, et de toute façon masqué au
+# runtime par le bind mount `./backend:/app` de docker-compose.dev.yml.
+#
+# Second rôle, moins visible : garder le contexte STABLE. Tout fichier listé ici
+# qui changerait entre deux builds invaliderait la couche `COPY . .`. C'est le cas
+# de `celerybeat-schedule`, que worker_beat réécrit en continu à travers le bind
+# mount — il suffisait à faire repartir le COPY de zéro à chaque rebuild.
+
+# Environnement Python local
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Caches et artefacts d'outils
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Écrit par worker_beat à travers le bind mount : invalide le cache du COPY
+celerybeat-schedule
+
+# Données runtime, montées en volume (cf. `documents_storage` / `uploads_tmp`)
+storage/
+uploads_tmp/
+test_storage_dir/
+
+# Secrets : compose les injecte via `env_file:` depuis l'hôte, l'image n'en a
+# pas besoin — et une image ne doit pas transporter de clé Albert.
+.env
+
+# Artefacts de campagnes de test
+campagne*.json
+scripts/resultats_*.json
+
+# Outillage d'agent
+.claude/
+.impeccable/

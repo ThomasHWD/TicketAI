@@ -7,6 +7,7 @@ et non l'inverse, pour briser la dépendance circulaire.
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import NamedTuple
 
 from app.config import settings
 from app.crud.question import TicketDisparu, upsert_reponse, upsert_ticket  # noqa: F401 — ré-exportés
@@ -17,6 +18,7 @@ from app.models.reponse import Reponse
 from app.models.ticket import Ticket
 from app.services.broadcast import broadcast_sync
 from app.services.garde_cache import Decision
+from app.services.search import franchit_le_rappel
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,7 @@ def journaliser_garde(
     question_indexee: str,
     reponse_id: uuid.UUID | None,
     score_cosinus: float | None,
+    score_lexical: float | None = None,
 ) -> None:
     """Consigne une décision du garde dans `garde_decisions`.
 
@@ -68,6 +71,7 @@ def journaliser_garde(
                 question_indexee=question_indexee,
                 reponse_id=reponse_id,
                 score_cosinus=score_cosinus,
+                score_lexical=score_lexical,
                 verdict=decision.verdict,
                 court_circuit=decision.court_circuit,
                 modele=decision.modele,
@@ -118,57 +122,107 @@ def charger_contexte_fil(ticket_id: uuid.UUID, precision: str) -> tuple[list[dic
         db.close()
 
 
-def trouver_reponse_reutilisable(
-    db: Session, chunks: list[dict]
-) -> tuple[Reponse | None, float | None, str | None]:
-    """Cherche, parmi les chunks, une réponse VALIDÉE réutilisable au-dessus de SEUIL_SUGGESTION.
+class Candidat(NamedTuple):
+    """Réponse réutilisable retenue, et les deux signaux qui l'ont retenue.
 
-    Plusieurs réponses validées peuvent matcher → on retient le meilleur score par
-    `reponse_id`, puis on choisit de façon déterministe (canonique, plus validée,
-    meilleur score, id).
+    Les signaux sont portés **séparément** parce que la décision est une
+    disjonction : aucun nombre unique ne les résume sans perdre ce qui compte.
+    `score_cosinus` est par ailleurs la valeur consignée dans `garde_decisions` —
+    la confondre avec autre chose rendrait le journal d'audit incomparable d'une
+    version à l'autre du système.
+    """
 
-    Renvoie `(reponse, score, question_indexee)` ou `(None, None, None)`.
+    reponse: Reponse | None
+    score_cosinus: float | None
+    score_lexical: float | None
+    question_indexee: str | None
+
+    def franchit(self, seuil_cosinus: float) -> bool:
+        """Le candidat passe-t-il la porte, par le sens **ou** par les mots ?"""
+        if self.reponse is None:
+            return False
+        return franchit_le_rappel(
+            {"score_cosinus": self.score_cosinus or 0.0, "score_lexical": self.score_lexical or 0.0},
+            seuil_cosinus,
+        )
+
+    @property
+    def servable(self) -> bool:
+        """Le candidat peut-il être **proposé** à un relecteur, et pas seulement jugé ?
+
+        Un candidat entré par les seuls mots n'a le droit qu'au juge. S'il n'est
+        pas canonique, ou si le juge le refuse, il ne doit pas ressortir en
+        SUGGESTION : il repart au RAG.
+
+        **Ce n'est pas une précaution théorique, c'est une mesure.** Campagne du
+        11/09/2026, 48 cas : sans cette règle, le RAG tombait de 17 à 5 cas et
+        douze questions se voyaient proposer un candidat que le juge venait
+        explicitement de refuser — « Combien de temps faut-il pour qu'un
+        engagement soit validé ? » se voyait offrir la fiche « médecine de
+        prévention » à 0,5381 de cosinus. La branche CANONIQUE a un juge pour la
+        protéger, la branche SUGGESTION n'en a aucun.
+        """
+        return (self.score_cosinus or 0.0) >= SEUIL_SUGGESTION
+
+
+AUCUN_CANDIDAT = Candidat(None, None, None, None)
+
+
+def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
+    """Cherche, parmi les chunks, une réponse VALIDÉE réutilisable atteignant l'étage de rappel.
+
+    Plusieurs réponses validées peuvent matcher → on retient le meilleur point par
+    `reponse_id` **au rang RRF**, qui est le rôle de la fusion, puis on choisit de
+    façon déterministe (canonique, plus validée, meilleur rang, id).
+
     `question_indexee` est la question portée par le **point qui a matché** — une
     réponse en a une par formulation validée. Elle vaut `None` pour les points
     écrits avant l'introduction des formulations multiples ; l'appelant retombe
     alors sur `Ticket.question`.
     """
-    scores_par_reponse: dict[str, float] = {}
-    questions_par_reponse: dict[str, str | None] = {}
+    # Un seul dictionnaire : le meilleur *chunk* par réponse, dont on dérive
+    # ensuite tous les signaux. Trois dictionnaires parallèles finissaient
+    # toujours par diverger.
+    meilleur_par_reponse: dict[str, dict] = {}
     for c in chunks:
         rid = c.get("reponse_id")
-        if rid and c["score_cosinus"] >= SEUIL_SUGGESTION:
-            rid = str(rid)
-            if c["score_cosinus"] > scores_par_reponse.get(rid, -1.0):
-                questions_par_reponse[rid] = c.get("question_indexee")
-            scores_par_reponse[rid] = max(scores_par_reponse.get(rid, 0.0), c["score_cosinus"])
+        if not rid or not franchit_le_rappel(c, SEUIL_SUGGESTION):
+            continue
+        rid = str(rid)
+        if c.get("score_rrf", 0.0) > meilleur_par_reponse.get(rid, {}).get("score_rrf", -1.0):
+            meilleur_par_reponse[rid] = c
 
-    if not scores_par_reponse:
-        return None, None, None
+    if not meilleur_par_reponse:
+        return AUCUN_CANDIDAT
 
     candidats = (
         db.query(Reponse)
         .filter(
-            Reponse.id.in_([uuid.UUID(r) for r in scores_par_reponse]),
+            Reponse.id.in_([uuid.UUID(r) for r in meilleur_par_reponse]),
             Reponse.statut == "VALIDÉE",
             Reponse.obsolete.is_(False),
         )
         .all()
     )
     if not candidats:
-        return None, None, None
+        return AUCUN_CANDIDAT
 
     reponse_liee = max(
         candidats,
         key=lambda r: (
             r.canonique,
             r.nb_validations,
-            scores_par_reponse[str(r.id)],
+            meilleur_par_reponse[str(r.id)].get("score_rrf", 0.0),
             str(r.id),
         ),
     )
-    cle = str(reponse_liee.id)
-    return reponse_liee, scores_par_reponse[cle], questions_par_reponse.get(cle)
+    point = meilleur_par_reponse[str(reponse_liee.id)]
+    return Candidat(
+        reponse_liee,
+        point.get("score_cosinus", 0.0),
+        point.get("score_lexical", 0.0),
+        point.get("question_indexee"),
+    )
 
 
 def servir_reutilisation(
@@ -185,16 +239,22 @@ def servir_reutilisation(
     nb_retries: int,
     autoriser_canonique: bool,
     objet: str | None = None,
+    score_lexical: float = 0.0,
 ) -> dict:
     """Persiste et renvoie la réutilisation d'une réponse validée.
 
     `autoriser_canonique` : n'autorise la branche CANONIQUE (servie sans revue
     humaine) que si le match provient de la question/précision BRUTE. Un match
     obtenu par contextualisation du fil ressort toujours en SUGGESTION.
+
+    `score_liee` est le **cosinus** ; `score_lexical` le BM25 par terme. La porte
+    se franchit par l'un **ou** l'autre : sans ce second signal ici, un candidat
+    retrouvé par les seuls mots et approuvé par le juge retomberait en SUGGESTION.
     """
     contenu = reponse_liee.contenu_corrige or reponse_liee.contenu
+    franchit = franchit_le_rappel({"score_cosinus": score_liee, "score_lexical": score_lexical}, SEUIL_COSINUS)
 
-    if autoriser_canonique and reponse_liee.canonique and score_liee >= SEUIL_COSINUS:
+    if autoriser_canonique and reponse_liee.canonique and franchit:
         logger.info("Réponse canonique servie : %s (score=%.3f)", reponse_liee.id, score_liee)
         ticket = upsert_ticket(
             db,

@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     qdrant_host: str
     qdrant_port: int
     qdrant_grpc_port: int
+    # Réglable pour une seule raison : permettre aux tests d'isoler leur propre
+    # collection, exactement comme `POSTGRES_DB` est forcé en `<base>_test`
+    # (cf. `_force_test_collection` dans tests/conftest.py). Ce n'est pas un
+    # paramètre d'exploitation — le changer en production rend invisible tout ce
+    # qui y est déjà indexé, sans rien signaler.
+    qdrant_collection: str = "ticketai"
 
     # Valkey
     valkey_host: str
@@ -29,13 +35,28 @@ class Settings(BaseSettings):
     albert_embeddings_model_name: str
     albert_reranker_url: str
     albert_reranker_model_name: str
-    albert_garde_model_name: str = ""   # vide → utilise albert_llm_model_name
+    albert_garde_model_name: str = ""  # vide → utilise albert_llm_model_name
     albert_reverif_model_name: str = ""  # vide → utilise albert_llm_model_name
     albert_tag_model_name: str = "mistralai/Ministral-3-8B-Instruct-2512"  # quota séparé du modèle de génération
 
     # SEUILS
     seuil_canonique: int
     seuil_cosinus: float
+
+    # Porte lexicale de l'étage de rappel. Un candidat atteint le juge si son
+    # cosinus franchit le seuil **ou** si son score BM25 par terme franchit
+    # celui-ci : on ne seuille pas la fusion, on seuille chaque signal sur sa
+    # propre échelle. **`0` ferme la porte lexicale** et restitue exactement le
+    # comportement d'avant BM25 — le filet en cas de calibration ratée.
+    #
+    # Par terme et non brut : un score BM25 est une somme sur les termes de la
+    # requête, donc une question longue score mécaniquement plus haut. Mesuré le
+    # 11/09/2026 : bruts 2,17 / 3,42 / 4,41, ramenés au terme 1,08 / 1,14 / 1,47.
+    #
+    # ⚠️ **À recalibrer quand le corpus grossit** : l'IDF que Qdrant applique croît
+    # en log(N), donc l'échelle entière se déplace. La valeur ci-dessous est
+    # mesurée sur 24 points et ne vaut que pour cet ordre de grandeur.
+    seuil_lexical_par_terme: float = 1.0
 
     # FAQ — consultation des réponses canoniques par les utilisateurs.
     # `faq_seuil_pertinence` vaut par défaut SEUIL_SUGGESTION (seuil_cosinus − 0,05,
@@ -89,10 +110,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _validate_jwt_secret(self) -> "Settings":
         if len(self.jwt_secret_key) < 32:
-            raise ValueError(
-                "JWT_SECRET_KEY doit faire au moins 32 caractères "
-                "(générer avec : openssl rand -hex 32)"
-            )
+            raise ValueError("JWT_SECRET_KEY doit faire au moins 32 caractères (générer avec : openssl rand -hex 32)")
         return self
 
     @cached_property

@@ -98,10 +98,10 @@ personne ne l'ait relue — d'où la garde qui la protège.
 ```mermaid
 flowchart TD
     A[Question entrante] --> B[Embedding + recherche<br/>hybride Qdrant]
-    B --> C{Un point porte-t-il un reponse_id<br/>avec score ≥ SEUIL_SUGGESTION ?}
+    B --> C{Un point porte-t-il un reponse_id<br/>franchissant le rappel ?<br/>cosinus ≥ SEUIL_SUGGESTION<br/><b>ou</b> BM25/terme ≥ SEUIL_LEXICAL_PAR_TERME}
 
     C -->|non| G[Reranking + génération LLM<br/><b>RAG</b>]
-    C -->|oui| D{Réponse canonique<br/>ET score ≥ SEUIL_COSINUS ?}
+    C -->|oui| D{Réponse canonique<br/>ET rappel franchi<br/>au niveau SEUIL_COSINUS ?}
 
     D -->|non| F[<b>SUGGESTION</b><br/>Badge : Suggestion<br/>revue humaine requise]
     D -->|oui| E{<b>Garde LLM</b><br/>Les deux questions demandent-elles<br/>exactement la même chose ?}

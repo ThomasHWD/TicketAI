@@ -39,6 +39,33 @@ def _force_test_db() -> None:
 
 _force_test_db()
 
+
+# ── Isolation de la collection Qdrant (CRITIQUE) ───────────────────────
+# Même principe, même moment : AVANT tout import applicatif. `COLLECTION_NAME`
+# (app/services/qdrant.py) est évalué à l'import, et `search.py` comme
+# `workers/document_update.py` l'importent par valeur — le forcer ici est le seul
+# point où l'on atteint tous les consommateurs d'un coup.
+#
+# Ce garde-fou manquait. `test_search.py` codait en dur `port=6333` (la PROD ; le
+# dev écoute sur 6335) et la collection `"ticketai"`, soit exactement le nom de
+# production. Deux conséquences : les tests interrogeaient la vraie collection
+# avec des vecteurs aléatoires, et surtout, si elle était absente, la fixture la
+# CRÉAIT — sans `modifier=Modifier.IDF`. Or ce paramètre se fixe à la création :
+# `init_collection` aurait ensuite vu « existe déjà » et n'aurait rien corrigé.
+# BM25 aurait tourné sans pondération par la rareté, silencieusement, et
+# `SEUIL_LEXICAL_PAR_TERME` aurait seuillé une échelle sans rapport avec sa
+# calibration. Réparation : recréation + réingestion complète.
+#
+# L'instance visée reste celle de la configuration (le .env de l'hôte pointe la
+# prod) : ce qui protège n'est pas l'adresse, c'est le suffixe. Une collection
+# `*_test` sur l'instance de prod est au pire un résidu, jamais une corruption.
+def _force_test_collection() -> None:
+    nom = os.environ.get("QDRANT_COLLECTION") or "ticketai"
+    os.environ["QDRANT_COLLECTION"] = nom if nom.endswith("_test") else f"{nom}_test"
+
+
+_force_test_collection()
+
 # Import des modèles pour peupler Base.metadata (create_all/drop_all).
 # NB : on utilise un alias pour ne PAS réintroduire le nom ``app`` dans ce module,
 # sinon il masquerait l'instance FastAPI ``app`` importée ci-dessous (le fixture

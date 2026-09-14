@@ -1,0 +1,1426 @@
+{
+  "avec_porte": {
+    "titre": "PASSE 1 — configuration courante (porte lexicale ouverte)",
+    "compteur": {
+      "cas": 34,
+      "violations": 1,
+      "rappel_ok": 15,
+      "confusions": 1,
+      "resultats_vides": 14,
+      "pistes_seules": 10,
+      "rappel_manque": 3
+    },
+    "cas": [
+      {
+        "famille": "A",
+        "question": "Quelle est la procédure pour saisir un engagement de dépense ?",
+        "attendus": [
+          "F1"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Comment réaliser un engagement de dépense ?",
+        "attendus": [
+          "F1"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 0.9831
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Comment déclarer un service fait ?",
+        "attendus": [
+          "F2"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F2",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Comment procède-t-on pour constater un service fait ?",
+        "attendus": [
+          "F2"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F2",
+              "cosinus": 0.8744
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Peut-on faire une demande d'engagement en devises étrangères ?",
+        "attendus": [
+          "F3"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F3",
+              "cosinus": 0.9803
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Est-il possible d'engager une dépense dans une autre monnaie que l'euro ?",
+        "attendus": [
+          "F3"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F3",
+              "cosinus": 0.8057
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Mon fournisseur me relance car sa facture n'a pas été payée, que faire ?",
+        "attendus": [
+          "F5"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F5",
+              "cosinus": 0.9626
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Faut-il un engagement de dépense pour la médecine de prévention ?",
+        "attendus": [
+          "F6"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F6",
+              "cosinus": 0.9934
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "J'ai une dépense que je n'avais pas prévue, comment procéder ?",
+        "attendus": [
+          "F7"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F7",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Puis-je récupérer le reliquat d'un engagement que je n'utiliserai pas ?",
+        "attendus": [
+          "F10"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F10",
+              "cosinus": 0.8841
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "C",
+        "question": "comment fait on un engagement de dépense",
+        "attendus": [
+          "F1"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "C",
+        "question": "COMMENT FAIT ON UN SERVICE FAIT ???",
+        "attendus": [
+          "F2"
+        ],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F2",
+              "cosinus": 0.6343
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": false,
+        "manquants": [
+          "F2"
+        ],
+        "confusions": []
+      },
+      {
+        "famille": "C",
+        "question": "Comment fait on un engagement de depense ?",
+        "attendus": [
+          "F1"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 0.8872
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Mes frais de mission ne m'ont pas été remboursés, que dois-je faire ?",
+        "attendus": [
+          "F8"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F8",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Mes frais de déplacement ne sont pas remboursés, dois-je contacter le service facturier ?",
+        "attendus": [
+          "F8"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F8",
+              "cosinus": 0.8609
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Mon fournisseur n'a pas été payé, dois-je prévenir la mission Budget ?",
+        "attendus": [
+          "F5"
+        ],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F8",
+              "cosinus": 0.7127
+            },
+            {
+              "cle": "F5",
+              "cosinus": 0.704
+            },
+            {
+              "cle": "F7",
+              "cosinus": 0.684
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": false,
+        "manquants": [
+          "F5"
+        ],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Ma facture est réglée mais le montant est faux, que dois-je faire ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F5",
+              "cosinus": 0.7788
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": [
+          "F5"
+        ]
+      },
+      {
+        "famille": "B",
+        "question": "Comment fait-on un service fait partiel ?",
+        "attendus": [
+          "F10"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F2",
+              "cosinus": 0.785
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": false,
+        "manquants": [
+          "F10"
+        ],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Comment annule-t-on un engagement de dépense ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 0.7996
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Qui valide un engagement de dépense ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 0.8254
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Faut-il un engagement de dépense pour une visite médicale ?",
+        "attendus": [
+          "F6"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F6",
+              "cosinus": 0.8399
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Un devis en monnaie étrangère est-il recevable comme justificatif ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F3",
+              "cosinus": 0.7413
+            },
+            {
+              "cle": "F7",
+              "cosinus": 0.5639
+            },
+            {
+              "cle": "F8",
+              "cosinus": 0.5587
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Combien de temps faut-il pour qu'un engagement soit validé ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F1",
+              "cosinus": 0.6867
+            },
+            {
+              "cle": "F6",
+              "cosinus": 0.5381
+            },
+            {
+              "cle": "F3",
+              "cosinus": 0.625
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Que se passe-t-il si je ne fais pas de demande d'engagement ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F3",
+              "cosinus": 0.6551
+            },
+            {
+              "cle": "F1",
+              "cosinus": 0.6406
+            },
+            {
+              "cle": "F10",
+              "cosinus": 0.6406
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "E",
+        "question": "Y a t il un modèle de certificat administratif ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "E",
+        "question": "Existe-t-il un modèle de certificat administratif ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "E",
+        "question": "Comment connaitre les montants attribués par les collectivités territoriales ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "E",
+        "question": "Un mail suffit-il comme justificatif de demande d'engagement ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F3",
+              "cosinus": 0.6266
+            },
+            {
+              "cle": "F1",
+              "cosinus": 0.6235
+            },
+            {
+              "cle": "F6",
+              "cosinus": 0.5093
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Comment poser mes congés payés ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "20fb86a8",
+              "cosinus": 0.7024
+            },
+            {
+              "cle": "2ffe2ca1",
+              "cosinus": 0.6259
+            },
+            {
+              "cle": "F8",
+              "cosinus": 0.5795
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Comment réinitialiser mon mot de passe de session ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F5",
+              "cosinus": 0.5881
+            },
+            {
+              "cle": "288ecec6",
+              "cosinus": 0.5876
+            },
+            {
+              "cle": "F7",
+              "cosinus": 0.5711
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Quel est le montant de la prime de fin d'année ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "20fb86a8",
+              "cosinus": 0.6164
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Quelle est la capitale de la Mongolie ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Combien de jours de télétravail par semaine ai-je le droit de faire ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "521f64c6",
+              "cosinus": 0.9802
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [
+          "I4 hors périmètre servi : 521f64c6"
+        ],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Quelle est la valeur des tickets restaurant ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "2be44e20",
+              "cosinus": 0.7231
+            },
+            {
+              "cle": "536bd150",
+              "cosinus": 0.5493
+            },
+            {
+              "cle": "e910e87d",
+              "cosinus": 0.5698
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      }
+    ]
+  },
+  "sans_porte": {
+    "titre": "PASSE 2 — porte lexicale fermée (SEUIL_LEXICAL_PAR_TERME=0)",
+    "compteur": {
+      "cas": 34,
+      "violations": 1,
+      "rappel_ok": 15,
+      "confusions": 1,
+      "resultats_vides": 14,
+      "pistes_seules": 10,
+      "rappel_manque": 3
+    },
+    "cas": [
+      {
+        "famille": "A",
+        "question": "Quelle est la procédure pour saisir un engagement de dépense ?",
+        "attendus": [
+          "F1"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Comment réaliser un engagement de dépense ?",
+        "attendus": [
+          "F1"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 0.9831
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Comment déclarer un service fait ?",
+        "attendus": [
+          "F2"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F2",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Comment procède-t-on pour constater un service fait ?",
+        "attendus": [
+          "F2"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F2",
+              "cosinus": 0.8744
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Peut-on faire une demande d'engagement en devises étrangères ?",
+        "attendus": [
+          "F3"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F3",
+              "cosinus": 0.9803
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Est-il possible d'engager une dépense dans une autre monnaie que l'euro ?",
+        "attendus": [
+          "F3"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F3",
+              "cosinus": 0.8057
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Mon fournisseur me relance car sa facture n'a pas été payée, que faire ?",
+        "attendus": [
+          "F5"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F5",
+              "cosinus": 0.9626
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Faut-il un engagement de dépense pour la médecine de prévention ?",
+        "attendus": [
+          "F6"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F6",
+              "cosinus": 0.9934
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "J'ai une dépense que je n'avais pas prévue, comment procéder ?",
+        "attendus": [
+          "F7"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F7",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "A",
+        "question": "Puis-je récupérer le reliquat d'un engagement que je n'utiliserai pas ?",
+        "attendus": [
+          "F10"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F10",
+              "cosinus": 0.8841
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "C",
+        "question": "comment fait on un engagement de dépense",
+        "attendus": [
+          "F1"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "C",
+        "question": "COMMENT FAIT ON UN SERVICE FAIT ???",
+        "attendus": [
+          "F2"
+        ],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F2",
+              "cosinus": 0.6343
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": false,
+        "manquants": [
+          "F2"
+        ],
+        "confusions": []
+      },
+      {
+        "famille": "C",
+        "question": "Comment fait on un engagement de depense ?",
+        "attendus": [
+          "F1"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 0.8872
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Mes frais de mission ne m'ont pas été remboursés, que dois-je faire ?",
+        "attendus": [
+          "F8"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F8",
+              "cosinus": 1.0
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Mes frais de déplacement ne sont pas remboursés, dois-je contacter le service facturier ?",
+        "attendus": [
+          "F8"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F8",
+              "cosinus": 0.8609
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Mon fournisseur n'a pas été payé, dois-je prévenir la mission Budget ?",
+        "attendus": [
+          "F5"
+        ],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F8",
+              "cosinus": 0.7127
+            },
+            {
+              "cle": "F5",
+              "cosinus": 0.704
+            },
+            {
+              "cle": "F7",
+              "cosinus": 0.684
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": false,
+        "manquants": [
+          "F5"
+        ],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Ma facture est réglée mais le montant est faux, que dois-je faire ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F5",
+              "cosinus": 0.7788
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": [
+          "F5"
+        ]
+      },
+      {
+        "famille": "B",
+        "question": "Comment fait-on un service fait partiel ?",
+        "attendus": [
+          "F10"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F2",
+              "cosinus": 0.785
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": false,
+        "manquants": [
+          "F10"
+        ],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Comment annule-t-on un engagement de dépense ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 0.7996
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Qui valide un engagement de dépense ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F1",
+              "cosinus": 0.8254
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Faut-il un engagement de dépense pour une visite médicale ?",
+        "attendus": [
+          "F6"
+        ],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "F6",
+              "cosinus": 0.8399
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": true,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Un devis en monnaie étrangère est-il recevable comme justificatif ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F3",
+              "cosinus": 0.7413
+            },
+            {
+              "cle": "F7",
+              "cosinus": 0.5639
+            },
+            {
+              "cle": "F8",
+              "cosinus": 0.5587
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Combien de temps faut-il pour qu'un engagement soit validé ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F1",
+              "cosinus": 0.6867
+            },
+            {
+              "cle": "F3",
+              "cosinus": 0.625
+            },
+            {
+              "cle": "F10",
+              "cosinus": 0.5755
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "B",
+        "question": "Que se passe-t-il si je ne fais pas de demande d'engagement ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F3",
+              "cosinus": 0.6551
+            },
+            {
+              "cle": "F1",
+              "cosinus": 0.6406
+            },
+            {
+              "cle": "F10",
+              "cosinus": 0.6406
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "E",
+        "question": "Y a t il un modèle de certificat administratif ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "E",
+        "question": "Existe-t-il un modèle de certificat administratif ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "E",
+        "question": "Comment connaitre les montants attribués par les collectivités territoriales ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "E",
+        "question": "Un mail suffit-il comme justificatif de demande d'engagement ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F3",
+              "cosinus": 0.6266
+            },
+            {
+              "cle": "F1",
+              "cosinus": 0.6235
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Comment poser mes congés payés ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "20fb86a8",
+              "cosinus": 0.7024
+            },
+            {
+              "cle": "2ffe2ca1",
+              "cosinus": 0.6259
+            },
+            {
+              "cle": "F8",
+              "cosinus": 0.5795
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Comment réinitialiser mon mot de passe de session ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "F5",
+              "cosinus": 0.5881
+            },
+            {
+              "cle": "288ecec6",
+              "cosinus": 0.5876
+            },
+            {
+              "cle": "F7",
+              "cosinus": 0.5711
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Quel est le montant de la prime de fin d'année ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "20fb86a8",
+              "cosinus": 0.6164
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Quelle est la capitale de la Mongolie ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": []
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Combien de jours de télétravail par semaine ai-je le droit de faire ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [
+            {
+              "cle": "521f64c6",
+              "cosinus": 0.9802
+            }
+          ],
+          "incertains": []
+        },
+        "violations": [
+          "I4 hors périmètre servi : 521f64c6"
+        ],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      },
+      {
+        "famille": "F",
+        "question": "Quelle est la valeur des tickets restaurant ?",
+        "attendus": [],
+        "obtenu": {
+          "resultats": [],
+          "incertains": [
+            {
+              "cle": "2be44e20",
+              "cosinus": 0.7231
+            },
+            {
+              "cle": "e910e87d",
+              "cosinus": 0.5698
+            }
+          ]
+        },
+        "violations": [],
+        "rappel_ok": null,
+        "manquants": [],
+        "confusions": []
+      }
+    ]
+  }
+}

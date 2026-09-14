@@ -34,7 +34,7 @@ const SiteConfigPage = lazy(() => import("./pages/admin/SiteConfig"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const NotFound = lazy(() => import("./pages/404"));
 const SuggestionBox = lazy(() => import("./pages/user/SuggestionBox"));
-const Faq = lazy(() => import("./pages/user/Faq"));
+const Faq = lazy(() => import("./pages/user/faq/Faq"));
 
 function Layout() {
   const [collapsed, setCollapsed] = useState(false);

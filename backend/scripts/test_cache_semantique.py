@@ -247,13 +247,17 @@ def evaluer(db, question: str, ticket_id=None) -> dict:
 
     chunks = search_hybrid(question, DOMAINE, top_k=15)  # question.py:73 — question brute
     top_score = chunks[0]["score_cosinus"] if chunks else 0.0
-    reponse, score, question_du_point = trouver_reponse_reutilisable(db, chunks)
+    candidat = trouver_reponse_reutilisable(db, chunks)
+    reponse, score = candidat.reponse, candidat.score_cosinus
+    question_du_point = candidat.question_indexee
 
     res = {
         "question": question,
         "est_suivi": est_suivi,
         "top_score": round(top_score, 4),
         "score_candidat": round(score, 4) if score is not None else None,
+        # Second signal : la porte se franchit par le cosinus **ou** par lui.
+        "score_lexical": round(candidat.score_lexical, 3) if candidat.score_lexical is not None else None,
         "candidat": cle_de_reponse(db, reponse.id) if reponse else None,
         "candidat_canonique": bool(reponse.canonique) if reponse else None,
         "question_indexee": None,
@@ -265,7 +269,7 @@ def evaluer(db, question: str, ticket_id=None) -> dict:
     if reponse is None:
         res["branche"] = "RAG"
         res["bloque_par"] = "AUCUN_CANDIDAT"
-    elif reponse.canonique and score >= SEUIL_COSINUS:  # question.py:90
+    elif reponse.canonique and candidat.franchit(SEUIL_COSINUS):  # question.py
         res["seuil_franchi"] = True
         # question.py:93 — la question du point retrouvé fait foi ; repli sur le
         # ticket d'origine pour les points antérieurs aux formulations multiples.
@@ -280,16 +284,24 @@ def evaluer(db, question: str, ticket_id=None) -> dict:
             and garde_cache.approuver(a_comparer, question_indexee, est_suivi=est_suivi)
         )
         res["verdict_garde"] = verdict
-        # Refus du garde → SUGGESTION, plus RAG (question.py).
-        res["branche"] = "CANONIQUE" if verdict else "SUGGESTION"
-        res["bloque_par"] = None if verdict else "GARDE"
+        # Refus du garde → SUGGESTION (question.py), sauf si le candidat n'est
+        # entré que par la porte lexicale : il repart alors au RAG.
+        if verdict:
+            res["branche"] = "CANONIQUE"
+            res["bloque_par"] = None
+        elif candidat.servable:
+            res["branche"] = "SUGGESTION"
+            res["bloque_par"] = "GARDE"
+        else:
+            res["branche"] = "RAG"
+            res["bloque_par"] = "GARDE_LEXICAL_SEUL"
     elif reponse.canonique:
         res["seuil_franchi"] = False
-        res["branche"] = "SUGGESTION"
-        res["bloque_par"] = "SEUIL"
+        res["branche"] = "SUGGESTION" if candidat.servable else "RAG"
+        res["bloque_par"] = "SEUIL" if candidat.servable else "LEXICAL_SEUL"
     else:
-        res["branche"] = "SUGGESTION"
-        res["bloque_par"] = "NON_CANONIQUE"
+        res["branche"] = "SUGGESTION" if candidat.servable else "RAG"
+        res["bloque_par"] = "NON_CANONIQUE" if candidat.servable else "LEXICAL_SEUL"
 
     res["appels_juge"] = _appels_juge - depart
     return res
