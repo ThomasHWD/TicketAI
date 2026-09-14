@@ -3,6 +3,9 @@
 Usage :
     TAI_USER=... TAI_PASS=... .venv/bin/python scripts/captures_doc.py
 
+    # avec l'écran de résultats de la FAQ (coûte un embedding Albert) :
+    TAI_USER=... TAI_PASS=... TAI_FAQ_Q="…" .venv/bin/python scripts/captures_doc.py
+
 Les identifiants ne sont jamais écrits sur disque : ils sont lus dans
 l'environnement et utilisés uniquement pour le login initial.
 """
@@ -17,6 +20,10 @@ from playwright.sync_api import sync_playwright
 BASE = os.environ.get("TAI_BASE", "http://localhost:5173")
 USER = os.environ.get("TAI_USER")
 PASS = os.environ.get("TAI_PASS")
+# Question à soumettre à la FAQ pour capturer un écran de résultats. Facultative :
+# une recherche = un embedding Albert, on ne la lance pas à chaque passage. Elle
+# doit correspondre à une réponse réellement canonique sur l'instance visée.
+FAQ_Q = os.environ.get("TAI_FAQ_Q")
 OUT = Path(__file__).resolve().parents[2] / "Docs" / "images"
 VIEWPORT = {"width": 1600, "height": 1000}
 
@@ -92,6 +99,26 @@ def shoot(page, name, url, *, wait=3.5, full=False, before=None):
     return final
 
 
+def chercher_dans_la_faq(question):
+    """Soumet une question sur `/faq` — à passer en `before=` de `shoot`.
+
+    Chaque soumission consomme **un embedding Albert** (quota : 1 000
+    requêtes/jour/modèle), d'où le déclenchement explicite par `TAI_FAQ_Q` plutôt
+    qu'à chaque passage du script. La recherche ne part qu'à la soumission : on
+    remplit le champ puis on envoie `Enter` (`Shift+Enter` irait à la ligne).
+    """
+
+    def action(page):
+        page.fill("#question-faq", question)
+        page.press("#question-faq", "Enter")
+        # Aller-retour réseau + embedding : le squelette de chargement reste
+        # affiché quelques secondes. Aucun sélecteur à attendre, la page n'a pas
+        # d'état terminal distinctif.
+        time.sleep(8)
+
+    return action
+
+
 def ouvrir_premier_ticket(page):
     """Ouvre le premier ticket de la liste et renvoie son URL.
 
@@ -146,6 +173,13 @@ def main():
         shoot(page, "11-nouveau-ticket", "/nouveau-ticket")
         shoot(page, "12-suggestion", "/suggestion")
         shoot(page, "13-historique", "/historique", full=True)
+        # Écran d'accueil de la FAQ : aucun appel Albert tant qu'aucune question
+        # n'est soumise.
+        shoot(page, "14-faq", "/faq")
+        if FAQ_Q:
+            shoot(page, "15-faq-resultats", "/faq", before=chercher_dans_la_faq(FAQ_Q))
+        else:
+            log("  ~ 15-faq-resultats: TAI_FAQ_Q non défini — recherche non lancée (coût Albert)")
 
         log("Backoffice…")
         shoot(page, "20-tickets-liste", "/tickets", full=True)

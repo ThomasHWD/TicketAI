@@ -83,6 +83,51 @@ def test_valider_incremente_la_source_pas_la_copie(client, db_session, validator
     assert db_session.get(Reponse, copie.id).nb_validations == 0
 
 
+def test_valider_copies_suggestion_promeut_source_en_canonique(
+    client, db_session, validator, auth_header, mock_side_effects
+):
+    """Valider N copies SUGGESTION doit promouvoir la SOURCE en canonique.
+
+    C'est le scénario de régression BM25 : avant le fix, un chunk BM25-dominant
+    à faible cosinus rendait servable=False et les copies ne se créaient plus,
+    bloquant nb_validations sous le seuil. On vérifie ici que l'API promeut
+    bien la source après (seuil_canonique - 1) copies validées en chaîne.
+    """
+    from app.config import settings
+    from app.models.reponse import Reponse
+
+    seuil = settings.seuil_canonique  # 3 par défaut
+
+    # Source : déjà validée une première fois (1re validation directe)
+    _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", nb_validations=1)
+
+    # On simule (seuil - 1) validations de copies SUGGESTION successives.
+    for i in range(seuil - 1):
+        _, copie = seed_ticket_reponse(db_session, reponse_source_id=source.id)
+
+        resp = client.post(
+            f"{API}/reponses/{copie.id}/valider",
+            headers=auth_header(validator),
+        )
+        assert resp.status_code == 200, f"Échec à la copie #{i + 1}"
+
+        db_session.expire_all()
+        source_en_base = db_session.get(Reponse, source.id)
+        attendu = 1 + (i + 1)
+        assert source_en_base.nb_validations == attendu, (
+            f"Après copie #{i + 1} : nb_validations={source_en_base.nb_validations}, attendu {attendu}"
+        )
+
+    # Après (seuil - 1) copies, la source doit être canonique
+    db_session.expire_all()
+    source_finale = db_session.get(Reponse, source.id)
+    assert source_finale.nb_validations == seuil
+    assert source_finale.canonique is True, (
+        f"La source doit être canonique après {seuil} validations, "
+        f"mais canonique={source_finale.canonique} (nb_validations={source_finale.nb_validations})"
+    )
+
+
 def test_valider_reponse_source_declenche_reindexation(client, db_session, validator, auth_header, mock_side_effects):
     _, reponse = seed_ticket_reponse(db_session)
 
