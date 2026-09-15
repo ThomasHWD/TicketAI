@@ -80,6 +80,7 @@ export interface ReponseObsolete {
   contenu: string;
   contenu_corrige: string | null;
   nb_validations: number;
+  occurence: number;
   canonique: boolean;
   obsolete_raison:
     | "DOC_MIS_A_JOUR"
