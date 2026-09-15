@@ -1,8 +1,8 @@
 import { Fragment } from "react";
-import { Bot, User, X } from "lucide-react";
+import { ArrowRightLeft, Bot, User, X } from "lucide-react";
 import { formatDate, reponseVisible } from "./utils";
 import { renderMarkdown } from "../../../components/ticket/utils";
-import type { TicketReponse } from "../../../types";
+import type { TicketReponse, WorkflowEvent } from "../../../types";
 
 function UserAvatar() {
   return (
@@ -159,17 +159,44 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
   );
 }
 
+function ReroutedNote({ event }: { event: WorkflowEvent }) {
+  const to = event.meta?.to;
+  return (
+    <li className="px-5 py-2.5 flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+      <span className="flex-1 h-px bg-gray-100 dark:bg-white/[0.06]" aria-hidden="true" />
+      <ArrowRightLeft size={11} className="shrink-0" aria-hidden="true" />
+      <span>
+        Demande transmise{to ? ` au service ${to}` : ""}{event.at ? ` · ${formatDate(event.at)}` : ""}
+      </span>
+      <span className="flex-1 h-px bg-gray-100 dark:bg-white/[0.06]" aria-hidden="true" />
+    </li>
+  );
+}
+
 interface ConversationThreadProps {
   question: string;
   created_at: string | null;
   reponses: TicketReponse[];
+  rerouteEvents?: WorkflowEvent[];
 }
 
 export default function ConversationThread({
   question,
   created_at,
   reponses,
+  rerouteEvents = [],
 }: ConversationThreadProps) {
+  // Interleave responses and reroute events chronologically.
+  type Item = { kind: "reponse"; data: TicketReponse } | { kind: "rechemine"; data: WorkflowEvent };
+  const items: Item[] = [
+    ...reponses.map((r): Item => ({ kind: "reponse", data: r })),
+    ...rerouteEvents.map((e): Item => ({ kind: "rechemine", data: e })),
+  ].sort((a, b) => {
+    const ta = a.kind === "reponse" ? a.data.created_at : a.data.at;
+    const tb = b.kind === "reponse" ? b.data.created_at : b.data.at;
+    return (ta ?? "").localeCompare(tb ?? "");
+  });
+
   return (
     <div className="glass-card rounded-2xl overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-100 dark:border-white/[0.06]">
@@ -182,18 +209,24 @@ export default function ConversationThread({
         aria-relevant="additions"
       >
         <QuestionBubble text={question} date={created_at} />
-        {reponses.length === 0 ? (
+        {items.length === 0 ? (
           <PendingAnswer date={null} />
         ) : (
-          reponses.map((r) => (
-            <Fragment key={r.id}>
-              {r.question_suivi && (
-                <QuestionBubble text={r.question_suivi} date={r.created_at} precision />
-              )}
-              {r.statut === "REJETÉE" ? (
-                <RejectedBubble reponse={r} />
+          items.map((item, i) => (
+            <Fragment key={item.kind === "reponse" ? item.data.id : `reroute-${i}`}>
+              {item.kind === "rechemine" ? (
+                <ReroutedNote event={item.data} />
               ) : (
-                <AnswerBubble reponse={r} />
+                <>
+                  {item.data.question_suivi && (
+                    <QuestionBubble text={item.data.question_suivi} date={item.data.created_at} precision />
+                  )}
+                  {item.data.statut === "REJETÉE" ? (
+                    <RejectedBubble reponse={item.data} />
+                  ) : (
+                    <AnswerBubble reponse={item.data} />
+                  )}
+                </>
               )}
             </Fragment>
           ))

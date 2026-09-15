@@ -150,7 +150,60 @@ Pour peupler le sélecteur d'assignation, l'interface appelle
 
 ---
 
-## 5. Rendre un verdict
+## 5. Réacheminer un ticket
+
+Un validateur peut constater qu'un ticket a été envoyé au mauvais service. Le
+**réacheminement** transfère le ticket vers un autre domaine sans perdre l'historique, et
+relance le pipeline RAG sur ce nouveau domaine — comme si l'employé avait posé sa question
+au bon service dès le départ.
+
+### Qui peut réacheminer
+
+| Condition | Règle |
+|---|---|
+| Statut du ticket | `RÉPONDU` uniquement (badge **En attente**) — un ticket validé, rejeté ou clôturé ne peut pas être réacheminé |
+| Domaine d'origine | Le validateur doit être **membre du domaine d'origine** (`check_domain_write`) |
+| Précisions | Un ticket ayant reçu au moins une **question de suivi** (précision de l'employé) ne peut pas être réacheminé |
+
+### Ce qui se passe
+
+```mermaid
+flowchart TD
+    A[Ticket RÉPONDU ou REJETÉ] --> B[Validateur clique « Réacheminer »]
+    B --> C[Choisit le nouveau domaine + saisit une raison]
+    C --> D[Réponse EN_ATTENTE supprimée si présente]
+    D --> E[Ticket → domaine T2 · statut NOUVEAU · job EN_ATTENTE]
+    E --> F[Événement RECHEMINE écrit · reroute_source_domaine = domaine d'origine]
+    F --> G[Pipeline RAG relancé sur T2]
+    G --> H{Résultat}
+    H -->|Canonique / Suggestion / RAG| I[Le nouveau service reçoit le ticket dans sa file]
+    H -->|HORS_DOMAINE| J[Le nouveau service voit un ticket sans réponse]
+```
+
+1. La réponse en attente éventuelle (générée pour le mauvais domaine) est **supprimée** — elle n'aurait aucune valeur pour le nouveau service.
+2. Le ticket est remis à zéro : `statut_ticket = NOUVEAU`, `statut_job = EN_ATTENTE`, verrou et assignation effacés.
+3. `reroute_source_domaine` mémorise le service d'origine pour afficher la provenance dans la barre latérale.
+4. Un événement `RECHEMINE` est écrit dans la timeline avec les domaines `from`/`to` et la raison saisie.
+5. Les deux domaines (ancien et nouveau) reçoivent un événement SSE `ticket_rerouted` pour que leurs files se mettent à jour instantanément.
+
+### Ce que voient les différents acteurs
+
+| Acteur | Ce qu'il voit |
+|---|---|
+| **Ancien domaine** | Le ticket disparaît de sa file |
+| **Nouveau domaine** | Le ticket arrive en `NOUVEAU`, avec une note « Ticket transmis depuis le service X » dans le fil de conversation, et un badge « Provenance : X » dans la barre latérale |
+| **Employé propriétaire** | Une note « Demande transmise au service X » s'insère dans son fil de conversation, entre la question initiale et la prochaine réponse |
+
+### Contraintes
+
+- Le nouveau domaine doit exister (`422` sinon).
+- Il ne peut pas être identique au domaine actuel (`422`).
+- La raison est **obligatoire** (champ non vide).
+- L'endpoint : `POST /tickets/{id}/recheminer` — corps `{ "nouveau_domaine": "RH", "raison": "..." }`.
+
+---
+
+## 6. Rendre un verdict
 
 C'est le cœur du travail de validation. Trois issues possibles.
 
@@ -279,7 +332,7 @@ revue a bien été examinée par quelqu'un d'autre que le demandeur.
 
 ---
 
-## 6. La timeline d'un ticket
+## 7. La timeline d'un ticket
 
 `GET /tickets/{id}/workflow` reconstitue l'histoire complète du ticket, triée
 chronologiquement. C'est ce qu'affiche la fenêtre *Workflow*.
@@ -291,6 +344,7 @@ chronologiquement. C'est ce qu'affiche la fenêtre *Workflow*.
 | `REPONSE_GENEREE` | réponse | L'IA a produit une réponse (le `meta` porte la branche) |
 | `ASSIGNE` / `DESASSIGNE` | table `ticket_events` | Changement d'assignation, avec l'acteur |
 | `VALIDE` / `CORRIGE` / `REJETE` | réponse validée | Verdict humain, avec l'acteur et le motif de rejet |
+| `RECHEMINE` | table `ticket_events` | Ticket réacheminé — `meta` porte `from`, `to` et `raison` |
 | `CLOTURE` | ticket | Le ticket a été fermé |
 
 Les événements portent l'e-mail et le nom complet de l'acteur quand il est connu. À
@@ -305,7 +359,7 @@ Elle s'ouvre par le bouton **Voir l'historique** de la barre latérale.
 
 ---
 
-## 7. Mon suivi
+## 8. Mon suivi
 
 Page `/mon-suivi`, alimentée par `GET /tickets/participated`.
 
@@ -317,7 +371,7 @@ toute la file du domaine.
 
 ---
 
-## 8. Ce qui bouge tout seul
+## 9. Ce qui bouge tout seul
 
 Le backoffice n'a pas besoin d'être rafraîchi. Chaque action diffuse un événement temps
 réel sur le canal du domaine, et les listes concernées se rechargent seules :
@@ -327,6 +381,7 @@ réel sur le canal du domaine, et les listes concernées se rechargent seules :
 | `ticket_created`, `ticket_answered` | La file de tickets |
 | `ticket_locked`, `ticket_unlocked` | Les cadenas dans la liste |
 | `ticket_assigned`, `ticket_unassigned` | La liste et « Mes assignations » |
+| `ticket_rerouted` | La file, « Mes assignations », le détail du ticket et sa timeline |
 | `reponse_validated`, `reponse_corrected`, `reponse_rejected` | Le ticket, les réponses enregistrées **et la liste des tags disponibles** |
 | `saved_answers_updated` | Les trois onglets de Réponses enregistrées et la liste des tags |
 | `ticket_closed` | La file et les compteurs |

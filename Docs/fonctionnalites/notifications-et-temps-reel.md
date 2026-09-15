@@ -140,6 +140,7 @@ interface.
 | `ticket_answered` | Le pipeline a produit une réponse | Recharge la file, « mes tickets », le tableau de bord et le ticket |
 | `ticket_locked` / `ticket_unlocked` | Verrou pris ou relâché | Met à jour les cadenas |
 | `ticket_assigned` / `ticket_unassigned` | Changement d'assignation | Recharge la file et « mes assignations » |
+| `ticket_rerouted` | Ticket réacheminé vers un autre domaine | Recharge la file, « mes assignations », le détail du ticket et sa timeline. Émis sur les deux domaines (ancien et nouveau) **et** sur `sse:user:{id}` si le ticket a un propriétaire |
 | `ticket_closed` | Clôture manuelle **ou** automatique | Recharge la file et les compteurs |
 
 ### Réponses

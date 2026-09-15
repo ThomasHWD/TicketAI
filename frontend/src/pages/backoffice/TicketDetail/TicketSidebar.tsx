@@ -1,13 +1,14 @@
 import { History } from "lucide-react";
 import type { MembreGroupe } from "../../../lib/api";
 import type { Ticket } from "../../../types";
-import { AssignSection, DetailsSection, RequesterSection, SidebarSection } from "./TicketSidebarSections";
+import { AssignSection, DetailsSection, RequesterSection, RerouteSection, SidebarSection } from "./TicketSidebarSections";
 
 export { ticketStatutLabel, StatutBadge } from "./TicketSidebarSections";
 
 interface TicketSidebarProps {
   ticket: Ticket;
   isMine: boolean;
+  hasSuivi: boolean;
   assignLoading: boolean;
   assignError: string | null;
   selectedAssignee: string;
@@ -15,6 +16,7 @@ interface TicketSidebarProps {
   validateurs: MembreGroupe[];
   validateursLoading: boolean;
   onShowWorkflow: () => void;
+  onReroute: () => void;
   onAssign: () => void;
   onUnassign: () => void;
   onSelectedAssigneeChange: (id: string) => void;
@@ -24,6 +26,7 @@ interface TicketSidebarProps {
 export default function TicketSidebar({
   ticket,
   isMine,
+  hasSuivi,
   assignLoading,
   assignError,
   selectedAssignee,
@@ -31,6 +34,7 @@ export default function TicketSidebar({
   validateurs,
   validateursLoading,
   onShowWorkflow,
+  onReroute,
   onAssign,
   onUnassign,
   onSelectedAssigneeChange,
@@ -44,6 +48,7 @@ export default function TicketSidebar({
       <div className="glass-card rounded-2xl overflow-hidden">
         <DetailsSection ticket={ticket} processing={processing} failed={failed} />
         <RequesterSection ticket={ticket} />
+        <RerouteSection ticket={ticket} isMine={isMine} hasSuivi={hasSuivi} onReroute={onReroute} />
         <AssignSection
           ticket={ticket}
           isMine={isMine}

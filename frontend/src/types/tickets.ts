@@ -36,6 +36,7 @@ export interface Ticket {
   assigned_to_email: string | null;
   assigned_to_nom_complet: string | null;
   reponse_source: Source | null;
+  reroute_source_domaine: string | null;
 }
 
 export interface LockState {
@@ -78,6 +79,11 @@ export interface CloturerPayload {
   note_delai?: number | null;
 }
 
+export interface RecheminerPayload {
+  nouveau_domaine: string;
+  raison: string;
+}
+
 export type WorkflowEventType =
   | "CREE"
   | "REPONSE_GENEREE"
@@ -87,7 +93,8 @@ export type WorkflowEventType =
   | "REJETE"
   | "ASSIGNE"
   | "DESASSIGNE"
-  | "CLOTURE";
+  | "CLOTURE"
+  | "RECHEMINE";
 
 export interface WorkflowEvent {
   type: WorkflowEventType;
