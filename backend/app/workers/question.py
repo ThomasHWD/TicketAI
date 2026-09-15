@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -23,6 +24,8 @@ from app.services.reranker import rerank
 from app.services.search import search_hybrid
 from app.services.tag_suggestion import suggerer_tag
 from app.workers.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 # Aliases privés maintenus pour la compatibilité des imports existants (tests, etc.)
 _charger_contexte_fil = charger_contexte_fil
@@ -76,9 +79,7 @@ def question_job(
     retraiter: bool = False,
 ):
     try:
-        print("❓ --- NOUVELLE QUESTION ---")
-        print(f"[QUESTION] Domaine  : {domaine}")
-        print(f"[QUESTION] Question : {question}")
+        logger.info("nouvelle question — domaine=%s question=%s", domaine, question)
 
         job_id = uuid.UUID(self.request.id)
         user_uuid = uuid.UUID(user_id) if user_id else None
@@ -88,7 +89,7 @@ def question_job(
         question_suivi = question if est_suivi else None
 
         if ticket_uuid is not None and not _ticket_existe(ticket_uuid):
-            print(f"[QUESTION] ⏭️  Ticket {ticket_uuid} introuvable — job abandonné")
+            logger.info("ticket %s introuvable — job abandonné", ticket_uuid)
             return {"statut": "IGNORÉ", "raison": "TICKET_SUPPRIMÉ", "ticket_id": str(ticket_uuid)}
 
         # Étape 0 (suivi) — Charger le fil pour contextualiser recherche et LLM.
@@ -98,16 +99,16 @@ def question_job(
             historique, requete_recherche = charger_contexte_fil(ticket_uuid, question)
 
         # Étape 1 — Embedding + recherche hybride
-        print("[QUESTION] Recherche hybride dans Qdrant...")
+        logger.info("recherche hybride dans Qdrant...")
         chunks = search_hybrid(question, domaine, top_k=15)
-        print(f"[QUESTION] {len(chunks)} chunks trouvés")
+        logger.info("%d chunks trouvés", len(chunks))
 
         for i, chunk in enumerate(chunks[:3]):
             # Les deux signaux sont tracés : la porte se franchit par l'un ou
             # l'autre, donc lire les journaux exige de voir les deux.
-            print(
-                f"[QUESTION] #{i + 1} cosinus={chunk['score_cosinus']:.4f} "
-                f"lexical={chunk.get('score_lexical', 0.0):.2f}/terme source={chunk['source']}"
+            logger.debug(
+                "#%d cosinus=%.4f lexical=%.2f/terme source=%s",
+                i + 1, chunk["score_cosinus"], chunk.get("score_lexical", 0.0), chunk["source"],
             )
 
         top_score = chunks[0]["score_cosinus"] if chunks else 0.0
@@ -121,7 +122,7 @@ def question_job(
             question_du_point = candidat.question_indexee
 
             if reponse_liee is not None:
-                print(f"[QUESTION] Score {score_liee:.4f} → réponse validée {reponse_liee.id}")
+                logger.info("score %.4f → réponse validée %s", score_liee, reponse_liee.id)
 
                 if reponse_liee.canonique and candidat.franchit(SEUIL_COSINUS):
                     # La question portée par le point qui a matché fait foi : une
@@ -158,7 +159,7 @@ def question_job(
                         )
 
                     if decision is not None and decision.verdict:
-                        print("[QUESTION] Garde : OUI → CANONIQUE")
+                        logger.info("garde : OUI → CANONIQUE")
                         return servir_reutilisation(
                             db,
                             job_id,
@@ -188,7 +189,7 @@ def question_job(
                     # le juge vient de le refuser et rien d'autre ne le soutient,
                     # le proposer à un relecteur serait lui montrer du bruit.
                     if candidat.servable:
-                        print("[QUESTION] Garde : NON → SUGGESTION (revue humaine)")
+                        logger.info("garde : NON → SUGGESTION (revue humaine)")
                         return servir_reutilisation(
                             db,
                             job_id,
@@ -205,7 +206,7 @@ def question_job(
                             objet,
                             score_lexical=candidat.score_lexical or 0.0,
                         )
-                    print("[QUESTION] Garde : NON + candidat lexical seul → RAG")
+                    logger.info("garde : NON + candidat lexical seul → RAG")
                 elif candidat.servable:
                     return servir_reutilisation(
                         db,
@@ -226,7 +227,7 @@ def question_job(
                 else:
                     # Candidat retenu par les seuls mots, et non canonique : aucun
                     # juge ne le verra, donc il ne doit pas être proposé.
-                    print("[QUESTION] Candidat lexical seul, non canonique → RAG")
+                    logger.info("candidat lexical seul, non canonique → RAG")
 
         finally:
             db.close()
@@ -238,22 +239,22 @@ def question_job(
             chunks_rag = chunks_ctx
         else:
             chunks_rag = chunks
-        print("[QUESTION] Reranking des chunks...")
+        logger.info("reranking des chunks...")
         chunks_rerankes = rerank(requete_recherche, chunks_rag, top_k=5)
         for i, chunk in enumerate(chunks_rerankes):
-            print(f"[QUESTION] Rerank #{i + 1} score={chunk['rerank_score']:.4f} source={chunk['source']}")
+            logger.debug("rerank #%d score=%.4f source=%s", i + 1, chunk["rerank_score"], chunk["source"])
 
         # Étape 4 — Génération LLM (avec l'historique du fil pour un suivi)
-        print("[QUESTION] Génération LLM...")
+        logger.info("génération LLM...")
         hors_domaine = False
         try:
             reponse_texte, hors_domaine = generate(question, chunks_rerankes, historique=historique)
             suffix = " [HORS_DOMAINE]" if hors_domaine else ""
-            print(f"[QUESTION] ✅ Réponse générée ({len(reponse_texte)} caractères){suffix}")
+            logger.info("réponse générée (%d caractères)%s", len(reponse_texte), suffix)
             statut_job = "TERMINÉ"
             erreur = None
         except Exception as llm_exc:
-            print(f"[QUESTION] ❌ Erreur LLM : {llm_exc}")
+            logger.error("erreur LLM : %s", llm_exc)
             reponse_texte = None
             statut_job = "ÉCHOUÉ"
             erreur = str(llm_exc)
@@ -328,7 +329,7 @@ def question_job(
         finally:
             db.close()
 
-        print(f"[QUESTION] Ticket créé (id={ticket_id_str})")
+        logger.info("ticket créé (id=%s)", ticket_id_str)
 
         if statut_job == "ÉCHOUÉ":
             raise self.retry(exc=Exception(erreur), countdown=60)
@@ -355,8 +356,8 @@ def question_job(
     except Retry:
         raise
     except TicketDisparu as exc:
-        print(f"[QUESTION] ⏭️  Ticket {exc} supprimé en cours de traitement — job abandonné")
+        logger.info("ticket %s supprimé en cours de traitement — job abandonné", exc)
         return {"statut": "IGNORÉ", "raison": "TICKET_SUPPRIMÉ", "ticket_id": str(exc)}
     except Exception as exc:
-        print(f"[QUESTION] ❌ Erreur : {exc}")
+        logger.error("erreur question_job : %s", exc)
         raise self.retry(exc=exc) from exc
