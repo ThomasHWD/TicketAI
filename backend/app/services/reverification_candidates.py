@@ -5,6 +5,7 @@ dont la question ressemble à un changement (voisines). Voir reverification.py
 pour la description complète du pipeline.
 """
 
+import logging
 import uuid
 from dataclasses import dataclass
 
@@ -26,6 +27,8 @@ from qdrant_client.models import (
     PayloadField,
 )
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 # Réponses ramenées par unité de changement lors du rappel vectoriel.
 TOP_K_UNITE = 20
@@ -145,7 +148,7 @@ def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
     try:
         embeddings = embed_texts([u.texte for u in unites], is_query=True)
     except Exception as exc:
-        print(f"[REVERIF] embedding des changements indisponible ({exc}) — rappel limité aux citantes")
+        logger.warning("embedding des changements indisponible (%s) — rappel limité aux citantes", exc)
         return []
 
     filtre = Filter(
@@ -165,7 +168,7 @@ def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
                 with_payload=["reponse_id"],
             )
         except Exception as exc:
-            print(f"[REVERIF] rappel Qdrant impossible ({exc})")
+            logger.warning("rappel Qdrant impossible (%s)", exc)
             return []
         for point in res.points:
             if point.score < SEUIL_RAPPEL:
