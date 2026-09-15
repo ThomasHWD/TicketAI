@@ -13,6 +13,7 @@ Abonnement :
 """
 
 import asyncio
+import logging
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Request
@@ -22,6 +23,8 @@ from app.config import settings
 from app.core.security import CurrentUser
 from app.database import SessionLocal
 from app.models.ticket import Ticket
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["sse"])
 
@@ -42,7 +45,7 @@ def _release_user_lock(user_id) -> None:
         )
         db.commit()
     except Exception as e:
-        print(f"[SSE] Lock release failed for user {user_id}: {e}")
+        logger.error("Lock release failed for user %s: %s", user_id, e)
     finally:
         db.close()
 

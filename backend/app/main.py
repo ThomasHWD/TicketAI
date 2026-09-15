@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.api.v1 import (
     admin,
@@ -17,7 +19,9 @@ from app.api.v1 import (
     tickets,
 )
 from app.config import settings
+from app.database import SessionLocal
 from app.middleware.maintenance import MaintenanceMiddleware
+from app.services.qdrant import client as qdrant_client
 from app.services.qdrant import init_collection
 
 
@@ -45,11 +49,32 @@ app.add_middleware(
 app.add_middleware(MaintenanceMiddleware)
 
 
-# Sonde de liveness pour Docker. Uvicorn n'ouvre le port qu'après la fin du
-# lifespan : un 200 ici garantit donc déjà que init_collection() est passé.
-# Le diagnostic détaillé des dépendances vit dans GET /api/v1/admin/health.
+# /health — liveness : uvicorn répond → init_collection() est passé.
+# /health/ready — readiness : vérifie Postgres et Qdrant avant de servir du trafic.
 @app.get("/health", include_in_schema=False)
 async def health():
+    return {"status": "ok"}
+
+
+@app.get("/health/ready", include_in_schema=False)
+async def health_ready():
+    erreurs: dict[str, str] = {}
+
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        erreurs["postgres"] = str(e)
+    finally:
+        db.close()
+
+    try:
+        qdrant_client.get_collections()
+    except Exception as e:
+        erreurs["qdrant"] = str(e)
+
+    if erreurs:
+        return JSONResponse({"status": "degraded", "erreurs": erreurs}, status_code=503)
     return {"status": "ok"}
 
 

@@ -22,6 +22,8 @@ connaît pas Celery et se teste sans broker. Ce module ne porte que la politique
 les plafonds, l'ordre de dépense du budget, les replis et les événements SSE.
 """
 
+import logging
+
 from app.database import SessionLocal
 from app.models.document import Document
 from app.models.document_version import DocumentVersion
@@ -54,6 +56,8 @@ from app.services.reverification import (
     unites_pertinentes,
 )
 from app.workers.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 # Échecs d'appel au modèle consécutifs à partir desquels on considère Albert
 # injoignable plutôt que capricieux. Insister coûterait un timeout de 60 s par
@@ -129,9 +133,9 @@ class TacheReverif(celery_app.Task):
         db = SessionLocal()
         try:
             nb = rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
-            print(f"[REVERIF] ❌ échec définitif — {nb} réponse(s) rabattues en relecture")
+            logger.error("échec définitif — %d réponse(s) rabattues en relecture", nb)
         except Exception as e:
-            print(f"[REVERIF] rabattement impossible après échec : {e}")
+            logger.error("rabattement impossible après échec : %s", e)
         finally:
             db.close()
 
@@ -157,7 +161,7 @@ def reverification_job(
     obsolète et ``delete_response_point`` sur un identifiant absent est un no-op,
     donc un rejeu ne fait que reprendre le reliquat.
     """
-    print(f"🔎 --- RÉ-VÉRIFICATION (doc {doc_id} v{version}) ---")
+    logger.info("ré-vérification : doc %s v%d", doc_id, version)
     db = SessionLocal()
 
     try:
@@ -167,7 +171,7 @@ def reverification_job(
             # à son propre numéro et porte son propre job. Juger sur un diff périmé
             # produirait des verdicts sur un texte qui n'est plus servi.
             nb = rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
-            print(f"[REVERIF] version dépassée — abandon, {nb} réponse(s) rabattues")
+            logger.info("version dépassée — abandon, %d réponse(s) rabattues", nb)
             return {"statut": "DEPASSE", "doc_id": doc_id, "version": version}
 
         unites = unites_figees(db, doc_id, version)
@@ -177,7 +181,7 @@ def reverification_job(
             # ici signale une ligne de version tronquée ou perdue, pas un
             # reformatage. On ne se tait pas là-dessus.
             nb = rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
-            print(f"[REVERIF] aucune unité relue — {nb} réponse(s) en relecture")
+            logger.warning("aucune unité relue — %d réponse(s) en relecture", nb)
             return _termine(doc_id, version, domaine, {"nb_indisponibles": nb})
 
         if len(unites) > MAX_UNITES:
@@ -186,11 +190,11 @@ def reverification_job(
             touchees = marquer_a_relire(db, doc_id, version, RAISON_MASSIVE)
             tracer(db, touchees, JUSTIF_MASSIVE, None)
             nb = len(racines(touchees))
-            print(f"[REVERIF] {len(unites)} unités (> {MAX_UNITES}) — {nb} réponse(s) en relecture, 0 appel LLM")
+            logger.info("%d unités (> %d) — %d réponse(s) en relecture, 0 appel LLM", len(unites), MAX_UNITES, nb)
             return _termine(doc_id, version, domaine, {"nb_a_relire": nb})
 
         candidates = rassembler_candidates(db, doc_id, domaine, unites, set(indices_disparus or []))
-        print(f"[REVERIF] {len(unites)} unité(s), {len(candidates)} réponse(s) à examiner")
+        logger.info("%d unité(s), %d réponse(s) à examiner", len(unites), len(candidates))
 
         broadcast_sync(
             f"sse:domain:{domaine}",
@@ -211,7 +215,7 @@ def reverification_job(
                 nb_indisponibles += signaler_sans_juger(
                     db, candidates[rang:], RAISON_PARTIELLE, JUSTIF_PARTIELLE, doc_id, version
                 )
-                print(f"[REVERIF] budget épuisé — {len(candidates) - rang} réponse(s) en relecture")
+                logger.info("budget épuisé — %d réponse(s) en relecture", len(candidates) - rang)
                 break
 
             pertinentes, fiable = unites_pertinentes(candidate.question, unites)
@@ -233,18 +237,18 @@ def reverification_job(
                 verdict, justification = juger(candidate.question, candidate.texte, pertinentes)
             except Exception as exc:
                 echecs += 1
-                print(f"[REVERIF] jugement impossible ({exc})")
+                logger.error("jugement impossible (%s)", exc)
                 reste = candidates[rang:] if echecs >= MAX_ECHECS else [candidate]
                 nb_indisponibles += signaler_sans_juger(db, reste, RAISON_INDISPONIBLE, JUSTIF_PANNE, doc_id, version)
                 if echecs >= MAX_ECHECS:
-                    print(f"[REVERIF] Albert injoignable — {len(reste)} réponse(s) en relecture")
+                    logger.error("Albert injoignable — %d réponse(s) en relecture", len(reste))
                     break
                 continue
 
             echecs = 0
             action = decider(db, candidate, verdict, justification, pertinentes, doc_id, version)
             comptes[action] += 1
-            print(f"[REVERIF] {candidate.reponse.id} → {verdict} ({action})")
+            logger.info("%s → %s (%s)", candidate.reponse.id, verdict, action)
 
         # Filet intermédiaire : une réponse flaguée à l'étape 10 de la mise à jour
         # mais absente du lot de candidates (session concurrente, famille recomposée)
@@ -264,7 +268,7 @@ def reverification_job(
         )
 
     except Exception as exc:
-        print(f"[REVERIF] ❌ Erreur : {exc}")
+        logger.error("erreur reverification_job doc %s v%d : %s", doc_id, version, exc)
         raise self.retry(exc=exc) from exc
     finally:
         db.close()
@@ -285,10 +289,9 @@ def _termine(doc_id: str, version: int, domaine: str, comptes: dict) -> dict:
         "nb_indisponibles": 0,
         **comptes,
     }
-    print(
-        f"[REVERIF] ✅ {bilan['nb_contredites']} retirée(s), "
-        f"{bilan['nb_a_relire']} à relire, {bilan['nb_intactes']} intacte(s), "
-        f"{bilan['nb_indisponibles']} non jugée(s)"
+    logger.info(
+        "%d retirée(s), %d à relire, %d intacte(s), %d non jugée(s)",
+        bilan["nb_contredites"], bilan["nb_a_relire"], bilan["nb_intactes"], bilan["nb_indisponibles"],
     )
 
     broadcast_sync(

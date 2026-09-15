@@ -1,8 +1,11 @@
 import json
+import logging
 
 import redis
 import redis.asyncio as aioredis
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def broadcast_sync(channel: str, event_type: str, payload: dict) -> None:
@@ -12,7 +15,7 @@ def broadcast_sync(channel: str, event_type: str, payload: dict) -> None:
         r.publish(channel, json.dumps({"type": event_type, "payload": payload}))
         r.close()
     except Exception as e:
-        print(f"[SSE] broadcast_sync failed on {channel}: {e}")
+        logger.error("broadcast_sync failed on %s: %s", channel, e)
 
 
 async def broadcast_async(channel: str, event_type: str, payload: dict) -> None:
@@ -22,4 +25,4 @@ async def broadcast_async(channel: str, event_type: str, payload: dict) -> None:
         await r.publish(channel, json.dumps({"type": event_type, "payload": payload}))
         await r.aclose()
     except Exception as e:
-        print(f"[SSE] broadcast_async failed on {channel}: {e}")
+        logger.error("broadcast_async failed on %s: %s", channel, e)

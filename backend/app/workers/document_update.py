@@ -28,6 +28,7 @@ décider qu'une réponse est contredite demande de la lire, ce que fait
 n'ont jamais été servies et repassent au RAG sans que personne ait à trancher.
 """
 
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
@@ -63,6 +64,8 @@ from app.services.text_processing import chunk_text, extract_text, texte_complet
 from app.workers.celery_app import celery_app
 from app.workers.ingestion import chemin_du_fichier, point_id, store_file
 
+logger = logging.getLogger(__name__)
+
 
 def analyser_sortante(chemin_sortant: str | None, nouveau_texte: str) -> dict | None:
     """Le diff avec la version sortante, lue sur le disque.
@@ -77,7 +80,7 @@ def analyser_sortante(chemin_sortant: str | None, nouveau_texte: str) -> dict | 
     try:
         ancien_texte = texte_complet(extract_text(chemin_sortant))
     except Exception as exc:
-        print(f"[MAJ] version sortante illisible ({exc}) — signalement dégradé")
+        logger.warning("version sortante illisible (%s) — signalement dégradé", exc)
         return None
 
     return analyser_changements(ancien_texte, nouveau_texte)
@@ -134,7 +137,7 @@ def document_update_job(
     # `new_version` est réservé par l'endpoint et transmis tel quel : le recalculer
     # ici ferait choisir un numéro différent à chaque retry, laissant derrière lui
     # autant de versions orphelines dans Qdrant.
-    print(f"♻️  --- MISE À JOUR DE '{filename}' (doc {doc_id} → v{new_version}) ---")
+    logger.info("mise à jour : %s (doc %s → v%d)", filename, doc_id, new_version)
 
     try:
         db = SessionLocal()
@@ -144,7 +147,7 @@ def document_update_job(
                 raise ValueError(f"Document introuvable : {doc_id}")
             # Reprise : le job a déjà abouti, un retry ne doit rien refaire.
             if doc.version == new_version:
-                print(f"[MAJ] v{new_version} déjà en place — rien à faire")
+                logger.info("v%d déjà en place — rien à faire", new_version)
                 return {"statut": "OK", "doc_id": doc_id, "version": new_version, "nb_a_analyser": 0}
             domaine = doc.domaine
             # Le chemin du fichier sortant se lit ici, pas plus loin : la session
@@ -155,7 +158,7 @@ def document_update_job(
 
         # Étape 1 — Capture du texte sortant, impérativement avant toute suppression
         anciens = capturer_chunks(doc_id, new_version)
-        print(f"[MAJ] {len(anciens)} chunks de la version sortante capturés")
+        logger.info("%d chunks de la version sortante capturés", len(anciens))
 
         # Étape 2 — Purge défensive d'un retry partiel (points déjà écrits en v{new})
         client.delete(
@@ -174,20 +177,20 @@ def document_update_job(
         pages = extract_text(file_path)
         nouveau_texte = texte_complet(pages)
         indices = indices_modifies(anciens, nouveau_texte)
-        print(f"[MAJ] {len(indices)}/{len(anciens)} passages modifiés")
+        logger.info("%d/%d passages modifiés", len(indices), len(anciens))
 
         # Le fichier sortant est encore sur le disque : `store_file` (étape 5)
         # écrit sous v{new_version}, il ne l'écrase pas.
         changements = analyser_sortante(chemin_sortant, nouveau_texte)
         if changements is None:
-            print("[MAJ] contenu comparé impossible — toutes les réponses seront à relire")
+            logger.warning("contenu comparé impossible — toutes les réponses seront à relire")
         else:
-            print(f"[MAJ] {changements['nb_unites']} unité(s) de changement")
+            logger.info("%d unité(s) de changement", changements["nb_unites"])
 
         # Étape 4 — Chunking + embedding de la nouvelle version
         chunks = chunk_text(pages)
         embeddings = embed_texts(chunks, is_query=False)
-        print(f"[MAJ] {len(chunks)} chunks embarqués")
+        logger.info("%d chunks embarqués", len(chunks))
 
         # Étape 5 — Archivage du fichier sous v{new_version}
         stored_path = store_file(file_path, doc_id, filename, new_version)
@@ -219,7 +222,7 @@ def document_update_job(
             for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=False))
         ]
         client.upsert(collection_name=COLLECTION_NAME, points=points)
-        print(f"[MAJ] {len(points)} points v{new_version} indexés")
+        logger.info("%d points v%d indexés", len(points), new_version)
 
         # Étape 7 — Suppression des points de toutes les versions antérieures
         client.delete(
@@ -294,7 +297,7 @@ def document_update_job(
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        print(f"[MAJ] ✅ v{ancienne_version} → v{new_version}, {nb_a_analyser} à analyser, {nb_a_relire} à relire")
+        logger.info("v%d → v%d : %d à analyser, %d à relire", ancienne_version, new_version, nb_a_analyser, nb_a_relire)
 
         broadcast_sync(
             f"sse:domain:{domaine}",
@@ -336,5 +339,5 @@ def document_update_job(
         }
 
     except Exception as exc:
-        print(f"[MAJ] ❌ Erreur : {exc}")
+        logger.error("erreur document_update_job '%s' : %s", filename, exc)
         raise self.retry(exc=exc) from exc
