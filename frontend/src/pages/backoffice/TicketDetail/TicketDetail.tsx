@@ -14,6 +14,7 @@ import { useAuth } from "../../../lib/auth";
 import { useTicketLock } from "../../../hooks/useTicketLock";
 import BackofficeThread from "./BackofficeThread";
 import WorkflowModal from "./WorkflowModal";
+import RerouteModal from "./RerouteModal";
 import TicketSidebar from "./TicketSidebar";
 
 export default function TicketDetail() {
@@ -27,6 +28,7 @@ export default function TicketDetail() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState("");
   const [showWorkflow, setShowWorkflow] = useState(false);
+  const [showReroute, setShowReroute] = useState(false);
 
   const ticketQuery = useQuery({
     queryKey: ["ticket", id],
@@ -169,6 +171,7 @@ export default function TicketDetail() {
               domaine={ticket.domaine}
               reponses={reponses}
               readOnly={readOnly}
+              reroute_source_domaine={ticket.reroute_source_domaine}
               onChanged={refresh}
               onLockConflict={refresh}
             />
@@ -178,6 +181,7 @@ export default function TicketDetail() {
           <TicketSidebar
             ticket={ticket}
             isMine={isMine}
+            hasSuivi={reponses.some((r) => r.question_suivi != null)}
             assignLoading={assignLoading}
             assignError={assignError}
             selectedAssignee={selectedAssignee}
@@ -185,6 +189,7 @@ export default function TicketDetail() {
             validateurs={validateursQuery.data ?? []}
             validateursLoading={validateursQuery.isLoading}
             onShowWorkflow={() => setShowWorkflow(true)}
+            onReroute={() => setShowReroute(true)}
             onAssign={() => handleAssignAction(() => assignTicket(ticket.id, selectedAssignee))}
             onUnassign={() => handleAssignAction(() => unassignTicket(ticket.id))}
             onSelectedAssigneeChange={setSelectedAssignee}
@@ -195,6 +200,13 @@ export default function TicketDetail() {
 
       {showWorkflow && id && (
         <WorkflowModal ticketId={id} onClose={() => setShowWorkflow(false)} />
+      )}
+      {showReroute && ticket && (
+        <RerouteModal
+          ticket={ticket}
+          onClose={() => setShowReroute(false)}
+          onSuccess={() => { refresh(); navigate(-1); }}
+        />
       )}
     </>
   );

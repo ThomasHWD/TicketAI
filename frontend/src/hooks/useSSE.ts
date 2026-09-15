@@ -78,6 +78,16 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
       }
       break;
 
+    case "ticket_rerouted":
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["mes-tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["mes-assignations"] });
+      if (payload.ticket_id) {
+        queryClient.invalidateQueries({ queryKey: ["ticket", payload.ticket_id] });
+        queryClient.invalidateQueries({ queryKey: ["ticket", payload.ticket_id, "workflow"] });
+      }
+      break;
+
     case "banner_updated":
       queryClient.invalidateQueries({ queryKey: ["site-config"] });
       break;

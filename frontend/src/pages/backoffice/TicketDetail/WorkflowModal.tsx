@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, History, Loader2, Lock, MessageCircle, Pencil, Plus, ThumbsUp, UserMinus, UserPlus, X } from "lucide-react";
+import { ArrowRightLeft, Bot, History, Loader2, Lock, MessageCircle, Pencil, Plus, ThumbsUp, UserMinus, UserPlus, X } from "lucide-react";
 import { getTicketWorkflow } from "../../../lib/api";
 import type { WorkflowEvent, WorkflowEventType } from "../../../types";
 import { formatDate } from "./utils";
@@ -18,8 +18,9 @@ const EVENT_CONFIG: Record<WorkflowEventType, {
   CORRIGE:         { icon: Pencil,        bg: "bg-blue-100 dark:bg-blue-500/25",       iconColor: "text-blue-600 dark:text-blue-400",       ring: "ring-blue-200/60 dark:ring-blue-500/20" },
   REJETE:          { icon: X,             bg: "bg-red-100 dark:bg-red-500/25",         iconColor: "text-red-600 dark:text-red-400",         ring: "ring-red-200/60 dark:ring-red-500/20" },
   ASSIGNE:         { icon: UserPlus,      bg: "bg-violet-100 dark:bg-violet-500/25",   iconColor: "text-violet-600 dark:text-violet-400",   ring: "ring-violet-200/60 dark:ring-violet-500/20" },
-  DESASSIGNE:      { icon: UserMinus,     bg: "bg-gray-100 dark:bg-white/10",          iconColor: "text-gray-500 dark:text-gray-400",       ring: "ring-gray-200/60 dark:ring-white/10" },
-  CLOTURE:         { icon: Lock,          bg: "bg-gray-100 dark:bg-white/10",          iconColor: "text-gray-500 dark:text-gray-400",       ring: "ring-gray-200/60 dark:ring-white/10" },
+  DESASSIGNE:      { icon: UserMinus,      bg: "bg-gray-100 dark:bg-white/10",           iconColor: "text-gray-500 dark:text-gray-400",        ring: "ring-gray-200/60 dark:ring-white/10" },
+  CLOTURE:         { icon: Lock,           bg: "bg-gray-100 dark:bg-white/10",           iconColor: "text-gray-500 dark:text-gray-400",        ring: "ring-gray-200/60 dark:ring-white/10" },
+  RECHEMINE:       { icon: ArrowRightLeft, bg: "bg-orange-100 dark:bg-orange-500/25",    iconColor: "text-orange-600 dark:text-orange-400",    ring: "ring-orange-200/60 dark:ring-orange-500/20" },
 };
 
 function eventLabel(event: WorkflowEvent): string {
@@ -43,6 +44,10 @@ function eventLabel(event: WorkflowEvent): string {
     }
     case "DESASSIGNE": return "Remis dans le pot commun";
     case "CLOTURE": return "Ticket clôturé";
+    case "RECHEMINE": {
+      const to = event.meta?.to;
+      return to ? `Réacheminé vers ${to}` : "Réacheminé";
+    }
   }
 }
 
@@ -54,7 +59,8 @@ function eventActor(event: WorkflowEvent): string | null {
     case "CORRIGE":
     case "REJETE":
     case "ASSIGNE":
-    case "DESASSIGNE": return name ?? null;
+    case "DESASSIGNE":
+    case "RECHEMINE": return name ?? null;
     default: return null;
   }
 }
@@ -200,6 +206,13 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
 
                         {event.type === "REJETE" && event.meta?.raison && (
                           <blockquote className="mt-2 pl-3 border-l-2 border-red-400/70 dark:border-red-500/50">
+                            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-3 italic">
+                              {event.meta.raison}
+                            </p>
+                          </blockquote>
+                        )}
+                        {event.type === "RECHEMINE" && event.meta?.raison && (
+                          <blockquote className="mt-2 pl-3 border-l-2 border-orange-400/70 dark:border-orange-500/50">
                             <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-3 italic">
                               {event.meta.raison}
                             </p>

@@ -20,3 +20,8 @@ class CloturerRequest(BaseModel):
 
 class AssignerRequest(BaseModel):
     assignee_id: uuid.UUID
+
+
+class RecheminerRequest(BaseModel):
+    nouveau_domaine: str
+    raison: str = Field(..., min_length=1)

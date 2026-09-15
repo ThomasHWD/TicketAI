@@ -56,6 +56,7 @@ def serialize_ticket(ticket: Ticket) -> dict:
             ),
             None,
         ),
+        "reroute_source_domaine": ticket.reroute_source_domaine,
     }
 
 
