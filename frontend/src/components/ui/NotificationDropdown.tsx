@@ -90,7 +90,7 @@ export function NotificationDropdown({
           <>
             <div className="px-4 pt-3 pb-1">
               <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
-                <MessageSquare size={10} /> Réponses à vos tickets
+                <MessageSquare size={10} /> Notifications
               </p>
             </div>
             <ul role="list">

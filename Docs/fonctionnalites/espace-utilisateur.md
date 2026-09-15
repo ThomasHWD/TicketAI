@@ -205,7 +205,37 @@ Le détail est décrit dans
 
 ---
 
-## 5. Clôturer un ticket et noter la réponse
+## 5. Quand un ticket est réacheminé
+
+Un validateur peut estimer que votre demande relève d'un autre service que celui que vous
+avez contacté. Dans ce cas, il **réachemine** le ticket — le transmet au bon service sans
+que vous ayez besoin de reformuler.
+
+### Ce que vous voyez
+
+Dans le fil de votre ticket (`/historique/{id}`), une ligne apparaît entre la question
+initiale et la prochaine réponse :
+
+> ⇄ *Demande transmise au service [NOM DU SERVICE] · [date]*
+
+C'est purement informatif. Le ticket suit ensuite exactement le même cycle qu'un ticket
+ordinaire dans le nouveau service : l'IA répond, un validateur examine, vous recevez une
+réponse ou une notification.
+
+### Ce qui ne change pas
+
+- Votre question est conservée intacte.
+- Vous n'avez rien à refaire — le pipeline repart automatiquement.
+- L'identifiant du ticket reste le même ; le lien dans votre historique continue de fonctionner.
+
+### Ce qui n'est pas possible
+
+- Vous ne pouvez pas ajouter une précision (**question de suivi**) sur un ticket qui a déjà
+  été réacheminé — le fil est réouvert par le nouveau service, pas par vous.
+
+---
+
+## 6. Clôturer un ticket et noter la réponse
 
 ### Clôture manuelle
 
@@ -250,7 +280,7 @@ moins de deux jours, au rouge à moins d'un jour.
 
 ---
 
-## 6. La boîte à suggestions
+## 7. La boîte à suggestions
 
 Page `/suggestion`. Elle permet à n'importe quel utilisateur authentifié d'envoyer un
 retour libre sur le produit — ce n'est **pas** un ticket, cela ne déclenche aucun
@@ -274,7 +304,7 @@ anonyme (`user_id` passe à `NULL`).
 
 ---
 
-## 7. Ce qu'un employé ne voit jamais
+## 8. Ce qu'un employé ne voit jamais
 
 La séparation est appliquée côté serveur, pas seulement dans l'interface :
 
@@ -288,7 +318,7 @@ Les règles complètes sont dans [Auth & rôles](../technique/auth-et-roles.md).
 
 ---
 
-## 8. Récapitulatif des actions et de leurs règles
+## 9. Récapitulatif des actions et de leurs règles
 
 | Action | Endpoint | Qui | Refus possible |
 |---|---|---|---|

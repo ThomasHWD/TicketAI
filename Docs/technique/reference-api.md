@@ -83,6 +83,23 @@ Le détail est dans [Auth & rôles](auth-et-roles.md).
 | `POST` | `/tickets/{id}/assigner` | 🟢 ✍️ | Assigne à un validateur. `422` s'il n'est pas membre du domaine. Libère le verrou |
 | `POST` | `/tickets/{id}/desassigner` | 🟢 ✍️ | Remet dans le pot commun |
 
+### Réacheminement
+
+| Méthode | Route | Accès | Description |
+|---|---|---|---|
+| `POST` | `/tickets/{id}/recheminer` | 🟢 ✍️ domaine d'origine | Transfère le ticket vers un autre domaine et relance le pipeline. Corps : `{ "nouveau_domaine": "RH", "raison": "..." }` |
+
+**Gardes spécifiques :**
+
+| Code | Condition |
+|---|---|
+| `422` | `statut_ticket` n'est pas `RÉPONDU` |
+| `422` | `nouveau_domaine` n'existe pas dans les groupes |
+| `422` | `nouveau_domaine` est identique au domaine actuel |
+| `422` | Le ticket a au moins une réponse avec `question_suivi` (précision de l'employé) |
+
+**Effet :** réponse `EN_ATTENTE` supprimée (avec ses chunks), ticket remis à `NOUVEAU` / `EN_ATTENTE`, `reroute_source_domaine` renseigné, événement `RECHEMINE` écrit, `question_job` relancé avec `retraiter=True`, SSE `ticket_rerouted` émis vers les deux domaines et vers `sse:user:{id}` si le ticket a un propriétaire.
+
 ---
 
 ## Réponses

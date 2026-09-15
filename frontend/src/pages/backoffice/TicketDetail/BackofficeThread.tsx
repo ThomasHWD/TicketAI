@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { User } from "lucide-react";
+import { ArrowRightLeft, User } from "lucide-react";
 import { formatDate, BotAvatar } from "./utils";
 import ReponseItem from "./ReponseItem";
 import type { TicketReponse } from "../../../types";
@@ -48,6 +48,17 @@ function UserBubble({
   );
 }
 
+function ReroutedNote({ from }: { from: string }) {
+  return (
+    <li className="px-5 py-2.5 flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+      <span className="flex-1 h-px bg-gray-100 dark:bg-white/[0.06]" aria-hidden="true" />
+      <ArrowRightLeft size={11} className="shrink-0" aria-hidden="true" />
+      <span>Ticket transmis depuis le service {from}</span>
+      <span className="flex-1 h-px bg-gray-100 dark:bg-white/[0.06]" aria-hidden="true" />
+    </li>
+  );
+}
+
 function PendingBubble() {
   return (
     <li className="px-5 py-4 flex gap-3 items-start" aria-label="Réponse en cours de génération">
@@ -76,6 +87,7 @@ interface BackofficeThreadProps {
   domaine: string;
   reponses: TicketReponse[];
   readOnly: boolean;
+  reroute_source_domaine?: string | null;
   onChanged: () => void;
   onLockConflict: (message: string) => void;
 }
@@ -87,6 +99,7 @@ export default function BackofficeThread({
   domaine,
   reponses,
   readOnly,
+  reroute_source_domaine,
   onChanged,
   onLockConflict,
 }: BackofficeThreadProps) {
@@ -101,6 +114,7 @@ export default function BackofficeThread({
         role="feed"
       >
         <UserBubble text={question} date={created_at} senderLabel={userName} />
+        {reroute_source_domaine && <ReroutedNote from={reroute_source_domaine} />}
         {reponses.length === 0 ? (
           <PendingBubble />
         ) : (
