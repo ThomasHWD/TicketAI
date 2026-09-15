@@ -28,6 +28,7 @@ testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing"
 markers = [
     "integration: nécessite une infra réelle (Postgres/Valkey/Qdrant) ; auto-skippé en local sans infra",
+    "albert: consomme du quota Albert (embedding/LLM) ; grouper pour maîtriser les appels par journée",
 ]
 
 [tool.coverage.run]

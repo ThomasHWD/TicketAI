@@ -27,6 +27,7 @@ def point(reponse_id, score, question="Question indexée ?"):
     }
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "attribut",
     ["non_canonique", "obsolete", "faq_invisible"],
@@ -54,6 +55,7 @@ def test_seules_les_canoniques_servies_sortent(db_session, attribut):
     assert rangs == {"resultats": [], "incertains": []}
 
 
+@pytest.mark.integration
 def test_un_seul_embedding_et_aucun_filtre_de_domaine(db_session):
     """Propriété de coût : une recherche = **un** appel Albert, pas un par domaine.
 
@@ -80,6 +82,7 @@ def test_un_seul_embedding_et_aucun_filtre_de_domaine(db_session):
         assert filtre.must_not[0].is_empty.key == "reponse_id"
 
 
+@pytest.mark.integration
 def test_dedoublonne_les_formulations_et_garde_la_gagnante(db_session):
     """Deux points (deux formulations) d'une même réponse → un résultat, la meilleure question."""
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3, faq_visible=True)
@@ -100,6 +103,7 @@ def test_dedoublonne_les_formulations_et_garde_la_gagnante(db_session):
 
 # Le second rang est une piste, jamais une réponse : il ne doit apparaître que
 # lorsque rien n'a franchi le seuil, et disparaître dès qu'une réponse sûre existe.
+@pytest.mark.integration
 @pytest.mark.parametrize(
     ("score", "attendu"),
     [
@@ -123,6 +127,7 @@ def test_rang_selon_le_score(db_session, score, attendu):
         assert len(rangs[rang]) == attendus, f"{rang} à {score}"
 
 
+@pytest.mark.integration
 def test_aucun_incertain_quand_une_reponse_sure_existe(db_session):
     """Une piste à côté d'une réponse sûre ne ferait que la diluer."""
     _, sure = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True, nb_validations=3, faq_visible=True)
@@ -138,6 +143,7 @@ def test_aucun_incertain_quand_une_reponse_sure_existe(db_session):
     assert rangs["incertains"] == []
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize("q", ["", "  ", "ab"], ids=["vide", "espaces", "trop court"])
 def test_question_trop_courte_rejetee(client, db_session, auth_header, q):
     """Rejeté avant tout appel Albert."""
