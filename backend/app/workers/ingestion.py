@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import uuid
@@ -14,6 +15,8 @@ from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
 from app.services.text_processing import chunk_text, extract_text
 from app.workers.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 def version_dir(doc_id: str, version: int) -> str:
@@ -80,29 +83,29 @@ def ingestion_job(
     version = 1
 
     try:
-        print(f"📄 --- DÉBUT DE L'INGESTION DU FICHIER '{filename}' ---")
+        logger.info("début de l'ingestion : %s", filename)
 
         # Étape 1 — Extraction
         pages = extract_text(file_path)
-        print(f"[INGESTION] {len(pages)} pages extraites")
+        logger.info("%d pages extraites", len(pages))
 
         # Étape 2 — Chunking
         chunks = chunk_text(pages)
-        print(f"[INGESTION] {len(chunks)} chunks générés")
+        logger.info("%d chunks générés", len(chunks))
 
         # Étape 3 — Embedding
-        print(f"[INGESTION] Embedding de {len(chunks)} chunks...")
+        logger.info("embedding de %d chunks...", len(chunks))
         embeddings = embed_texts(chunks, is_query=False)
-        print("[INGESTION] Embeddings générés")
+        logger.info("embeddings générés")
 
         # Étape 4 — Stockage permanent, avant l'indexation : le chemin fait partie du
         # payload, l'écrire après imposerait un set_payload correctif et laisserait une
         # fenêtre où les points portent stored_path: None.
         stored_path = store_file(file_path, doc_id, filename, version)
-        print(f"[INGESTION] Fichier stocké : {stored_path}")
+        logger.info("fichier stocké : %s", stored_path)
 
         # Étape 5 — Indexation Qdrant (batch unique)
-        print("[INGESTION] Indexation dans Qdrant...")
+        logger.info("indexation dans Qdrant...")
         points = []
         for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=False)):
             points.append(
@@ -131,7 +134,7 @@ def ingestion_job(
             )
 
         client.upsert(collection_name=COLLECTION_NAME, points=points)
-        print(f"[INGESTION] ✅ {len(points)} points indexés dans Qdrant")
+        logger.info("%d points indexés dans Qdrant", len(points))
 
         # Étape 6 — Enregistrement en base
         db = SessionLocal()
@@ -183,7 +186,7 @@ def ingestion_job(
         return result
 
     except Exception as exc:
-        print(f"[INGESTION] ❌ Erreur : {exc}")
+        logger.error("erreur ingestion '%s' : %s", filename, exc)
         if self.request.retries >= self.max_retries and uploaded_by:
             broadcast_sync(
                 f"sse:user:{uploaded_by}",

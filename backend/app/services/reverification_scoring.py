@@ -6,11 +6,14 @@ sur la question de cette réponse ?
 """
 
 import json
+import logging
 
 from app.config import settings
 from app.services.llm import chat
 from app.services.obsolescence import Unite
 from app.services.reranker import rerank
+
+logger = logging.getLogger(__name__)
 
 # Seuil du reranker. Bas pour la même raison que SEUIL_RAPPEL, et pour une
 # seconde : le rapprochement se fait entre un paragraphe de document et une
@@ -80,11 +83,11 @@ def unites_pertinentes(question: str, unites: list[Unite]) -> tuple[list[Unite],
     try:
         classees = rerank(question, marques, top_k=MAX_UNITES_PAR_REPONSE)
     except Exception as exc:
-        print(f"[REVERIF] reranker indisponible ({exc}) — jugement sans tri préalable")
+        logger.warning("reranker indisponible (%s) — jugement sans tri préalable", exc)
         return unites[:MAX_UNITES_PAR_REPONSE], False
 
     if not classees:
-        print("[REVERIF] reranker sans résultat exploitable — jugement sans tri préalable")
+        logger.warning("reranker sans résultat exploitable — jugement sans tri préalable")
         return unites[:MAX_UNITES_PAR_REPONSE], False
 
     return [c["_unite"] for c in classees if c.get("rerank_score", 0.0) >= SEUIL_RERANK], True
@@ -139,13 +142,13 @@ def _lire_verdict(brut: str) -> tuple[str, str]:
     """
     debut, fin = brut.find("{"), brut.rfind("}")
     if debut == -1 or fin <= debut:
-        print(f"[REVERIF] réponse Albert illisible (pas de JSON) : {brut!r}")
+        logger.error("réponse Albert illisible (pas de JSON) : %r", brut)
         return VERDICT_INCERTAIN, "Réponse du modèle illisible."
 
     try:
         charge = json.loads(brut[debut : fin + 1])
     except json.JSONDecodeError:
-        print(f"[REVERIF] réponse Albert illisible (JSON invalide) : {brut!r}")
+        logger.error("réponse Albert illisible (JSON invalide) : %r", brut)
         return VERDICT_INCERTAIN, "Réponse du modèle illisible."
 
     verdict = str(charge.get("verdict", "")).strip().upper()

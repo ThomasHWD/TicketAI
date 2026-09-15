@@ -48,3 +48,6 @@ PRODUCT.md
 # Celery Beat state
 celerybeat-schedule
 celerybeat.pid
+
+# Backups locaux
+backups/

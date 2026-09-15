@@ -18,6 +18,7 @@ import { JobsProvider } from "./context/JobsContext";
 import MaintenancePage from "./pages/MaintenancePage";
 import { getMaintenancePublic } from "./lib/api/admin";
 import { USER_KEY } from "./lib/api/client";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
 
 const Dashboard = lazy(() => import("./pages/backoffice/Dashboard"));
 const UserDashboard = lazy(() => import("./pages/user/UserDashboard"));
@@ -132,6 +133,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <JobsProvider>
     <BrowserRouter>
       <Suspense fallback={
@@ -182,5 +184,6 @@ export default function App() {
       </Suspense>
     </BrowserRouter>
     </JobsProvider>
+    </ErrorBoundary>
   );
 }
