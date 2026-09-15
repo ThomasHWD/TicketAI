@@ -30,8 +30,7 @@ def limiter(nom: str, identifiant: str, max_par_fenetre: int, fenetre_secondes: 
         r = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=1)
         cle = f"rate:{nom}:{identifiant}"
         compte = r.incr(cle)
-        if compte == 1:
-            r.expire(cle, fenetre_secondes)
+        r.expire(cle, fenetre_secondes, nx=True)
         if compte > max_par_fenetre:
             ttl = max(r.ttl(cle), 1)
             raise HTTPException(

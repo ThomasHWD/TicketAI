@@ -86,4 +86,4 @@ class TestLimiter:
     def test_fenetre_transmise_a_expire(self, fenetre):
         """La fenêtre (minute ou jour) est bien passée à expire()."""
         mock_r = _limiter("faq", "user-1", 10, fenetre_secondes=fenetre, compte=1)
-        mock_r.expire.assert_called_once_with(mock_r.expire.call_args[0][0], fenetre)
+        mock_r.expire.assert_called_once_with(mock_r.expire.call_args[0][0], fenetre, nx=True)

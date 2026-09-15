@@ -61,6 +61,7 @@ class TestFiltreAnciens:
         assert f.must_not[0].match.value == 2
         assert not any(isinstance(getattr(c, "range", None), Range) for c in f.must + f.must_not)
 
+    @pytest.mark.integration
     def test_capture_et_suppression_partagent_le_filtre(self, qdrant_mock, scenario_maj):
         """Capturer un ensemble et en supprimer un autre laisserait des chunks
         orphelins ou fausserait la détection."""
