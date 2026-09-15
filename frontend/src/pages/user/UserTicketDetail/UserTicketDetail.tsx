@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { getTicket, getReponsesByTicket, poserSuivi, cloturerTicket } from "../../../lib/api";
+import { getTicket, getReponsesByTicket, getTicketWorkflow, poserSuivi, cloturerTicket } from "../../../lib/api";
 import { getSiteConfig } from "../../../lib/api/admin";
 import { useAuth } from "../../../lib/auth";
 import { getValidatorId } from "../../../lib/currentUser";
@@ -54,6 +54,14 @@ export default function UserTicketDetail() {
     queryFn: () => getReponsesByTicket(id!),
     enabled: !!id,
   });
+
+  const workflowQuery = useQuery({
+    queryKey: ["ticket", id, "workflow"],
+    queryFn: () => getTicketWorkflow(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+  const rerouteEvents = (workflowQuery.data ?? []).filter((e) => e.type === "RECHEMINE");
 
   const suivi = useMutation({
     mutationFn: () =>
@@ -158,6 +166,7 @@ export default function UserTicketDetail() {
             question={ticket.question}
             created_at={ticket.created_at}
             reponses={reponses}
+            rerouteEvents={rerouteEvents}
           />
           {isOwner && jobEnCours && reponses.length === 0 && (
             <div

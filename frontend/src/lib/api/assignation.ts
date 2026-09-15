@@ -1,5 +1,5 @@
 import { apiFetch, extractApiErrorDetail, BASE_URL } from "./client";
-import type { Ticket, WorkflowEvent } from "../../types";
+import type { Ticket, WorkflowEvent, RecheminerPayload } from "../../types";
 import type { UserSummary } from "../../types/index.tsx";
 
 export type MembreGroupe = Pick<UserSummary, "id" | "email" | "prenom" | "nom">;
@@ -35,5 +35,21 @@ export async function getTicketWorkflow(ticketId: string): Promise<WorkflowEvent
 export async function getMyAssignedTickets(): Promise<Ticket[]> {
   const res = await apiFetch(`${BASE_URL}/tickets/mes-assignations`);
   if (!res.ok) throw new Error("Erreur chargement assignations");
+  return res.json();
+}
+
+export async function getDomaines(): Promise<string[]> {
+  const res = await apiFetch(`${BASE_URL}/tickets/domaines`);
+  if (!res.ok) throw new Error("Erreur chargement des domaines");
+  return res.json();
+}
+
+export async function recheminerTicket(ticketId: string, payload: RecheminerPayload): Promise<Ticket> {
+  const res = await apiFetch(`${BASE_URL}/tickets/${ticketId}/recheminer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await extractApiErrorDetail(res, "Erreur lors du réacheminement"));
   return res.json();
 }

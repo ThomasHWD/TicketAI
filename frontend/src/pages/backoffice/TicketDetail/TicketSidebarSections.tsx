@@ -1,4 +1,4 @@
-import { Building2, Check, Copy, MapPin, Phone, User, UserPlus, X } from "lucide-react";
+import { ArrowRightLeft, Building2, Check, Copy, MapPin, Phone, User, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import type { MembreGroupe } from "../../../lib/api";
 import UserAvatar from "../../../components/ui/UserAvatar";
@@ -100,6 +100,17 @@ export function DetailsSection({ ticket, processing, failed }: { ticket: Ticket;
             <dd className="text-xs text-gray-600 dark:text-gray-300 text-right">{formatDate(ticket.closed_at)}</dd>
           </div>
         )}
+        {ticket.reroute_source_domaine && (
+          <div className="flex items-start justify-between gap-2">
+            <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Provenance</dt>
+            <dd>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-500/10 dark:text-orange-300 dark:border-orange-500/20">
+                <ArrowRightLeft size={9} aria-hidden="true" />
+                {ticket.reroute_source_domaine}
+              </span>
+            </dd>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-2">
           <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Référence</dt>
           <dd className="flex items-center gap-1 min-w-0">
@@ -152,6 +163,38 @@ export function RequesterSection({ ticket }: { ticket: Ticket }) {
           </p>
         )}
       </div>
+    </SidebarSection>
+  );
+}
+
+// ─── RerouteSection ──────────────────────────────────────────────────────────
+
+export function RerouteSection({
+  ticket,
+  isMine,
+  hasSuivi,
+  onReroute,
+}: {
+  ticket: Ticket;
+  isMine: boolean;
+  hasSuivi: boolean;
+  onReroute: () => void;
+}) {
+  const canReroute =
+    !hasSuivi &&
+    ticket.statut_ticket === "RÉPONDU" &&
+    isMine;
+  if (!canReroute) return null;
+  return (
+    <SidebarSection>
+      <SidebarLabel>Réacheminement</SidebarLabel>
+      <button
+        onClick={onReroute}
+        className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-md border border-orange-200 dark:border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors font-medium"
+      >
+        <ArrowRightLeft size={11} aria-hidden="true" />
+        Réacheminer vers…
+      </button>
     </SidebarSection>
   );
 }

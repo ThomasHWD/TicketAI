@@ -59,6 +59,8 @@ export {
   unassignTicket,
   getTicketWorkflow,
   getMyAssignedTickets,
+  getDomaines,
+  recheminerTicket,
 } from "./assignation";
 
 export { getNotifications, marquerNotificationLue, toutMarquerLu } from "./notifications";
