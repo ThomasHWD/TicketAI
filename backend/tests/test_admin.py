@@ -112,6 +112,7 @@ def test_serialize_groupe_base_fields():
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.integration
 def test_routes_admin_refusent_user_non_admin(client, user_factory, auth_header):
     user = user_factory("USER")
     headers = auth_header(user)

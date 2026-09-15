@@ -64,6 +64,7 @@ def test_config_defaults_shape():
     assert banner == {"active": False, "message": "", "url": ""}
 
 
+@pytest.mark.integration
 def test_set_config_refuse_non_admin(client, user_factory, auth_header):
     headers = auth_header(user_factory("USER"))
     r = client.put(
