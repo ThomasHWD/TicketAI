@@ -146,7 +146,6 @@ function ReponseCanoniqueItem({
       {/* Meta + actions row */}
       <div className="mt-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums flex-wrap">
-          <span>{r.nb_validations} validation{r.nb_validations > 1 ? "s" : ""}</span>
           {r.validated_at && (
             <>
               <span aria-hidden="true" className="text-gray-200 dark:text-gray-700">·</span>
