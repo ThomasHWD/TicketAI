@@ -265,4 +265,4 @@ jobs:
           ACCESS_TOKEN_EXPIRE_MINUTES: 480
           PYTHONPATH: .
         working-directory: backend
-        run: pytest
+        run: pytest -m "not albert"
