@@ -94,6 +94,7 @@ export interface ReponseARelire {
   contenu: string;
   canonique: boolean;
   nb_validations: number;
+  occurence: number;
 }
 
 /**

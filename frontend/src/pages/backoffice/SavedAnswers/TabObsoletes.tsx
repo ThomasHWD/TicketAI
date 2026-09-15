@@ -115,8 +115,15 @@ export default function TabObsoletes({
                     </span>
                   )}
                   <RaisonBadge raison={r.obsolete_raison} />
-                  <span>{r.nb_validations} validation{r.nb_validations > 1 ? "s" : ""}</span>
-                  <span aria-hidden="true" className="text-gray-200 dark:text-gray-700">·</span>
+                  {r.occurence > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium tabular-nums bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                      aria-label={`Servie ${r.occurence} fois automatiquement`}
+                    >
+                      {r.occurence}×
+                      <InfoTooltip content={`Servie ${r.occurence} fois automatiquement sans relecture humaine`} />
+                    </span>
+                  )}
                   <span
                     className="truncate max-w-[12rem]"
                     title={r.document_filename ?? undefined}
