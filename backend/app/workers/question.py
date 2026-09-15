@@ -33,12 +33,38 @@ _trouver_reponse_reutilisable = trouver_reponse_reutilisable
 _servir_reutilisation = servir_reutilisation
 
 
+def _on_failure_question_job(self, exc, task_id, args, kwargs, einfo):
+    """Si le task échoue définitivement avec un ticket_id, le repasse à ÉCHOUÉ.
+
+    Sans ce hook, un ticket rejoué par replay_echoues_job (statut_job=EN_ATTENTE)
+    et qui échoue avant l'étape upsert_ticket reste bloqué à EN_ATTENTE pour
+    toujours — invisible au filtre du prochain replay qui cible ÉCHOUÉ.
+    """
+    ticket_id = kwargs.get("ticket_id")
+    if not ticket_id:
+        return
+    import uuid as _uuid
+    try:
+        db = SessionLocal()
+        try:
+            ticket = db.query(Ticket).filter(Ticket.id == _uuid.UUID(ticket_id)).first()
+            if ticket and ticket.statut_job == "EN_ATTENTE":
+                ticket.statut_job = "ÉCHOUÉ"
+                ticket.erreur = str(exc)
+                db.commit()
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+
 @celery_app.task(
     name="question_job",
     bind=True,
     max_retries=3,
     default_retry_delay=60,
     queue="queue_questions",
+    on_failure=_on_failure_question_job,
 )
 def question_job(
     self,
@@ -61,7 +87,7 @@ def question_job(
         est_suivi = ticket_uuid is not None and not retraiter
         question_suivi = question if est_suivi else None
 
-        if ticket_uuid is not None and not ticket_existe(ticket_uuid):
+        if ticket_uuid is not None and not _ticket_existe(ticket_uuid):
             print(f"[QUESTION] ⏭️  Ticket {ticket_uuid} introuvable — job abandonné")
             return {"statut": "IGNORÉ", "raison": "TICKET_SUPPRIMÉ", "ticket_id": str(ticket_uuid)}
 

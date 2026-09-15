@@ -79,6 +79,7 @@ def test_incidents_refus_sans_token(client):
     assert client.get(f"{API}/admin/incidents").status_code == 401
 
 
+@pytest.mark.integration
 def test_incidents_refus_non_admin(client, user_factory, auth_header):
     u = user_factory("USER")
     headers = auth_header(u)
@@ -194,6 +195,7 @@ def test_scan_document_incidents_retourne_incident():
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.integration
 def test_download_document_tache_introuvable(client, user_factory, auth_header, db_session):
     admin = user_factory("ADMIN")
     headers = auth_header(admin)
@@ -207,6 +209,7 @@ def test_download_document_tache_introuvable(client, user_factory, auth_header, 
     assert r.status_code == 404
 
 
+@pytest.mark.integration
 def test_download_document_fichier_absent_disque(client, user_factory, auth_header, tmp_path):
     admin = user_factory("ADMIN")
     headers = auth_header(admin)
@@ -228,6 +231,7 @@ def test_download_document_fichier_absent_disque(client, user_factory, auth_head
     assert r.status_code == 404
 
 
+@pytest.mark.integration
 def test_retry_document_tache_introuvable(client, user_factory, auth_header):
     admin = user_factory("ADMIN")
     headers = auth_header(admin)
@@ -241,6 +245,7 @@ def test_retry_document_tache_introuvable(client, user_factory, auth_header):
     assert r.status_code == 404
 
 
+@pytest.mark.integration
 def test_retry_document_fichier_absent_409(client, user_factory, auth_header):
     admin = user_factory("ADMIN")
     headers = auth_header(admin)
