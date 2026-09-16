@@ -34,25 +34,6 @@ x-celery-healthcheck: &celery-healthcheck
   retries: 3
   start_period: 30s
 
-# ⚠️ Les trois services d'infra ci-dessous publient sur 127.0.0.1 UNIQUEMENT.
-#
-# Ils écoutaient sur 0.0.0.0. Or ni Qdrant ni Valkey n'ont d'authentification
-# ici : `GET /collections` répondait 200 sans clé, `CONFIG GET requirepass`
-# renvoyait vide. Quiconque atteignait l'hôte lisait donc tout le corpus indexé
-# (RH, IT, Juridique) — et, côté Valkey, pouvait pousser un message dans la file
-# Celery, c'est-à-dire faire exécuter une tâche par `worker_questions`. Pas une
-# fuite en lecture : de l'exécution.
-#
-# Rien n'avait besoin de cette publication : backend et workers joignent
-# `postgres`, `qdrant` et `valkey` par le réseau Compose, sous ces noms-là
-# (cf. POSTGRES_HOST/QDRANT_HOST/VALKEY_HOST plus bas). Seul `frontend:80` a une
-# raison de sortir.
-#
-# Le bind loopback est conservé pour que les scripts de `backend/scripts/`
-# lancés depuis l'hôte continuent d'atteindre la prod (ils lisent backend/.env,
-# qui pointe 5432/6333 — cf. CLAUDE.md). Si ce besoin disparaît, supprimer les
-# blocs `ports:` entièrement : c'est plus strict, et rien dans la stack ne s'en
-# aperçoit.
 x-infra-deps: &infra-deps
   postgres:
     condition: service_healthy
@@ -107,10 +88,6 @@ services:
 
   backend:
     build: ./backend
-    # Une seule ligne : même piège de bloc replié qu'en dev (cf. le commentaire
-    # dans docker-compose.dev.yml). Ici le `&&` en fin de ligne servait de
-    # continuation shell, donc ça marchait — par chance, pas par construction.
-    # `exec` : uvicorn devient PID 1 et reçoit SIGTERM sans passer par le shell.
     command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"]
     volumes:
       - documents_storage:/app/storage
