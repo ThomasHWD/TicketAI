@@ -59,6 +59,7 @@ function aAnalyser(overrides: Partial<ReponseARelire> = {}): ReponseARelire {
     contenu: "Deux jours par semaine.",
     canonique: true,
     nb_validations: 5,
+    occurence: 1,
     ...overrides,
   };
 }
