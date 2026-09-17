@@ -1299,3 +1299,87 @@ cette part deviendra significative, la moyenne des questions cessera d'être un 
 commode et il faudra relancer `scripts/mesurer_longueurs.py` — en se souvenant que les deux
 constantes vont par paire, et que les modifier impose un passage de
 `reencoder_vecteurs_creux.py`.
+
+---
+
+## 16. Non-régression des quatre correctifs « jamais servir une réponse fausse » (17/09/2026)
+
+Branche `fix/jamais-servir-une-reponse-fausse`, quatre correctifs livrés le même jour :
+**C4** (`a_relire` suspend la branche CANONIQUE), **C2** (tout alias est jugé avant d'être
+écrit), **C1** (sélection par pertinence, `canonique` en départage), **C3** (les réponses
+CORRIGÉE redeviennent réutilisables). Le seul résultat rédhibitoire annoncé était un **faux
+positif** ; un glissement CANONIQUE → SUGGESTION était le coût accepté d'avance.
+
+### 16.1 Protocole — pourquoi un nouveau témoin plutôt que le JSON de référence
+
+La fixture DFE n'était pas semée dans la pile de développement. La semer donne un corpus
+différent de celui du § 15 (contenus `TEST` et `IT` en plus), or **l'IDF que Qdrant calcule
+porte sur la collection entière, pas sur le domaine filtré** : les scores lexicaux se
+déplacent. Comparer au fichier `resultats_passe_a_bm25_recalibre.json` aurait donc mesuré un
+changement de corpus en croyant mesurer un changement de code.
+
+Le témoin a été **remesuré sur le même corpus** : `git checkout db79743 -- backend/app/`,
+campagne, puis retour à `HEAD`. Les conteneurs montent l'arborescence et `watchmedo` recharge,
+si bien que les deux passes ne diffèrent que par le code applicatif.
+
+### 16.2 Résultat — identique, cas par cas
+
+| | AVANT (`db79743`) | APRÈS (C1+C2+C3+C4) |
+|---|---|---|
+| **Faux positifs** | **0** | **0** |
+| Conformité | 35/48 | 35/48 |
+| Appels au juge | 27 | 27 |
+| Court-circuits typographiques | 2 | 2 |
+| Faux négatifs | 2 | 2 |
+| CANONIQUE non prévus (bonne cible) | 3 | 3 |
+
+Et le diff des deux JSON donne **0 cas différant sur 48** — pas seulement des totaux égaux,
+des décisions égales champ par champ. Le glissement CANONIQUE → SUGGESTION annoncé comme coût
+de C1 ne s'est pas produit **ici**, et la raison est instructive : la fixture DFE ne porte
+aucune réponse `a_relire`, aucune réponse CORRIGÉE, et une seule canonique par sujet. Les
+quatre correctifs n'y ont donc aucune prise. **C'est exactement ce qu'on attend d'un test de
+non-régression** — il montre que rien n'a bougé là où rien ne devait bouger, il ne démontre
+pas l'effet recherché. Celui-ci se mesure ailleurs (§ 16.3).
+
+Bruts : `scripts/resultats_avant_c1c2c3c4.json`, `scripts/resultats_apres_c1c2c3c4.json`.
+
+> Le § 15 notait `COMMENT FAIT ON UN SERVICE FAIT ???` récupéré par la porte lexicale et servi
+> CANONIQUE. Sur ce corpus-ci il sort `AUCUN_CANDIDAT` — **dans les deux passes**. C'est la
+> dérive d'IDF annoncée en 16.1, pas un effet des correctifs ; le témoin remesuré est
+> précisément ce qui permet de le dire.
+
+### 16.3 Ce que la campagne ne mesure pas — le scénario général/spécifique
+
+L'effet recherché se lit sur le scénario télétravail (domaine `TEST`,
+`scripts/bout_en_bout_teletravail.py`), où coexistent un document général (« autorisé du lundi
+au mercredi ») et un document d'exception (« les alternants n'en bénéficient pas »).
+
+**C4.** « Le télétravail est-il autorisé ? » — la canonique `06be10ce` est signalée
+`CONTREDITE_PROBABLE` par la confrontation. Score de similarité **1,0000** : la question posée
+est mot pour mot la question indexée, soit le cas du court-circuit typographique, qui servait
+jusqu'ici CANONIQUE **sans le moindre appel au juge**. Résultat : **SUGGESTION**, et
+`garde_decisions` reste à 5 lignes — le juge n'a pas été appelé, la porte s'est fermée avant
+lui. C'est le pire cas possible pour C4, et il tient.
+
+**C1 + C3.** « Le télétravail est-il possible pour les alternants ? » sortait la réponse
+**générale** en SUGGESTION à 0,7729 (§ contextualisation). Le relecteur corrige en
+« général + exception » ; la correction s'indexe sous la question spécifique. À la question
+suivante, la **spécifique** est rendue. Contrefactuel à un seul embedding, les deux règles de
+sélection appliquées aux **mêmes** chunks :
+
+| Candidat | statut | canonique | RRF | cosinus |
+|---|---|---|---|---|
+| `f6d4af99` (spécifique) | CORRIGÉE | non | **0,03279** | **1,0000** |
+| `06be10ce` (générale) | VALIDÉE | oui | 0,03175 | 0,7730 |
+
+- **AVANT** (`canonique` primaire, `VALIDÉE` seule) → `06be10ce`, *« Oui. Le télétravail est
+  autorisé, mais uniquement du lundi au mercredi inclus. »* — **faux pour un alternant**.
+- **APRÈS** (RRF primaire, CORRIGÉE admise) → `f6d4af99`, la règle **et** son exception.
+
+> ⚠️ **L'écart RRF est mince — 0,03279 contre 0,03175 — là où l'écart de cosinus est béant
+> (1,0000 contre 0,7730).** Le RRF ne dépend que du rang : deux candidats adjacents au
+> classement sont presque à égalité quelle que soit la distance sémantique qui les sépare. La
+> résolution du signal de départage est donc faible par construction, et c'est `canonique` —
+> deuxième clé — qui tranche dès que deux candidats partagent un rang. À surveiller si des
+> inversions inattendues apparaissent : le correctif n'est pas « le plus pertinent gagne
+> largement », c'est « le mieux classé gagne, de peu ».
