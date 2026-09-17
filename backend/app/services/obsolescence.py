@@ -86,10 +86,9 @@ def reponses_obsoletes(
 
     ``indices=None`` → tout le document est concerné (cas de la suppression).
     VALIDÉE et CORRIGÉE sont retenues : les deux sont indexées dans Qdrant par
-    ``feedback_job`` et doivent être retirées de l'index à la suppression du
-    document source. CORRIGÉE n'est pas resservie directement (filtre VALIDÉE
-    dans ``_trouver_reponse_reutilisable``) mais son point Qdrant subsiste et
-    polluerait le contexte RAG si on ne le supprime pas.
+    ``feedback_job``, les deux sont réutilisables par
+    ``trouver_reponse_reutilisable``, et les deux doivent donc être retirées de
+    l'index à la suppression du document source.
     """
     if indices is not None and not indices:
         return []

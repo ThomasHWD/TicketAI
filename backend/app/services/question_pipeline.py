@@ -248,7 +248,14 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
         db.query(Reponse)
         .filter(
             Reponse.id.in_([uuid.UUID(r) for r in meilleur_par_reponse]),
-            Reponse.statut == "VALIDÉE",
+            # CORRIGÉE aussi, et pas seulement VALIDÉE : c'est le texte qu'un
+            # relecteur a **écrit lui-même**, parce que la réponse proposée ne
+            # convenait pas. L'exclure faisait du bon geste — « Corriger » plutôt
+            # que « Valider » — un geste stérile : la réponse spécifique partait
+            # dans Qdrant, servait de matière au contexte RAG, et n'était jamais
+            # resservie. Elle ne pouvait donc pas accumuler de validations, donc
+            # jamais devenir canonique ; la générale gardait le terrain.
+            Reponse.statut.in_(("VALIDÉE", "CORRIGÉE")),
             Reponse.obsolete.is_(False),
         )
         .all()
@@ -256,12 +263,27 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
     if not candidats:
         return AUCUN_CANDIDAT
 
+    # La pertinence d'abord, le statut en départage — et non l'inverse.
+    #
+    # `r.canonique` était la clé **primaire**, le rang RRF n'arrivant qu'en
+    # troisième : une canonique générale à 0,77 battait donc une réponse
+    # spécifique validée à 0,98. La spécifique n'était jamais proposée, donc
+    # jamais validée, donc jamais canonique — une famine structurelle qui rendait
+    # impossibles des canoniques distinctes (une générale, une spécifique) pour
+    # un même sujet.
+    #
+    # Le RRF est le signal d'ordonnancement déclaré du système (`services/search.py`)
+    # et il était déjà dans cette clé : on le remonte, on ne l'invente pas. Le
+    # coût assumé est qu'à quasi-égalité une réponse fraîche peut prendre le pas
+    # sur une canonique — soit du CANONIQUE échangé contre du SUGGESTION, une
+    # relecture de plus et non un risque : ce qui décide de servir sans revue
+    # reste le garde.
     reponse_liee = max(
         candidats,
         key=lambda r: (
+            meilleur_par_reponse[str(r.id)].get("score_rrf", 0.0),
             r.canonique,
             r.nb_validations,
-            meilleur_par_reponse[str(r.id)].get("score_rrf", 0.0),
             str(r.id),
         ),
     )

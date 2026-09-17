@@ -225,6 +225,81 @@ def test_servable_utilise_le_meilleur_cosinus_pas_le_meilleur_rrf():
     )
 
 
+# ── Deux canoniques distinctes : la pertinence prime sur le statut ────────────
+
+
+def test_la_specifique_pertinente_bat_la_canonique_generale_lointaine():
+    """La famine structurelle qui rendait les canoniques distinctes impossibles.
+
+    `r.canonique` était la clé **primaire** du `max()`, la pertinence n'arrivant
+    qu'en troisième : une canonique générale à RRF faible battait une réponse
+    spécifique validée à RRF fort. La spécifique n'était donc jamais proposée,
+    donc jamais validée, donc jamais canonique — et une question spécifique
+    recevait indéfiniment la réponse générale.
+
+    C'est le cœur de « jamais générique quand la question est spécifique ». La
+    canonique ne disparaît pas de la clé, elle départage à pertinence égale.
+    """
+    from app.services.question_pipeline import SEUIL_COSINUS, trouver_reponse_reutilisable
+
+    generale = SimpleNamespace(id=uuid.uuid4(), canonique=True, nb_validations=3)
+    specifique = SimpleNamespace(id=uuid.uuid4(), canonique=False, nb_validations=1)
+    db = MagicMock()
+    db.query.return_value.filter.return_value.all.return_value = [generale, specifique]
+
+    def point(reponse, cosinus, rrf, question):
+        return {
+            "reponse_id": str(reponse.id),
+            "score_cosinus": cosinus,
+            "score_lexical": 0.0,
+            "score_rrf": rrf,
+            "question_indexee": question,
+        }
+
+    candidat = trouver_reponse_reutilisable(
+        db,
+        [
+            point(generale, SEUIL_COSINUS + 0.01, 0.010, "Le télétravail est-il autorisé ?"),
+            point(specifique, SEUIL_COSINUS + 0.15, 0.030,
+                  "Le télétravail est-il possible pour les alternants ?"),
+        ],
+    )
+
+    assert candidat.reponse is specifique
+    assert candidat.question_indexee == "Le télétravail est-il possible pour les alternants ?"
+
+
+def test_une_reponse_corrigee_est_reutilisable():
+    """« Corriger » est le bon geste du relecteur : il ne doit pas être stérile.
+
+    Le filtre `statut == "VALIDÉE"` excluait CORRIGÉE — le texte qu'un humain a
+    écrit lui-même parce que la réponse proposée ne convenait pas. Il partait
+    dans Qdrant, servait de matière au contexte RAG, et n'était jamais resservi :
+    il ne pouvait donc pas accumuler de validations, donc jamais devenir
+    canonique. C'est ce correctif qui **fait naître** la canonique spécifique.
+    """
+    from app.services.question_pipeline import SEUIL_COSINUS, trouver_reponse_reutilisable
+
+    corrigee = SimpleNamespace(id=uuid.uuid4(), canonique=False, nb_validations=0)
+    db = MagicMock()
+    db.query.return_value.filter.return_value.all.return_value = [corrigee]
+
+    candidat = trouver_reponse_reutilisable(
+        db, [{"reponse_id": str(corrigee.id), "score_cosinus": SEUIL_COSINUS + 0.1}]
+    )
+
+    assert candidat.reponse is corrigee
+    # Jamais canonique pour autant : `corriger_reponse` n'incrémente pas
+    # `nb_validations`. Elle ressort en SUGGESTION et monte au seuil par le
+    # chemin normal — une copie validée incrémente la source.
+    assert candidat.reponse.canonique is False
+
+    # Et le filtre SQL demande bien les deux statuts : sans ça l'assertion
+    # ci-dessus passerait sur un mock qui rend tout ce qu'on lui demande.
+    clause = str(db.query.return_value.filter.call_args.args[1])
+    assert "IN" in clause.upper(), f"le statut doit être filtré par appartenance, pas par égalité : {clause}"
+
+
 # ── La question jugée par le garde est celle du point retrouvé ────────────────
 
 
