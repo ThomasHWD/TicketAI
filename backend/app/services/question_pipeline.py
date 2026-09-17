@@ -27,6 +27,31 @@ SEUIL_COSINUS = settings.seuil_cosinus
 SEUIL_SUGGESTION = SEUIL_COSINUS - 0.05
 
 
+def peut_servir_sans_revue(reponse: Reponse) -> bool:
+    """Cette réponse a-t-elle encore le droit d'être servie sans relecteur ?
+
+    `a_relire` est un **tri, pas un retrait** : `trouver_reponse_reutilisable`
+    continue de rendre la réponse, qui ressort en SUGGESTION et reste amendable
+    en un geste, `nb_validations` intact. Ce qu'elle perd ici est le seul
+    privilège de la branche CANONIQUE — être servie sans que personne ne la
+    relise — et elle le perd précisément quand un juge vient de dire qu'un
+    document la contredit.
+
+    C'est la réponse à « faut-il passer `a_relire` en obsolète ? » : ni l'un ni
+    l'autre. Détruire coûterait `SEUIL_CANONIQUE` revalidations pour un état
+    final identique, et un `CONTREDITE` erroné — le lien n'est qu'un cosinus à
+    `SEUIL_RAPPEL` entre un paragraphe et une question — retirerait en silence
+    une bonne canonique. Ne rien faire, en revanche, laissait le système servir
+    sans revue une réponse qu'il soupçonne fausse. Suspendre le privilège coûte
+    une relecture et ne détruit rien.
+
+    Le miroir SQL de ce prédicat est dans `services/faq.py` (`a_relire.is_(False)`,
+    `canonique.is_(True)`) : les deux doivent dire la même chose, un test les
+    compare.
+    """
+    return bool(reponse.canonique) and not reponse.a_relire
+
+
 def ticket_existe(ticket_id: uuid.UUID) -> bool:
     """Session courte et dédiée : on interroge avant d'ouvrir le pipeline."""
     db = SessionLocal()
@@ -279,7 +304,7 @@ def servir_reutilisation(
     contenu = reponse_liee.contenu_corrige or reponse_liee.contenu
     franchit = franchit_le_rappel({"score_cosinus": score_liee, "score_lexical": score_lexical}, SEUIL_COSINUS)
 
-    if autoriser_canonique and reponse_liee.canonique and franchit:
+    if autoriser_canonique and peut_servir_sans_revue(reponse_liee) and franchit:
         logger.info("Réponse canonique servie : %s (score=%.3f)", reponse_liee.id, score_liee)
         ticket = upsert_ticket(
             db,

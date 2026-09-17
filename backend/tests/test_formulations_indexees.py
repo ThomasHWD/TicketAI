@@ -212,7 +212,7 @@ def test_refus_du_garde_sert_une_suggestion_sans_relancer_le_rag():
     from app.workers.question import SEUIL_COSINUS, question_job
 
     reponse = SimpleNamespace(
-        id=uuid.uuid4(), ticket_id=uuid.uuid4(), canonique=True, nb_validations=3
+        id=uuid.uuid4(), ticket_id=uuid.uuid4(), canonique=True, a_relire=False, nb_validations=3
     )
 
     question_job.push_request(id=str(uuid.uuid4()), retries=0)
