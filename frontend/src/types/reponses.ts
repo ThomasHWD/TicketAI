@@ -130,6 +130,11 @@ export type RaisonARelire =
   | "REECRITURE_MASSIVE"
   /** Verdict INCERTAIN : le modèle a vu les changements sans pouvoir conclure. */
   | "DOC_MODIFIÉ"
+  /**
+   * Même verdict, mais déclenché par l'arrivée d'un document *neuf* et non par
+   * une mise à jour : il n'y a pas de version précédente à consulter.
+   */
+  | "NOUVEAU_DOC"
   /** Aucun diff n'était calculable : le fichier sortant avait disparu du disque. */
   | "VERSION_SORTANTE_ILLISIBLE";
 

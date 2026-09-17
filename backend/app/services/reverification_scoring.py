@@ -55,6 +55,37 @@ Règles :
 Réponds uniquement par un objet JSON, sans texte autour ni bloc de code :
 {"verdict": "CONTREDITE|INTACTE|INCERTAIN", "justification": "une phrase de 200 caractères maximum"}"""
 
+PROMPT_SYSTEME_CONFRONTATION = """Tu vérifies si une réponse déjà publiée reste exacte maintenant
+qu'un nouveau document de référence a été ajouté.
+
+On te donne la question posée, la réponse telle qu'elle est servie aujourd'hui, les passages du
+document sur lesquels cette réponse avait été construite (ils peuvent manquer), et les passages du
+document qui vient d'être ajouté.
+
+Le nouveau document ne remplace pas l'ancien : les deux sont en vigueur. Tu n'as donc pas à décider
+lequel fait foi, mais à dire si ce que la réponse affirme reste vrai une fois le nouveau texte pris
+en compte.
+
+Rends exactement l'un de ces trois verdicts :
+- CONTREDITE : le nouveau texte rend la réponse fausse ou trompeuse — il infirme ce qu'elle affirme,
+  ou il pose une exception, une restriction ou une condition qu'elle passe sous silence alors
+  qu'elle porte précisément sur ce cas.
+- INTACTE : le nouveau texte ne porte pas sur ce qu'affirme la réponse, ou il la confirme.
+- INCERTAIN : il pourrait la concerner, mais les éléments fournis ne permettent pas de trancher.
+
+Règles :
+- Ne juge que d'après les passages fournis. N'invente aucune règle absente.
+- Le rapprochement qui t'amène ce couple est approximatif : un passage qui traite d'un autre sujet,
+  d'une autre population ou d'un autre dispositif est INTACTE, même s'il emploie le même vocabulaire.
+- Une réponse seulement *incomplète* est CONTREDITE — elle induit son lecteur en erreur par
+  omission — mais dis-le dans la justification : incomplète et fausse n'appellent pas la même suite.
+- Ne rédige jamais de correction ni de réponse de remplacement.
+- Dans le doute, réponds INCERTAIN et non INTACTE : une réponse fausse laissée en service coûte
+  plus cher qu'une relecture inutile.
+
+Réponds uniquement par un objet JSON, sans texte autour ni bloc de code :
+{"verdict": "CONTREDITE|INTACTE|INCERTAIN", "justification": "une phrase de 200 caractères maximum"}"""
+
 LONGUEUR_JUSTIFICATION = 200
 
 
@@ -116,6 +147,49 @@ def juger(question: str, reponse_servie: str, unites: list[Unite]) -> tuple[str,
                 f"Question posée :\n{question}\n\n"
                 f"Réponse actuellement servie :\n{reponse_servie}\n\n"
                 f"Changements apportés au document :\n{changements}"
+            ),
+        },
+    ]
+    modele = settings.albert_reverif_model_name or settings.albert_llm_model_name
+    return _lire_verdict(chat(messages, temperature=0, max_tokens=2048, timeout=60, model=modele))
+
+
+def juger_confrontation(
+    question: str,
+    reponse_servie: str,
+    unites: list[Unite],
+    extraits_source: list[str],
+) -> tuple[str, str]:
+    """Même question, mais posée sur un document qui vient d'arriver.
+
+    Trois différences avec ``juger``, toutes dictées par le fait qu'il n'y a pas
+    de diff ici — le document est neuf, donc tout est un ajout :
+
+    * le prompt dit que les deux documents sont **en vigueur en même temps**.
+      Sans ça, le modèle traite le nouveau texte comme une v2 qui abroge la v1 et
+      condamne des réponses parfaitement valables ;
+    * il nomme explicitement le cas « règle générale puis exception », qui est la
+      raison d'être de cette branche ;
+    * il reçoit ``extraits_source``, les passages sur lesquels la réponse avait
+      été bâtie. C'est ce qui lui permet de distinguer une réponse fausse d'une
+      réponse incomplète, et d'écarter les faux appariements du rappel à 0,35.
+      La liste peut être vide (copie sans chunks cités, document supprimé) : le
+      prompt l'annonce, et le jugement reste meilleur que pas de jugement.
+
+    Lève en cas d'échec HTTP, comme ``juger`` : l'appelant n'a pas les mêmes
+    options face à une panne que face à une hésitation du modèle.
+    """
+    nouveaux = "\n\n".join(_formater(u) for u in unites)
+    source = "\n\n---\n\n".join(extraits_source) if extraits_source else "(non disponibles)"
+    messages = [
+        {"role": "system", "content": PROMPT_SYSTEME_CONFRONTATION},
+        {
+            "role": "user",
+            "content": (
+                f"Question posée :\n{question}\n\n"
+                f"Réponse actuellement servie :\n{reponse_servie}\n\n"
+                f"Passages sur lesquels cette réponse avait été construite :\n{source}\n\n"
+                f"Passages du document qui vient d'être ajouté :\n{nouveaux}"
             ),
         },
     ]
