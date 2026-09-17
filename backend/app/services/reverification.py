@@ -47,6 +47,7 @@ from app.services.obsolescence import (
 )
 from app.services.reverification_candidates import (  # noqa: F401
     Candidate,
+    questions_des_reponses,
     rassembler_candidates,
 )
 from app.services.reverification_scoring import (  # noqa: F401
@@ -57,6 +58,7 @@ from app.services.reverification_scoring import (  # noqa: F401
     VERDICT_INTACTE,
     VERDICTS,
     juger,
+    juger_confrontation,
     unites_pertinentes,
 )
 from sqlalchemy.orm import Session
@@ -78,8 +80,10 @@ __all__ = [
     "Candidate",
     # functions
     "rassembler_candidates",
+    "questions_des_reponses",
     "unites_pertinentes",
     "juger",
+    "juger_confrontation",
     "decider",
     "signaler_sans_juger",
     "tracer",
@@ -108,6 +112,7 @@ def decider(
     unites: list,
     doc_id: str,
     version: int,
+    raison_incertain: str = RAISON_MODIF,
 ) -> str:
     """Applique le verdict, et renvoie l'action retenue pour le comptage.
 
@@ -117,6 +122,14 @@ def decider(
     paragraphe et une question — deux objets de nature différente, indexés pour
     autre chose. Détruire à tort une canonique à douze validations coûte bien plus
     cher que d'imposer vingt relectures ; le verdict plafonne donc à la relecture.
+
+    C'est aussi ce qui plafonne, **structurellement**, la confrontation à
+    l'ingestion (``workers/confrontation.py``) : ``citante`` vient de
+    ``reponse_chunks``, qu'un document neuf n'a par définition jamais peuplé.
+
+    ``raison_incertain`` n'existe que pour que ce second appelant nomme
+    correctement ce qu'il signale — ``DOC_MODIFIÉ`` serait faux pour un document
+    qui vient d'arriver. Le comportement, lui, est identique.
 
     Chaque décision est commitée séparément (``retirer_du_service`` commite) : un
     worker qui meurt à mi-parcours conserve les jugements déjà payés, et le rejeu
@@ -147,7 +160,7 @@ def decider(
         db.commit()
         return ACTION_INTACTE
 
-    poser_a_relire(famille, RAISON_MODIF, doc_id, version)
+    poser_a_relire(famille, raison_incertain, doc_id, version)
     tracer(db, famille, justification, extraits)
     return ACTION_A_RELIRE
 

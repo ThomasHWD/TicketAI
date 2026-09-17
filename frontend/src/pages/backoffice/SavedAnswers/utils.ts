@@ -74,6 +74,8 @@ export const RAISONS: Record<NonNullable<ReponseSignalee["a_relire_raison"]>, st
   REECRITURE_MASSIVE:
     "Le document a été réécrit en profondeur : trop de changements pour juger réponse par réponse.",
   DOC_MODIFIÉ: "L'analyse n'a pas su conclure : à trancher à la main.",
+  NOUVEAU_DOC:
+    "Un document vient d'être ajouté et pourrait concerner cette réponse : l'analyse n'a pas su conclure.",
   VERSION_SORTANTE_ILLISIBLE:
     "La version précédente n'a pas pu être relue : impossible de dire ce qui a changé.",
 };
