@@ -47,7 +47,11 @@ La réponse attendue est **OUI** ou **NON**. Toute réponse autre que `"OUI"` ex
 ## Flux dans le pipeline
 
 ```
-Candidat canonique franchissant le rappel
+Candidat encore autorisé à être servi sans revue
+(`peut_servir_sans_revue` : canonique ET NON signalé `a_relire`)
+        │
+        ▼
+… franchissant le rappel
 (cosinus ≥ SEUIL_COSINUS  OU  BM25/terme ≥ SEUIL_LEXICAL_PAR_TERME)
         │
         ▼
@@ -76,6 +80,16 @@ Court-circuit : question posée ≡ question indexée ?
 Sans ce repli, le système était **non monotone** : un candidat à 0,84 sortait en SUGGESTION sans être jugé, alors que le même à 0,86 était soumis au garde et, sur refus, renvoyé au RAG *sans candidat*. Franchir `SEUIL_COSINUS` dégradait donc l'issue, ce qui contredit son rôle de simple filtre de coût. Mesuré le 05/09/2026 : trois candidats avaient perdu leur SUGGESTION en passant le seuil de 0,90 à 0,85.
 
 Le refus reste tracé dans `garde_decisions` : la SUGGESTION servie est indiscernable en base d'une SUGGESTION de la branche 2, seule la table d'audit dit qu'un juge est passé.
+
+### `a_relire` ferme la porte avant le garde
+
+`peut_servir_sans_revue` (`services/question_pipeline.py`) est le prédicat d'entrée, et il dit *canonique **et** non signalée*. Une réponse que la confrontation ou la réverification vient de marquer `CONTREDITE_PROBABLE` n'atteint donc plus le juge du tout : elle sort en SUGGESTION, sous revue humaine.
+
+C'est délibérément **en amont** du garde, et pas une question qu'on lui poserait : le garde compare deux *questions*, il ne sait rien d'un document qui contredirait la réponse. Lui soumettre le candidat ne pourrait produire qu'un OUI — la paire de questions est bonne, c'est la réponse qui est suspecte. La porte se ferme donc avant lui, ce qui économise au passage un appel Albert pour un candidat qu'on ne servira de toute façon pas sans revue.
+
+**Le signalement est un tri, pas un retrait.** `trouver_reponse_reutilisable` continue de rendre la réponse, qui reste amendable en un geste avec son `nb_validations` intact. Ce qu'elle perd est le seul privilège de la branche CANONIQUE. La détruire (`obsolete`) coûterait `SEUIL_CANONIQUE` revalidations pour un état final identique, sur la foi d'un simple cosinus entre un paragraphe et une question ; ne rien faire laissait servir sans revue une réponse que le système soupçonne fausse.
+
+Le même prédicat a un **miroir SQL** dans `services/faq.py` — cette page n'a aucun relecteur, y montrer une réponse signalée serait exactement la servir sans revue. Les deux doivent rester d'accord ; `tests/test_faq.py` les compare sur le même jeu de drapeaux.
 
 ---
 
@@ -201,6 +215,7 @@ Le paramètre `max_tokens=20` laisse la place à un mot de verdict même si le m
 - Il **ne cherche pas dans les documents** — aucun appel Qdrant, aucun reranking.
 - Il **ne distingue pas les raisons de refus** — tout ce qui n'est pas OUI sort en SUGGESTION. Il n'y a pas de verdict intermédiaire ; `Decision.erreur` sert l'audit, pas le routage.
 - Il **ne choisit pas la question B** — celle-ci lui est fournie par le point Qdrant qui a matché (voir ci-dessous). Le garde ne peut pas rattraper une mauvaise paire.
+- Il **ne juge pas la réponse encore d'actualité** — il ne voit ni les documents, ni leurs versions. Une réponse contredite par une ingestion récente lui paraîtrait parfaite, puisque la paire de questions, elle, est bonne. C'est `peut_servir_sans_revue` qui l'écarte, en amont.
 
 ---
 

@@ -1,4 +1,5 @@
 import uuid
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -236,3 +237,62 @@ def test_canonique_true_quand_seuil_atteint():
 
     assert reponse_source.nb_validations == 3
     assert reponse_source.canonique is True
+
+
+# ── `a_relire` suspend la branche CANONIQUE ────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "a_relire, juge_appele, sans_revue",
+    [
+        pytest.param(False, True, True, id="intacte-jugee-puis-servie"),
+        pytest.param(True, False, False, id="signalee-suggestion-sans-juge"),
+    ],
+)
+def test_une_canonique_signalee_sort_en_suggestion_sans_passer_par_le_garde(
+    a_relire, juge_appele, sans_revue
+):
+    """Un juge vient de dire qu'un document la contredit : plus de service sans revue.
+
+    Les deux cas ne diffèrent que par `a_relire`, tout le reste étant identique —
+    canonique, au-dessus de `SEUIL_COSINUS`, servable. Sans ce filtre, une
+    réponse marquée `CONTREDITE_PROBABLE` par la confrontation continuait d'être
+    servie en CANONIQUE, sans qu'aucun humain ne la relise : la violation directe
+    de l'invariant « jamais servir une réponse fausse ».
+
+    Le second volet n'est pas cosmétique : `statuer` **n'est pas appelé**. Payer
+    un appel Albert pour un candidat qu'on ne servira de toute façon pas sans
+    revue serait dépenser du quota pour rien, sur une porte déjà fermée.
+    """
+    from app.services.garde_cache import Decision
+    from app.services.question_pipeline import Candidat
+    from app.workers.question import SEUIL_COSINUS, question_job
+
+    reponse = SimpleNamespace(
+        id=uuid.uuid4(), ticket_id=uuid.uuid4(), canonique=True, a_relire=a_relire, nb_validations=3
+    )
+
+    question_job.push_request(id=str(uuid.uuid4()), retries=0)
+    try:
+        with (
+            patch("app.workers.question._ticket_existe", return_value=True),
+            patch("app.workers.question.search_hybrid", return_value=[]),
+            patch(
+                "app.workers.question.trouver_reponse_reutilisable",
+                return_value=Candidat(
+                    reponse, SEUIL_COSINUS + 0.05, 0.0, "Le télétravail est-il autorisé ?"
+                ),
+            ),
+            patch("app.workers.question.statuer", return_value=Decision(verdict=True)) as juge,
+            patch("app.workers.question.journaliser_garde"),
+            patch("app.workers.question.servir_reutilisation", return_value={}) as servir,
+            patch("app.workers.question.generate") as generation,
+        ):
+            question_job.run(question="Le télétravail est-il autorisé ?", domaine="RH")
+    finally:
+        question_job.pop_request()
+
+    assert juge.called is juge_appele
+    servir.assert_called_once()
+    assert servir.call_args.args[11] is sans_revue
+    generation.assert_not_called()

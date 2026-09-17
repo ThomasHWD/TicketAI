@@ -16,6 +16,7 @@ from app.services.question_pipeline import (
     SEUIL_SUGGESTION,  # noqa: F401
     charger_contexte_fil,
     journaliser_garde,
+    peut_servir_sans_revue,
     servir_reutilisation,
     ticket_existe,
     trouver_reponse_reutilisable,
@@ -124,7 +125,12 @@ def question_job(
             if reponse_liee is not None:
                 logger.info("score %.4f → réponse validée %s", score_liee, reponse_liee.id)
 
-                if reponse_liee.canonique and candidat.franchit(SEUIL_COSINUS):
+                # `peut_servir_sans_revue` plutôt que `.canonique` : une réponse
+                # signalée `a_relire` ne franchira pas la porte de
+                # `servir_reutilisation` de toute façon, autant ne pas payer un
+                # appel au juge pour elle. On retombe sur `elif candidat.servable`
+                # → SUGGESTION, sous revue humaine.
+                if peut_servir_sans_revue(reponse_liee) and candidat.franchit(SEUIL_COSINUS):
                     # La question portée par le point qui a matché fait foi : une
                     # réponse est indexée sous autant de formulations qu'elle a de
                     # validations humaines, et le garde doit juger celle-là. Repli
