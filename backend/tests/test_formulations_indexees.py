@@ -11,7 +11,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from app.services.garde_cache import Decision
 from app.services.question_pipeline import Candidat
+from celery.exceptions import Retry
 
 # ── Retrait complet ───────────────────────────────────────────────────────────
 
@@ -89,6 +91,10 @@ def test_formulation_supplementaire_ecrit_un_point_distinct(_albert_muet):
         db = _db_factice([source, copie], [ticket_source, ticket_copie])
         with (
             patch.object(module, "SessionLocal", return_value=db),
+            # Le juge approuve : ce test porte sur l'id et la charge du point,
+            # pas sur la décision — celle-ci a son propre test plus bas.
+            patch.object(module, "statuer", return_value=Decision(verdict=True)),
+            patch.object(module, "journaliser_garde"),
             patch.object(module.client, "upsert") as upsert,
         ):
             module.feedback_job.run(str(source.id), formulation_id)
@@ -101,6 +107,72 @@ def test_formulation_supplementaire_ecrit_un_point_distinct(_albert_muet):
     assert point_alias.payload["reponse_id"] == str(source.id), "l'alias pointe la source"
     assert point_alias.payload["question_indexee"] == "Quelle démarche pour un congé ?"
     assert point_origine.payload["question_indexee"] == "Comment poser un congé ?"
+
+
+@pytest.mark.parametrize(
+    ("decision", "alias_ecrit", "retente"),
+    [
+        pytest.param(Decision(verdict=True), True, False, id="oui-alias-ecrit"),
+        pytest.param(Decision(verdict=False), False, False, id="non-juge-aucun-alias"),
+        pytest.param(Decision(verdict=False, erreur="503"), False, True, id="albert-en-panne-retry"),
+    ],
+)
+def test_l_alias_est_soumis_au_garde_avant_d_etre_ecrit(_albert_muet, decision, alias_ecrit, retente):
+    """Écrire un alias est plus fort que tout ce que le garde tranche ensuite.
+
+    Le point porte la question de la copie et le `reponse_id` de la source : à la
+    question suivante le cosinus vaut ~1,0, le court-circuit typographique
+    s'enclenche, et la réponse part en CANONIQUE **sans juge**. Un alias faux ne
+    passe donc pas devant le garde, il le contourne. Il suffisait d'un relecteur
+    cliquant « Valider » plutôt que « Corriger » sur une SUGGESTION plausible mais
+    à côté de la question — et le bouton vert est le chemin le moins cher.
+
+    Les trois issues doivent rester distinctes. Confondre le refus jugé et la
+    panne Albert perdrait en silence une formulation qu'un humain a validée : le
+    premier est une décision, le second une indisponibilité.
+    """
+    from app.workers import feedback as module
+
+    source = SimpleNamespace(
+        id=uuid.uuid4(), ticket_id=uuid.uuid4(), contenu="réponse", contenu_corrige=None,
+        question_suivi=None,
+    )
+    copie = SimpleNamespace(
+        id=uuid.uuid4(), ticket_id=uuid.uuid4(), contenu="réponse", contenu_corrige=None,
+        question_suivi=None,
+    )
+    ticket_source = SimpleNamespace(domaine="RH", question="Le télétravail est-il autorisé ?")
+    ticket_copie = SimpleNamespace(domaine="RH", question="Le télétravail est-il possible pour les alternants ?")
+
+    db = _db_factice([source, copie], [ticket_source, ticket_copie])
+    # `called_directly=False` : sans lui Celery relève l'exception au lieu de
+    # signaler `Retry`, et le test observerait autre chose que la production.
+    module.feedback_job.push_request(id=str(uuid.uuid4()), retries=0, called_directly=False)
+    try:
+        with (
+            patch.object(module, "SessionLocal", return_value=db),
+            patch.object(module, "statuer", return_value=decision) as juge,
+            patch.object(module, "journaliser_garde") as journal,
+            patch.object(module.client, "upsert") as upsert,
+        ):
+            if retente:
+                with pytest.raises(Retry):
+                    module.feedback_job.run(str(source.id), str(copie.id))
+            else:
+                module.feedback_job.run(str(source.id), str(copie.id))
+    finally:
+        module.feedback_job.pop_request()
+
+    assert upsert.called is alias_ecrit
+    # Jugé avant d'écrire : un refus ne doit même pas coûter l'embedding.
+    juge.assert_called_once_with(
+        "Le télétravail est-il possible pour les alternants ?", "Le télétravail est-il autorisé ?"
+    )
+    if not alias_ecrit:
+        _albert_muet.assert_not_called()
+    # La table d'audit doit dire pourquoi un alias a été refusé, comme elle dit
+    # déjà pourquoi une réponse a été servie sans revue.
+    journal.assert_called_once()
 
 
 # ── Régression BM25 : formulation dominante par RRF à cosinus faible ─────────
