@@ -99,6 +99,29 @@ def test_un_lot_illisible_rend_des_contextes_vides_sans_lever(sortie, monkeypatc
     assert ctx.contextualiser([GENERALE, EXCEPTION], RESUME) == ["", ""]
 
 
+@pytest.mark.parametrize("taille", [1, ctx.TAILLE_LOT])
+def test_le_lot_annonce_sa_longueur_au_modele(taille, monkeypatch):
+    """Mesuré : sans la longueur redite, un lot d'un extrait revient à deux.
+
+    Le prompt montrait un tableau d'exemple à deux éléments. Sur un lot d'un
+    seul extrait, le modèle recopiait cette arité et complétait par une chaîne
+    vide — 3 fois sur 3 le 17/09/2026, contre 0 échec à 2 et 3 extraits.
+    `_lire_locateurs` rejetait, l'ingestion s'indexait brute, et rien n'échouait :
+    le dernier lot d'un document sur cinq perdait son contexte en silence.
+
+    Ce test rougit si la consigne d'arité disparaît de la requête.
+    """
+    appels: list = []
+    monkeypatch.setattr(ctx, "chat", _chat([json.dumps(["loc"] * taille)], appels))
+
+    ctx.contextualiser([EXCEPTION] * taille, RESUME)
+
+    assert f"{taille} chaîne(s)" in appels[0][1]["content"]
+    # Et le prompt système ne montre plus de tableau d'exemple, dont l'arité
+    # figée est précisément ce que le modèle recopiait.
+    assert "[…" not in ctx._PROMPT_CONTEXTE and '["' not in ctx._PROMPT_CONTEXTE
+
+
 def test_les_locateurs_suivent_l_ordre_des_chunks_et_sont_plafonnes(monkeypatch):
     long = "x" * (ctx.MAX_CARACTERES_CONTEXTE + 50)
     monkeypatch.setattr(ctx, "chat", _chat([json.dumps(["règle générale", long])]))

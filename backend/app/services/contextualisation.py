@@ -81,9 +81,10 @@ Règles :
 - 200 caractères maximum par phrase.
 - Si un extrait ne se rattache à rien d'identifiable, rends une chaîne vide pour lui.
 
-Réponds uniquement par un tableau JSON de chaînes, un par extrait et dans le même ordre, sans
-texte autour ni bloc de code :
-["…", "…"]"""
+Réponds uniquement par un tableau JSON de chaînes, sans texte autour ni bloc de code. Le tableau
+porte **exactement une chaîne par extrait**, dans l'ordre de la numérotation : un seul extrait
+appelle un tableau d'une seule chaîne, cinq extraits en appellent cinq. Un tableau d'une autre
+longueur est inexploitable et sera rejeté."""
 
 
 def texte_indexe(contenu: str, contexte: str | None) -> str:
@@ -185,7 +186,16 @@ def _modele() -> str:
 
 
 def _contextualiser_lot(lot: list[str], resume: str) -> list[str]:
-    """Les locateurs d'un lot, ou ``[]`` si ce lot n'a rien donné d'exploitable."""
+    """Les locateurs d'un lot, ou ``[]`` si ce lot n'a rien donné d'exploitable.
+
+    La longueur attendue est **redite en fin de message**, et le prompt système
+    ne montre plus de tableau d'exemple. Mesuré le 17/09/2026 : avec un exemple
+    ``["…", "…"]`` figé à deux éléments, un lot d'un seul extrait recevait
+    ``[ "…", "" ]`` — le modèle recopiait l'arité de l'exemple et complétait par
+    du vide — 3 fois sur 3, contre 0 échec à 2 et à 3 extraits. `_lire_locateurs`
+    rejetait, l'ingestion retombait sur le texte brut sans que rien n'échoue.
+    Le dernier lot d'un document sur cinq perdait ainsi son contexte, en silence.
+    """
     numerotes = "\n\n".join(f"[{i + 1}]\n{c}" for i, c in enumerate(lot))
     try:
         brut = chat(
@@ -195,7 +205,8 @@ def _contextualiser_lot(lot: list[str], resume: str) -> list[str]:
                     "role": "user",
                     "content": (
                         f"Résumé du document :\n{resume or '(indisponible)'}\n\n"
-                        f"Extraits à situer ({len(lot)}) :\n{numerotes}"
+                        f"Extraits à situer ({len(lot)}) :\n{numerotes}\n\n"
+                        f"Rends un tableau JSON de {len(lot)} chaîne(s), dans cet ordre."
                     ),
                 },
             ],
