@@ -1,4 +1,5 @@
 from app.config import settings
+from app.services.contextualisation import texte_indexe
 from app.services.embedding import embed_texts
 from app.services.qdrant import COLLECTION_NAME, client
 from qdrant_client.models import (
@@ -155,6 +156,13 @@ def reciprocal_rank_fusion(
             "score_sparse": sparse_scores.get(pid, 0.0),
             "score_lexical": sparse_scores.get(pid, 0.0) / diviseur,
             "contenu": payloads[pid].get("contenu"),
+            # Le locateur préfixé à l'indexation, et le texte qu'il recompose —
+            # celui qui a réellement été encodé. Le reranker et la génération
+            # travaillent sur `contenu_indexe` : sans lui ils jugeraient un
+            # passage référentiellement opaque (« les intéressés en sont
+            # exclus ») que la recherche n'a trouvé que grâce à son contexte.
+            "contexte": payloads[pid].get("contexte"),
+            "contenu_indexe": texte_indexe(payloads[pid].get("contenu") or "", payloads[pid].get("contexte")),
             "source": payloads[pid].get("source"),
             "domaine": payloads[pid].get("domaine"),
             "doc_id": payloads[pid].get("doc_id"),

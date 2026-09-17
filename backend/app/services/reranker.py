@@ -12,8 +12,13 @@ def rerank(question: str, chunks: list[dict], top_k: int = 3) -> list[dict]:
 
     logger.debug("Envoi de %d chunks à l'API Albert pour reranking", len(chunks))
 
-    # 1. On extrait le texte de chaque chunk
-    documents = [chunk["contenu"] for chunk in chunks]
+    # 1. On extrait le texte de chaque chunk — celui qui a été indexé quand il
+    # existe. Un passage isolé peut être référentiellement opaque (« les
+    # intéressés en sont exclus ») : le cross-encoder le classerait dernier sur
+    # une question qui le vise, alors que la recherche vient de le trouver grâce
+    # à son locateur. Repli sur `contenu` : `unites_pertinentes` passe des dicts
+    # bâtis à la main, qui n'ont pas cette clé.
+    documents = [chunk.get("contenu_indexe") or chunk["contenu"] for chunk in chunks]
 
     # 2. Appel à l'API Albert Rerank avec le bon schéma de payload
     response = requests.post(

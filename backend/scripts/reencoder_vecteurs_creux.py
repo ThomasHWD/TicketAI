@@ -14,8 +14,10 @@ Ce script ne fait donc qu'un `update_vectors` sur la branche `sparse`.
 C'est exact et non destructif : le texte réellement encodé est conservé dans le
 payload par les deux producteurs, à l'identique.
 
-  - chunks de documents : ``payload["contenu"]`` est le `chunk` passé à
-    `embed_texts` (`workers/ingestion.py`) ;
+  - chunks de documents : ``texte_indexe(payload["contenu"], payload["contexte"])``
+    reconstitue exactement le texte passé à `embed_texts` (`workers/ingestion.py`,
+    `workers/document_update.py`) — le chunk brut, précédé de son locateur quand
+    la contextualisation en a produit un ;
   - points-réponses : ``payload["question_indexee"]`` est le `texte_a_indexer`
     passé à `embed_texts` (`workers/feedback.py`).
 
@@ -35,6 +37,7 @@ os.environ.setdefault("QDRANT_HOST", "localhost")
 os.environ.setdefault("QDRANT_PORT", "6335")
 
 from app.services.bm25 import AVG_LEN, K1, B, encoder  # noqa: E402
+from app.services.contextualisation import texte_indexe as recomposer  # noqa: E402
 from app.services.qdrant import COLLECTION_NAME, client  # noqa: E402
 from qdrant_client.models import PointVectors, SparseVector  # noqa: E402
 
@@ -47,10 +50,17 @@ def texte_indexe(charge: dict) -> str:
     Un point-réponse est indexé sous sa **question** : réencoder son `contenu`
     (le texte de la réponse) le rendrait introuvable par la recherche lexicale,
     silencieusement, puisque rien ne lève.
+
+    Un chunk de document est indexé sous `contexte` + `contenu` quand la
+    contextualisation a produit un locateur (cf. `services/contextualisation.py`).
+    La recomposition est déléguée à ce module, pour qu'il n'existe qu'une seule
+    définition de « quel texte a été encodé » : deux implémentations qui
+    dériveraient réécriraient ici les vecteurs creux à partir d'un texte que
+    l'ingestion n'a jamais encodé, sans que rien ne le signale.
     """
     if charge.get("reponse_id"):
         return charge.get("question_indexee") or charge.get("contenu") or ""
-    return charge.get("contenu") or ""
+    return recomposer(charge.get("contenu") or "", charge.get("contexte"))
 
 
 def _identiques(ancien: SparseVector, creux: dict) -> bool:

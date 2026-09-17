@@ -63,10 +63,17 @@ def generate(
     "content": ...} des tours précédents du fil. Fourni pour une précision
     (suivi) afin que le LLM interprète la question courante dans son contexte.
     """
-    # Construction du contexte à partir des chunks rerankés
+    # Construction du contexte à partir des chunks rerankés.
+    # `contenu_indexe` est le texte réellement encodé : le chunk précédé du
+    # locateur qui le situe dans son document (cf. services/contextualisation.py).
+    # Le montrer au modèle est ce qui rend exploitable un passage autrement opaque
+    # (« les intéressés en sont exclus » — exclus de quoi ?). Le prompt système
+    # interdit par ailleurs d'ajouter le moindre fait absent du contexte, et le
+    # locateur est plafonné à 200 caractères : il situe, il n'affirme pas.
+    # Repli sur `contenu` pour les points indexés avant ce champ.
     context = "\n\n---\n\n".join(
         [
-            f"[pertinence={c['rerank_score']:.2f}]\n{c['contenu']}"
+            f"[pertinence={c['rerank_score']:.2f}]\n{c.get('contenu_indexe') or c['contenu']}"
             for c in sorted(chunks, key=lambda x: x["rerank_score"], reverse=True)
         ]
     )
@@ -76,6 +83,13 @@ Réponds uniquement à partir des documents fournis dans le contexte.
 Si l'information n'est pas dans le contexte fourni, commence ta réponse EXACTEMENT par \
 "[HORS_DOMAINE]" puis explique brièvement à l'utilisateur ce que tu n'as pas pu trouver, \
 sans mentionner le contexte ni les documents. N'invente rien.
+
+Hiérarchie des règles : si le contexte contient à la fois une règle générale et une règle plus \
+spécifique (exception, restriction ou condition visant une population, un statut ou un cas \
+particulier), la règle spécifique l'emporte sur la générale. Énonce la règle générale, puis \
+l'exception qui s'applique. Si la question vise explicitement un cas particulier et qu'aucun \
+extrait ne le traite, dis-le au lieu d'appliquer la règle générale par défaut.
+
 Appuie-toi en priorité sur les extraits dont la pertinence est la plus élevée.
 Ne décris aucune étape, aucun champ de formulaire, aucune option d'interface et aucune pièce \
 à fournir qui ne figure pas explicitement dans le contexte. Sur une procédure, un détail \
