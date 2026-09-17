@@ -315,6 +315,42 @@ def etape_valider(db, reponse_id: str, validateur: str) -> None:
     ecrire_etat(racine=racine)
 
 
+# ── étape « corriger » ──────────────────────────────────────────────────
+
+
+def etape_corriger(db, reponse_id: str, texte: str, validateur: str) -> None:
+    """Le geste « Corriger » : le relecteur écrit lui-même la bonne réponse.
+
+    C'est l'étape qui **fait naître** une réponse spécifique distincte de la
+    canonique générale. Elle était stérile jusqu'au 17/09/2026 : le filtre
+    `statut == "VALIDÉE"` excluait CORRIGÉE de `trouver_reponse_reutilisable`,
+    si bien que le texte écrit par le relecteur partait dans Qdrant, servait de
+    matière au contexte RAG, et n'était jamais resservi — donc n'accumulait
+    jamais de validations, donc ne devenait jamais canonique.
+    """
+    from app.api.v1.reponses.actions import CorrigerRequest, corriger_reponse
+
+    if reponse_id == "dernier":
+        reponse_id = lire_etat()["derniere_reponse"]
+    user = db.query(User).filter(User.id == uuid.UUID(validateur)).first()
+    if user is None:
+        print(f"validateur {validateur} introuvable", file=sys.stderr)
+        sys.exit(1)
+
+    titre(f"correction de {reponse_id} par {user.email}")
+    resultat = asyncio.run(
+        corriger_reponse(reponse_id, CorrigerRequest(contenu_corrige=texte), current_user=user)
+    )
+    print(f"  {json.dumps(resultat, indent=2, ensure_ascii=False)}")
+
+    def indexe():
+        points = [p for p in points_qdrant()[1] if (p.payload or {}).get("reponse_id") == reponse_id]
+        return points or None
+
+    for p in attendre(indexe, 120, "indexation de la correction") or []:
+        print(f"  point {p.id} sous « {extrait((p.payload or {}).get('question_indexee'), 90)} »")
+
+
 # ── étape « verdict » ───────────────────────────────────────────────────
 
 
@@ -470,8 +506,8 @@ def etape_payloads() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--etape", required=True,
-                        choices=["etat", "ingerer", "supprimer", "question", "valider", "verdict",
-                                 "contexte", "sonde", "payloads"])
+                        choices=["etat", "ingerer", "supprimer", "question", "valider", "corriger",
+                                 "verdict", "contexte", "sonde", "payloads"])
     parser.add_argument("--fichier", choices=["A", "B"])
     parser.add_argument("--texte")
     parser.add_argument("--reponse", default="dernier")
@@ -495,6 +531,8 @@ def main() -> int:
             etape_question(db, args.texte, domaine)
         elif args.etape == "valider":
             etape_valider(db, args.reponse, args.validateur)
+        elif args.etape == "corriger":
+            etape_corriger(db, args.reponse, args.texte, args.validateur)
         elif args.etape == "verdict":
             etape_verdict(db)
         elif args.etape == "contexte":
