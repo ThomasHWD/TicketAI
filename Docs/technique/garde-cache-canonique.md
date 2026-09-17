@@ -4,8 +4,9 @@ Ce document explique le mécanisme qui décide si une réponse canonique peut ê
 
 **Fichiers concernés**
 - `backend/app/services/garde_cache.py` — implémentation du garde
-- `backend/app/workers/question.py` — point d'appel dans le pipeline (étape 2)
-- `backend/app/services/question_pipeline.py` — condition d'entrée de la branche CANONIQUE
+- `backend/app/workers/question.py` — **premier** point d'appel : au service (étape 2)
+- `backend/app/workers/feedback.py` — **second** point d'appel : à l'écriture d'un alias (`_alias_juge`)
+- `backend/app/services/question_pipeline.py` — `peut_servir_sans_revue`, condition d'entrée de la branche CANONIQUE
 - `backend/app/services/search.py` — `franchit_le_rappel`, la disjonction cosinus / lexical
 - `backend/app/models/garde_decision.py` — la table d'audit `garde_decisions`
 - `backend/app/config.py` — `ALBERT_GARDE_MODEL_NAME`
@@ -90,6 +91,30 @@ C'est délibérément **en amont** du garde, et pas une question qu'on lui poser
 **Le signalement est un tri, pas un retrait.** `trouver_reponse_reutilisable` continue de rendre la réponse, qui reste amendable en un geste avec son `nb_validations` intact. Ce qu'elle perd est le seul privilège de la branche CANONIQUE. La détruire (`obsolete`) coûterait `SEUIL_CANONIQUE` revalidations pour un état final identique, sur la foi d'un simple cosinus entre un paragraphe et une question ; ne rien faire laissait servir sans revue une réponse que le système soupçonne fausse.
 
 Le même prédicat a un **miroir SQL** dans `services/faq.py` — cette page n'a aucun relecteur, y montrer une réponse signalée serait exactement la servir sans revue. Les deux doivent rester d'accord ; `tests/test_faq.py` les compare sur le même jeu de drapeaux.
+
+---
+
+## Le second point d'appel : l'écriture d'un alias
+
+Le garde est appelé à **deux** moments, et le second ne sert pas le même but.
+
+Quand un relecteur valide une copie SUGGESTION, `feedback_job(source_id, formulation_id)` écrit un point Qdrant portant la question de la copie et le `reponse_id` de la source — un *alias*. Cette écriture est **plus forte que tout ce que le garde tranche au service** : à la question suivante le cosinus vaut ~1,0, le court-circuit typographique s'enclenche, et la réponse part en CANONIQUE **sans qu'aucun juge ne soit appelé**. Un alias faux ne passe donc pas devant le garde, il le contourne.
+
+Or rien ne le vérifiait. Il suffisait qu'un relecteur clique « Valider » plutôt que « Corriger » sur une SUGGESTION *plausible mais à côté de la question* — la réponse générale n'est pas fausse, elle répond simplement à une autre demande — et le bouton vert est le chemin le moins cher de l'écran. La paire est donc soumise au même juge **avant** d'écrire quoi que ce soit (`_alias_juge`, `workers/feedback.py`) : A = la nouvelle formulation, B = la question sous laquelle la source est indexée.
+
+Trois issues, et `Decision.erreur` existe exactement pour les séparer :
+
+| Verdict | Effet |
+|---|---|
+| **OUI** | l'alias est écrit |
+| **NON jugé** | pas d'alias — la réponse reste atteignable depuis ses formulations existantes, soit le comportement d'avant l'indexation multi-formulations ; ce n'est pas une perte |
+| **Albert injoignable** (`erreur`) | `retry`. Un refus par défaut perdrait en silence une formulation qu'un humain a validée |
+
+Le refus est consigné dans `garde_decisions` avec `score_cosinus = NULL` : cette paire ne vient pas d'une recherche mais d'un geste humain, et un `0.0` se lirait comme un candidat très lointain.
+
+**Coût** : un appel juge par *validation humaine* de SUGGESTION — un événement rare, pas une question — et zéro quand les deux formulations sont typographiquement identiques.
+
+**Portée délibérément limitée à l'alias.** `nb_validations` sur la source continue d'être incrémenté par l'endpoint HTTP. Le bloquer demanderait un appel LLM synchrone sur une requête web, pour un signal qui *promeut* sans *servir* ; c'est l'alias qui crée le cosinus à 1,0. À rouvrir si la mesure montre des promotions abusives.
 
 ---
 
