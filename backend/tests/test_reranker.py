@@ -60,3 +60,31 @@ def test_rerank_contient_rerank_score():
         res = rerank("ma question", chunks)
         assert "rerank_score" in res[0]
         assert res[0]["rerank_score"] == 0.88
+
+
+def test_rerank_envoie_le_texte_indexe_quand_il_existe():
+    """Le cross-encoder juge le chunk avec son locateur, comme la recherche l'a trouvé.
+
+    Sans ça, un passage référentiellement opaque (« les intéressés en sont
+    exclus ») remonté grâce à son contexte serait reclassé dernier et n'atteindrait
+    jamais la génération. Repli sur `contenu` : `unites_pertinentes` bâtit ses
+    dicts à la main et n'a pas cette clé.
+    """
+    from app.services.reranker import rerank
+
+    chunks = [
+        {"contenu": "brut A", "contenu_indexe": "locateur\n\nbrut A"},
+        {"contenu": "brut B"},
+    ]
+
+    with patch("app.services.reranker.requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"results": [{"index": 0, "relevance_score": 0.9}]}
+        mock_post.return_value = mock_response
+
+        res = rerank("ma question", chunks, top_k=1)
+
+    assert mock_post.call_args.kwargs["json"]["documents"] == ["locateur\n\nbrut A", "brut B"]
+    # Le chunk rendu reste celui d'origine : c'est lui qui part en base (ReponseChunk).
+    assert res[0]["contenu"] == "brut A"

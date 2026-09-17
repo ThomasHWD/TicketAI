@@ -12,6 +12,7 @@ from app.models.document_upload import DocumentUpload
 from app.models.document_version import DocumentVersion
 from app.services.broadcast import broadcast_sync
 from app.services.confrontation import cibles_confrontation, familles_servies, identifiants, resume_ajout
+from app.services.contextualisation import contextualiser, synopsis, texte_indexe
 from app.services.embedding import embed_texts
 from app.services.obsolescence import RAISON_ANALYSE, poser_a_relire, racines
 from app.services.qdrant import COLLECTION_NAME, client
@@ -95,9 +96,23 @@ def ingestion_job(
         chunks = chunk_text(pages)
         logger.info("%d chunks générés", len(chunks))
 
+        texte = texte_complet(pages)
+
+        # Étape 2 bis — Contextualisation : un locateur par chunk, indexé avec lui.
+        # Un chunk isolé ne dit pas de quelle règle il relève (« les alternants
+        # n'en bénéficient pas » ne contient pas le mot « télétravail ») ; c'est
+        # ce préfixe qui le rend trouvable. Best-effort de bout en bout : la
+        # liste fait toujours la longueur de `chunks`, remplie de `""` si Albert
+        # est injoignable, et l'indexation retombe alors sur le texte brut.
+        contextes = contextualiser(chunks, synopsis(texte, filename, description))
+        logger.info("%d/%d chunks contextualisés", sum(1 for c in contextes if c), len(chunks))
+
         # Étape 3 — Embedding
         logger.info("embedding de %d chunks...", len(chunks))
-        embeddings = embed_texts(chunks, is_query=False)
+        embeddings = embed_texts(
+            [texte_indexe(chunk, ctx) for chunk, ctx in zip(chunks, contextes, strict=True)],
+            is_query=False,
+        )
         logger.info("embeddings générés")
 
         # Étape 4 — Stockage permanent, avant l'indexation : le chemin fait partie du
@@ -109,7 +124,7 @@ def ingestion_job(
         # Étape 5 — Indexation Qdrant (batch unique)
         logger.info("indexation dans Qdrant...")
         points = []
-        for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=False)):
+        for i, (chunk, ctx, emb) in enumerate(zip(chunks, contextes, embeddings, strict=False)):
             points.append(
                 PointStruct(
                     id=point_id(doc_id, version, i),
@@ -126,7 +141,14 @@ def ingestion_job(
                         "chunk_index": i,
                         "source": filename,
                         "domaine": domaine,
+                        # `contenu` reste **brut**. Le préfixe vit à côté, jamais
+                        # dedans : `capturer_chunks` lit `contenu` pour le diff
+                        # d'une mise à jour, et une sortie de LLM varie d'une
+                        # exécution à l'autre — chaque chunk paraîtrait modifié à
+                        # chaque version. Le texte encodé se recompose par
+                        # `texte_indexe(contenu, contexte)`, seule définition.
                         "contenu": chunk,
+                        "contexte": ctx,
                         "stored_path": stored_path,
                         "description": description,
                         "content_hash": content_hash,
@@ -163,7 +185,7 @@ def ingestion_job(
                 stored_path=stored_path,
                 nb_chunks=len(chunks),
                 uploaded_by=user_uuid,
-                changements=resume_ajout(texte_complet(pages)),
+                changements=resume_ajout(texte),
             )
             db.add(
                 DocumentUpload(

@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     albert_garde_model_name: str = ""  # vide → utilise albert_llm_model_name
     albert_reverif_model_name: str = ""  # vide → utilise albert_llm_model_name
     albert_tag_model_name: str = "mistralai/Ministral-3-8B-Instruct-2512"  # quota séparé du modèle de génération
+    albert_contexte_model_name: str = ""  # vide → utilise albert_tag_model_name
+
+    # Contextual Retrieval : préfixer chaque chunk d'une phrase qui le situe dans
+    # son document avant de l'indexer (cf. services/contextualisation.py).
+    # Coupe-circuit : `false` restitue exactement le comportement antérieur, sans
+    # un seul appel Albert supplémentaire à l'ingestion. Ne désindexe rien — les
+    # points déjà écrits gardent leur `contexte`, `texte_indexe` le recompose.
+    contextualisation_active: bool = True
 
     # SEUILS
     seuil_canonique: int
