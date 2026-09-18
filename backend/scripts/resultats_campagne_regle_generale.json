@@ -1174,5 +1174,250 @@
     "total": 8,
     "echecs": [],
     "horodatage": "2026-09-18T21:11:23.193165+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Quel est le plafond de remboursement d'une nuit d'hôtel en mission ?",
+    "passes": [
+      {
+        "question": "Quel est le plafond de remboursement d'une nuit d'hôtel en mission ?",
+        "ticket_id": "e86f97d4-c203-4a7a-b025-73d4543a6ced",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "HORS_DOMAINE",
+        "reponse_id": "76f7655b-452b-4289-a948-82d4aea50259",
+        "reponse_source_id": null,
+        "cosinus": 0.88996875,
+        "contenu": "Le contexte fourni ne contient aucune information concernant le plafond de remboursement d’une nuit d’hôtel en mission.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.7030874,
+            "rerank": 0.73961055
+          },
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.7140038,
+            "rerank": 0.64790964
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.88996875,
+          "lexical": 1.2947796,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Quel est le plafond de remboursement d'une nuit d'hôtel en mission ?",
+        "ticket_id": "dc236690-ce3c-4f2a-9dad-4c96b14ca805",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "HORS_DOMAINE",
+        "reponse_id": "efce7b72-962c-4f76-a48c-7b2f5c201440",
+        "reponse_source_id": null,
+        "cosinus": 0.88996875,
+        "contenu": "Le contexte fourni ne contient aucune information concernant le plafond de remboursement d’une nuit d’hôtel en mission. Je ne peux donc pas répondre à cette question avec les données disponibles.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.7030874,
+            "rerank": 0.7397986
+          },
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.7140038,
+            "rerank": 0.64790964
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.88996875,
+          "lexical": 1.2947796,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Quel est le plafond de remboursement d'une nuit d'hôtel en mission ?",
+        "ticket_id": "0242fc15-9145-4730-8ff6-292c866a1345",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "HORS_DOMAINE",
+        "reponse_id": "151f279f-e4eb-413d-9efe-f1a1d81a8526",
+        "reponse_source_id": null,
+        "cosinus": 0.88996875,
+        "contenu": "Le contexte fourni ne contient aucune information concernant le plafond de remboursement d’une nuit d’hôtel en mission. Je ne peux donc pas répondre à cette question avec les données disponibles.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.7030874,
+            "rerank": 0.73961055
+          },
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.7140038,
+            "rerank": 0.6474639
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.88996875,
+          "lexical": 1.2947796,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T22:09:16.386433+00:00"
+  },
+  {
+    "phase": "hors_domaine",
+    "question": "Quel est le plafond de remboursement d'une nuit d'hôtel en mission ?",
+    "branches": [
+      "HORS_DOMAINE",
+      "HORS_DOMAINE",
+      "HORS_DOMAINE"
+    ],
+    "extraits": [
+      2,
+      2,
+      2
+    ],
+    "montants_plaques": 0,
+    "textes": [
+      "Le contexte fourni ne contient aucune information concernant le plafond de remboursement d’une nuit d’hôtel en mission.",
+      "Le contexte fourni ne contient aucune information concernant le plafond de remboursement d’une nuit d’hôtel en mission. Je ne peux donc pas répondre à cette question avec les données disponibles.",
+      "Le contexte fourni ne contient aucune information concernant le plafond de remboursement d’une nuit d’hôtel en mission. Je ne peux donc pas répondre à cette question avec les données disponibles."
+    ],
+    "tags": [
+      null,
+      null,
+      null
+    ],
+    "horodatage": "2026-09-18T22:09:16.390678+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 5,
+    "total": 5,
+    "echecs": [],
+    "horodatage": "2026-09-18T22:09:16.402971+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Pour une mission à l'étranger, quels justificatifs sont demandés ?",
+    "passes": [
+      {
+        "question": "Pour une mission à l'étranger, quels justificatifs sont demandés ?",
+        "ticket_id": "263fb669-f880-4269-928f-3401d9db6e74",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "c5891366-761f-4fdb-a617-fb53fda2e521",
+        "reponse_source_id": "800f289a-71e8-4810-bb17-33074baecd78",
+        "cosinus": 0.9837263,
+        "contenu": "Pour une mission à l'étranger, les justificatifs originaux sont exigés : factures acquittées et cartes d'embarquement doivent être jointes à la demande de remboursement. Une copie numérisée n'est pas acceptée.",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.9837263,
+          "lexical": 1.761006,
+          "question_indexee": "Quels justificatifs faut-il fournir pour une mission à l'étranger ?"
+        }
+      },
+      {
+        "question": "Pour une mission à l'étranger, quels justificatifs sont demandés ?",
+        "ticket_id": "6bb4bdf5-d822-4740-a12c-9b71020a48e2",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "d71c89a9-1d2f-43a5-b7be-b4de5b4273f6",
+        "reponse_source_id": "800f289a-71e8-4810-bb17-33074baecd78",
+        "cosinus": 0.9837263,
+        "contenu": "Pour une mission à l'étranger, les justificatifs originaux sont exigés : factures acquittées et cartes d'embarquement doivent être jointes à la demande de remboursement. Une copie numérisée n'est pas acceptée.",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.9837263,
+          "lexical": 1.761006,
+          "question_indexee": "Quels justificatifs faut-il fournir pour une mission à l'étranger ?"
+        }
+      },
+      {
+        "question": "Pour une mission à l'étranger, quels justificatifs sont demandés ?",
+        "ticket_id": "c11508f4-c525-481b-93fa-38f6e6a5fd7b",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "65210b0f-f3b4-4ebc-95b0-481bcd876950",
+        "reponse_source_id": "800f289a-71e8-4810-bb17-33074baecd78",
+        "cosinus": 0.9837263,
+        "contenu": "Pour une mission à l'étranger, les justificatifs originaux sont exigés : factures acquittées et cartes d'embarquement doivent être jointes à la demande de remboursement. Une copie numérisée n'est pas acceptée.",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.9837263,
+          "lexical": 1.761006,
+          "question_indexee": "Quels justificatifs faut-il fournir pour une mission à l'étranger ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T22:09:40.707757+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "c5891366-761f-4fdb-a617-fb53fda2e521",
+    "racine": "800f289a-71e8-4810-bb17-33074baecd78",
+    "nb_validations": 1,
+    "canonique": false,
+    "formulations": [
+      "Quels justificatifs faut-il fournir pour une mission à l'étranger ?"
+    ],
+    "horodatage": "2026-09-18T22:09:40.738744+00:00"
+  },
+  {
+    "phase": "corrigee",
+    "question": "Quels justificatifs faut-il fournir pour une mission à l'étranger ?",
+    "sonde": "Pour une mission à l'étranger, quels justificatifs sont demandés ?",
+    "corrigee": "800f289a-71e8-4810-bb17-33074baecd78",
+    "statut": "CORRIGÉE",
+    "points": 1,
+    "reprises": 3,
+    "branches": [
+      "SUGGESTION",
+      "SUGGESTION",
+      "SUGGESTION"
+    ],
+    "sources": [
+      "800f289a-71e8-4810-bb17-33074baecd78",
+      "800f289a-71e8-4810-bb17-33074baecd78",
+      "800f289a-71e8-4810-bb17-33074baecd78"
+    ],
+    "nb_validations": 1,
+    "horodatage": "2026-09-18T22:09:40.742097+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 5,
+    "total": 5,
+    "echecs": [],
+    "horodatage": "2026-09-18T22:09:40.750406+00:00"
   }
 ]

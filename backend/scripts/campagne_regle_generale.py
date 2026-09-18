@@ -30,14 +30,21 @@ phase  ce qui est mesuré                     correctif éprouvé
   9    miroir FAQ, page sans relecteur       C1 côté SQL
  10    fil de suivi « et à l'étranger ? »    C4 en mode suivi
  11    doc B en v2 : 45 € → 60 €             mise à jour + retrait du service
+ 12    un verdict ne lève que SON drapeau     correctif issu de la phase 11
+ 13    question hors corpus → abstention      branche HORS_DOMAINE
+ 14    le geste « Corriger » n'est pas        C3 (CORRIGÉE réutilisable),
+       stérile                                seconde moitié
 ===== ===================================== ==================================
 
-Les phases 10 et 11 comblent deux angles morts constatés après coup : sur le
-domaine T5, après la phase 9, la base portait **0 réponse de suivi et 0 document
-en version > 1**. Tout ce qui touche au fil et au remplacement de version était
-donc couvert unitairement mais jamais exercé en réel — et la mise à jour est le
-seul chemin capable de rendre une réponse **obsolète**, là où la confrontation
-plafonne à `a_relire`.
+Les phases 10 à 14 comblent des angles morts constatés après coup, tous de la
+même forme : une branche entière que les phases précédentes n'avaient jamais
+fait passer. Mesuré par SQL sur le domaine T5 — **0 réponse de suivi, 0 document
+en version > 1, 0 réponse HORS_DOMAINE, 0 réponse CORRIGÉE**. Chacune était donc
+couverte unitairement et jamais exercée en réel, et chacune porte quelque chose
+qu'aucune autre ne porte : la mise à jour est le seul chemin capable de rendre
+une réponse **obsolète** (la confrontation plafonne à `a_relire`) ; HORS_DOMAINE
+est le seul par lequel le système dit « je ne sais pas » au lieu d'inventer ;
+CORRIGÉE est le seul où le texte servi a été **écrit par un humain**.
 
 ⚠️ **À lancer depuis le conteneur backend**, jamais depuis l'hôte : celui-ci
 porte la configuration de *production* (5432/6333) là où la stack de dev écoute
@@ -212,6 +219,37 @@ def doc_b_variante(cible: int) -> tuple[str, str, str]:
 # la phase 12 restaure un état mesuré, elle n'en fabrique pas un.
 JUSTIF_CONFRONTATION = (
     "La réponse est incomplète car elle omet l'exception des missions à l'étranger où le plafond est porté à 45 €."
+)
+
+# La question de la phase 13. **Volontairement la plus tentante possible** : même
+# domaine, même vocabulaire (« plafond de remboursement », « en mission »), même
+# forme que la question générale — mais le corpus ne dit rien des nuits d'hôtel.
+# Une question franchement étrangère (le badge du parking) ne mesurerait rien :
+# le rappel ne remonterait aucun extrait et l'abstention serait gratuite. Ici le
+# reranker sert au modèle les paragraphes sur les repas, et « 20 € » est à portée
+# de main. S'abstenir lui coûte quelque chose — c'est ce qu'on veut voir.
+HORS_CORPUS = "Quel est le plafond de remboursement d'une nuit d'hôtel en mission ?"
+
+# Les montants du corpus. Les voir apparaître dans une réponse sur l'hôtel, c'est
+# la règle des repas plaquée sur une question qu'elle ne traite pas.
+MONTANTS_CORPUS = ("20", "45", "60")
+
+# Phase 14 — un sujet que doc B mentionne mais qu'aucune réponse ne couvre encore
+# (« Les justificatifs originaux sont exigés pour toute mission hors de France »),
+# choisi pour que la correction humaine ait un objet réel et ne recoupe aucune
+# lignée existante.
+C_QUESTION = "Quels justificatifs faut-il fournir pour une mission à l'étranger ?"
+C_SONDE = "Pour une mission à l'étranger, quels justificatifs sont demandés ?"
+
+# Ce qu'un relecteur écrit de sa main. Le marqueur n'apparaît **nulle part** dans
+# le corpus ni dans aucune génération possible : le retrouver dans un texte servi
+# prouve que c'est bien `contenu_corrige` qui circule, et pas le `contenu`
+# d'origine que l'humain a précisément écarté.
+MARQUEUR_CORRECTION = "cartes d'embarquement"
+TEXTE_CORRIGE = (
+    "Pour une mission à l'étranger, les justificatifs originaux sont exigés : factures acquittées "
+    "et cartes d'embarquement doivent être jointes à la demande de remboursement. "
+    "Une copie numérisée n'est pas acceptée."
 )
 
 
@@ -1515,6 +1553,211 @@ def phase_drapeau(db) -> None:
     )
 
 
+def phase_hors_domaine(db) -> None:
+    """La quatrième branche : le système dit « je ne sais pas » au lieu d'inventer.
+
+    Angle mort mesuré par SQL le 18/09/2026 : **0 réponse HORS_DOMAINE sur T5**
+    après les phases 1-12 (3 sur tout le reste de la base, toutes sur T2). La
+    branche de l'abstention n'avait donc jamais été exercée sur ce domaine, alors
+    que c'est la seule qui tienne l'invariant quand le corpus ne porte pas la
+    réponse : les trois autres branches choisissent *quoi* servir, celle-ci est la
+    seule qui puisse refuser de servir.
+
+    Ce qui se mesure ici n'est pas « le modèle refuse une question absurde » — un
+    badge de parking serait refusé sans rien coûter, faute d'extrait à remonter.
+    C'est « le modèle refuse une question qu'il pourrait plausiblement remplir
+    avec ce qu'il a sous les yeux ». D'où `HORS_CORPUS` : la nuit d'hôtel a le
+    même vocabulaire que la question générale, remonte les mêmes paragraphes, et
+    « 20 € » est la réponse que le corpus souffle. La refuser est un coût.
+    """
+    titre("PHASE 13 — hors du corpus : la branche de l'abstention")
+    if not lire_etat().get("doc_A"):
+        constat(False, "le corpus de la campagne existe", "phase 1 non jouée")
+        sys.exit(1)
+
+    obs = sonder(db, HORS_CORPUS)
+
+    # ── non-vacuité : le modèle a-t-il eu de quoi répondre à tort ? ──
+    # Sans extrait remonté, l'abstention ne dit rien : ce serait « rien trouvé »,
+    # pas « trouvé, et ça ne répond pas ». Et si une passe sortait du cache, ce
+    # serait la question d'un autre sujet qu'on mesurerait.
+    par_le_rag = [o for o in obs if o["branche"] in ("LLM", "HORS_DOMAINE")]
+    avec_extraits = [o for o in par_le_rag if o["cite"]]
+    constat(
+        len(avec_extraits) == PASSES,
+        f"les {PASSES} passes sont passées par le RAG avec des extraits sous les yeux",
+        f"branches={[o['branche'] for o in obs]} extraits={[len(o['cite']) for o in obs]} — "
+        f"une abstention sans extrait ne mesurerait que l'absence de rappel",
+    )
+
+    # ── la branche ──
+    abstenues = [o for o in obs if o["branche"] == "HORS_DOMAINE"]
+    constat(
+        len(abstenues) == PASSES,
+        f"le système s'abstient sur la question hors corpus, {PASSES}/{PASSES}",
+        f"branches={[o['branche'] for o in obs]}",
+    )
+
+    # ── l'invariant ──
+    # Un montant du corpus dans une réponse sur l'hôtel, c'est la règle des repas
+    # appliquée à un cas qu'elle ne traite pas — la définition même de « servir
+    # une réponse fausse ». Un rouge ici se lit avant de se conclure : une
+    # abstention qui *cite* ce qu'elle a trouvé (« je n'ai que le plafond repas de
+    # 20 € ») n'est pas fausse. Le texte servi est imprimé pour ça.
+    plaquees = [o for o in obs if any(dit(o["contenu"], m) for m in MONTANTS_CORPUS)]
+    constat(
+        not plaquees,
+        "INVARIANT : aucun montant du corpus n'est plaqué sur la question hôtel",
+        f"montants cherchés={MONTANTS_CORPUS} — passes en cause={len(plaquees)}/{PASSES}",
+    )
+
+    # Le marqueur est un signal interne, destiné au worker. L'utilisateur qui le
+    # verrait lirait de la tuyauterie.
+    constat(
+        not any("[HORS_DOMAINE]" in (o["contenu"] or "") for o in obs),
+        "le marqueur interne est retiré du texte servi",
+        f"textes={[extrait(o['contenu'], 60) for o in obs]}",
+    )
+
+    # Une abstention reste une réponse : elle part en relecture comme les autres,
+    # et surtout jamais sans revue.
+    db.expire_all()
+    lignes = [
+        db.query(Reponse).filter(Reponse.id == uuid.UUID(o["reponse_id"])).first() for o in obs if o["reponse_id"]
+    ]
+    constat(
+        all(r.statut == "EN_ATTENTE" for r in lignes) and not any(o["branche"] == "CANONIQUE" for o in obs),
+        "l'abstention passe sous les yeux d'un relecteur, jamais servie sans revue",
+        f"statuts={[r.statut for r in lignes]} branches={[o['branche'] for o in obs]}",
+    )
+
+    # Hors constat : `suggerer_tag` n'est pas appelé sur cette branche (un appel
+    # Albert épargné pour classer un « je ne sais pas »).
+    print(f"\n  observation (hors constat) : tags={[r.tag for r in lignes]}", flush=True)
+    journal(
+        phase="hors_domaine",
+        question=HORS_CORPUS,
+        branches=[o["branche"] for o in obs],
+        extraits=[len(o["cite"]) for o in obs],
+        montants_plaques=len(plaquees),
+        textes=[o["contenu"] for o in obs],
+        tags=[r.tag for r in lignes],
+    )
+
+
+def phase_corrigee(db) -> None:
+    """« Corriger » : le seul geste où le texte servi est écrit par un humain.
+
+    Seconde moitié de C3, et le second angle mort mesuré par SQL le 18/09/2026 :
+    **0 réponse CORRIGÉE sur T5** (1 sur toute la base, sur le domaine TEST).
+    Avant le correctif, `trouver_reponse_reutilisable` ne retenait que les
+    VALIDÉE : le texte qu'un relecteur avait écrit de sa main était indexé,
+    nourrissait le contexte du RAG, et n'était **jamais réutilisé**. Il ne pouvait
+    donc accumuler aucune validation, donc jamais devenir canonique — le geste
+    *correct* du relecteur était le seul à ne mener nulle part.
+
+    Trois choses à établir, dans cet ordre, parce que chacune vide la suivante si
+    elle manque : la correction est indexée (sinon rien ne peut la retrouver) ;
+    elle est **retrouvée et resservie** (c'est C3) ; et la validation de ce qui en
+    découle s'accumule bien sur elle (c'est la stérilité levée).
+
+    Le sujet — les justificatifs d'une mission à l'étranger — est présent dans doc
+    B mais couvert par aucune lignée : la phase ne perturbe donc pas les deux
+    canoniques que les phases 2-7 ont construites, et ne mesure rien qu'elles
+    auraient déjà mesuré.
+    """
+    titre("PHASE 14 — le geste « Corriger » n'est pas stérile")
+    from app.api.v1.reponses.actions import corriger_reponse
+    from app.schemas.reponse import CorrigerRequest
+
+    if not lire_etat().get("doc_B"):
+        constat(False, "doc B existe : la phrase sur les justificatifs est indexée", "phase 4 non jouée")
+        sys.exit(1)
+
+    titre("14a — une question neuve, puis la correction humaine")
+    origine = demander(db, C_QUESTION)
+    if not origine.get("reponse_id"):
+        constat(False, "la question sur les justificatifs a produit une réponse", str(origine.get("erreur")))
+        sys.exit(1)
+    cible_id = origine["reponse_id"]
+    if origine["reponse_source_id"]:
+        print(
+            f"  note : la réponse obtenue est une copie de {origine['reponse_source_id'][:8]} ; "
+            f"c'est elle qu'on corrige, et c'est sur elle que la mesure porte",
+            flush=True,
+        )
+
+    user = validateur(db)
+    asyncio.run(corriger_reponse(cible_id, CorrigerRequest(contenu_corrige=TEXTE_CORRIGE), current_user=user))
+    db.expire_all()
+    cible = db.query(Reponse).filter(Reponse.id == uuid.UUID(cible_id)).first()
+    print(f"  {str(cible.id)[:8]} statut={cible.statut} nb_validations={cible.nb_validations}", flush=True)
+    constat(
+        cible.statut == "CORRIGÉE" and cible.contenu_corrige == TEXTE_CORRIGE,
+        "le relecteur a réécrit la réponse : statut CORRIGÉE, texte humain en base",
+        f"statut={cible.statut} contenu_corrige={extrait(cible.contenu_corrige, 90)}",
+    )
+
+    # ── non-vacuité : sans point Qdrant, rien ne peut la retrouver ──
+    def indexe():
+        pts = [p for p in points_qdrant()[1] if (p.payload or {}).get("reponse_id") == cible_id]
+        return pts or None
+
+    pts = attendre(indexe, 120, "indexation de la réponse corrigée") or []
+    for p in pts:
+        print(f"    point sous « {extrait((p.payload or {}).get('question_indexee'), 80)} »", flush=True)
+    constat(
+        bool(pts),
+        "la correction est indexée : elle est atteignable par une question proche",
+        f"points={len(pts)} — sans point, « elle n'est pas réutilisée » ne dirait rien de C3",
+    )
+
+    titre("14b — une formulation voisine, jamais posée : la correction est-elle resservie ?")
+    obs = sonder(db, C_SONDE)
+    reprises = [o for o in obs if o["reponse_source_id"] == cible_id]
+    constat(
+        bool(reprises),
+        "C3 : une réponse CORRIGÉE est réutilisée — le geste du relecteur n'est plus stérile",
+        f"{len(reprises)}/{PASSES} passes rattachées à {cible_id[:8]} ; "
+        f"sources={[str(o['reponse_source_id'])[:8] for o in obs]} branches={[o['branche'] for o in obs]} — "
+        f"avant C3 les candidates excluaient CORRIGÉE et ce compte valait 0 par construction",
+    )
+    porteuses = [o for o in reprises if MARQUEUR_CORRECTION in (o["contenu"] or "")]
+    constat(
+        bool(reprises) and len(porteuses) == len(reprises),
+        "et c'est bien le texte de l'humain qui est servi, pas celui qu'il avait écarté",
+        f"marqueur « {MARQUEUR_CORRECTION} » présent dans {len(porteuses)}/{len(reprises)} reprises",
+    )
+
+    titre("14c — la validation s'accumule-t-elle sur la corrigée ?")
+    if not reprises:
+        constat(False, "la validation d'une reprise s'accumule sur la réponse corrigée", "aucune reprise à valider")
+    else:
+        avant = cible.nb_validations
+        valider(db, reprises[0]["reponse_id"])
+        db.expire_all()
+        cible = db.query(Reponse).filter(Reponse.id == uuid.UUID(cible_id)).first()
+        constat(
+            cible.nb_validations == avant + 1,
+            "la validation d'une reprise s'accumule sur la réponse corrigée",
+            f"nb_validations {avant} → {cible.nb_validations} (seuil canonique={settings.seuil_canonique}) — "
+            f"c'est ce compteur, jamais incrémenté avant C3, qui ouvre le chemin vers la canonique",
+        )
+
+    journal(
+        phase="corrigee",
+        question=C_QUESTION,
+        sonde=C_SONDE,
+        corrigee=cible_id,
+        statut=cible.statut,
+        points=len(pts),
+        reprises=len(reprises),
+        branches=[o["branche"] for o in obs],
+        sources=[str(o["reponse_source_id"]) for o in obs],
+        nb_validations=cible.nb_validations,
+    )
+
+
 # ── bilan ───────────────────────────────────────────────────────────────
 
 
@@ -1547,16 +1790,21 @@ PHASES = {
     "10": phase_suivi,
     "11": phase_maj,
     "12": phase_drapeau,
+    "13": phase_hors_domaine,
+    "14": phase_corrigee,
 }
 # 10 avant 11, et pas l'inverse : la phase 11 fait passer le montant de
 # référence de 45 € à 60 €, ce qui invaliderait l'attendu de la phase 10. La 12
-# vient après la 11 : elle rejoue le drapeau que la 11 a vu s'effacer.
-ORDRE = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+# vient après la 11 : elle rejoue le drapeau que la 11 a vu s'effacer. Les 13 et
+# 14 ferment la marche parce qu'elles ouvrent des lignées neuves (hôtel,
+# justificatifs) : jouées plus tôt, elles peupleraient le corpus de points que
+# les phases de cannibalisation n'ont pas prévus.
+ORDRE = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", required=True, help="1..11, « tout », ou une liste « 4,5,6 »")
+    parser.add_argument("--phase", required=True, help="1..14, « tout », ou une liste « 4,5,6 »")
     parser.add_argument("--etat", action="store_true", help="affiche l'état du domaine et sort")
     args = parser.parse_args()
 
