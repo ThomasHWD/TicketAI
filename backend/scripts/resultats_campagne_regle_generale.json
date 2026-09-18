@@ -1,0 +1,1178 @@
+[
+  {
+    "phase": "ingestion",
+    "document": "A",
+    "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+    "nb_chunks": 1,
+    "contextes": [
+      "Le document définit le **plafond unifié de 20 € par repas** (déjeuner/dîner) applicable à tous les agents en mission."
+    ],
+    "horodatage": "2026-09-18T19:20:30.730947+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 1,
+    "total": 1,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:20:30.739306+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+    "racine": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+    "nb_validations": 1,
+    "canonique": false,
+    "formulations": [
+      "Quel est le plafond de remboursement d'un repas en mission ?"
+    ],
+    "horodatage": "2026-09-18T19:20:40.771495+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "6caac6f1-7575-416b-8c69-dff7cb9422fa",
+    "racine": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+    "nb_validations": 0,
+    "canonique": false,
+    "formulations": [
+      "Quel est le plafond de remboursement d'un repas en mission ?"
+    ],
+    "horodatage": "2026-09-18T19:20:42.800055+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "6862c4ec-a651-43ec-8f8d-bcfed9419bd7",
+    "racine": "6862c4ec-a651-43ec-8f8d-bcfed9419bd7",
+    "nb_validations": 1,
+    "canonique": false,
+    "formulations": [
+      "À combien s'élève le remboursement d'un repas en mission ?"
+    ],
+    "horodatage": "2026-09-18T19:20:46.835537+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 3,
+    "total": 4,
+    "echecs": [
+      {
+        "libelle": "la réponse générale est canonique après 3 validations",
+        "detail": "nb_validations=1 canonique=False"
+      }
+    ],
+    "horodatage": "2026-09-18T19:20:46.839347+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "c66ecbbf-51f8-4248-900e-af417f5fb03c",
+    "racine": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+    "nb_validations": 3,
+    "canonique": true,
+    "formulations": [
+      "Combien puis-je me faire rembourser pour un repas lors d'une mission ?",
+      "Quel est le plafond de remboursement d'un repas en mission ?",
+      "Quel est le plafond de remboursement d'un repas en mission ?"
+    ],
+    "horodatage": "2026-09-18T19:23:43.068835+00:00"
+  },
+  {
+    "phase": "promotion",
+    "etiquette": "générale",
+    "racine": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+    "validations_depensees": 1,
+    "lignees": {
+      "0827d395-89ac-4839-a98f-c4c6be4520d3": 3
+    },
+    "horodatage": "2026-09-18T19:23:43.069324+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 3,
+    "total": 3,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:23:43.083843+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Quel montant maximum pour un repas en mission ?",
+    "passes": [
+      {
+        "question": "Quel montant maximum pour un repas en mission ?",
+        "ticket_id": "3cc8c23f-4590-403f-8b07-818ad9b00b73",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "CANONIQUE",
+        "reponse_id": "61e5c748-3ccf-46c8-9e91-8cb8c5444a06",
+        "reponse_source_id": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+        "cosinus": 0.89538145,
+        "contenu": "Le plafond de remboursement d’un repas en mission est de **20 € par repas** (déjeuner ou dîner).",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.89538145,
+          "lexical": 1.5857065,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Quel montant maximum pour un repas en mission ?",
+        "ticket_id": "47a52b82-439c-416b-af9c-c3fe08d4928b",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "CANONIQUE",
+        "reponse_id": "0ef2adc3-5303-4fea-b899-5dc50faf020a",
+        "reponse_source_id": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+        "cosinus": 0.89538145,
+        "contenu": "Le plafond de remboursement d’un repas en mission est de **20 € par repas** (déjeuner ou dîner).",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.89538145,
+          "lexical": 1.5857065,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Quel montant maximum pour un repas en mission ?",
+        "ticket_id": "d8f89f48-0131-4cd3-9d99-34cb79a9b319",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "CANONIQUE",
+        "reponse_id": "ed65612a-0ba6-4d55-944e-f6d1b8d16ca0",
+        "reponse_source_id": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+        "cosinus": 0.89538145,
+        "contenu": "Le plafond de remboursement d’un repas en mission est de **20 € par repas** (déjeuner ou dîner).",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.89538145,
+          "lexical": 1.5857065,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T19:23:58.085542+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 3,
+    "total": 3,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:23:58.091198+00:00"
+  },
+  {
+    "phase": "ingestion",
+    "document": "B",
+    "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+    "nb_chunks": 1,
+    "contextes": [
+      "Le document fixe le **plafond de remboursement repas à 45 €** pour les missions à l’étranger hors France, dès le départ du territoire national, sous condition de justificatifs originaux."
+    ],
+    "horodatage": "2026-09-18T19:24:12.015537+00:00"
+  },
+  {
+    "phase": "confrontation",
+    "doc_b": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+    "a_relire": true,
+    "raison": "CONTREDITE_PROBABLE",
+    "obsolete": false,
+    "canonique": true,
+    "indexee": true,
+    "justification": "La réponse est incomplète car elle omet l'exception des missions à l'étranger où le plafond est porté à 45 €.",
+    "horodatage": "2026-09-18T19:24:22.035985+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 7,
+    "total": 7,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:24:22.040062+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+    "passes": [
+      {
+        "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+        "ticket_id": "8c41c88d-d817-40b9-832f-5be83e720e49",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "7cc73962-7b10-4321-bc5b-6de650e04b0b",
+        "reponse_source_id": "6862c4ec-a651-43ec-8f8d-bcfed9419bd7",
+        "cosinus": 0.9562117,
+        "contenu": "Le remboursement d’un repas en mission est plafonné à **20 €** par repas (déjeuner ou dîner).",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.9562117,
+          "lexical": 3.384659,
+          "question_indexee": "À combien s'élève le remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+        "ticket_id": "c506aa3e-ae13-4a52-a2dd-b2e66caf8215",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "b72b916b-04ec-4ea9-9d0d-019e4ed7081d",
+        "reponse_source_id": "6862c4ec-a651-43ec-8f8d-bcfed9419bd7",
+        "cosinus": 0.9562117,
+        "contenu": "Le remboursement d’un repas en mission est plafonné à **20 €** par repas (déjeuner ou dîner).",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.9562117,
+          "lexical": 3.384659,
+          "question_indexee": "À combien s'élève le remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+        "ticket_id": "f7cbd0af-a399-4ae4-88a8-c3871ea4639a",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "f920017f-75d9-48ea-9149-61a66a725312",
+        "reponse_source_id": "6862c4ec-a651-43ec-8f8d-bcfed9419bd7",
+        "cosinus": 0.9562117,
+        "contenu": "Le remboursement d’un repas en mission est plafonné à **20 €** par repas (déjeuner ou dîner).",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.9562117,
+          "lexical": 3.384659,
+          "question_indexee": "À combien s'élève le remboursement d'un repas en mission ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T19:24:37.609107+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Quel est le plafond de remboursement d'un repas lors d'une mission à l'étranger ?",
+    "passes": [
+      {
+        "question": "Quel est le plafond de remboursement d'un repas lors d'une mission à l'étranger ?",
+        "ticket_id": "03e1c231-493c-4fb5-92cc-70ddb7a239e5",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+        "reponse_source_id": null,
+        "cosinus": 0.95171356,
+        "contenu": "Le plafond de remboursement d’un repas lors d’une mission à l’étranger est de **45 € par repas**.  \n\n- Ce plafond s’applique dès le franchissement de la frontière française et jusqu’au retour en France.  \n- Les justificatifs originaux doivent être fournis pour chaque repas.",
+        "cite": [
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.83029157,
+            "rerank": 0.99960953
+          },
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.78221565,
+            "rerank": 0.9956006
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.95171356,
+          "lexical": 2.116096833333333,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Quel est le plafond de remboursement d'un repas lors d'une mission à l'étranger ?",
+        "ticket_id": "20e83d31-8640-4475-9faf-764bbb8b5c7c",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "77ae9cf2-7df5-44ed-87a3-202b19f9bef7",
+        "reponse_source_id": null,
+        "cosinus": 0.95171356,
+        "contenu": "Le plafond de remboursement d’un repas lors d’une mission à l’étranger est de **45 € par repas**.  \n\n- Ce plafond s’applique dès le franchissement de la frontière française et jusqu’au retour en France.  \n- Les justificatifs originaux sont obligatoires pour toute dépense engagée hors de France.",
+        "cite": [
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.83029157,
+            "rerank": 0.99960953
+          },
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.78221565,
+            "rerank": 0.9956006
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.95171356,
+          "lexical": 2.116096833333333,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Quel est le plafond de remboursement d'un repas lors d'une mission à l'étranger ?",
+        "ticket_id": "6b017cb6-48f8-41a2-91e5-0417bf475fd9",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "5bbb1151-c576-438d-89c2-362d555c022c",
+        "reponse_source_id": null,
+        "cosinus": 0.95171356,
+        "contenu": "Le plafond de remboursement d’un repas lors d’une mission à l’étranger est de **45 € par repas**.  \n\n- Ce plafond s’applique dès le franchissement de la frontière française et jusqu’au retour en France.  \n- Les justificatifs originaux doivent être fournis pour chaque repas.",
+        "cite": [
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.83029157,
+            "rerank": 0.999608
+          },
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.78221565,
+            "rerank": 0.9955835
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.95171356,
+          "lexical": 2.116096833333333,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T19:24:43.626881+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 7,
+    "total": 7,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:24:43.631580+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+    "racine": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+    "nb_validations": 1,
+    "canonique": false,
+    "formulations": [
+      "Quel est le plafond de remboursement d'un repas lors d'une mission à l'étranger ?"
+    ],
+    "horodatage": "2026-09-18T19:24:58.555796+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "bf3a78db-073c-4bf3-b416-9d751cc64775",
+    "racine": "bf3a78db-073c-4bf3-b416-9d751cc64775",
+    "nb_validations": 1,
+    "canonique": false,
+    "formulations": [
+      "Combien puis-je me faire rembourser pour un repas en mission à l'étranger ?"
+    ],
+    "horodatage": "2026-09-18T19:25:02.667885+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "c8d7ce90-4a72-4991-a996-da6764e143df",
+    "racine": "bf3a78db-073c-4bf3-b416-9d751cc64775",
+    "nb_validations": 2,
+    "canonique": false,
+    "formulations": [
+      "Combien puis-je me faire rembourser pour un repas en mission à l'étranger ?",
+      "À l'étranger, quel est le montant maximum remboursé pour un repas ?"
+    ],
+    "horodatage": "2026-09-18T19:25:06.708578+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "5e4ae2fc-24c9-43a0-bf1f-c3ee08bc9d8c",
+    "racine": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+    "nb_validations": 2,
+    "canonique": false,
+    "formulations": [
+      "Quel est le plafond de remboursement d'un repas lors d'une mission à l'étranger ?",
+      "Quel plafond de repas s'applique lors d'une mission à l'étranger ?"
+    ],
+    "horodatage": "2026-09-18T19:25:10.739674+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "fbe9b2b6-17f3-4060-a41f-8eb6df9c1692",
+    "racine": "bf3a78db-073c-4bf3-b416-9d751cc64775",
+    "nb_validations": 3,
+    "canonique": true,
+    "formulations": [
+      "Combien puis-je me faire rembourser pour un repas en mission à l'étranger ?",
+      "À l'étranger, quel est le montant maximum remboursé pour un repas ?",
+      "En mission à l'étranger, jusqu'à combien un repas est-il remboursé ?"
+    ],
+    "horodatage": "2026-09-18T19:25:14.782342+00:00"
+  },
+  {
+    "phase": "promotion",
+    "etiquette": "spécifique",
+    "racine": "bf3a78db-073c-4bf3-b416-9d751cc64775",
+    "validations_depensees": 4,
+    "lignees": {
+      "d922d15a-5b76-4af2-994a-32fbe27732d6": 2,
+      "bf3a78db-073c-4bf3-b416-9d751cc64775": 3
+    },
+    "horodatage": "2026-09-18T19:25:14.783599+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 8,
+    "total": 8,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:25:14.799792+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+    "passes": [
+      {
+        "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+        "ticket_id": "51e32d2b-da1c-471b-a034-2e0d0ba0cb64",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "81acf09d-c19c-47d1-88e5-9968f7072b55",
+        "reponse_source_id": null,
+        "cosinus": 0.9562117,
+        "contenu": "- En mission sur le territoire français : le remboursement est plafonné à **20 €** par repas (déjeuner ou dîner).  \n\n- En mission à l’étranger (hors France) : le plafond est porté à **45 €** par repas, dès le franchissement de la frontière, à condition de fournir les justificatifs originaux.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.775314,
+            "rerank": 0.99664956
+          },
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.7457847,
+            "rerank": 0.9953544
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.95359343,
+          "lexical": 2.80303725,
+          "question_indexee": "En mission à l'étranger, jusqu'à combien un repas est-il remboursé ?"
+        }
+      },
+      {
+        "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+        "ticket_id": "2e876653-9c6f-4f39-ba4a-4d8d6bc1e5f2",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "03513e40-c540-4baf-a27a-3be9cfe49e7f",
+        "reponse_source_id": null,
+        "cosinus": 0.9562117,
+        "contenu": "- En mission sur le territoire français : le remboursement d’un repas (déjeuner ou dîner) est plafonné à **20 €**.\n\n- En mission à l’étranger (hors France) : le plafond est porté à **45 €** par repas, dès le franchissement de la frontière, à condition de fournir les justificatifs originaux.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.775314,
+            "rerank": 0.99664956
+          },
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.7457847,
+            "rerank": 0.9953544
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.95359343,
+          "lexical": 2.80303725,
+          "question_indexee": "En mission à l'étranger, jusqu'à combien un repas est-il remboursé ?"
+        }
+      },
+      {
+        "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+        "ticket_id": "54eef0f3-dbaa-4870-b11c-a36b87237825",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "5b713ec4-dc7a-41f8-abe5-e87f91d67323",
+        "reponse_source_id": null,
+        "cosinus": 0.9562117,
+        "contenu": "- En mission sur le territoire français : le remboursement d’un repas est plafonné à **20 €** par repas (déjeuner ou dîner).  \n\n- En mission à l’étranger (hors France) : le plafond est porté à **45 €** par repas, dès le franchissement de la frontière, à condition de fournir les justificatifs originaux.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.775314,
+            "rerank": 0.99664956
+          },
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.7457847,
+            "rerank": 0.9953544
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.95359343,
+          "lexical": 2.80303725,
+          "question_indexee": "En mission à l'étranger, jusqu'à combien un repas est-il remboursé ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T19:25:33.096636+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+    "passes": [
+      {
+        "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+        "ticket_id": "256d5ebb-0e30-4705-8fe2-6cde65252beb",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "7ed22c70-aaa9-4141-a44e-8a2c5290ddd8",
+        "reponse_source_id": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+        "cosinus": 0.943919,
+        "contenu": "Le plafond de remboursement d’un repas lors d’une mission à l’étranger est de **45 € par repas**.  \n\n- Ce plafond s’applique dès le franchissement de la frontière française et jusqu’au retour en France.  \n- Les justificatifs originaux doivent être fournis pour chaque repas.",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.943919,
+          "lexical": 2.3937034,
+          "question_indexee": "Quel plafond de repas s'applique lors d'une mission à l'étranger ?"
+        }
+      },
+      {
+        "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+        "ticket_id": "07e33796-aa57-42e6-916b-1f9f6d1e91a0",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "1290e32f-8549-4a04-ad3a-e52a49a30c44",
+        "reponse_source_id": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+        "cosinus": 0.943919,
+        "contenu": "Le plafond de remboursement d’un repas lors d’une mission à l’étranger est de **45 € par repas**.  \n\n- Ce plafond s’applique dès le franchissement de la frontière française et jusqu’au retour en France.  \n- Les justificatifs originaux doivent être fournis pour chaque repas.",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.943919,
+          "lexical": 2.3937034,
+          "question_indexee": "Quel plafond de repas s'applique lors d'une mission à l'étranger ?"
+        }
+      },
+      {
+        "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+        "ticket_id": "1443b171-ce3b-488d-a6b6-b0c2f54e6bb6",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "567d2820-b364-472c-adef-653d2ba95292",
+        "reponse_source_id": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+        "cosinus": 0.943919,
+        "contenu": "Le plafond de remboursement d’un repas lors d’une mission à l’étranger est de **45 € par repas**.  \n\n- Ce plafond s’applique dès le franchissement de la frontière française et jusqu’au retour en France.  \n- Les justificatifs originaux doivent être fournis pour chaque repas.",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.943919,
+          "lexical": 2.3937034,
+          "question_indexee": "Quel plafond de repas s'applique lors d'une mission à l'étranger ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T19:25:39.115293+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 4,
+    "total": 5,
+    "echecs": [
+      {
+        "libelle": "la spécifique est bien servie sans revue quand elle est la bonne réponse",
+        "detail": "branches=['SUGGESTION', 'SUGGESTION', 'SUGGESTION']"
+      }
+    ],
+    "horodatage": "2026-09-18T19:25:39.123783+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+    "passes": [
+      {
+        "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+        "ticket_id": "e72a8fc6-c8f5-4932-863e-84527a1ddc3e",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "f4678161-69ee-4dfc-9bf3-d2022933f574",
+        "reponse_source_id": null,
+        "cosinus": 0.9562117,
+        "contenu": "- En mission sur le territoire français : le remboursement d’un repas (déjeuner ou dîner) est plafonné à **20 €**.\n\n- En mission à l’étranger (hors France) : le plafond est porté à **45 €** par repas, dès le franchissement de la frontière jusqu’au retour en France, sous condition de justificatifs originaux.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.775314,
+            "rerank": 0.99664956
+          },
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.7457847,
+            "rerank": 0.9953544
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.95359343,
+          "lexical": 2.80303725,
+          "question_indexee": "En mission à l'étranger, jusqu'à combien un repas est-il remboursé ?"
+        }
+      },
+      {
+        "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+        "ticket_id": "1a9080ee-e92e-4bd3-a8be-1390688404f3",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "b067c2fd-1adc-4684-9e99-0e9cd89dabc9",
+        "reponse_source_id": null,
+        "cosinus": 0.9562117,
+        "contenu": "- En mission sur le territoire français : le remboursement d’un repas est plafonné à **20 €** par repas (déjeuner ou dîner).  \n\n- En mission à l’étranger (hors France) : le plafond est porté à **45 €** par repas, dès le franchissement de la frontière, à condition de fournir les justificatifs originaux.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.775314,
+            "rerank": 0.99664956
+          },
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.7457847,
+            "rerank": 0.9953544
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.95359343,
+          "lexical": 2.80303725,
+          "question_indexee": "En mission à l'étranger, jusqu'à combien un repas est-il remboursé ?"
+        }
+      },
+      {
+        "question": "Un repas en mission, c'est remboursé jusqu'à combien ?",
+        "ticket_id": "2ff93dc9-ebc3-4f69-98d3-5a98b7469e19",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "eb3a29eb-8f50-42ea-ba3c-19cfea22c9c9",
+        "reponse_source_id": null,
+        "cosinus": 0.9562117,
+        "contenu": "- Le plafond de remboursement d’un repas en mission est de **20 €** par repas (déjeuner ou dîner) pour l’ensemble des agents.\n\n- **Exception** : pour les missions à l’étranger (hors du territoire français), le plafond est porté à **45 €** par repas, à condition de fournir les justificatifs originaux.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.775314,
+            "rerank": 0.99664956
+          },
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.7457847,
+            "rerank": 0.9953544
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.95359343,
+          "lexical": 2.80303725,
+          "question_indexee": "En mission à l'étranger, jusqu'à combien un repas est-il remboursé ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T19:29:09.340634+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+    "passes": [
+      {
+        "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+        "ticket_id": "bd241c00-b2d8-4512-97ce-c44d3742fbbd",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "7e22e488-e6c3-41e6-9a63-7b91b034bd5c",
+        "reponse_source_id": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+        "cosinus": 0.943919,
+        "contenu": "Le plafond de remboursement d’un repas lors d’une mission à l’étranger est de **45 € par repas**.  \n\n- Ce plafond s’applique dès le franchissement de la frontière française et jusqu’au retour en France.  \n- Les justificatifs originaux doivent être fournis pour chaque repas.",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.943919,
+          "lexical": 2.3937034,
+          "question_indexee": "Quel plafond de repas s'applique lors d'une mission à l'étranger ?"
+        }
+      },
+      {
+        "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+        "ticket_id": "68ce5a37-7ad2-4b51-8bda-f44e9a15dc22",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "41777588-e18c-468c-bad0-f070587033b9",
+        "reponse_source_id": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+        "cosinus": 0.943919,
+        "contenu": "Le plafond de remboursement d’un repas lors d’une mission à l’étranger est de **45 € par repas**.  \n\n- Ce plafond s’applique dès le franchissement de la frontière française et jusqu’au retour en France.  \n- Les justificatifs originaux doivent être fournis pour chaque repas.",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.943919,
+          "lexical": 2.3937034,
+          "question_indexee": "Quel plafond de repas s'applique lors d'une mission à l'étranger ?"
+        }
+      },
+      {
+        "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+        "ticket_id": "353d1356-5345-4e2a-970c-f2964ca25a7f",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "SUGGESTION",
+        "reponse_id": "7b70b795-9666-4cda-8135-d638a96795da",
+        "reponse_source_id": "d922d15a-5b76-4af2-994a-32fbe27732d6",
+        "cosinus": 0.943919,
+        "contenu": "Le plafond de remboursement d’un repas lors d’une mission à l’étranger est de **45 € par repas**.  \n\n- Ce plafond s’applique dès le franchissement de la frontière française et jusqu’au retour en France.  \n- Les justificatifs originaux doivent être fournis pour chaque repas.",
+        "cite": [],
+        "garde": {
+          "verdict": true,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.943919,
+          "lexical": 2.3937034,
+          "question_indexee": "Quel plafond de repas s'applique lors d'une mission à l'étranger ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T19:29:15.358383+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 5,
+    "total": 5,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:29:15.364158+00:00"
+  },
+  {
+    "phase": "garde",
+    "total": 33,
+    "appels_juges": 31,
+    "refus": 11,
+    "alias": 5,
+    "pannes": 0,
+    "horodatage": "2026-09-18T19:29:44.175597+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 3,
+    "total": 3,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:29:44.185398+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 2,
+    "total": 2,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:29:56.928034+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 2,
+    "total": 2,
+    "echecs": [],
+    "horodatage": "2026-09-18T19:30:05.737747+00:00"
+  },
+  {
+    "phase": "suivi",
+    "ouverture": "Un agent en mission peut-il se faire rembourser son repas ?",
+    "precision": "Et pour une mission à l'étranger ?",
+    "fils": [
+      {
+        "question": "Un agent en mission peut-il se faire rembourser son repas ?",
+        "ticket_id": "c61cae2c-ec6e-4b68-a981-453a148dfd10",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "8f0ba26a-cd78-4135-aedf-003daefd0223",
+        "reponse_source_id": null,
+        "cosinus": 0.8811444,
+        "contenu": "- Oui, le repas pris en mission est remboursable.  \n- Le remboursement est plafonné à 20 € par repas (déjeuner ou dîner) pour tous les agents.  \n- La demande doit être déposée sur l’intranet dans les trente jours suivant la fin de la mission.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.68965757,
+            "rerank": 0.990732
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.8811444,
+          "lexical": 1.788150675,
+          "question_indexee": "Combien puis-je me faire rembourser pour un repas lors d'une mission ?"
+        }
+      },
+      {
+        "question": "Un agent en mission peut-il se faire rembourser son repas ?",
+        "ticket_id": "5eb3f7d1-2a41-4d4a-b98b-ac02c72b1013",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "6ac115f6-c48c-401f-9bc5-b5605063f0c9",
+        "reponse_source_id": null,
+        "cosinus": 0.8811444,
+        "contenu": "- Oui, un agent en mission peut se faire rembourser son repas, dans la limite de **20 € par repas** (déjeuner ou dîner).  \n- La demande de remboursement doit être déposée sur l’intranet **dans les trente jours** qui suivent la fin de la mission.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.68965757,
+            "rerank": 0.990732
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.8811444,
+          "lexical": 1.788150675,
+          "question_indexee": "Combien puis-je me faire rembourser pour un repas lors d'une mission ?"
+        }
+      },
+      {
+        "question": "Un agent en mission peut-il se faire rembourser son repas ?",
+        "ticket_id": "2146faeb-8b8c-4d61-927c-eec0333cbf4e",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "98e755ac-5a93-4c3a-90c7-7be1670c1f5a",
+        "reponse_source_id": null,
+        "cosinus": 0.8811444,
+        "contenu": "- Oui, un agent en mission peut demander le remboursement de ses repas.  \n- Le montant remboursable est plafonné à 20 € par repas (déjeuner ou dîner).  \n- La demande doit être déposée sur l’intranet dans les trente jours suivant la fin de la mission.",
+        "cite": [
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.68965757,
+            "rerank": 0.990732
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.8811444,
+          "lexical": 1.788150675,
+          "question_indexee": "Combien puis-je me faire rembourser pour un repas lors d'une mission ?"
+        }
+      }
+    ],
+    "passes": [
+      {
+        "question": "Et pour une mission à l'étranger ?",
+        "ticket_id": "c61cae2c-ec6e-4b68-a981-453a148dfd10",
+        "reponse_id": "a7e253b4-9b0c-476b-b82e-0adbe40cb4d1",
+        "reponse_source_id": null,
+        "branche": "LLM",
+        "est_suivi": true,
+        "contenu": "- En règle générale, le remboursement d’un repas en mission est plafonné à **20 €** par repas.\n\n- **Exception pour les missions à l’étranger** : dès le franchissement de la frontière française et jusqu’au retour, le plafond est porté à **45 €** par repas. Les justificatifs originaux doivent être fournis pour chaque repas.\n\n- La demande de remboursement reste à déposer sur l’intranet dans les trente jours suivant la fin de la mission.",
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.68891793,
+          "est_suivi": true,
+          "question_posee": "Un agent en mission peut-il se faire rembourser son repas ?\nEt pour une mission à l'étranger ?",
+          "question_indexee": "Combien puis-je me faire rembourser pour un repas en mission à l'étranger ?"
+        }
+      },
+      {
+        "question": "Et pour une mission à l'étranger ?",
+        "ticket_id": "5eb3f7d1-2a41-4d4a-b98b-ac02c72b1013",
+        "reponse_id": "bebee8a5-3c5a-4772-a8e0-d00f392c11f7",
+        "reponse_source_id": null,
+        "branche": "LLM",
+        "est_suivi": true,
+        "contenu": "- Pour une mission à l’étranger, le plafond de remboursement d’un repas est **45 € par repas** (déjeuner ou dîner).  \n- Les justificatifs originaux doivent être fournis pour chaque repas, du moment où la frontière française est franchie jusqu’au retour en France.  \n\n- La demande de remboursement doit être déposée sur l’intranet **dans les trente jours** qui suivent la fin de la mission (règle générale applicable).",
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.68891793,
+          "est_suivi": true,
+          "question_posee": "Un agent en mission peut-il se faire rembourser son repas ?\nEt pour une mission à l'étranger ?",
+          "question_indexee": "Combien puis-je me faire rembourser pour un repas en mission à l'étranger ?"
+        }
+      },
+      {
+        "question": "Et pour une mission à l'étranger ?",
+        "ticket_id": "2146faeb-8b8c-4d61-927c-eec0333cbf4e",
+        "reponse_id": "1114132c-82fe-4397-b880-20ec2a52d113",
+        "reponse_source_id": null,
+        "branche": "LLM",
+        "est_suivi": true,
+        "contenu": "- Pour une mission à l’étranger, le plafond de remboursement d’un repas est de **45 €** par repas (déjeuner ou dîner).  \n- Les justificatifs originaux doivent être fournis pour chaque repas, du moment où vous franchissez la frontière française jusqu’au retour en France.  \n- La demande de remboursement reste à déposer sur l’intranet dans les trente jours suivant la fin de la mission.",
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.68891793,
+          "est_suivi": true,
+          "question_posee": "Un agent en mission peut-il se faire rembourser son repas ?\nEt pour une mission à l'étranger ?",
+          "question_indexee": "Combien puis-je me faire rembourser pour un repas en mission à l'étranger ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T20:02:36.591131+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 5,
+    "total": 5,
+    "echecs": [],
+    "horodatage": "2026-09-18T20:02:36.598644+00:00"
+  },
+  {
+    "phase": "sonde",
+    "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+    "passes": [
+      {
+        "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+        "ticket_id": "204b0d65-b80e-4ca6-af2d-322e821442cc",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "88051164-f9e0-401b-8c57-ec3fdb841c9e",
+        "reponse_source_id": null,
+        "cosinus": 0.8291881,
+        "contenu": "Le plafond de remboursement d’un repas pour une mission hors de France est de **60 € par repas**. Cette règle spécifique s’applique dès le franchissement de la frontière et jusqu’au retour en France, prévalant sur le plafond général de 20 € valable pour les missions ordinaires.",
+        "cite": [
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.78735304,
+            "rerank": 0.9981756
+          },
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.7090418,
+            "rerank": 0.9455002
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.8291881,
+          "lexical": 1.5931943,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+        "ticket_id": "79963e75-8a9d-48a3-9954-4a2952e8bb83",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "f545a804-5721-405a-8196-2162bc9fa292",
+        "reponse_source_id": null,
+        "cosinus": 0.8291881,
+        "contenu": "Le plafond de remboursement d’un repas pour une mission hors de France est de **60 € par repas**. Cette règle spécifique (mission temporaire à l’étranger) prime sur le plafond général de 20 € applicable aux missions ordinaires.",
+        "cite": [
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.78735304,
+            "rerank": 0.9981756
+          },
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.7090418,
+            "rerank": 0.9455002
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.8291881,
+          "lexical": 1.5931943,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      },
+      {
+        "question": "Pour une mission hors de France, quel plafond de repas s'applique ?",
+        "ticket_id": "9b88253f-e428-43cf-8ddc-5c4c90a5b832",
+        "statut_job": "TERMINÉ",
+        "erreur": null,
+        "branche": "LLM",
+        "reponse_id": "5d9648ea-7c10-4b1b-bf43-470fdd791360",
+        "reponse_source_id": null,
+        "cosinus": 0.8291881,
+        "contenu": "Le plafond de remboursement d’un repas pour une mission hors de France est de **60 € par repas**. Cette règle spécifique (mission temporaire à l’étranger) prime sur le plafond général de 20 € applicable aux missions en général.",
+        "cite": [
+          {
+            "doc_id": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+            "chunk": 0,
+            "cos": 0.78735304,
+            "rerank": 0.9981828
+          },
+          {
+            "doc_id": "419e4a7e-5052-4c3c-80a7-a8df349b748b",
+            "chunk": 0,
+            "cos": 0.7090418,
+            "rerank": 0.9455002
+          }
+        ],
+        "garde": {
+          "verdict": false,
+          "court_circuit": false,
+          "erreur": null,
+          "cosinus": 0.8291881,
+          "lexical": 1.5931943,
+          "question_indexee": "Quel est le plafond de remboursement d'un repas en mission ?"
+        }
+      }
+    ],
+    "horodatage": "2026-09-18T20:07:31.884931+00:00"
+  },
+  {
+    "phase": "maj",
+    "doc_b": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+    "version": 2,
+    "nb_unites": 2,
+    "specifique_obsolete": true,
+    "specifique_raison": "CONTREDITE_PAR_MAJ",
+    "points_restants": 0,
+    "generale_a_relire": false,
+    "horodatage": "2026-09-18T20:07:31.890212+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 8,
+    "total": 8,
+    "echecs": [],
+    "horodatage": "2026-09-18T20:07:31.902691+00:00"
+  },
+  {
+    "phase": "drapeau",
+    "doc_b": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+    "version": 3,
+    "nb_unites": 1,
+    "generale": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+    "generale_a_relire": true,
+    "generale_raison": "CONTREDITE_PROBABLE",
+    "generale_version": 1,
+    "analyses_restantes": 0,
+    "horodatage": "2026-09-18T21:06:34.316921+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 6,
+    "total": 6,
+    "echecs": [],
+    "horodatage": "2026-09-18T21:06:34.322311+00:00"
+  },
+  {
+    "phase": "validation",
+    "reponse_id": "28471280-85a7-41a6-b0dd-19c22eb76bad",
+    "racine": "28471280-85a7-41a6-b0dd-19c22eb76bad",
+    "nb_validations": 1,
+    "canonique": false,
+    "formulations": [
+      "Pour une mission hors de France, quel plafond de repas s'applique ?"
+    ],
+    "horodatage": "2026-09-18T21:09:47.959121+00:00"
+  },
+  {
+    "phase": "drapeau",
+    "doc_b": "48b5b418-66e5-4aa7-a9cc-2467c1c3f9d9",
+    "version": 6,
+    "nb_unites": 1,
+    "candidates": [
+      "28471280-85a7-41a6-b0dd-19c22eb76bad",
+      "0827d395-89ac-4839-a98f-c4c6be4520d3",
+      "6862c4ec-a651-43ec-8f8d-bcfed9419bd7"
+    ],
+    "generale": "0827d395-89ac-4839-a98f-c4c6be4520d3",
+    "generale_a_relire": true,
+    "generale_raison": "CONTREDITE_PROBABLE",
+    "generale_version": 1,
+    "analyses_restantes": 0,
+    "horodatage": "2026-09-18T21:11:23.185389+00:00"
+  },
+  {
+    "phase": "bilan",
+    "tenus": 8,
+    "total": 8,
+    "echecs": [],
+    "horodatage": "2026-09-18T21:11:23.193165+00:00"
+  }
+]
