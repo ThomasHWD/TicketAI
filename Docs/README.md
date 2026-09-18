@@ -27,7 +27,7 @@ Cette documentation couvre l'intégralité du produit — le parcours des utilis
 
 | Document | Contenu |
 |---|---|
-| [Présentation du projet](presentation.md) | Objectif, utilisateurs, les trois branches de réponse, stack technique, principes de conception. |
+| [Présentation du projet](presentation.md) | Objectif, utilisateurs, les quatre branches de réponse, stack technique, principes de conception. |
 | [Onboarding développeur](onboarding-dev.md) | Prérequis, variables d'environnement, démarrage de la stack, tests, structure du code, recherche hybride, scripts utilitaires et pièges d'exploitation (quotas Albert, Docker, `make clean`). |
 
 ### Fonctionnalités
@@ -50,7 +50,7 @@ Cette documentation couvre l'intégralité du produit — le parcours des utilis
 | [Choix techniques](technique/choix-techniques.md) | Stack retenue et raisons de chaque choix : FastAPI, Celery, Valkey, PostgreSQL, Qdrant, Albert, React — et le raisonnement derrière la recherche hybride (BM25 côté client, IDF côté Qdrant, RRF pour l'ordre seul). |
 | [Pipeline de traitement des questions](technique/architecture-pipeline-questions.md) | Embedding, recherche hybride dense + BM25, porte de rappel disjonctive, branches CANONIQUE / SUGGESTION / RAG, mode suivi, boucle de feedback. |
 | [Garde du cache canonique](technique/garde-cache-canonique.md) | Le juge LLM qui décide si une réponse canonique est servie sans revue humaine — et par quelle porte, dense ou lexicale, un candidat l'atteint. |
-| [Mettre à jour un document](technique/mise-a-jour-documents.md) | Versionnement, diff, ré-vérification des réponses, obsolescence et file « À relire ». |
+| [Quand le corpus bouge](technique/mise-a-jour-documents.md) | Versionnement, diff, ré-vérification des réponses, **confrontation à l'import d'un document neuf**, obsolescence et file « À relire ». |
 | [Auth & rôles](technique/auth-et-roles.md) | Rôles USER / ADMIN, groupes, domaines, règles d'accès, LDAP et JWT. |
 | [Référence API](technique/reference-api.md) | Tous les endpoints HTTP, leurs paramètres et leurs gardes d'accès. |
 | [Campagnes de mesure du cache sémantique](technique/rapport-test-cache-semantique.md) | Le journal des mesures : calibration de `SEUIL_COSINUS`, recalibrage `AVG_LEN`/`B`, campagnes BM25 et FAQ, chiffres bruts. **À consulter avant de déplacer un seuil.** |
