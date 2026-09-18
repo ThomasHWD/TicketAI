@@ -48,39 +48,69 @@ La réponse attendue est **OUI** ou **NON**. Toute réponse autre que `"OUI"` ex
 ## Flux dans le pipeline
 
 ```
-Candidat encore autorisé à être servi sans revue
+Candidat rendu par `trouver_reponse_reutilisable`
+(a franchi le rappel : cosinus ≥ SEUIL_SUGGESTION  OU  BM25/terme ≥ SEUIL_LEXICAL_PAR_TERME)
+        │
+        ▼
+Encore autorisé à être servi sans revue ?
 (`peut_servir_sans_revue` : canonique ET NON signalé `a_relire`)
         │
-        ▼
-… franchissant le rappel
-(cosinus ≥ SEUIL_COSINUS  OU  BM25/terme ≥ SEUIL_LEXICAL_PAR_TERME)
+        ├─── non ──► SUGGESTION (revue humaine) — le juge n'est pas appelé
         │
-        ▼
-Récupérer la question indexée
-(payload `question_indexee` du point qui a matché ;
- repli Ticket.question / Reponse.question_suivi pour les points anciens)
-        │
-        ▼
-Court-circuit : question posée ≡ question indexée ?
-(normalisation : casse, ponctuation, espaces — pas les accents)
-        │
-        ├─── oui ──► OUI, sans appel LLM ──► CANONIQUE servie
-        │
-        └─── non
+        └─── oui  ◄── **aucune condition de score ici**
               │
               ▼
-        Appel LLM (ALBERT_GARDE_MODEL_NAME)
+        Récupérer la question indexée
+        (payload `question_indexee` du point qui a matché ;
+         repli Ticket.question / Reponse.question_suivi pour les points anciens)
               │
-              ├─── "OUI" exact ──► CANONIQUE servie
+              ▼
+        Court-circuit : question posée ≡ question indexée ?
+        (normalisation : casse, ponctuation, espaces — pas les accents)
               │
-              └─── tout le reste ──► SUGGESTION (revue humaine)
+              ├─── oui ──► OUI, sans appel LLM
+              │
+              └─── non ──► Appel LLM (ALBERT_GARDE_MODEL_NAME)
+                             │
+                             ├─── "OUI" exact
+                             │
+                             ├─── "NON" jugé ──► RAG
+                             │                   (génération sur la question posée)
+                             │
+                             └─── pas de verdict ──► SUGGESTION (revue humaine)
+                                  (Albert injoignable, ou aucune
+                                   question indexable à soumettre)
+        │
+        ▼
+      OUI ──► CANONIQUE si cosinus ≥ SEUIL_COSINUS, sinon SUGGESTION
+              (`servir_reutilisation` reteste le seuil lui-même)
 ```
 
-**Le refus ne renvoie pas au RAG, il rend la réponse à la branche SUGGESTION.** Le garde répond à une seule question : *peut-on servir ceci sans qu'un humain le relise ?* Un NON disqualifie le service sans revue — pas la proposition au relecteur, qui reste libre de la corriger ou de la rejeter.
+### Le juge est appelé sans condition de score, et son refus renvoie au RAG
 
-Sans ce repli, le système était **non monotone** : un candidat à 0,84 sortait en SUGGESTION sans être jugé, alors que le même à 0,86 était soumis au garde et, sur refus, renvoyé au RAG *sans candidat*. Franchir `SEUIL_COSINUS` dégradait donc l'issue, ce qui contredit son rôle de simple filtre de coût. Mesuré le 05/09/2026 : trois candidats avaient perdu leur SUGGESTION en passant le seuil de 0,90 à 0,85.
+Deux changements du 18/09/2026, qui ne valent que pris ensemble.
 
-Le refus reste tracé dans `garde_decisions` : la SUGGESTION servie est indiscernable en base d'une SUGGESTION de la branche 2, seule la table d'audit dit qu'un juge est passé.
+**`SEUIL_COSINUS` ne décide plus si on appelle le juge**, seulement si un OUI a le droit d'être servi sans revue — et c'est `servir_reutilisation` qui le reteste. Tout candidat encore autorisé à servir sans revue est donc jugé. La porte du service sans revue est **strictement inchangée** : un OUI sous le seuil ressort en SUGGESTION, il n'ouvre rien. Ce qu'on gagne est l'usage du **NON** — mesuré sur la campagne 48 cas, deux candidats à 0,7996 et 0,785 n'étaient soumis à personne. C'est cette asymétrie qui rend l'élargissement sûr : on se sert du refus du juge, jamais de son accord.
+
+**Un refus jugé envoie au RAG.** Le juge vient de dire que les deux questions ne posent pas la même demande : le candidat ne répond donc pas à celle-ci, et le proposer au relecteur, c'est lui mettre sous les yeux quelque chose que le système a déjà jugé hors sujet — sur l'écran où « Valider » est le bouton le moins cher, celui-là même qui écrit un alias (§ suivant). Mieux vaut une génération fondée sur les documents, pour la question réellement posée. C'est la règle que `Candidat.servable` énonçait déjà pour les candidats purement lexicaux ; elle était abandonnée au-dessus de `SEUIL_SUGGESTION` sans raison.
+
+> **Ce que disait cette page jusqu'au 18/09/2026** : « le refus ne renvoie pas au RAG, il rend la réponse à la branche SUGGESTION », au motif que sans ce repli le système était **non monotone** — un candidat à 0,84 sortait en SUGGESTION sans être jugé, le même à 0,86 était jugé et, sur refus, renvoyé au RAG *sans candidat*, si bien que franchir le seuil *dégradait* l'issue. Les deux moitiés de cet argument sont tombées ensemble : la discontinuité n'existe plus, puisque le juge est désormais appelé des deux côtés du seuil ; et sa prémisse — un candidat refusé vaut mieux que le RAG — est ce que la mesure contredit. Sur les 9 refus de la campagne, **6 sortaient en SUGGESTION alors que le RAG était attendu** : « Qui valide un engagement de dépense ? » se voyait proposer « Comment fait on un engagement de dépense » à 0,8254, juste après le refus.
+
+**Seul un refus *jugé* a cet effet.** `Decision.erreur` existe exactement pour cette distinction — « ce dernier ne doit pas être compté comme un refus du juge ». Albert injoignable, ou aucune question indexable à soumettre, ce n'est pas « pas la même demande », c'est l'**absence de verdict** : on garde alors le comportement antérieur, SUGGESTION sous revue humaine. Une panne réseau ne doit décider ni d'une branche, ni d'une génération.
+
+**Coût assumé** : un refus *prudent* — paire en fait équivalente, cf. le cas à 0,8841 — prive le relecteur d'une réponse validée réutilisable et fait naître une lignée parallèle sur le même sujet. La sélection par pertinence l'amortit en faisant remonter la meilleure des deux. C'est le coût de relecture que l'invariant « jamais servir une réponse fausse » accepte explicitement, et il ne faut **pas** l'arbitrer en assouplissant le prompt du juge.
+
+Le refus reste tracé dans `garde_decisions` ; la table est le seul endroit qui dise qu'un juge est passé, le RAG produit étant indiscernable en base d'un RAG sans candidat.
+
+**Mesure** — campagne 48 cas, **trois passes** (`scripts/resultats_non_vers_rag*.json`, 18/09/2026), comparées cas par cas et non seulement en totaux :
+
+| | Avant | Après |
+|---|---|---|
+| Conformes | 35/48 | **43/48** |
+| Faux positifs (servi sans revue hors cible) | 0 | **0** |
+| Appels au juge | 27 | 30 |
+
+Les trois passes sont **identiques champ par champ** — `branche`, `bloque_par`, `ok`, `verdict_garde`, `seuil_franchi` — ce qui est plus stable que le ±1 cas habituel à `temperature=0,1`. Le diff par cas contre la référence donne **exactement 9 cas changés, tous `SUGGESTION → RAG`, tous `bloque_par=GARDE`** ; aucun cas où `ok` bouge sans que la branche bouge. Les 3 CANONIQUE « non prévus » sont inchangés et ne sont pas des faux positifs : dans les trois, `candidat == cible_attendue` — la bonne réponse, par une branche que la colonne `attendu` prédisait en RAG. **Zéro exposition nouvelle sans revue** : la porte CANONIQUE exige toujours OUI **et** `franchit(SEUIL_COSINUS)` **et** `peut_servir_sans_revue`, et toute sortie RAG est `EN_ATTENTE`.
 
 ### `a_relire` ferme la porte avant le garde
 
@@ -120,8 +150,10 @@ Le refus est consigné dans `garde_decisions` avec `score_cosinus = NULL` : cett
 
 ## Par quelle porte le candidat est arrivé
 
-La condition d'entrée n'est plus un seuil mais une **disjonction** (`franchit_le_rappel`,
-`services/search.py`, appelée avec `SEUIL_COSINUS` par `question_pipeline.py`) :
+Cette porte n'est plus celle du juge — il est appelé sans condition de score (§ ci-dessus) —
+mais celle du **service sans revue** : c'est `servir_reutilisation` qui l'évalue sur un OUI,
+pour trancher entre CANONIQUE et SUGGESTION. Ce n'est pas un seuil mais une **disjonction**
+(`franchit_le_rappel`, `services/search.py`, appelée avec `SEUIL_COSINUS`) :
 
 | Porte | Signal | Seuil |
 |---|---|---|
@@ -189,20 +221,25 @@ Le juge peut alors évaluer l'équivalence dans son contexte réel.
 | Variable `.env` | Défaut | Description |
 |---|---|---|
 | `ALBERT_GARDE_MODEL_NAME` | *(vide)* | Modèle LLM dédié au garde. Si vide, utilise `ALBERT_LLM_MODEL_NAME`. |
-| `SEUIL_COSINUS` | *(obligatoire ; `.env.example` : 0.80)* | Porte dense. Filtre de **coût** : combien de candidats atteignent le juge. |
+| `SEUIL_COSINUS` | *(obligatoire ; `.env.example` : 0.80)* | Porte dense **du service sans revue** : au-dessous, un OUI du juge sort en SUGGESTION. |
 | `SEUIL_LEXICAL_PAR_TERME` | `1.0` | Porte lexicale, **en disjonction** de la précédente. `0` la referme. |
 
-Les deux seuils règlent le **débit d'appels au juge**, pas la sûreté. Les desserrer coûte du
-quota Albert ; c'est le verdict qui protège, pas le seuil.
+Les deux règlent **ce qu'un OUI a le droit d'ouvrir**, pas la sûreté : c'est le verdict qui
+protège, pas le seuil. Ils ne commandent plus le débit d'appels au juge — celui-ci est appelé
+pour tout candidat encore autorisé à servir sans revue. Le débit se règle donc **en amont**,
+par le rappel (`SEUIL_SUGGESTION`, dérivé de `SEUIL_COSINUS − 0,05`), qui décide combien de
+candidats existent.
 
 Utiliser un modèle dédié est recommandé : Albert applique ses quotas (jetons et requêtes) par modèle. Partager le modèle de génération laisse les appels de génération épuiser le quota du garde.
 
-⚠️ **Un quota épuisé ne produit pas d'erreur visible côté utilisateur.** Le garde n'a pas
-de verdict « indisponible » : toute exception — dont un `429` d'Albert — devient un refus.
-Un quota vidé se manifeste par une chute du taux de réponses canoniques, les questions
-basculant massivement en SUGGESTION. **La distinction se lit dans `garde_decisions`** :
-`Decision.erreur` y est journalisée, et un refus par indisponibilité s'y sépare d'un refus
-jugé. Devant une chute inexpliquée, interroger cette table avant de suspecter le prompt.
+⚠️ **Un quota épuisé ne produit pas d'erreur visible côté utilisateur.** Toute exception —
+dont un `429` d'Albert — devient un `verdict=False`, et un quota vidé se manifeste donc par
+une chute du taux de réponses canoniques, les questions basculant massivement en SUGGESTION.
+C'est bien SUGGESTION et non RAG : `Decision.erreur` est renseignée, l'appelant y lit une
+absence de verdict plutôt qu'un refus, et ne relance pas une génération par panne réseau —
+une coupure d'Albert ne doit pas se payer en appels à… Albert. **La distinction se lit dans
+`garde_decisions`**, où `erreur` est journalisée. Devant une chute inexpliquée, interroger
+cette table avant de suspecter le prompt.
 
 ---
 
@@ -238,7 +275,7 @@ Le paramètre `max_tokens=20` laisse la place à un mot de verdict même si le m
 
 - Il **ne lit pas la réponse** — il compare uniquement deux questions. Cela évite que le juge rationalise une réponse inadaptée au lieu de la bloquer.
 - Il **ne cherche pas dans les documents** — aucun appel Qdrant, aucun reranking.
-- Il **ne distingue pas les raisons de refus** — tout ce qui n'est pas OUI sort en SUGGESTION. Il n'y a pas de verdict intermédiaire ; `Decision.erreur` sert l'audit, pas le routage.
+- Il **n'a pas de verdict intermédiaire** — la sortie est binaire. Mais l'appelant, lui, distingue deux refus : un NON *jugé* renvoie au RAG, un refus faute d'avoir pu joindre Albert rend la réponse en SUGGESTION. `Decision.erreur` sert donc l'audit **et** le routage, depuis le 18/09/2026.
 - Il **ne choisit pas la question B** — celle-ci lui est fournie par le point Qdrant qui a matché (voir ci-dessous). Le garde ne peut pas rattraper une mauvaise paire.
 - Il **ne juge pas la réponse encore d'actualité** — il ne voit ni les documents, ni leurs versions. Une réponse contredite par une ingestion récente lui paraîtrait parfaite, puisque la paire de questions, elle, est bonne. C'est `peut_servir_sans_revue` qui l'écarte, en amont.
 

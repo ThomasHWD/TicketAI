@@ -363,42 +363,89 @@ def test_question_indexee_absente_du_payload_ne_casse_pas():
     assert candidat.question_indexee is None
 
 
-# ── Refus du garde : SUGGESTION, pas RAG ──────────────────────────────────────
+# ── Refus du garde : RAG, sauf si le refus n'en est pas un ────────────────────
 
 
-def test_refus_du_garde_sert_une_suggestion_sans_relancer_le_rag():
-    """Le garde dit « pas la même demande », ce qui disqualifie le service sans
-    revue — pas la proposition au relecteur.
-
-    Sans ce repli, franchir SEUIL_COSINUS *dégradait* l'issue : un candidat à
-    0,84 sortait en SUGGESTION sans être jugé, le même à 0,86 partait au RAG
-    complet sur refus, et le relecteur ne voyait plus aucun candidat.
-    """
-    from app.services.garde_cache import Decision
-    from app.workers.question import SEUIL_COSINUS, question_job
-
-    reponse = SimpleNamespace(id=uuid.uuid4(), ticket_id=uuid.uuid4(), canonique=True, a_relire=False, nb_validations=3)
+def _lancer_garde(candidat, decision):
+    """Joue `question_job` sur un candidat donné et rend (servir, statuer, rerank)."""
+    from app.workers.question import question_job
 
     question_job.push_request(id=str(uuid.uuid4()), retries=0)
     try:
         with (
             patch("app.workers.question._ticket_existe", return_value=True),
             patch("app.workers.question.search_hybrid", return_value=[]),
-            patch(
-                "app.workers.question.trouver_reponse_reutilisable",
-                return_value=Candidat(reponse, SEUIL_COSINUS + 0.05, SEUIL_COSINUS + 0.05, "Comment poser un congé ?"),
-            ),
-            patch("app.workers.question.statuer", return_value=Decision(verdict=False)),
+            patch("app.workers.question.trouver_reponse_reutilisable", return_value=candidat),
+            patch("app.workers.question.statuer", return_value=decision) as juge,
             patch("app.workers.question.journaliser_garde"),
             patch("app.workers.question.servir_reutilisation", return_value={}) as servir,
-            patch("app.workers.question.rerank") as reranker,
-            patch("app.workers.question.generate") as generation,
+            patch("app.workers.question.rerank", return_value=[]) as reranker,
+            patch("app.workers.question.generate", return_value=("", False)),
+            patch("app.workers.question.upsert_ticket"),
+            patch("app.workers.question.upsert_reponse"),
+            patch("app.workers.question.suggerer_tag", return_value=None),
         ):
             question_job.run(question="Comment poser des congés ?", domaine="RH")
     finally:
         question_job.pop_request()
+    return servir, juge, reranker
 
-    servir.assert_called_once()
-    assert servir.call_args.args[11] is False, "servie en SUGGESTION, jamais en CANONIQUE"
-    reranker.assert_not_called()
-    generation.assert_not_called()
+
+def _canonique_servable():
+    return SimpleNamespace(id=uuid.uuid4(), ticket_id=uuid.uuid4(), canonique=True, a_relire=False, nb_validations=3)
+
+
+@pytest.mark.parametrize(
+    "erreur, servir_appele, rag_relance",
+    [
+        (None, False, True),  # refus JUGÉ → RAG : le candidat ne répond pas à la question
+        ("429 Albert", True, False),  # panne → SUGGESTION : une panne n'est pas un jugement
+    ],
+)
+def test_un_refus_juge_repart_au_rag_mais_pas_une_panne(erreur, servir_appele, rag_relance):
+    """Le juge dit « pas la même demande » ⇒ le candidat est hors sujet, on régénère.
+
+    Proposer au relecteur ce que le système vient de juger hors sujet, c'est
+    l'inviter à cliquer « Valider » sur une réponse à une autre question — sur
+    l'écran où c'est le bouton le moins cher. Mesuré sur la campagne 48 cas :
+    6 des 9 refus sortaient en SUGGESTION alors que le RAG était attendu.
+
+    Mais `Decision.erreur` n'est **pas** un refus : Albert injoignable, c'est
+    l'absence de verdict. On garde alors le comportement antérieur, SUGGESTION,
+    pour qu'une panne réseau ne décide pas d'une branche.
+    """
+    from app.services.garde_cache import Decision
+    from app.workers.question import SEUIL_COSINUS
+
+    candidat = Candidat(_canonique_servable(), SEUIL_COSINUS + 0.05, SEUIL_COSINUS + 0.05, "Comment poser un congé ?")
+    servir, _, reranker = _lancer_garde(candidat, Decision(verdict=False, erreur=erreur))
+
+    assert servir.called is servir_appele
+    if servir_appele:
+        assert servir.call_args.args[11] is False, "repli de panne : SUGGESTION, jamais CANONIQUE"
+    assert reranker.called is rag_relance
+
+
+def test_le_garde_est_consulte_sous_le_seuil_de_service():
+    """`SEUIL_COSINUS` ne gouverne plus l'appel au juge, seulement le droit de servir.
+
+    Un candidat entre `SEUIL_SUGGESTION` et `SEUIL_COSINUS`, sans appui lexical,
+    n'était soumis à personne et sortait en SUGGESTION — mesuré deux fois sur la
+    campagne (0,7996 et 0,785), le RAG étant attendu. Il est désormais jugé, et
+    son refus l'envoie au RAG.
+
+    L'élargissement n'ouvre rien : un OUI ici ne franchit toujours pas
+    `franchit_le_rappel(SEUIL_COSINUS)`, que `servir_reutilisation` reteste.
+    """
+    from app.services.garde_cache import Decision
+    from app.workers.question import SEUIL_COSINUS, SEUIL_SUGGESTION
+
+    sous_le_seuil = SEUIL_SUGGESTION + 0.01
+    assert sous_le_seuil < SEUIL_COSINUS, "le cas n'a de sens qu'entre les deux seuils"
+
+    candidat = Candidat(_canonique_servable(), sous_le_seuil, 0.0, "Comment poser un congé ?")
+    servir, juge, reranker = _lancer_garde(candidat, Decision(verdict=False))
+
+    juge.assert_called_once()
+    assert servir.called is False
+    assert reranker.called is True
