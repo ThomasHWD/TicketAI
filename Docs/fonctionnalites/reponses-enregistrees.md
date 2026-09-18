@@ -245,6 +245,33 @@ domaines signalées par le même document ne sont pas touchées.
 Toutes ces actions opèrent sur la **famille** de la réponse (source + copies), jamais sur
 une seule ligne — sinon une copie resterait indexée avec un contenu périmé.
 
+### Le cas le plus fréquent : un document précise une règle déjà couverte
+
+Une note de service arrive sur un sujet que la base traite déjà. Ce qui suit est la
+séquence complète, du signalement aux **deux** réponses canoniques — l'essentiel s'y fait
+sans que vous ayez rien à rédiger.
+
+1. **La réponse générale est signalée** et quitte l'onglet Canoniques : elle reste
+   proposée, mais sous vos yeux, et disparaît de *Questions fréquentes*.
+2. **Préférez « Modifier » à « Retirer ».** Le document neuf ne rend généralement pas la
+   réponse fausse — il ajoute un cas qu'elle passe sous silence. La modifier conserve ses
+   validations en un geste ; la retirer oblige à en accumuler trois nouvelles pour revenir
+   au même point. « Toujours d'actualité » convient aussi lorsque la règle générale se
+   suffit à elle-même : c'est la bonne réponse à la question générale, elle n'a pas à
+   porter l'exception.
+3. **La question spécifique ne reçoit plus la réponse générale.** Avant de réutiliser une
+   réponse enregistrée, le système vérifie que la question posée demande bien la même
+   chose ; ici elle ne le demande pas, donc la question est retraitée depuis les documents
+   — dont celui que vous venez d'importer.
+4. **La réponse spécifique se crée d'elle-même.** Elle arrive dans votre file comme
+   n'importe quelle réponse à valider, et **trois validations ordinaires** la rendent
+   canonique à son tour. Inutile de cliquer « Corriger » pour la rédiger à la main.
+5. **Les deux coexistent alors**, chacune servant sa propre question. Ce n'est pas un
+   doublon à nettoyer.
+
+Le détail technique et les mesures sont dans
+[Quand le corpus bouge](../technique/mise-a-jour-documents.md).
+
 ---
 
 ## 4. L'onglet Obsolètes
