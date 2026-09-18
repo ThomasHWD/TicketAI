@@ -129,26 +129,40 @@ def question_job(
             if reponse_liee is not None:
                 logger.info("score %.4f → réponse validée %s", score_liee, reponse_liee.id)
 
-                # **Tout candidat encore autorisé à servir sans revue est jugé**,
-                # sans condition de score. `SEUIL_COSINUS` ne décide plus *si on
-                # appelle le juge* — il décide *si un OUI a le droit d'être servi
-                # sans revue*, et `servir_reutilisation` le reteste lui-même. La
-                # porte du service sans revue est donc strictement inchangée : un
-                # OUI sous le seuil ressort en SUGGESTION, il n'ouvre rien.
+                # **Le juge est consulté exactement quand son verdict peut changer
+                # l'issue** : dès que le candidat serait réutilisé sous une forme ou
+                # une autre, CANONIQUE *ou* SUGGESTION. Ni le score ni le statut ne
+                # décident *si on appelle* — ils décident seulement *ce qu'un OUI
+                # ouvre*, et `servir_reutilisation` le reteste lui-même.
                 #
-                # Ce qu'on gagne est l'usage du **NON**. Mesuré sur la campagne 48
-                # cas : deux candidats à 0,7996 et 0,785 n'étaient soumis à personne
-                # et sortaient en SUGGESTION alors qu'on attendait le RAG. C'est
-                # l'asymétrie qui rend l'élargissement sûr — on se sert du refus du
-                # juge, jamais de son accord.
+                # L'asymétrie est ce qui rend l'élargissement sûr : **on se sert du
+                # refus du juge, jamais de son accord.** Un OUI n'ouvre rien que
+                # `peut_servir_sans_revue` n'autorisait déjà — une réponse signalée
+                # `a_relire` que le juge approuve ressort en SUGGESTION, exactement
+                # comme sans lui. Ce qu'on récupère, ce sont les **NON** qu'on ne
+                # demandait à personne.
                 #
-                # `peut_servir_sans_revue` plutôt que `.canonique` : une réponse
-                # signalée `a_relire` ne franchira pas la porte de
-                # `servir_reutilisation` de toute façon, autant ne pas payer un
-                # appel au juge pour elle. On retombe sur `elif candidat.servable`
-                # → SUGGESTION, sous revue humaine, où le bon geste est « Éditer »
-                # en conservant `nb_validations`.
-                if peut_servir_sans_revue(reponse_liee):
+                # La branche SUGGESTION n'avait aucun juge (cf. la docstring de
+                # `Candidat.servable` : « la branche CANONIQUE a un juge pour la
+                # protéger, la branche SUGGESTION n'en a aucun »), ce qui était sans
+                # conséquence tant qu'un refus sortait *lui aussi* en SUGGESTION.
+                # Depuis que le refus jugé renvoie au RAG, ne pas appeler le juge ne
+                # fait plus économiser un appel : ça pose sur l'écran du relecteur
+                # une réponse dont personne n'a vérifié qu'elle répondait à la
+                # question — là où « Valider » est le bouton le moins cher.
+                #
+                # Mesuré le 18/09/2026, bout en bout télétravail, domaine neuf : la
+                # canonique *générale*, signalée `CONTREDITE_PROBABLE` par la
+                # confrontation, était proposée telle quelle à « est ce que
+                # télétravail possible ? pour les alternant ? » (3 passes sur 3,
+                # cosinus 0,8047, zéro ligne dans `garde_decisions`). Interrogé, le
+                # juge la refuse 3 fois sur 3, et le RAG répond juste 3 fois sur 3
+                # (« règle générale + exception », doc B reranké #1 à 0,9677).
+                #
+                # Quand ni `peut_servir_sans_revue` ni `servable` ne tiennent
+                # (candidat retenu par les seuls mots et non canonique), l'issue est
+                # le RAG quel que soit le verdict : on n'appelle pas.
+                if peut_servir_sans_revue(reponse_liee) or candidat.servable:
                     # La question portée par le point qui a matché fait foi : une
                     # réponse est indexée sous autant de formulations qu'elle a de
                     # validations humaines, et le garde doit juger celle-là. Repli
@@ -182,11 +196,18 @@ def question_job(
                             score_lexical=candidat.score_lexical,
                         )
 
-                    if decision is not None and decision.verdict:
+                    approuve = decision is not None and decision.verdict
+
+                    if approuve and peut_servir_sans_revue(reponse_liee):
                         # CANONIQUE **si** le candidat franchit aussi `SEUIL_COSINUS` ;
                         # `servir_reutilisation` le vérifie et rabat sur SUGGESTION
                         # sinon. On passe donc `True` sans redonder le test ici : la
                         # porte du service sans revue n'a qu'une seule définition.
+                        #
+                        # `peut_servir_sans_revue` ne conditionne plus l'appel au
+                        # juge, seulement ce que son accord ouvre : un OUI sur une
+                        # réponse signalée `a_relire` tombe dans la branche
+                        # SUGGESTION ci-dessous, comme avant qu'on l'interroge.
                         logger.info("garde : OUI → CANONIQUE si le seuil est franchi, sinon SUGGESTION")
                         return servir_reutilisation(
                             db,
@@ -240,12 +261,14 @@ def question_job(
                     # c'est l'absence de verdict. On garde alors le comportement
                     # antérieur, SUGGESTION sous revue humaine : une panne réseau ne
                     # doit pas décider d'une branche, ni coûter une génération.
-                    refus_juge = decision is not None and not decision.erreur
+                    refus_juge = decision is not None and not approuve and not decision.erreur
 
                     if not refus_juge and candidat.servable:
                         logger.info(
-                            "garde sans verdict (%s) → SUGGESTION (revue humaine)",
-                            decision.erreur if decision else "aucune question indexée",
+                            "garde → SUGGESTION (revue humaine) : %s",
+                            "OUI, mais réponse signalée a_relire ou non canonique"
+                            if approuve
+                            else (decision.erreur if decision else "aucune question indexée"),
                         )
                         return servir_reutilisation(
                             db,
@@ -264,27 +287,12 @@ def question_job(
                             score_lexical=candidat.score_lexical or 0.0,
                         )
                     logger.info("garde : NON → RAG (génération sur la question posée)")
-                elif candidat.servable:
-                    return servir_reutilisation(
-                        db,
-                        job_id,
-                        ticket_uuid,
-                        question,
-                        domaine,
-                        user_uuid,
-                        reponse_liee,
-                        score_liee,
-                        question_suivi,
-                        est_suivi,
-                        self.request.retries,
-                        False,
-                        objet,
-                        score_lexical=candidat.score_lexical or 0.0,
-                    )
                 else:
-                    # Candidat retenu par les seuls mots, et non canonique : aucun
-                    # juge ne le verra, donc il ne doit pas être proposé.
-                    logger.info("candidat lexical seul, non canonique → RAG")
+                    # Candidat retenu par les seuls mots, et non canonique : ni
+                    # servable ni autorisé à servir sans revue, l'issue est le RAG
+                    # quel que soit le verdict. C'est la seule branche où ne pas
+                    # appeler le juge est une économie et non une issue perdue.
+                    logger.info("candidat lexical seul, non canonique → RAG (juge inutile)")
 
         finally:
             db.close()

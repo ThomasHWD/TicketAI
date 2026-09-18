@@ -376,17 +376,15 @@ def evaluer(db, question: str, ticket_id=None) -> dict:
     if reponse is None:
         res["branche"] = "RAG"
         res["bloque_par"] = "AUCUN_CANDIDAT"
-    elif peut_servir_sans_revue(reponse):
-        # `peut_servir_sans_revue` et non `reponse.canonique` : une réponse
-        # signalée `a_relire` n'a plus le droit d'être servie sans revue, donc
-        # le juge n'est pas appelé pour elle. Le script a porté la version
-        # `.canonique` après le correctif — sans effet sur la fixture DFE, qui
-        # ne contient aucune réponse signalée, mais c'est exactement la dérive
-        # qu'un miroir recopié finit par produire.
+    elif peut_servir_sans_revue(reponse) or candidat.servable:
+        # **Le juge est appelé dès que son verdict peut changer l'issue** — donc
+        # sur tout candidat qui serait réutilisé, CANONIQUE *ou* SUGGESTION. Ni
+        # le score ni `peut_servir_sans_revue` ne décident *si on appelle* : ils
+        # décident *ce qu'un OUI ouvre*. `seuil_franchi` garde ce sens-là —
+        # éligible à CANONIQUE — et non plus « le juge a été consulté ».
         #
-        # **Plus de condition de score pour appeler le juge** : `SEUIL_COSINUS`
-        # ne décide que du droit de servir sans revue. `seuil_franchi` garde ce
-        # sens-là — éligible à CANONIQUE — et non plus « le juge a été consulté ».
+        # Seul le cas « ni servable ni autorisé sans revue » saute le juge : son
+        # issue est le RAG quel que soit le verdict.
         res["seuil_franchi"] = candidat.franchit(SEUIL_COSINUS)
         # La question du point retrouvé fait foi ; repli sur le ticket d'origine
         # pour les points antérieurs aux formulations multiples.
@@ -403,7 +401,10 @@ def evaluer(db, question: str, ticket_id=None) -> dict:
         decision = garde_cache.statuer(a_comparer, question_indexee, est_suivi=est_suivi) if question_indexee else None
         res["verdict_garde"] = decision.verdict if decision else None
 
-        if decision is not None and decision.verdict:
+        approuve = decision is not None and decision.verdict
+        refus_juge = decision is not None and not approuve and not decision.erreur
+
+        if approuve and peut_servir_sans_revue(reponse):
             if res["seuil_franchi"]:
                 res["branche"] = "CANONIQUE"
                 res["bloque_par"] = None
@@ -411,22 +412,27 @@ def evaluer(db, question: str, ticket_id=None) -> dict:
                 # OUI sous le seuil : le juge approuve, mais rien ne s'ouvre.
                 res["branche"] = "SUGGESTION"
                 res["bloque_par"] = "SEUIL"
-        elif decision is not None and not decision.erreur:
-            # Refus jugé → RAG, quel que soit le score.
+        elif refus_juge:
+            # Refus jugé → RAG, quel que soit le score et le statut.
             res["branche"] = "RAG"
             res["bloque_par"] = "GARDE"
         elif candidat.servable:
-            # Pas de verdict (panne, ou aucune question indexable) : repli sur
-            # le comportement antérieur, sous revue humaine.
             res["branche"] = "SUGGESTION"
-            res["bloque_par"] = "GARDE_INDISPONIBLE"
+            if approuve:
+                # Le juge dit que c'est bien la même demande, mais la réponse
+                # n'a pas le droit d'être servie sans revue.
+                res["bloque_par"] = "A_RELIRE" if reponse.a_relire else "NON_CANONIQUE"
+            else:
+                # Pas de verdict (panne, ou aucune question indexable) : repli
+                # sur le comportement antérieur, sous revue humaine.
+                res["bloque_par"] = "GARDE_INDISPONIBLE"
         else:
             res["branche"] = "RAG"
             res["bloque_par"] = "GARDE_INDISPONIBLE_LEXICAL_SEUL"
     else:
-        raison = "A_RELIRE" if reponse.a_relire else "NON_CANONIQUE"
-        res["branche"] = "SUGGESTION" if candidat.servable else "RAG"
-        res["bloque_par"] = raison if candidat.servable else "LEXICAL_SEUL"
+        # Ni servable ni autorisé à servir sans revue : le juge ne changerait rien.
+        res["branche"] = "RAG"
+        res["bloque_par"] = "LEXICAL_SEUL"
 
     res["appels_juge"] = _appels_juge - depart
     return res
