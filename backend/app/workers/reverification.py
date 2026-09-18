@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 # directement en relecture.
 MAX_ECHECS = 3
 
-JUSTIF_PANNE = "Le service d'analyse n'a pas répondu : la réponse reste servie, à vérifier à la main."
+JUSTIF_PANNE = "Le service d'analyse n'a pas répondu : la réponse n'est plus servie sans revue, à vérifier à la main."
 JUSTIF_PARTIELLE = "Budget d'analyse épuisé pour cette mise à jour : aucun verdict rendu sur cette réponse."
 JUSTIF_MASSIVE = "Document réécrit en profondeur : trop de changements pour juger réponse par réponse."
 

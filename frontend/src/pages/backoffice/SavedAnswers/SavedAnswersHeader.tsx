@@ -372,10 +372,10 @@ export default function SavedAnswersHeader({
           <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="space-y-1">
             <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-              <span className="font-semibold">{nbDocsARelire} document{nbDocsARelire > 1 ? "s" : ""} mis à jour</span>
+              <span className="font-semibold">{nbDocsARelire} document{nbDocsARelire > 1 ? "s" : ""} concerné{nbDocsARelire > 1 ? "s" : ""}</span>
               {" — "}
               {total} réponse{total > 1 ? "s" : ""} concernée{total > 1 ? "s" : ""} à vérifier{" "}
-              <span className="italic">(servies en l'état jusqu'à décision humaine).</span>
+              <span className="italic">(plus servies sans relecture jusqu'à votre décision).</span>
             </p>
             <p className="text-xs text-amber-800/60 dark:text-amber-300/50">
               Pour chaque réponse : confirmez si elle reste valide, modifiez-la si besoin, ou retirez-la du service si elle est dépassée.
