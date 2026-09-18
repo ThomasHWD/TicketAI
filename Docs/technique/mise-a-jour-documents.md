@@ -376,6 +376,34 @@ formulations → import du document B spécifique. La confrontation signale la c
 disparaît de *Questions fréquentes* le temps que le drapeau tienne. Détail chiffré :
 [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md) § 17.3.
 
+### Ce qui se passe ensuite — la seconde canonique naît toute seule
+
+Le signalement n'est que le début, et c'est la moitié de l'histoire qu'on lit le moins : **la
+réponse spécifique qui manquait apparaît sans que personne ne la rédige.**
+
+1. **La générale signalée sort en SUGGESTION**, plus jamais CANONIQUE, et quitte la FAQ. Elle
+   reste proposée, `nb_validations` intact.
+2. **Le bon geste sur elle est « Modifier », pas « Retirer ».** Le document neuf ne la rend
+   généralement pas *fausse* — il ajoute un cas qu'elle passe sous silence. L'amender conserve
+   ses validations en un geste, là où un retrait coûte `SEUIL_CANONIQUE` revalidations pour un
+   état final identique. « Toujours d'actualité » reste légitime quand la règle générale tient
+   seule : c'est la réponse à la question *générale*, et elle n'a pas à porter l'exception.
+3. **La question spécifique, elle, ne passe plus par la générale.** Le garde compare les deux
+   questions, juge qu'elles ne sont pas la même demande, et son refus renvoie au RAG
+   (§ [pipeline de questions](architecture-pipeline-questions.md)). Le document B vient d'être
+   indexé et contextualisé : le RAG répond juste du premier coup, en `EN_ATTENTE`.
+4. **Trois validations ordinaires plus tard, elle est canonique.** Le geste « Corriger » que le
+   plan initial prévoyait à cette étape **n'est pas nécessaire** — c'était son hypothèse
+   centrale, et la mesure l'a contredite. Le chemin réel est `RAG → valider → SUGGESTION →
+   valider → SUGGESTION → valider`, sans une ligne écrite à la main.
+5. **Les deux coexistent alors**, chacune servant sa question : mesuré 0,8075 pour la spécifique
+   sur une formulation jamais validée, 0,8472 pour la générale, aucune cannibalisation dans un
+   sens ni dans l'autre.
+
+Conséquence à assumer : **ce bout en bout n'exerce pas C3** (la réutilisation des réponses
+`CORRIGÉE`), puisqu'il n'emprunte jamais le geste « Corriger ». C3 n'est couvert que par son test
+unitaire et le contrefactuel du § 16 du rapport.
+
 ## 4. Ce qui arrive à une réponse retirée du service
 
 Avant le détail : ne pas confondre les deux états.

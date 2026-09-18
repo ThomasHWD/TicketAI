@@ -113,6 +113,11 @@ Trois choses à savoir :
   *demander une relecture*, jamais détruire. C'est une garantie structurelle, pas un réglage.
 - Une réponse signalée reste proposée aux validateurs mais **n'est plus servie sans relecture**,
   et disparaît de *Questions fréquentes* le temps que le drapeau tienne.
+- **La réponse spécifique qui manquait se crée ensuite d'elle-même**, sans rédaction manuelle :
+  la question spécifique n'obtient plus la réponse générale, elle repart des documents — dont
+  celui qu'on vient d'importer — et trois validations ordinaires la rendent canonique à son
+  tour. Les deux canoniques coexistent alors, chacune servant sa question. Séquence détaillée
+  dans [*À relire*](reponses-enregistrees.md#3-longlet-à-relire).
 
 > Le détail complet est dans
 > [Quand le corpus bouge § 3 ter](../technique/mise-a-jour-documents.md#3-ter-ingestion-dun-document-neuf--la-confrontation).
