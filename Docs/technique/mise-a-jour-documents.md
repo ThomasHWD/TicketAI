@@ -666,14 +666,35 @@ flowchart TD
     B -- CONTREDITE --> C{citante ?}
     C -- oui --> D["retirer_du_service\n(CONTREDITE_PAR_MAJ)\nsupprimé de Qdrant"]
     C -- non --> E["poser_a_relire\n(CONTREDITE_PROBABLE)\nplus servie sans revue"]
-    B -- INTACTE --> F{"a_relire_doc_id\n== doc_id ?"}
+    B -- INTACTE --> F{"drapeau posé\npar cette passe ?\n(doc_id ET version)"}
     F -- oui --> G["lever_a_relire\n+ effacer justification"]
-    F -- non --> H["rien — signal\nd'un autre doc,\nne pas toucher"]
+    F -- non --> H["rien — signal\nd'un autre doc\nou d'une autre passe,\nne pas toucher"]
     B -- INCERTAIN --> I["poser_a_relire\n(DOC_MODIFIÉ)\nplus servie sans revue"]
 ```
 
-`lever_a_relire` n'est appelé que si `r.a_relire_doc_id == doc_id` : sans cette garde, ce job
-effacerait le signal posé par la mise à jour d'un **autre** document.
+`lever_a_relire` n'est appelé que si `r.a_relire_doc_id == doc_id` **et**
+`r.a_relire_version == version` : **on ne lève que le drapeau qu'on a soi-même posé.** Sans la
+première moitié, ce job effacerait le signal posé par la mise à jour d'un **autre** document.
+Sans la seconde, il efface le signal d'une **autre passe sur le même document** — ce qui n'est
+pas la même question instruite.
+
+Mesuré le 18/09/2026 (campagne T5, phases 11–12). La confrontation à l'arrivée de doc B v1 avait
+signalé une canonique générale `CONTREDITE_PROBABLE`, motif « la réponse est incomplète car elle
+omet l'exception des missions à l'étranger ». La ré-vérification de doc B v2, qui ne juge que le
+diff 45 € → 60 €, l'a trouvée `INTACTE` — **à raison**, ce diff ne la concerne pas — et a effacé
+au passage un motif qu'elle n'avait jamais examiné. La réponse est repassée
+`canonique=True, a_relire=False` : servable sans revue tout en omettant toujours l'exception.
+Ce n'était pas une violation de l'invariant (le garde reste entre elle et une question
+spécifique) mais la porte de C1 rouverte par effet de bord.
+
+Le contrôle sur la version ne coûte rien parce que **les deux appelants posent `RAISON_ANALYSE`
+avec la version qu'ils repassent ensuite à `decider`** : l'état transitoire se résout donc
+exactement comme avant. C'est là, et non dans la levée elle-même, qu'est le risque du correctif
+— un drapeau transitoire posé à une version et jugé à une autre resterait collé pour toujours.
+`phase_drapeau` (`scripts/campagne_regle_generale.py`) le mesure : 3 tours en v4/v5/v6,
+`0827d395 → INTACTE` à chaque fois avec le drapeau de la v1 intact, 0 réponse gelée en
+`ANALYSE_EN_COURS`. Un drapeau d'une autre passe attend désormais un humain
+(`confirmer_actualite`), seul à l'avoir vraiment instruit.
 
 Le rappel vectoriel reste **dense uniquement**, désormais par choix et non par défaut : BM25 est
 vivant partout ailleurs (`services/bm25.py`), mais il n'est délibérément pas branché ici. Deux

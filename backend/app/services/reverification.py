@@ -150,10 +150,23 @@ def decider(
 
     if verdict == VERDICT_INTACTE:
         for r in famille:
-            # Ne jamais effacer le signalement d'un *autre* document : cette
-            # réponse peut attendre une relecture déclenchée ailleurs, que ce
-            # job n'a pas instruite et n'a aucun titre à clore.
-            if r.a_relire_doc_id == doc_id:
+            # Ne lever que le drapeau **qu'on a soi-même posé**. Le document ne
+            # suffit pas à l'identifier : deux analyses successives du *même*
+            # document n'instruisent pas la même question. Mesuré le 18/09/2026
+            # (campagne T5) — la confrontation à l'arrivée de doc B v1 avait
+            # signalé une canonique générale « incomplète, elle omet l'exception
+            # des missions à l'étranger » ; la ré-vérification de doc B v2, qui ne
+            # juge que le diff 45 € → 60 €, l'a trouvée INTACTE **à raison** et a
+            # effacé le signalement. La réponse est redevenue servable sans revue
+            # en omettant toujours l'exception : un verdict avait clos un motif
+            # qu'il n'avait pas examiné.
+            #
+            # La version suffit et ne coûte rien : les deux appelants posent
+            # `RAISON_ANALYSE` avec la version qu'ils repassent ici, donc l'état
+            # transitoire se résout exactement comme avant. Ce qui ne se lève
+            # plus, c'est le signalement d'une *autre* passe — il attend alors un
+            # humain (`confirmer_actualite`), seul à l'avoir vraiment instruit.
+            if r.a_relire_doc_id == doc_id and r.a_relire_version == version:
                 lever_a_relire(r)
                 r.analyse_justification = None
                 r.analyse_extraits = None

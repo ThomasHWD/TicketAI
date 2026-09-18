@@ -379,6 +379,43 @@ class TestDecider:
         assert r.a_relire is True
         assert r.a_relire_doc_id == autre_doc
 
+    def test_intacte_ne_leve_pas_le_signalement_d_une_autre_passe(self, famille):
+        """Même document, autre passe : le verdict n'instruit pas le même motif.
+
+        La confrontation à l'arrivée de doc B v1 signale une réponse incomplète ;
+        la ré-vérification de doc B v2 ne juge que le diff v1→v2. La trouver
+        INTACTE ne dit rien de l'incomplétude — la blanchir rendrait servable sans
+        revue une réponse qui omet toujours l'exception.
+        """
+        r = famille()
+        decider(
+            famille.db,
+            _candidate(r, citante=False),
+            VERDICT_CONTREDITE,
+            "Incomplète : elle omet l'exception introduite par ce document.",
+            [UNITE],
+            famille.doc_id,
+            1,
+        )
+        famille.db.refresh(r)
+        assert r.a_relire is True and r.a_relire_version == 1
+
+        action = decider(
+            famille.db,
+            _candidate(r, citante=True),
+            VERDICT_INTACTE,
+            "Le diff 45 € → 60 € est sans effet sur cette réponse.",
+            [UNITE],
+            famille.doc_id,
+            2,
+        )
+
+        famille.db.refresh(r)
+        assert action == ACTION_INTACTE
+        assert r.a_relire is True, "un verdict sur le diff v1→v2 ne clôt pas un motif posé à la v1"
+        assert r.a_relire_raison == RAISON_CONTREDITE_PROB
+        assert r.a_relire_version == 1
+
     def test_incertain_envoie_en_relecture_sans_retirer(self, famille):
         r = famille()
 
