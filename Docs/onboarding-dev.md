@@ -323,18 +323,20 @@ Comprendre ces branches est central pour travailler sur le pipeline :
 
 | Branche | Déclencheur | Validation humaine ? |
 |---|---|---|
-| **CANONIQUE** | Candidat canonique franchissant le rappel — `score_cosinus ≥ SEUIL_COSINUS` **ou** `score_lexical ≥ SEUIL_LEXICAL_PAR_TERME` — **et** un juge LLM qui confirme que la question posée est équivalente à la question indexée | Non — réponse directe |
-| **SUGGESTION** | Réponse validée réutilisable, mais pas encore canonique, sous le rappel des deux côtés, **ou garde ayant refusé** | Oui |
-| **RAG** | Aucun candidat réutilisable — génération LLM à partir des chunks | Oui |
+| **CANONIQUE** | Candidat canonique non signalé `a_relire`, **jugé équivalent** par le garde LLM, **et** franchissant `score_cosinus ≥ SEUIL_COSINUS` ou `score_lexical ≥ SEUIL_LEXICAL_PAR_TERME` | Non — réponse directe |
+| **SUGGESTION** | Réponse validée réutilisable mais pas canonique (ou canonique signalée `a_relire`) ; OUI du garde sous le seuil ; **garde sans verdict** (Albert injoignable) | Oui |
+| **RAG** | Aucun candidat réutilisable, **ou garde ayant refusé** — génération LLM à partir des chunks | Oui |
 
 Deux points que le tableau ne dit pas assez fort :
 
-- **`SEUIL_COSINUS` est un filtre de coût, pas un filtre de sécurité.** Il limite le
-  nombre de candidats envoyés au juge. C'est **le garde seul** qui décide si une réponse
-  peut être servie sans revue humaine.
-- **Un refus du garde sort en SUGGESTION, pas en RAG.** Il disqualifie le service *sans
-  revue*, pas la proposition au relecteur. Sans ce repli le seuil était non monotone : le
-  franchir pouvait faire perdre un candidat au lieu d'en gagner un.
+- **`SEUIL_COSINUS` n'est pas un filtre de sécurité.** Il ne décide pas si le juge est
+  appelé — il l'est pour tout candidat encore autorisé à servir sans revue — mais **ce
+  qu'un OUI a le droit d'ouvrir** : au-dessous, la réponse sort en SUGGESTION. C'est **le
+  garde seul** qui décide si une réponse peut être servie sans revue humaine.
+- **Un refus *jugé* du garde repart au RAG** (depuis le 18/09/2026) : le juge vient de dire
+  que ce n'est pas la même demande, donc le candidat ne répond pas à la question posée et
+  mieux vaut générer sur les documents. Mais un refus **faute d'avoir pu joindre Albert**
+  (`Decision.erreur`) n'est pas un jugement : celui-là sort en SUGGESTION, comme avant.
 
 Une réponse devient canonique après `SEUIL_CANONIQUE` (défaut : 3) validations humaines.
 Être canonique n'en fait qu'un **candidat** — le garde tranche question par question. Elle

@@ -44,6 +44,7 @@ from app.services.question_pipeline import (
     SEUIL_COSINUS,
     SEUIL_SUGGESTION,
     charger_contexte_fil,
+    peut_servir_sans_revue,
     trouver_reponse_reutilisable,
 )
 from app.services.search import search_hybrid
@@ -375,36 +376,57 @@ def evaluer(db, question: str, ticket_id=None) -> dict:
     if reponse is None:
         res["branche"] = "RAG"
         res["bloque_par"] = "AUCUN_CANDIDAT"
-    elif reponse.canonique and candidat.franchit(SEUIL_COSINUS):  # question.py
-        res["seuil_franchi"] = True
-        # question.py:93 — la question du point retrouvé fait foi ; repli sur le
-        # ticket d'origine pour les points antérieurs aux formulations multiples.
+    elif peut_servir_sans_revue(reponse):
+        # `peut_servir_sans_revue` et non `reponse.canonique` : une réponse
+        # signalée `a_relire` n'a plus le droit d'être servie sans revue, donc
+        # le juge n'est pas appelé pour elle. Le script a porté la version
+        # `.canonique` après le correctif — sans effet sur la fixture DFE, qui
+        # ne contient aucune réponse signalée, mais c'est exactement la dérive
+        # qu'un miroir recopié finit par produire.
+        #
+        # **Plus de condition de score pour appeler le juge** : `SEUIL_COSINUS`
+        # ne décide que du droit de servir sans revue. `seuil_franchi` garde ce
+        # sens-là — éligible à CANONIQUE — et non plus « le juge a été consulté ».
+        res["seuil_franchi"] = candidat.franchit(SEUIL_COSINUS)
+        # La question du point retrouvé fait foi ; repli sur le ticket d'origine
+        # pour les points antérieurs aux formulations multiples.
         question_indexee = question_du_point
         if not question_indexee:
             ticket_source = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
             question_indexee = reponse.question_suivi or (ticket_source.question if ticket_source else None)
         res["question_indexee"] = question_indexee
-        a_comparer = requete_recherche if est_suivi else question  # question.py:95
-        verdict = bool(question_indexee and garde_cache.approuver(a_comparer, question_indexee, est_suivi=est_suivi))
-        res["verdict_garde"] = verdict
-        # Refus du garde → SUGGESTION (question.py), sauf si le candidat n'est
-        # entré que par la porte lexicale : il repart alors au RAG.
-        if verdict:
-            res["branche"] = "CANONIQUE"
-            res["bloque_par"] = None
-        elif candidat.servable:
-            res["branche"] = "SUGGESTION"
+        a_comparer = requete_recherche if est_suivi else question
+
+        # `statuer` et non `approuver` : ce dernier est une enveloppe booléenne
+        # qui **jette `erreur`**, or une panne d'Albert ne doit pas compter pour
+        # un refus du juge — les deux ne mènent plus à la même branche.
+        decision = garde_cache.statuer(a_comparer, question_indexee, est_suivi=est_suivi) if question_indexee else None
+        res["verdict_garde"] = decision.verdict if decision else None
+
+        if decision is not None and decision.verdict:
+            if res["seuil_franchi"]:
+                res["branche"] = "CANONIQUE"
+                res["bloque_par"] = None
+            else:
+                # OUI sous le seuil : le juge approuve, mais rien ne s'ouvre.
+                res["branche"] = "SUGGESTION"
+                res["bloque_par"] = "SEUIL"
+        elif decision is not None and not decision.erreur:
+            # Refus jugé → RAG, quel que soit le score.
+            res["branche"] = "RAG"
             res["bloque_par"] = "GARDE"
+        elif candidat.servable:
+            # Pas de verdict (panne, ou aucune question indexable) : repli sur
+            # le comportement antérieur, sous revue humaine.
+            res["branche"] = "SUGGESTION"
+            res["bloque_par"] = "GARDE_INDISPONIBLE"
         else:
             res["branche"] = "RAG"
-            res["bloque_par"] = "GARDE_LEXICAL_SEUL"
-    elif reponse.canonique:
-        res["seuil_franchi"] = False
-        res["branche"] = "SUGGESTION" if candidat.servable else "RAG"
-        res["bloque_par"] = "SEUIL" if candidat.servable else "LEXICAL_SEUL"
+            res["bloque_par"] = "GARDE_INDISPONIBLE_LEXICAL_SEUL"
     else:
+        raison = "A_RELIRE" if reponse.a_relire else "NON_CANONIQUE"
         res["branche"] = "SUGGESTION" if candidat.servable else "RAG"
-        res["bloque_par"] = "NON_CANONIQUE" if candidat.servable else "LEXICAL_SEUL"
+        res["bloque_par"] = raison if candidat.servable else "LEXICAL_SEUL"
 
     res["appels_juge"] = _appels_juge - depart
     return res
