@@ -13,7 +13,7 @@ Cette documentation couvre l'intégralité du produit — le parcours des utilis
 
 | Vous êtes… | Commencez par |
 |---|---|
-| **Nouveau sur le projet** | [Présentation](presentation.md) — ce que fait le système en 5 minutes |
+| **Nouveau sur le projet** | [Le système en schémas](le-systeme-en-schemas.md) — tout le fonctionnement en onze dessins, puis [Présentation](presentation.md) |
 | **Employé / utilisateur** | [Espace utilisateur](fonctionnalites/espace-utilisateur.md) — chercher dans la FAQ, poser une question, suivre un ticket |
 | **Validateur (expert métier)** | [Traiter les tickets](fonctionnalites/backoffice-tickets.md), puis [Réponses enregistrées](fonctionnalites/reponses-enregistrees.md) |
 | **Administrateur** | [Administration](fonctionnalites/administration.md) — groupes, santé, configuration |
@@ -27,6 +27,7 @@ Cette documentation couvre l'intégralité du produit — le parcours des utilis
 
 | Document | Contenu |
 |---|---|
+| [Le système en schémas](le-systeme-en-schemas.md) | **Le récapitulatif visuel** : les quatre issues d'une question, quand le garde intervient, ce qui se passe à l'import d'un document, et le scénario complet « une règle générale, puis une exception » — onze schémas, aucun détail technique. |
 | [Présentation du projet](presentation.md) | Objectif, utilisateurs, les quatre branches de réponse, stack technique, principes de conception. |
 | [Onboarding développeur](onboarding-dev.md) | Prérequis, variables d'environnement, démarrage de la stack, tests, structure du code, recherche hybride, scripts utilitaires et pièges d'exploitation (quotas Albert, Docker, `make clean`). |
 
