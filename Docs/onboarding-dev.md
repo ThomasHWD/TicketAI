@@ -324,14 +324,16 @@ Comprendre ces branches est central pour travailler sur le pipeline :
 | Branche | Déclencheur | Validation humaine ? |
 |---|---|---|
 | **CANONIQUE** | Candidat canonique non signalé `a_relire`, **jugé équivalent** par le garde LLM, **et** franchissant `score_cosinus ≥ SEUIL_COSINUS` ou `score_lexical ≥ SEUIL_LEXICAL_PAR_TERME` | Non — réponse directe |
-| **SUGGESTION** | Réponse validée réutilisable mais pas canonique (ou canonique signalée `a_relire`) ; OUI du garde sous le seuil ; **garde sans verdict** (Albert injoignable) | Oui |
+| **SUGGESTION** | **OUI du garde**, mais la réponse n'est pas canonique, est signalée `a_relire`, ou est sous le seuil ; ou **garde sans verdict** (Albert injoignable) | Oui |
 | **RAG** | Aucun candidat réutilisable, **ou garde ayant refusé** — génération LLM à partir des chunks | Oui |
 
 Deux points que le tableau ne dit pas assez fort :
 
-- **`SEUIL_COSINUS` n'est pas un filtre de sécurité.** Il ne décide pas si le juge est
-  appelé — il l'est pour tout candidat encore autorisé à servir sans revue — mais **ce
-  qu'un OUI a le droit d'ouvrir** : au-dessous, la réponse sort en SUGGESTION. C'est **le
+- **Ni le score ni le statut ne décident si le juge est appelé.** Il l'est dès que son
+  verdict peut changer l'issue, c'est-à-dire pour **tout candidat qui serait réutilisé**,
+  CANONIQUE *ou* SUGGESTION — y compris une réponse non canonique ou signalée `a_relire`.
+  `SEUIL_COSINUS` et `peut_servir_sans_revue` décident seulement **ce qu'un OUI a le droit
+  d'ouvrir** : au-dessous, ou sur une réponse signalée, ça sort en SUGGESTION. C'est **le
   garde seul** qui décide si une réponse peut être servie sans revue humaine.
 - **Un refus *jugé* du garde repart au RAG** (depuis le 18/09/2026) : le juge vient de dire
   que ce n'est pas la même demande, donc le candidat ne répond pas à la question posée et
