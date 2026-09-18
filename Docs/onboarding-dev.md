@@ -317,7 +317,7 @@ Les règles complètes sont dans [`technique/auth-et-roles.md`](technique/auth-e
 
 ---
 
-## 8. Les trois branches de réponse
+## 8. Les quatre branches de réponse
 
 Comprendre ces branches est central pour travailler sur le pipeline :
 
@@ -326,6 +326,7 @@ Comprendre ces branches est central pour travailler sur le pipeline :
 | **CANONIQUE** | Candidat canonique non signalé `a_relire`, **jugé équivalent** par le garde LLM, **et** franchissant `score_cosinus ≥ SEUIL_COSINUS` ou `score_lexical ≥ SEUIL_LEXICAL_PAR_TERME` | Non — réponse directe |
 | **SUGGESTION** | **OUI du garde**, mais la réponse n'est pas canonique, est signalée `a_relire`, ou est sous le seuil ; ou **garde sans verdict** (Albert injoignable) | Oui |
 | **RAG** | Aucun candidat réutilisable, **ou garde ayant refusé** — génération LLM à partir des chunks | Oui |
+| **HORS_DOMAINE** | La génération a eu lieu, mais le modèle a émis le marqueur `[HORS_DOMAINE]` : le contexte ne porte pas la réponse. Une **abstention**, pas un échec | Oui |
 
 Deux points que le tableau ne dit pas assez fort :
 
@@ -545,7 +546,7 @@ Le CI tourne la suite complète (unitaires + intégration) avec Postgres, Valkey
 | [`technique/architecture-pipeline-questions.md`](technique/architecture-pipeline-questions.md) | Détail du pipeline question → réponse |
 | [`technique/choix-techniques.md`](technique/choix-techniques.md) | Pourquoi cette stack — et le raisonnement derrière la recherche hybride (BM25, porte lexicale, RRF pour l'ordre seul) |
 | [`technique/garde-cache-canonique.md`](technique/garde-cache-canonique.md) | Le juge LLM de la branche CANONIQUE — **à lire avant de toucher aux seuils** |
-| [`technique/mise-a-jour-documents.md`](technique/mise-a-jour-documents.md) | Mise à jour documentaire et ré-vérification des réponses |
+| [`technique/mise-a-jour-documents.md`](technique/mise-a-jour-documents.md) | Mise à jour documentaire, **confrontation à l'import d'un document neuf**, ré-vérification des réponses |
 | [`technique/auth-et-roles.md`](technique/auth-et-roles.md) | Rôles, groupes, domaines, LDAP, JWT |
 | [`technique/reference-api.md`](technique/reference-api.md) | Tous les endpoints et leurs gardes d'accès |
 | [`technique/rapport-test-cache-semantique.md`](technique/rapport-test-cache-semantique.md) | Le journal des campagnes de mesure — **à consulter avant de déplacer un seuil** |

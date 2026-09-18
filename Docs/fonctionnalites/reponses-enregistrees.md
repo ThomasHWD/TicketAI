@@ -16,22 +16,37 @@ sait déjà, et est-ce toujours vrai ?*
 ```mermaid
 flowchart LR
     A[Réponse validée<br/>nb_validations ≥ seuil] --> B[CANONIQUES<br/>servies automatiquement]
-    B -->|un document<br/>source a changé| C[À RELIRE<br/>toujours servies,<br/>mais à vérifier]
+    B -->|un document source a changé<br/>ou un document neuf<br/>la contredit| C[À RELIRE<br/>toujours proposées,<br/>plus jamais servies<br/>sans relecteur]
     C -->|« toujours d'actualité »| B
     C -->|« retirer »| D[OBSOLÈTES<br/>retirées du service]
-    B -->|contredite par<br/>une mise à jour| D
+    B -->|contredite par la mise à jour<br/>d'un document qu'elle cite| D
     D -->|« restaurer »| B
 ```
 
 | Onglet | Ce qu'il contient | Ces réponses sont-elles servies ? |
 |---|---|---|
-| **Canoniques** | Les réponses promues, réutilisables sans revue humaine | **Oui**, automatiquement |
-| **À relire** | Un document source a changé, la machine n'a pas su trancher | **Oui**, toujours — c'est une file de relecture, pas un retrait |
+| **Canoniques** | Les réponses promues, réutilisables sans revue humaine | **Oui**, automatiquement — si le garde LLM juge que la question posée demande bien la même chose |
+| **À relire** | Un document source a changé, **ou un document neuf vient les contredire**, et la machine n'a pas su trancher | **Plus sans relecteur.** Elles restent *proposées*, en SUGGESTION, et disparaissent de *Questions fréquentes* tant que le drapeau tient |
 | **Obsolètes** | Réponses retirées du service | **Non**, retirées de Qdrant |
 
-La distinction *À relire* / *Obsolète* est la plus importante de cette page : **un
-signalement « à relire » ne retire rien**. La réponse continue d'être servie aux
-employés. Le drapeau demande une relecture, il ne suspend pas le service.
+La distinction *À relire* / *Obsolète* est la plus importante de cette page, et elle n'est
+**pas** « servie » contre « retirée » — c'est **servie sans revue** contre **détruite**.
+
+Un signalement « à relire » **ne retire rien et ne supprime rien** : la réponse reste
+proposée aux relecteurs, son compteur `nb_validations` est intact, et elle s'amende en un
+seul geste (« Modifier »). Ce qu'elle perd, c'est le privilège de la branche CANONIQUE —
+être servie à un employé sans que personne ne la relise — et la page *Questions fréquentes*,
+qui n'a aucun relecteur pour rattraper une erreur. Elle retrouve les deux dès que le drapeau
+est levé.
+
+> Pourquoi ce n'est pas « on la laisse servir » : le système vient de soupçonner qu'un
+> document la contredit, et l'invariant du produit est de **ne jamais servir une réponse
+> fausse**, même au prix de travail supplémentaire pour les validateurs.
+>
+> Pourquoi ce n'est pas non plus « on la détruit » : le lien n'est qu'une proximité
+> vectorielle entre un paragraphe et une question. Un `CONTREDITE` erroné retirerait en
+> silence une bonne canonique, et la remettre en service coûterait trois revalidations pour
+> un état final identique. **Suspendre coûte une relecture et ne détruit rien.**
 
 ![L'onglet Canoniques et ses réponses réutilisables](../images/23-reponses-canoniques.png)
 
@@ -166,22 +181,33 @@ C'est `contenu_corrige` qui est servi et réindexé.
 
 ### D'où viennent ces signalements
 
-Quand un document est remplacé par une nouvelle version, le système compare les deux
-versions et cherche quelles réponses validées pourraient ne plus tenir. Le détail complet
-de ce raisonnement est dans
+**Deux événements les déclenchent, pas un seul.**
+
+1. **Un document est remplacé par une nouvelle version.** Le système compare les deux
+   versions et cherche quelles réponses validées pourraient ne plus tenir.
+2. **Un document *neuf* est importé.** Il n'y a alors aucun diff à comparer, mais le
+   nouveau texte peut parfaitement contredire une réponse déjà servie — typiquement quand
+   il **précise** une règle générale (« le télétravail est possible trois jours par
+   semaine » ← « les alternants n'y ont pas droit »). Le système confronte donc les réponses
+   déjà en service aux passages du nouveau document.
+
+Le détail complet de ces deux raisonnements est dans
 [Mettre à jour un document](../technique/mise-a-jour-documents.md).
 
 Une réponse atterrit ici quand la machine **n'a pas pu conclure seule** :
 
 | Raison | Ce qui s'est passé |
 |---|---|
-| `CONTREDITE_PROBABLE` | La réponse ne cite pas le document, mais son sujet est proche d'un passage modifié |
-| `INCERTAIN` | Le juge LLM a hésité |
+| `CONTREDITE_PROBABLE` | La réponse ne cite pas le document, mais son sujet est proche d'un passage modifié — **ou d'un passage d'un document neuf** |
+| `DOC_MODIFIÉ` | Le juge LLM a hésité sur une mise à jour de document |
+| `NOUVEAU_DOC` | Le juge LLM a hésité face à un document **neuf**. Même situation, mais il n'y a **pas de diff à afficher** : c'est le document entier qui est nouveau |
 | Panne Albert | L'API n'a pas répondu |
 | Budget épuisé | Trop d'appels nécessaires, ou plus de 40 unités de changement |
 
 Le point commun : **aucune de ces situations ne justifie de retirer la réponse**. Un
-humain doit regarder.
+humain doit regarder. Sur le chemin d'un document neuf, c'est même une garantie
+structurelle : **aucune réponse ne peut y devenir obsolète**, quelle que soit la sévérité du
+verdict.
 
 ### Ce que la ligne affiche
 
@@ -194,11 +220,15 @@ concernés), pour qu'un validateur puisse traiter une mise à jour d'un bloc.
 
 ![L'onglet « À relire », groupé par document](../images/24-reponses-a-relire.png)
 
-Le bandeau rappelle l'essentiel : *« 1 document mis à jour — 1 réponse concernée à
-vérifier (servies en l'état jusqu'à décision humaine) »*. Les réponses sont regroupées
+Le bandeau rappelle l'essentiel : *« 1 document concerné — 1 réponse concernée à vérifier
+(plus servies sans relecture jusqu'à votre décision) »*. Les réponses sont regroupées
 sous le document qui les a déclenchées, avec un bouton **Tout confirmer** pour traiter le
 lot. Sous chaque réponse figure la justification du juge, puis les trois issues :
 **Toujours d'actualité**, **Modifier**, **Retirer**.
+
+> La capture ci-dessus est antérieure au 18/09/2026 et porte encore l'ancien libellé
+> (« document mis à jour », « servies en l'état »), qui disait le contraire du comportement
+> actuel. À reprendre à la prochaine campagne de captures (`scripts/captures_doc.py`).
 
 ### Les trois issues
 

@@ -101,14 +101,17 @@ flowchart TD
     B --> C{Un point porte-t-il un reponse_id<br/>franchissant le rappel ?<br/>cosinus ≥ SEUIL_SUGGESTION<br/><b>ou</b> BM25/terme ≥ SEUIL_LEXICAL_PAR_TERME}
 
     C -->|non| G[Reranking + génération LLM<br/><b>RAG</b>]
-    C -->|oui| D{Réponse canonique<br/>ET rappel franchi<br/>au niveau SEUIL_COSINUS ?}
+    C -->|oui| D{Le verdict du juge<br/>peut-il changer l'issue ?}
 
-    D -->|non| F[<b>SUGGESTION</b><br/>Badge : Suggestion<br/>revue humaine requise]
+    D -->|non : candidat lexical seul<br/>ET non canonique| G
     D -->|oui| E{<b>Garde LLM</b><br/>Les deux questions demandent-elles<br/>exactement la même chose ?}
 
-    E -->|court-circuit :<br/>questions identiques| H
-    E -->|OUI| H[<b>CANONIQUE</b><br/>Badge : Traitée<br/>servie sans revue]
-    E -->|NON| F
+    E -->|court-circuit :<br/>questions identiques| D2
+    E -->|OUI| D2{Canonique, non signalée<br/>à relire, ET rappel franchi<br/>au niveau SEUIL_COSINUS ?}
+    D2 -->|oui| H[<b>CANONIQUE</b><br/>Badge : Traitée<br/>servie sans revue]
+    D2 -->|non| F[<b>SUGGESTION</b><br/>Badge : Suggestion<br/>revue humaine requise]
+    E -->|NON jugé| G
+    E -->|pas de verdict :<br/>panne Albert| F
 
     G --> I[Badge : Suggestion<br/>attente de validation]
 
@@ -117,17 +120,20 @@ flowchart TD
     style G fill:#dbeafe,stroke:#2563eb
 ```
 
-Trois choses à retenir de ce schéma :
+Quatre choses à retenir de ce schéma :
 
 | | |
 |---|---|
-| **Le seuil ne suffit pas** | `SEUIL_COSINUS` limite le nombre de candidats envoyés au juge — c'est un contrôle de **coût**. Le garde décide seul de ce qui est servi sans revue. |
-| **Un refus du garde sort en SUGGESTION** | Le garde tranche sur le service *sans revue*, pas sur l'utilité du candidat pour le relecteur. Un NON retire la réponse du service direct et la propose à la revue — il ne relance pas le RAG. |
+| **Le seuil ne décide pas qui est jugé** | `SEUIL_COSINUS` est la **porte CANONIQUE** : il décide ce qu'un OUI du garde a le droit d'ouvrir, pas si le juge est consulté. Celui-ci l'est dès que son verdict peut changer l'issue — y compris sur une réponse non canonique ou signalée à relire. |
+| **Un refus *jugé* repart au RAG** | Le juge vient de dire que les deux questions ne posent pas la même demande : le candidat ne répond donc pas à celle-ci. Le proposer quand même mettrait sous les yeux du relecteur quelque chose de déjà jugé hors sujet, sur l'écran où « Valider » est le bouton le moins cher. |
+| **Une panne n'est pas un refus** | Albert injoignable, ou aucune question indexable : c'est une **absence de verdict**, pas « pas la même demande ». Le candidat ressort alors en SUGGESTION, comportement antérieur. Une panne réseau ne décide ni d'une branche ni d'une génération. |
 | **Le court-circuit évite un appel LLM** | Si la question posée est typographiquement identique à la question indexée (casse, ponctuation, espaces), la réponse est servie sans consulter le juge. |
 
-> **Conséquence pour le débogage :** un refus du garde produit une SUGGESTION ordinaire,
-> **indiscernable en base d'une SUGGESTION née d'un score trop bas**. La décision du juge
-> est journalisée dans `garde_decisions`, pas stockée dans le modèle `Reponse`.
+> **Conséquence pour le débogage :** ni un refus ni une absence de verdict ne laissent de trace
+> dans le modèle `Reponse`. Une réponse RAG née d'un refus du garde est **indiscernable en base**
+> d'une réponse née d'une absence de candidat ; une SUGGESTION née d'une panne Albert est
+> indiscernable d'une SUGGESTION née d'un score trop bas. C'est `garde_decisions` qui porte la
+> piste d'audit, et sa colonne `erreur` qui distingue les deux cas.
 
 Le fonctionnement du garde est détaillé dans
 [Garde du cache canonique](../technique/garde-cache-canonique.md).
@@ -282,4 +288,4 @@ questions le peut.
 | [Traiter les tickets](backoffice-tickets.md) | Les actions concrètes derrière ces changements d'état |
 | [Espace utilisateur](espace-utilisateur.md) | La clôture manuelle et automatique, vues côté employé |
 | [Garde du cache canonique](../technique/garde-cache-canonique.md) | Pourquoi le score seul ne suffit pas |
-| [Pipeline de traitement des questions](../technique/architecture-pipeline-questions.md) | Le détail technique des trois branches |
+| [Pipeline de traitement des questions](../technique/architecture-pipeline-questions.md) | Le détail technique des quatre branches |

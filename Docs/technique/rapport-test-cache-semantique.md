@@ -1383,3 +1383,142 @@ sélection appliquées aux **mêmes** chunks :
 > deuxième clé — qui tranche dès que deux candidats partagent un rang. À surveiller si des
 > inversions inattendues apparaissent : le correctif n'est pas « le plus pertinent gagne
 > largement », c'est « le mieux classé gagne, de peu ».
+
+---
+
+## 17. Le juge appelé dès que son verdict change l'issue (18/09/2026)
+
+Trois changements de `workers/question.py`, livrés et mesurés séparément, qui **renversent** la
+règle posée le 05/09 (« un refus du garde sort en SUGGESTION, pas en RAG », § 11) :
+
+| | Changement |
+|---|---|
+| **G1a** | un refus **jugé** du garde repart au RAG au lieu de sortir en SUGGESTION |
+| **G1b** | le juge est appelé **sans condition de score** |
+| **G1c** | ni le score ni le statut ne décident *si* on appelle : la condition devient `peut_servir_sans_revue(reponse) or candidat.servable`, donc aussi sur une réponse `a_relire` ou non canonique |
+
+L'argument qui les tient ensemble est une **asymétrie** : *on se sert du refus du juge, jamais de
+son accord*. Élargir l'appel n'ouvre donc aucune porte — `servir_reutilisation` reteste
+`SEUIL_COSINUS` **et** `peut_servir_sans_revue`, si bien qu'un OUI sur une réponse signalée ou non
+canonique ressort en SUGGESTION exactement comme avant qu'on l'interroge. Ce qu'on récupère, ce
+sont les **NON** qu'on ne demandait à personne.
+
+Chaque campagne ci-dessous est la même que celle du § 16 — 48 cas, familles A à F, **3 passes
+identiques champ par champ** avant de conclure d'un écart (§ *mesures LLM*).
+
+### 17.1 — G1a + G1b
+
+Témoin : `resultats_apres_c1c2c3c4.json` (fin du § 16).
+
+| | Avant | Après |
+|---|---|---|
+| Conformité | 35/48 | **43/48** |
+| Appels au juge | 27 | 30 |
+| CANONIQUE / SUGGESTION / RAG | 20 / 12 / 16 | 20 / **3** / **25** |
+| Faux positifs | 0 | **0** |
+
+**Le diff case par case est exactement 9 `SUGGESTION → RAG`, tous `bloque_par = GARDE`**, et rien
+d'autre : aucune bascule dans l'autre sens, aucun CANONIQUE touché. Autrement dit, sur 9 refus du
+juge, **6 sortaient jusque-là en SUGGESTION alors que le RAG était attendu** — le cas le plus
+parlant étant « Qui valide un engagement de dépense ? », à qui on proposait « Comment fait on un
+engagement de dépense » à 0,8254 **juste après** que le juge l'eut refusée.
+
+C'est la réfutation de la prémisse qui justifiait l'ancien repli : *un candidat refusé vaut mieux
+que le RAG*. Il ne vaut pas mieux — il met sur l'écran du relecteur quelque chose que le système
+vient de juger hors sujet, là où « Valider » est le bouton le moins cher, celui-là même qui écrit
+un alias.
+
+L'autre moitié de l'ancien argument était la **non-monotonie** (un candidat à 0,84 sortait en
+SUGGESTION sans être jugé, le même à 0,86 était jugé puis renvoyé au RAG : franchir le seuil
+*dégradait* l'issue). Elle tombe avec G1b : le juge étant appelé des deux côtés du seuil, la
+discontinuité n'existe plus. **Les deux moitiés sont tombées ensemble** — c'est pour cela que le
+renversement est sûr, et pas seulement mesuré.
+
+Bruts : `scripts/resultats_non_vers_rag.json`, `_p2.json`, `_p3.json`.
+
+### 17.2 — G1c, le juge appelé aussi sur une réponse `a_relire`
+
+| | Avant (17.1) | Après |
+|---|---|---|
+| Conformité | 43/48 | **42/48** |
+| Appels au juge | 30 | **34** |
+| CANONIQUE / SUGGESTION / RAG | 20 / 3 / 25 | 20 / **2** / **26** |
+| Faux positifs | 0 | **0** |
+
+**Un seul cas bascule**, et il faut le regarder en face :
+
+```
+« Comment connaitre les montants attribués par les collectivités territoriales ? »
+        cosinus 0,9485, candidat F11 (validée, non canonique)
+   AVANT : jamais soumis au juge (bloque_par = NON_CANONIQUE)   → SUGGESTION ✓ attendu
+   APRÈS : soumis, question indexée =
+           « Comment puis-je connaitre, POUR MON SERVICE, les montants attribués… »
+           verdict NON                                          → RAG        ✗ attendu
+```
+
+C'est un **refus prudent sur la distinction général / spécifique** — exactement ce que l'invariant
+« jamais une réponse générale à une question spécifique » demande de tenir. Le coût est réel : le
+relecteur est privé d'une réponse validée réutilisable et une lignée parallèle naît sur le même
+sujet. **Ne pas le « récupérer » en assouplissant le prompt du juge** : c'est la conformité du jeu
+de test qui est trop grossière ici, pas le juge qui a tort. La sélection par pertinence (C1, § 16)
+amortit la lignée parallèle.
+
+Le piège, transférable : `a_relire` fermait la porte du juge **en même temps** que celle du service
+sans revue, au nom d'une économie. Les deux signaux sont pourtant **orthogonaux** — le drapeau porte
+sur la véracité de la *réponse*, le garde sur l'identité de la *demande*. Et l'économie n'en était
+une que tant qu'un refus sortait lui aussi en SUGGESTION. **Quand on change ce qu'un verdict
+*fait*, tout endroit qui évitait de le demander « puisque ça ne changerait rien » devient un
+bug** — silencieux, parce que l'issue reste plausible.
+
+Bruts : `scripts/resultats_juge_sur_suggestion.json`, `_p2.json`, `_p3.json`.
+
+### 17.3 — Bout en bout réel : deux canoniques distinctes sur un même sujet
+
+La campagne ci-dessus mesure la non-régression. Elle ne peut pas montrer ce que les correctifs
+**rendent possible**, parce qu'il faut pour cela deux réponses concurrentes sur un même sujet —
+situation que le correctif lui-même est nécessaire pour produire. D'où un bout en bout sur un
+domaine neuf (`T3`), document A général (« télétravail du lundi au mercredi ») + document B
+spécifique (« les alternants n'ont pas de télétravail »), **3 passes par interrogation**.
+Harnais : `scripts/bout_en_bout_teletravail.py`.
+
+**Ce que G1c débloque, d'abord.** Avant, la canonique *générale* — signalée `CONTREDITE_PROBABLE`
+par la confrontation — était proposée telle quelle à « est ce que télétravail possible ? pour les
+alternant ? », 3 passes sur 3, cosinus 0,8047, avec **zéro ligne dans `garde_decisions`**. Le juge
+n'était pas consulté. Interrogé, il refuse 3 fois sur 3, et le RAG répond juste 3 fois sur 3
+(règle générale **et** exception, chunk de B reranké #1 à 0,9677).
+
+**Puis la boucle complète :**
+
+| Étape | Résultat |
+|---|---|
+| Question spécifique → RAG, bonne réponse, validée une fois | indexée sous sa propre question |
+| Reformulation de la question spécifique | **la spécifique non canonique (`nb_validations` = 1) bat la générale canonique (`nb_validations` = 4)**, cosinus **0,9042**, SUGGESTION |
+| Validation de la copie | alias jugé **avant** écriture — ligne `garde_decisions` à `score_cosinus = NULL` — OUI, 2ᵉ point écrit |
+| 3ᵉ formulation, 3ᵉ validation | `nb_validations` = 3 → **canonique** |
+| État du domaine | **deux canoniques coexistent** : générale (`nb_val` 4, `a_relire`) et spécifique (`nb_val` 3, propre) |
+| Formulation **jamais validée** de la question spécifique | **CANONIQUE 3/3**, cosinus **0,8075**, bonne réponse servie sans revue |
+| Contre-épreuve, question générale | **la générale 3/3**, cosinus **0,8472**, en SUGGESTION puisqu'elle est signalée |
+
+Aucune cannibalisation dans un sens ni dans l'autre. La deuxième ligne est la seule qui prouve que
+la **famine structurelle** est levée : avant C1, `canonique` étant la clé primaire, la spécifique
+ne pouvait jamais être proposée, donc jamais validée, donc jamais canonique.
+
+> **Le chemin qui fait naître une canonique spécifique est RAG → valider → SUGGESTION → valider
+> → SUGGESTION → valider.** Le plan prévoyait le geste « Corriger » ; il n'est plus nécessaire,
+> puisqu'un refus jugé renvoie au RAG, qui produit directement la bonne réponse spécifique. Trois
+> validations humaines, aucune correction rédigée à la main. **Corollaire à assumer : C3
+> (réutilisation des `CORRIGÉE`) n'est donc couvert que par le test unitaire et le
+> contrefactuel du § 16** — ce bout en bout ne l'exerce pas.
+
+### 17.4 — Deux pièges de mesure rencontrés
+
+**`scripts/test_cache_semantique.py` réimplémente la décision de branche** au lieu d'appeler
+`question_job`. Il faut le corriger à chaque changement de branchement, sinon la campagne mesure
+fidèlement l'**ancien** code — et rien ne le signale.
+
+**L'IDF que Qdrant calcule porte sur toute la collection.** Rejouer la campagne DFE après avoir
+indexé le domaine `T3` fait donc bouger des cas — un `AUCUN_CANDIDAT` qui devient un candidat —
+**sans qu'une seule ligne de code ait changé**. C'est ce qui explique l'essentiel des écarts
+observés entre deux exécutions éloignées dans le temps. Discriminer **par le code**, pas par le
+total : un candidat qui apparaît se décide dans `trouver_reponse_reutilisable`, en amont du garde.
+Tout JSON antérieur au 18/09/2026 n'est comparable qu'à ce titre.

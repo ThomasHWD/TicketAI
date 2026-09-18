@@ -1,4 +1,4 @@
-# Mettre à jour un document
+# Quand le corpus bouge : mise à jour et confrontation
 
 ## 1. Le problème
 
@@ -10,6 +10,18 @@ Il fallait donc trois choses : pouvoir **remplacer** le fichier d'un document sa
 s'y rattache ; **savoir lesquelles** des réponses enregistrées ce remplacement rend fausses ; et,
 pour tout ce que cette dernière question ne peut pas trancher seule, **poser la question à un
 humain** au lieu de continuer à servir en silence.
+
+**Le corpus bouge de deux manières, et le problème est le même dans les deux cas.** Ce document
+n'a longtemps traité que la première :
+
+| | Ce qui change | Ce qui le détecte |
+|---|---|---|
+| **Remplacement de version** | Le texte d'un document existant change | La **ré-vérification** — § 3, à partir d'un diff AVANT/APRÈS |
+| **Import d'un document neuf** | Un texte qui n'existait pas vient préciser, restreindre ou contredire une règle déjà connue | La **confrontation** — § 3 ter, sans aucun diff |
+
+Le second cas n'était pas couvert du tout, et le trou était exactement celui que ce document
+prétend fermer : une canonique que le nouveau document contredit continuait d'être servie **sans
+revue humaine**, indéfiniment.
 
 ## 2. Le parcours
 
@@ -31,9 +43,9 @@ flowchart TD
     I --> J["Ré-vérification, réponse par réponse<br/>(30 s à quelques minutes)"]
     J --> K{"Verdict LLM<br/>par réponse"}
     K -- "CONTREDITE<br/>+ citante du doc" --> L["🚫 Retirée du service<br/>(CONTREDITE_PAR_MAJ)"]
-    K -- "CONTREDITE<br/>+ non-citante" --> M["⚠ À relire — reste servie<br/>(CONTREDITE_PROBABLE)"]
+    K -- "CONTREDITE<br/>+ non-citante" --> M["⚠ À relire — plus servie sans revue<br/>(CONTREDITE_PROBABLE)"]
     K -- INTACTE --> N["✅ Drapeau levé,<br/>rien ne change"]
-    K -- "INCERTAIN / panne" --> O["⚠ À relire — reste servie"]
+    K -- "INCERTAIN / panne" --> O["⚠ À relire — plus servie sans revue"]
 ```
 
 **L'aperçu n'est plus un verdict.** Il montre le diff réel — ce que la nouvelle version ajoute,
@@ -130,7 +142,7 @@ vers « fais lire un humain »** — jamais vers « laisse passer », jamais ver
 |---|---|
 | Une réponse qui **ne cite pas** le document ne peut jamais être retirée automatiquement, même jugée CONTREDITE. Elle plafonne à *À relire*. | Elle n'a été rapprochée du changement que par similarité vectorielle entre un paragraphe et une question — deux objets de nature différente. Détruire à tort une canonique à douze validations coûte bien plus cher que vingt relectures. |
 | Le modèle **n'a pas le droit de rédiger une correction**. | Le verdict est « cette réponse ne tient plus », pas « voici la nouvelle ». Réécrire à la place d'un humain, c'est publier du contenu que personne n'a validé. |
-| Une panne d'Albert ne détruit **rien**. | La réponse reste servie et part en relecture avec la mention explicite que l'analyse n'a pas eu lieu. |
+| Une panne d'Albert ne détruit **rien**. | La réponse reste réutilisable et part en relecture avec la mention explicite que l'analyse n'a pas eu lieu. Elle cesse simplement d'être servie sans relecteur. |
 | Un document réécrit de fond en comble (> 40 unités) déclenche **zéro** appel au modèle. | Quand tout a changé, il n'y a plus rien à discriminer : tout est signalé en bloc, ce qui est à la fois plus honnête et gratuit. |
 
 ## 3 bis. Un exemple pour chaque cas
@@ -206,7 +218,8 @@ unités : [AJOUT] « Article 7 bis : le télétravail est suspendu pendant les p
         ↓
    juger(…) → CONTREDITE, « Un nouvel article suspend le dispositif en pointe d'activité. »
         ↓  non-citante : plafond
-   a_relire = True (CONTREDITE_PROBABLE) — **elle continue d'être servie**
+   a_relire = True (CONTREDITE_PROBABLE) — **rien n'est détruit ; elle reste
+   proposée en SUGGESTION, mais n'est plus servie sans revue**
 ```
 
 **Résultat :** c'est exactement le cas que l'ancien système ne voyait pas. Il est désormais
@@ -242,7 +255,8 @@ Le reranker répond, le modèle non (timeout, quota, panne).
 juger(…) lève
      ↓  jamais de destruction sur une panne
 a_relire = True (ANALYSE_INDISPONIBLE)
-justification : « Le service d'analyse n'a pas répondu : la réponse reste servie, à vérifier. »
+justification : « Le service d'analyse n'a pas répondu : la réponse n'est plus
+                  servie sans revue, à vérifier à la main. »
 
 Après 3 échecs consécutifs, le reste du lot y part directement :
 insister coûterait 60 s de timeout par réponse pour un résultat connu d'avance.
@@ -263,6 +277,104 @@ diff et pas de ré-vérification : `marquer_obsoletes` est appelé sans filtre d
 ```
 
 ---
+
+## 3 ter. Ingestion d'un document neuf — la confrontation
+
+`app/services/confrontation.py`, `app/workers/confrontation.py`
+
+### Le trou que ça ferme
+
+Tout l'entonnoir ci-dessus part d'un **diff AVANT/APRÈS**. Ingérer un document pour la
+*première* fois n'en produit aucun, donc ne touchait rien.
+
+C'est le cas **« règle générale puis exception »**. Le document A dit « le télétravail est
+autorisé du lundi au mercredi » ; une réponse en découle, est validée trois fois, devient
+canonique. Puis le document B arrive : « les alternants n'ont pas de télétravail ». Rien ne
+reliait B à la réponse bâtie sur A — elle continuait d'être servie **sans revue humaine**, à des
+alternants, indéfiniment.
+
+C'est précisément la faute que l'invariant du produit interdit : *ne jamais servir une réponse
+fausse*, et *jamais une réponse générale à une question spécifique*.
+
+### La détection ne coûte aucun appel Albert
+
+`ingestion_job` détient déjà les vecteurs des chunks qu'il vient d'écrire. `cibles_confrontation(embeddings, domaine)`
+n'est donc que **N requêtes Qdrant denses**, réutilisant le filtre exact de `_voisines` et le même
+`SEUIL_RAPPEL` : c'est la même question posée à l'envers — là-bas on cherche les réponses proches
+d'un changement, ici les réponses proches d'un chunk neuf — donc la même calibration.
+
+Elle retourne `{reponse_id: [chunk_index, …]}`, et **garder l'appariement chunk↔réponse est le
+point** : il permet de juger chaque réponse contre les quelques passages qui l'ont réellement
+appariée, au lieu de reranker le document entier une fois par réponse. Dense seulement, pour la
+raison exposée dans `_voisines` : le recouvrement lexical d'un paragraphe et d'une question est
+dominé par le vocabulaire commun au domaine.
+
+La détection **ne lève jamais** — une panne de détection ne doit pas faire échouer une ingestion
+par ailleurs réussie.
+
+### La course est fermée dans le même commit
+
+Les familles matchées sont flaguées `ANALYSE_EN_COURS` **dans la transaction qui écrit les lignes
+`documents`**, pas dans le job. `confrontation_job` part ensuite sur `queue_questions` — comme la
+ré-vérification, il n'est que de l'attente réseau et n'a rien à faire dans la file qui sérialise
+les ingestions — et **uniquement s'il y a des cibles**.
+
+### Pourquoi un *frère* de `reverification_job`, et non une réutilisation
+
+Le pipeline de décision est le même à partir de l'étage 2 : `unites_pertinentes` → `juger` →
+`decider`. Tout ce qui compte est partagé — `Candidate`, `signaler_sans_juger`, `rabattre`,
+`publier_bilan`, la discipline `on_failure`. Ce qui diffère est l'étage 1, et deux détails
+rendaient `reverification_job` inutilisable ici :
+
+1. Il relit ses unités depuis `DocumentVersion.changements` et bascule en `RAISON_MASSIVE`
+   au-delà de `MAX_UNITES = 40`. **Sur un document neuf, chaque paragraphe est un ajout** : tout
+   document d'un peu de volume dégénérerait en `marquer_a_relire`, qui matche les réponses
+   **citant** le document — soit *zéro*, puisque rien ne cite un document neuf. Il ne ferait donc
+   rien, **en silence**.
+2. `rassembler_candidates` → `_voisines` ré-embarque chaque unité chez Albert. L'ingestion vient
+   de payer ces vecteurs ; l'appariement arrive tout fait.
+
+### L'invariant : aucune réponse ne devient obsolète sur ce chemin
+
+**Ce n'est pas une précaution, c'est une conséquence du modèle de données.** `decider` n'appelle
+`retirer_du_service` que sur `CONTREDITE` **et** `citante` — et `citante` vient de
+`reponse_chunks`. Un document qui n'existait pas quand la réponse a été générée n'y a aucune
+ligne. Le plafond à `a_relire` n'est donc pas un drapeau qu'on pourrait lever.
+
+Et c'est le bon plafond. Une réponse *incomplète* — le cas nominal ici — s'amende **en un geste**
+(« Modifier » dans l'onglet *À relire*, `nb_validations` conservé), là où un retrait coûterait
+`SEUIL_CANONIQUE` revalidations pour un état final identique. Épinglé par
+`backend/tests/test_confrontation.py`.
+
+### Le juge reçoit un prompt différent
+
+`PROMPT_SYSTEME_CONFRONTATION` (`services/reverification_scoring.py`) dit explicitement que **les
+deux documents sont en vigueur en même temps**. Sans cette phrase, le modèle traite le nouveau
+texte comme une v2 qui abroge la v1 et condamne des réponses parfaitement valables. Il nomme
+aussi le cas « règle générale puis exception », qui est la raison d'être de cette branche, et
+qualifie explicitement `CONTREDITE` pour couvrir *« il pose une exception, une restriction ou une
+condition qu'elle passe sous silence alors qu'elle porte précisément sur ce cas »*.
+
+Il reçoit en plus `contexte_source(db, reponse)` — les passages sur lesquels la réponse avait été
+**bâtie**. Sans eux, le juge voit un paragraphe et une réponse, et « CONTREDITE » ne peut vouloir
+dire que « ces deux textes se contredisent ». Avec eux, il distingue une réponse *fausse* d'une
+réponse *incomplète* — ce n'est pas la même correction pour le relecteur — et écarte les faux
+appariements d'un rappel à 0,35 en constatant que les textes n'ont rien à voir. La liste peut être
+vide (copie sans chunks cités, document supprimé) : le prompt l'annonce, et un jugement sans
+contexte source reste meilleur que pas de jugement.
+
+### La raison est `NOUVEAU_DOC`, pas `DOC_MODIFIÉ`
+
+`DOC_MODIFIÉ` enverrait le relecteur chercher un diff qui n'existe pas. L'interface doit lui
+montrer les passages du document neuf, pas un AVANT/APRÈS.
+
+### Mesuré
+
+Le 18/09/2026 sur un domaine neuf : document A général → réponse promue canonique à trois
+formulations → import du document B spécifique. La confrontation signale la canonique générale
+`CONTREDITE_PROBABLE`, `obsolete = false`. Elle reste proposée, cesse d'être servie sans revue, et
+disparaît de *Questions fréquentes* le temps que le drapeau tienne. Détail chiffré :
+[`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md) § 17.3.
 
 ## 4. Ce qui arrive à une réponse retirée du service
 
@@ -350,8 +462,8 @@ réponses ont été reflaguées sur v(n+1), et une confirmation partie de l'écr
 balayer un signalement que personne n'a vu.
 
 Une réponse signalée reste visible dans l'onglet **Canoniques**, où elle porte une pastille ambre :
-elle est toujours servie, elle a sa place dans la liste des réponses actives — mais l'écran ne
-doit pas la présenter comme acquise.
+elle reste réutilisable et a sa place dans la liste des réponses actives — mais elle n'est plus
+servie sans revue, et l'écran ne doit pas la présenter comme acquise.
 
 Enfin, si une réponse signalée devient **obsolète** lors d'une mise à jour ultérieure, son
 signalement est levé : une réponse ne siège jamais dans les deux onglets à la fois.
@@ -505,8 +617,13 @@ trois modules :
 | Module | Contenu |
 |---|---|
 | `reverification_candidates.py` | `rassembler_candidates` — étage 1 |
-| `reverification_scoring.py` | `unites_pertinentes` et `juger` — étages 2 et 3, plus `PROMPT_SYSTEME` |
+| `reverification_scoring.py` | `unites_pertinentes`, `juger` et `juger_confrontation` — étages 2 et 3, plus `PROMPT_SYSTEME` et `PROMPT_SYSTEME_CONFRONTATION` |
 | `reverification.py` | `decider`, `signaler_sans_juger`, `tracer` — l'application des verdicts |
+| `confrontation.py` | **L'étage 1 du document neuf** : `cibles_confrontation` (détection sans Albert), `familles_servies`, `textes_chunks`, `contexte_source` |
+
+Les deux chemins partagent les étages 2 et 3 en entier : `Candidate`, `unites_pertinentes`,
+`decider`, `signaler_sans_juger`, `rabattre`, `publier_bilan`. Seul l'étage 1 diffère — voir
+[§ 3 ter](#3-ter-ingestion-dun-document-neuf--la-confrontation).
 
 | Fonction | Rôle | Point de vigilance |
 |---|---|---|
@@ -520,11 +637,11 @@ flowchart TD
     A["decider(candidate, verdict)"] --> B{verdict ?}
     B -- CONTREDITE --> C{citante ?}
     C -- oui --> D["retirer_du_service\n(CONTREDITE_PAR_MAJ)\nsupprimé de Qdrant"]
-    C -- non --> E["poser_a_relire\n(CONTREDITE_PROBABLE)\nreste servie"]
+    C -- non --> E["poser_a_relire\n(CONTREDITE_PROBABLE)\nplus servie sans revue"]
     B -- INTACTE --> F{"a_relire_doc_id\n== doc_id ?"}
     F -- oui --> G["lever_a_relire\n+ effacer justification"]
     F -- non --> H["rien — signal\nd'un autre doc,\nne pas toucher"]
-    B -- INCERTAIN --> I["poser_a_relire\n(DOC_MODIFIÉ)\nreste servie"]
+    B -- INCERTAIN --> I["poser_a_relire\n(DOC_MODIFIÉ)\nplus servie sans revue"]
 ```
 
 `lever_a_relire` n'est appelé que si `r.a_relire_doc_id == doc_id` : sans cette garde, ce job
@@ -570,12 +687,37 @@ recalculer le diff : l'archive sortante peut avoir été purgée, et surtout le 
 exactement ce que l'humain a vu à l'écran d'aperçu. `GET /reponses/a-relire` en retire la clé
 `unites` avant de répondre — c'est la matière du worker, pas de l'écran.
 
+### Le worker jumeau — `app/workers/confrontation.py`, même file
+
+`confrontation_job(doc_id, version, domaine, cibles)` est enfilé par `ingestion_job`, **seulement
+s'il y a des cibles**, sur la même `queue_questions` et pour la même raison. Il partage
+`publier_bilan`, `rabattre`, `MAX_JUGEMENTS`, `MAX_ECHECS` et la classe de tâche `on_failure` de
+son aîné.
+
+Le `cibles` **transite par le broker** plutôt que d'être recalculé dans le worker : les vecteurs
+qui l'ont produit n'existent plus à ce moment-là, et le refaire coûterait un ré-embedding complet
+du document — exactement l'appel Albert que la détection évite. Le job est **convergent** :
+`familles_servies` écarte ce qui est déjà obsolète, et un rejeu ne reprend que le reliquat encore
+en `ANALYSE_EN_COURS`.
+
+Ses plafonds propres : `MAX_CHUNKS_PAR_REPONSE = 8` (un document peut interpeller une réponse par
+dix passages — on garde les mieux scorés) et `MAX_EXTRAITS_SOURCE = 4` pour le contexte source.
+
+Deux approximations assumées dans `contexte_source` : `reponse_chunks` ne mémorise **pas la
+version**, donc on lit le chunk à cet indice dans la version courante, qui peut avoir bougé ; et
+seules les réponses nées du RAG citent des chunks, d'où la remontée par `reponse_source_id`
+(`_lignee`). Elle rend une liste vide plutôt que de lever.
+
+**Ce que ce job ne fait jamais : rendre une réponse obsolète.** Voir
+[§ 3 ter](#3-ter-ingestion-dun-document-neuf--la-confrontation).
+
 ### `ANALYSE_EN_COURS` — le seul état transitoire du modèle de données
 
-Un état transitoire qui survit est un bug silencieux : la réponse reste servie, l'interface
+Un état transitoire qui survit est un bug silencieux : la réponse est marquée douteuse, l'interface
 annonce une analyse qui n'aura jamais lieu, et personne n'est sollicité. Le drapeau est posé par
-`flaguer_en_analyse` **dans la foulée du commit de version**, pas par le worker — c'est ce qui
-ferme la fenêtre de course. Le worker a ensuite l'**obligation de le résoudre** pour chaque
+`flaguer_en_analyse` **dans la foulée du commit de version** — et par `ingestion_job` dans le
+commit des lignes de document, sur le chemin de la confrontation — pas par le worker : c'est ce
+qui ferme la fenêtre de course. Le worker a ensuite l'**obligation de le résoudre** pour chaque
 réponse du lot. Trois filets :
 
 1. le repli par réponse en cas de panne (`signaler_sans_juger`) ;
