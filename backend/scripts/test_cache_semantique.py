@@ -88,27 +88,40 @@ garde_cache.chat = _chat_compte
 
 CAS = [
     # ── A — Reformulations équivalentes → CANONIQUE ────────────────────────────
-    ("A", "Quelle est la procédure pour saisir un engagement de dépense ?", "CANONIQUE", "F1",
-     "reformulation de F1"),
-    ("A", "Comment réaliser un engagement de dépense ?", "CANONIQUE", "F1",
-     "verbe changé, même demande"),
-    ("A", "Comment déclarer un service fait ?", "CANONIQUE", "F2",
-     "faire = déclarer"),
-    ("A", "Comment procède-t-on pour constater un service fait ?", "CANONIQUE", "F2",
-     "tournure impersonnelle"),
-    ("A", "Peut-on faire une demande d'engagement en devises étrangères ?", "CANONIQUE", "F3",
-     "monnaie = devises"),
-    ("A", "Est-il possible d'engager une dépense dans une autre monnaie que l'euro ?", "CANONIQUE", "F3",
-     "reformulation par la négative implicite"),
-    ("A", "Mon fournisseur me relance car sa facture n'a pas été payée, que faire ?", "CANONIQUE", "F5",
-     "reformulation de F5"),
-    ("A", "Faut-il un engagement de dépense pour la médecine de prévention ?", "CANONIQUE", "F6",
-     "quasi identique à F6"),
-    ("A", "J'ai une dépense que je n'avais pas prévue, comment procéder ?", "CANONIQUE", "F7",
-     "reformulation de F7"),
-    ("A", "Puis-je récupérer le reliquat d'un engagement que je n'utiliserai pas ?", "CANONIQUE", "F10",
-     "reformulation de F10"),
-
+    ("A", "Quelle est la procédure pour saisir un engagement de dépense ?", "CANONIQUE", "F1", "reformulation de F1"),
+    ("A", "Comment réaliser un engagement de dépense ?", "CANONIQUE", "F1", "verbe changé, même demande"),
+    ("A", "Comment déclarer un service fait ?", "CANONIQUE", "F2", "faire = déclarer"),
+    ("A", "Comment procède-t-on pour constater un service fait ?", "CANONIQUE", "F2", "tournure impersonnelle"),
+    ("A", "Peut-on faire une demande d'engagement en devises étrangères ?", "CANONIQUE", "F3", "monnaie = devises"),
+    (
+        "A",
+        "Est-il possible d'engager une dépense dans une autre monnaie que l'euro ?",
+        "CANONIQUE",
+        "F3",
+        "reformulation par la négative implicite",
+    ),
+    (
+        "A",
+        "Mon fournisseur me relance car sa facture n'a pas été payée, que faire ?",
+        "CANONIQUE",
+        "F5",
+        "reformulation de F5",
+    ),
+    (
+        "A",
+        "Faut-il un engagement de dépense pour la médecine de prévention ?",
+        "CANONIQUE",
+        "F6",
+        "quasi identique à F6",
+    ),
+    ("A", "J'ai une dépense que je n'avais pas prévue, comment procéder ?", "CANONIQUE", "F7", "reformulation de F7"),
+    (
+        "A",
+        "Puis-je récupérer le reliquat d'un engagement que je n'utiliserai pas ?",
+        "CANONIQUE",
+        "F10",
+        "reformulation de F10",
+    ),
     # ── B — Proches mais différentes → RAG (le cœur du test) ───────────────────
     # Grappe « Que dois-je faire ? » : F5 / F8 / F7, même tournure, services
     # destinataires différents. Une confusion ici envoie l'agent au mauvais service.
@@ -116,64 +129,127 @@ CAS = [
     # déplacements » désignent la même chose ici (F8 renvoie littéralement au
     # service « missions déplacements »). C'est une reformulation, pas une
     # nuance ; RAG était une prédiction du comportement d'alors, pas une exigence.
-    ("B", "Mes frais de mission ne m'ont pas été remboursés, que dois-je faire ?", "CANONIQUE", "F8",
-     "GRAPPE : doit viser F8, jamais F5"),
-    ("B", "Mes frais de déplacement ne sont pas remboursés, dois-je contacter le service facturier ?",
-     "RAG", "F8", "GRAPPE : question fermée, F8 nuance selon Siège/Région"),
-    ("B", "Mon fournisseur n'a pas été payé, dois-je prévenir la mission Budget ?", "RAG", "F5",
-     "GRAPPE : mélange F5 et F7"),
-    ("B", "Ma facture est réglée mais le montant est faux, que dois-je faire ?", "RAG", None,
-     "GRAPPE : hors FAQ, ne doit pas retomber sur F5"),
+    (
+        "B",
+        "Mes frais de mission ne m'ont pas été remboursés, que dois-je faire ?",
+        "CANONIQUE",
+        "F8",
+        "GRAPPE : doit viser F8, jamais F5",
+    ),
+    (
+        "B",
+        "Mes frais de déplacement ne sont pas remboursés, dois-je contacter le service facturier ?",
+        "RAG",
+        "F8",
+        "GRAPPE : question fermée, F8 nuance selon Siège/Région",
+    ),
+    (
+        "B",
+        "Mon fournisseur n'a pas été payé, dois-je prévenir la mission Budget ?",
+        "RAG",
+        "F5",
+        "GRAPPE : mélange F5 et F7",
+    ),
+    (
+        "B",
+        "Ma facture est réglée mais le montant est faux, que dois-je faire ?",
+        "RAG",
+        None,
+        "GRAPPE : hors FAQ, ne doit pas retomber sur F5",
+    ),
     # Grappe « Comment fait on X » : F1 / F2, jumelles lexicales
-    ("B", "Comment fait-on un service fait partiel ?", "RAG", "F10",
-     "GRAPPE : F10, jamais F2"),
-    ("B", "Comment annule-t-on un engagement de dépense ?", "RAG", None,
-     "GRAPPE : annuler ≠ créer, hors FAQ"),
-    ("B", "Qui valide un engagement de dépense ?", "RAG", None,
-     "GRAPPE : qui ≠ comment"),
+    ("B", "Comment fait-on un service fait partiel ?", "RAG", "F10", "GRAPPE : F10, jamais F2"),
+    ("B", "Comment annule-t-on un engagement de dépense ?", "RAG", None, "GRAPPE : annuler ≠ créer, hors FAQ"),
+    ("B", "Qui valide un engagement de dépense ?", "RAG", None, "GRAPPE : qui ≠ comment"),
     # Grappe général vs cas particulier
-    ("B", "Faut-il un engagement de dépense pour une visite médicale ?", "RAG", "F6",
-     "GRAPPE : F6 distingue cotisation et visite ; F1 tait l'exception"),
-    ("B", "Faut-il un engagement de dépense pour une formation ?", "RAG", None,
-     "GRAPPE : périmètre non couvert, ne doit pas servir F6 ni F1"),
-    ("B", "Un devis en monnaie étrangère est-il recevable comme justificatif ?", "RAG", "F3",
-     "GRAPPE : justificatif ≠ demande d'engagement"),
-    ("B", "Un SMS suffit-il comme justificatif de demande d'engagement ?", "RAG", "F9",
-     "GRAPPE : SMS ≠ mail, F9 conditionne au mail"),
+    (
+        "B",
+        "Faut-il un engagement de dépense pour une visite médicale ?",
+        "RAG",
+        "F6",
+        "GRAPPE : F6 distingue cotisation et visite ; F1 tait l'exception",
+    ),
+    (
+        "B",
+        "Faut-il un engagement de dépense pour une formation ?",
+        "RAG",
+        None,
+        "GRAPPE : périmètre non couvert, ne doit pas servir F6 ni F1",
+    ),
+    (
+        "B",
+        "Un devis en monnaie étrangère est-il recevable comme justificatif ?",
+        "RAG",
+        "F3",
+        "GRAPPE : justificatif ≠ demande d'engagement",
+    ),
+    (
+        "B",
+        "Un SMS suffit-il comme justificatif de demande d'engagement ?",
+        "RAG",
+        "F9",
+        "GRAPPE : SMS ≠ mail, F9 conditionne au mail",
+    ),
     # Divers pièges de granularité et de négation
-    ("B", "Combien de temps faut-il pour qu'un engagement soit validé ?", "RAG", None,
-     "délai ≠ procédure"),
-    ("B", "Que se passe-t-il si je ne fais pas de demande d'engagement ?", "RAG", None,
-     "conséquence ≠ procédure"),
-    ("B", "Comment connaître le montant de mon enveloppe budgétaire ?", "RAG", "F7",
-     "F7 mentionne le BI/BR sans répondre à cela"),
-
+    ("B", "Combien de temps faut-il pour qu'un engagement soit validé ?", "RAG", None, "délai ≠ procédure"),
+    ("B", "Que se passe-t-il si je ne fais pas de demande d'engagement ?", "RAG", None, "conséquence ≠ procédure"),
+    (
+        "B",
+        "Comment connaître le montant de mon enveloppe budgétaire ?",
+        "RAG",
+        "F7",
+        "F7 mentionne le BI/BR sans répondre à cela",
+    ),
     # ── C — Court-circuit typographique → CANONIQUE sans appel juge ────────────
-    ("C", "comment fait on un engagement de dépense", "CANONIQUE", "F1",
-     "COURT-CIRCUIT : casse et ponctuation retirées"),
-    ("C", "COMMENT FAIT ON UN SERVICE FAIT ???", "CANONIQUE", "F2",
-     "COURT-CIRCUIT : majuscules et ponctuation"),
-    ("C", "Comment  fait  on   un  engagement   de  dépense ?", "CANONIQUE", "F1",
-     "COURT-CIRCUIT : espaces multiples"),
-    ("C", "Comment fait on un engagement de depense ?", "CANONIQUE", "F1",
-     "ACCENTS : _normaliser ne les retire pas → doit passer par le juge"),
-
+    (
+        "C",
+        "comment fait on un engagement de dépense",
+        "CANONIQUE",
+        "F1",
+        "COURT-CIRCUIT : casse et ponctuation retirées",
+    ),
+    ("C", "COMMENT FAIT ON UN SERVICE FAIT ???", "CANONIQUE", "F2", "COURT-CIRCUIT : majuscules et ponctuation"),
+    ("C", "Comment  fait  on   un  engagement   de  dépense ?", "CANONIQUE", "F1", "COURT-CIRCUIT : espaces multiples"),
+    (
+        "C",
+        "Comment fait on un engagement de depense ?",
+        "CANONIQUE",
+        "F1",
+        "ACCENTS : _normaliser ne les retire pas → doit passer par le juge",
+    ),
     # ── E — SUGGESTION : validées non canoniques, garde jamais appelé ──────────
-    ("E", "Y a t il un modèle de certificat administratif ?", "SUGGESTION", "F4",
-     "F4 validée non canonique"),
-    ("E", "Existe-t-il un modèle de certificat administratif ?", "SUGGESTION", "F4",
-     "reformulation, reste SUGGESTION"),
-    ("E", "Comment connaitre les montants attribués par les collectivités territoriales ?",
-     "SUGGESTION", "F11", "F11 validée non canonique"),
-
+    ("E", "Y a t il un modèle de certificat administratif ?", "SUGGESTION", "F4", "F4 validée non canonique"),
+    ("E", "Existe-t-il un modèle de certificat administratif ?", "SUGGESTION", "F4", "reformulation, reste SUGGESTION"),
+    (
+        "E",
+        "Comment connaitre les montants attribués par les collectivités territoriales ?",
+        "SUGGESTION",
+        "F11",
+        "F11 validée non canonique",
+    ),
     # ── F — Hors périmètre → RAG, aucun candidat ──────────────────────────────
     ("F", "Comment poser mes congés payés ?", "RAG", None, "hors FAQ DFE"),
-    ("F", "Comment réinitialiser mon mot de passe de session ?", "RAG", None,
-     "hors FAQ ; vérifie aussi l'isolation avec le corpus IT"),
-    ("F", "Combien de jours de télétravail par semaine ai-je le droit de faire ?", "RAG", None,
-     "ISOLATION : question du corpus IT posée en domaine DFE, ne doit rien remonter"),
-    ("F", "Quelle est la valeur des tickets restaurant ?", "RAG", None,
-     "ISOLATION : canonique du domaine IT, invisible depuis DFE"),
+    (
+        "F",
+        "Comment réinitialiser mon mot de passe de session ?",
+        "RAG",
+        None,
+        "hors FAQ ; vérifie aussi l'isolation avec le corpus IT",
+    ),
+    (
+        "F",
+        "Combien de jours de télétravail par semaine ai-je le droit de faire ?",
+        "RAG",
+        None,
+        "ISOLATION : question du corpus IT posée en domaine DFE, ne doit rien remonter",
+    ),
+    (
+        "F",
+        "Quelle est la valeur des tickets restaurant ?",
+        "RAG",
+        None,
+        "ISOLATION : canonique du domaine IT, invisible depuis DFE",
+    ),
     ("F", "Quel est le montant de la prime de fin d'année ?", "RAG", None, "hors FAQ"),
 ]
 
@@ -183,34 +259,59 @@ CAS = [
 # garde reçoit le fil **concaténé** (question.py:95). Cette asymétrie est
 # exactement ce que ces cas mettent à l'épreuve.
 PRECISIONS = [
-    ("fil-engagement", "et pour la médecine de prévention ?", "RAG", "F6",
-     "ASYMÉTRIE : précision elliptique, recherche sur 5 mots"),
-    ("fil-engagement", "et si la dépense concerne la médecine de prévention ?", "RAG", "F6",
-     "précision plus explicite, cible F6 et non F1"),
-    ("fil-engagement", "et en monnaie étrangère ?", "RAG", "F3",
-     "ASYMÉTRIE : elliptique, cible F3"),
+    (
+        "fil-engagement",
+        "et pour la médecine de prévention ?",
+        "RAG",
+        "F6",
+        "ASYMÉTRIE : précision elliptique, recherche sur 5 mots",
+    ),
+    (
+        "fil-engagement",
+        "et si la dépense concerne la médecine de prévention ?",
+        "RAG",
+        "F6",
+        "précision plus explicite, cible F6 et non F1",
+    ),
+    ("fil-engagement", "et en monnaie étrangère ?", "RAG", "F3", "ASYMÉTRIE : elliptique, cible F3"),
     # Attendu révisé le 05/09/2026 : « la » se résout sans ambiguïté en « la
     # demande d'engagement » (seul antécédent du fil) et la question devient
     # mot pour mot F3. Servir F3 est la bonne décision.
-    ("fil-engagement", "peut-on la faire en monnaie étrangère ?", "CANONIQUE", "F3",
-     "précision explicite, cible F3"),
-    ("fil-engagement", "comment fait on un engagement de dépense ?", "CANONIQUE", "F1",
-     "précision qui répète la question initiale du fil"),
-    ("fil-engagement", "et pour les congés payés ?", "RAG", None,
-     "DÉRIVE : précision hors sujet dans le fil"),
-    ("fil-facture", "et si ce sont mes frais de déplacement ?", "RAG", "F8",
-     "GRAPPE + ASYMÉTRIE : ne doit surtout pas servir F5"),
+    ("fil-engagement", "peut-on la faire en monnaie étrangère ?", "CANONIQUE", "F3", "précision explicite, cible F3"),
+    (
+        "fil-engagement",
+        "comment fait on un engagement de dépense ?",
+        "CANONIQUE",
+        "F1",
+        "précision qui répète la question initiale du fil",
+    ),
+    ("fil-engagement", "et pour les congés payés ?", "RAG", None, "DÉRIVE : précision hors sujet dans le fil"),
+    (
+        "fil-facture",
+        "et si ce sont mes frais de déplacement ?",
+        "RAG",
+        "F8",
+        "GRAPPE + ASYMÉTRIE : ne doit surtout pas servir F5",
+    ),
     # Attendu révisé le 05/09/2026 : précision autonome, qui ne doit rien au
     # fil (« non plus » n'ajoute aucune condition) et redit F8. Le refus mesuré
     # avant le prompt suivi dédié venait de l'artefact de format, pas d'un doute.
-    ("fil-facture", "mes frais de déplacement ne sont pas remboursés non plus, que faire ?",
-     "CANONIQUE", "F8", "GRAPPE : explicite, cible F8"),
-    ("fil-facture", "à quelle adresse dois-je écrire ?", "RAG", None,
-     "ASYMÉTRIE : précision vide de sens hors du fil"),
-    ("fil-servicefait", "et si la prestation n'a été que partiellement réalisée ?", "RAG", "F10",
-     "GRAPPE : cible F10, jamais F2"),
-    ("fil-servicefait", "comment récupérer le reliquat dans ce cas ?", "RAG", "F10",
-     "cible F10"),
+    (
+        "fil-facture",
+        "mes frais de déplacement ne sont pas remboursés non plus, que faire ?",
+        "CANONIQUE",
+        "F8",
+        "GRAPPE : explicite, cible F8",
+    ),
+    ("fil-facture", "à quelle adresse dois-je écrire ?", "RAG", None, "ASYMÉTRIE : précision vide de sens hors du fil"),
+    (
+        "fil-servicefait",
+        "et si la prestation n'a été que partiellement réalisée ?",
+        "RAG",
+        "F10",
+        "GRAPPE : cible F10, jamais F2",
+    ),
+    ("fil-servicefait", "comment récupérer le reliquat dans ce cas ?", "RAG", "F10", "cible F10"),
     # CAS LIMITE, le plus discutable des quatre attendus révisés le 05/09/2026.
     # « et pour X ? » après « comment fait-on Y ? » reporte le cadre interrogatif
     # sur X : la demande devient F1 mot pour mot, et F1 y répond. Une lecture
@@ -218,8 +319,13 @@ PRECISIONS = [
     # mais elle se dirait autrement. À surveiller : si une ellipse de cette forme
     # produit un jour un service hors cible, c'est ici qu'il faudra ajouter au
     # prompt suivi une clause « en cas de lecture multiple, réponds NON ».
-    ("fil-servicefait", "et pour un engagement de dépense ?", "CANONIQUE", "F1",
-     "ELLIPSE : bascule de sujet dans le fil, le garde voit le fil entier"),
+    (
+        "fil-servicefait",
+        "et pour un engagement de dépense ?",
+        "CANONIQUE",
+        "F1",
+        "ELLIPSE : bascule de sujet dans le fil, le garde voit le fil entier",
+    ),
 ]
 
 
@@ -279,10 +385,7 @@ def evaluer(db, question: str, ticket_id=None) -> dict:
             question_indexee = reponse.question_suivi or (ticket_source.question if ticket_source else None)
         res["question_indexee"] = question_indexee
         a_comparer = requete_recherche if est_suivi else question  # question.py:95
-        verdict = bool(
-            question_indexee
-            and garde_cache.approuver(a_comparer, question_indexee, est_suivi=est_suivi)
-        )
+        verdict = bool(question_indexee and garde_cache.approuver(a_comparer, question_indexee, est_suivi=est_suivi))
         res["verdict_garde"] = verdict
         # Refus du garde → SUGGESTION (question.py), sauf si le candidat n'est
         # entré que par la porte lexicale : il repart alors au RAG.
@@ -321,8 +424,10 @@ def passe_a() -> list[dict]:
             r.update(famille=famille, attendu=attendu, cible_attendue=cible, commentaire=commentaire)
             r["ok"] = r["branche"] == attendu
             resultats.append(r)
-            print(f"          → {r['branche']:<10} (attendu {attendu}) "
-                  f"candidat={r['candidat']} score={r['score_candidat']} juge={r['appels_juge']}")
+            print(
+                f"          → {r['branche']:<10} (attendu {attendu}) "
+                f"candidat={r['candidat']} score={r['score_candidat']} juge={r['appels_juge']}"
+            )
             time.sleep(PAUSE)
 
         for cle_fil, precision, attendu, cible, commentaire in PRECISIONS:
@@ -333,8 +438,10 @@ def passe_a() -> list[dict]:
             r.update(famille="D", attendu=attendu, cible_attendue=cible, commentaire=commentaire, fil=cle_fil)
             r["ok"] = r["branche"] == attendu
             resultats.append(r)
-            print(f"          → {r['branche']:<10} (attendu {attendu}) "
-                  f"candidat={r['candidat']} score={r['score_candidat']} juge={r['appels_juge']}")
+            print(
+                f"          → {r['branche']:<10} (attendu {attendu}) "
+                f"candidat={r['candidat']} score={r['score_candidat']} juge={r['appels_juge']}"
+            )
             time.sleep(PAUSE)
     finally:
         db.close()
@@ -356,9 +463,11 @@ def rapporter(resultats: list[dict]) -> None:
         print(f"\n── Famille {famille} — {ok}/{len(lot)} conformes " + "─" * 50)
         for r in lot:
             marque = "✅" if r["ok"] else "❌"
-            print(f"  {marque} {r['branche']:<10} att.{r['attendu']:<10} "
-                  f"cand={str(r['candidat']):<5} score={str(r['score_candidat']):<7} "
-                  f"bloc={str(r['bloque_par']):<14} {r['question'][:52]}")
+            print(
+                f"  {marque} {r['branche']:<10} att.{r['attendu']:<10} "
+                f"cand={str(r['candidat']):<5} score={str(r['score_candidat']):<7} "
+                f"bloc={str(r['bloque_par']):<14} {r['question'][:52]}"
+            )
 
     # ── Le résultat qui compte : les faux positifs ────────────────────────────
     # Critère de sûreté **objectif**, indépendant de la colonne `attendu` :
@@ -369,24 +478,27 @@ def rapporter(resultats: list[dict]) -> None:
     # l'est pas — le relire à la lumière du comportement observé reviendrait à
     # blanchir une régression.
     faux_positifs = [
-        r for r in resultats
-        if r["branche"] == "CANONIQUE"
-        and (r["cible_attendue"] is None or r["candidat"] != r["cible_attendue"])
+        r
+        for r in resultats
+        if r["branche"] == "CANONIQUE" and (r["cible_attendue"] is None or r["candidat"] != r["cible_attendue"])
     ]
     faux_negatifs = [r for r in resultats if r["attendu"] == "CANONIQUE" and r["branche"] != "CANONIQUE"]
     ecarts_branche = [r for r in resultats if r["branche"] == "CANONIQUE" and r["attendu"] != "CANONIQUE"]
 
     print("\n" + "=" * 100)
-    print(f"FAUX POSITIFS (servi sans revue une réponse hors cible) : {len(faux_positifs)}"
-          "  ← défauts bloquants")
+    print(f"FAUX POSITIFS (servi sans revue une réponse hors cible) : {len(faux_positifs)}  ← défauts bloquants")
     for r in faux_positifs:
         print(f"  ❌ posée   : {r['question']}")
         print(f"     indexée : {r['question_indexee']}")
-        print(f"     servi {r['candidat']} au lieu de {r['cible_attendue']} "
-              f"· score {r['score_candidat']} · {r['commentaire']}")
+        print(
+            f"     servi {r['candidat']} au lieu de {r['cible_attendue']} "
+            f"· score {r['score_candidat']} · {r['commentaire']}"
+        )
 
-    print(f"\nCANONIQUE non prévus (sur la bonne cible) : {len(ecarts_branche)}"
-          "  ← à réexaminer un par un, pas un défaut en soi")
+    print(
+        f"\nCANONIQUE non prévus (sur la bonne cible) : {len(ecarts_branche)}"
+        "  ← à réexaminer un par un, pas un défaut en soi"
+    )
     for r in ecarts_branche:
         print(f"  ? {r['question'][:70]} → {r['candidat']} @ {r['score_candidat']}")
 
@@ -438,11 +550,7 @@ def passe_b() -> list[dict]:
             job.get(timeout=180)
 
             db.expire_all()
-            ticket = (
-                db.query(Ticket)
-                .filter(Ticket.job_id == uuid.UUID(job.id))
-                .first()
-            )
+            ticket = db.query(Ticket).filter(Ticket.job_id == uuid.UUID(job.id)).first()
             reponse = (
                 db.query(Reponse).filter(Reponse.ticket_id == ticket.id).order_by(Reponse.created_at.desc()).first()
                 if ticket

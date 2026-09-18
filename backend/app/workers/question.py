@@ -48,6 +48,7 @@ def _on_failure_question_job(self, exc, task_id, args, kwargs, einfo):
     if not ticket_id:
         return
     import uuid as _uuid
+
     try:
         db = SessionLocal()
         try:
@@ -109,7 +110,10 @@ def question_job(
             # l'autre, donc lire les journaux exige de voir les deux.
             logger.debug(
                 "#%d cosinus=%.4f lexical=%.2f/terme source=%s",
-                i + 1, chunk["score_cosinus"], chunk.get("score_lexical", 0.0), chunk["source"],
+                i + 1,
+                chunk["score_cosinus"],
+                chunk.get("score_lexical", 0.0),
+                chunk["source"],
             )
 
         top_score = chunks[0]["score_cosinus"] if chunks else 0.0

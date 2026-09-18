@@ -77,11 +77,17 @@ def test_formulation_supplementaire_ecrit_un_point_distinct(_albert_muet):
     from app.workers import feedback as module
 
     source = SimpleNamespace(
-        id=uuid.uuid4(), ticket_id=uuid.uuid4(), contenu="réponse", contenu_corrige=None,
+        id=uuid.uuid4(),
+        ticket_id=uuid.uuid4(),
+        contenu="réponse",
+        contenu_corrige=None,
         question_suivi=None,
     )
     copie = SimpleNamespace(
-        id=uuid.uuid4(), ticket_id=uuid.uuid4(), contenu="réponse", contenu_corrige=None,
+        id=uuid.uuid4(),
+        ticket_id=uuid.uuid4(),
+        contenu="réponse",
+        contenu_corrige=None,
         question_suivi=None,
     )
     ticket_source = SimpleNamespace(domaine="RH", question="Comment poser un congé ?")
@@ -134,11 +140,17 @@ def test_l_alias_est_soumis_au_garde_avant_d_etre_ecrit(_albert_muet, decision, 
     from app.workers import feedback as module
 
     source = SimpleNamespace(
-        id=uuid.uuid4(), ticket_id=uuid.uuid4(), contenu="réponse", contenu_corrige=None,
+        id=uuid.uuid4(),
+        ticket_id=uuid.uuid4(),
+        contenu="réponse",
+        contenu_corrige=None,
         question_suivi=None,
     )
     copie = SimpleNamespace(
-        id=uuid.uuid4(), ticket_id=uuid.uuid4(), contenu="réponse", contenu_corrige=None,
+        id=uuid.uuid4(),
+        ticket_id=uuid.uuid4(),
+        contenu="réponse",
+        contenu_corrige=None,
         question_suivi=None,
     )
     ticket_source = SimpleNamespace(domaine="RH", question="Le télétravail est-il autorisé ?")
@@ -260,8 +272,7 @@ def test_la_specifique_pertinente_bat_la_canonique_generale_lointaine():
         db,
         [
             point(generale, SEUIL_COSINUS + 0.01, 0.010, "Le télétravail est-il autorisé ?"),
-            point(specifique, SEUIL_COSINUS + 0.15, 0.030,
-                  "Le télétravail est-il possible pour les alternants ?"),
+            point(specifique, SEUIL_COSINUS + 0.15, 0.030, "Le télétravail est-il possible pour les alternants ?"),
         ],
     )
 
@@ -315,10 +326,18 @@ def test_le_garde_juge_la_question_du_point_qui_a_matche():
     db.query.return_value.filter.return_value.all.return_value = [reponse]
 
     chunks = [
-        {"reponse_id": str(reponse.id), "score_cosinus": SEUIL_SUGGESTION + 0.01,
-         "score_rrf": 0.01, "question_indexee": "Comment poser un congé ?"},
-        {"reponse_id": str(reponse.id), "score_cosinus": SEUIL_SUGGESTION + 0.10,
-         "score_rrf": 0.02, "question_indexee": "Quelle démarche pour un congé ?"},
+        {
+            "reponse_id": str(reponse.id),
+            "score_cosinus": SEUIL_SUGGESTION + 0.01,
+            "score_rrf": 0.01,
+            "question_indexee": "Comment poser un congé ?",
+        },
+        {
+            "reponse_id": str(reponse.id),
+            "score_cosinus": SEUIL_SUGGESTION + 0.10,
+            "score_rrf": 0.02,
+            "question_indexee": "Quelle démarche pour un congé ?",
+        },
     ]
 
     candidat = trouver_reponse_reutilisable(db, chunks)
@@ -358,9 +377,7 @@ def test_refus_du_garde_sert_une_suggestion_sans_relancer_le_rag():
     from app.services.garde_cache import Decision
     from app.workers.question import SEUIL_COSINUS, question_job
 
-    reponse = SimpleNamespace(
-        id=uuid.uuid4(), ticket_id=uuid.uuid4(), canonique=True, a_relire=False, nb_validations=3
-    )
+    reponse = SimpleNamespace(id=uuid.uuid4(), ticket_id=uuid.uuid4(), canonique=True, a_relire=False, nb_validations=3)
 
     question_job.push_request(id=str(uuid.uuid4()), retries=0)
     try:
@@ -369,9 +386,7 @@ def test_refus_du_garde_sert_une_suggestion_sans_relancer_le_rag():
             patch("app.workers.question.search_hybrid", return_value=[]),
             patch(
                 "app.workers.question.trouver_reponse_reutilisable",
-                return_value=Candidat(
-                    reponse, SEUIL_COSINUS + 0.05, SEUIL_COSINUS + 0.05, "Comment poser un congé ?"
-                ),
+                return_value=Candidat(reponse, SEUIL_COSINUS + 0.05, SEUIL_COSINUS + 0.05, "Comment poser un congé ?"),
             ),
             patch("app.workers.question.statuer", return_value=Decision(verdict=False)),
             patch("app.workers.question.journaliser_garde"),
