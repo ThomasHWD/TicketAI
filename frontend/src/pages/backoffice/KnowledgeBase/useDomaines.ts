@@ -7,9 +7,7 @@ export function useDomaines() {
 
   return {
     isAdmin,
-    /** Domaines listables — restreint aux groupes de l'utilisateur, admin compris. */
     visibles: userDomaines as Domaine[],
-    /** Domaines où l'utilisateur peut créer, mettre à jour et supprimer. */
     inscriptibles: userDomaines as Domaine[],
   };
 }

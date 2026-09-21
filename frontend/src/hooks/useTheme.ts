@@ -8,11 +8,7 @@ function readTheme(): Theme {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-/**
- * Gère le thème clair/sombre : bascule la classe `dark` sur <html> et
- * persiste le choix dans localStorage. L'application initiale se fait dans
- * index.html (anti-flash) ; ce hook garde React synchronisé.
- */
+/** Manages light/dark theme. Initial application is in index.html (anti-flash); this hook keeps React synchronized. */
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(readTheme);
 

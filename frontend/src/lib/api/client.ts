@@ -30,14 +30,7 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/**
- * `detail` brut du corps d'erreur.
- *
- * Une chaîne pour les erreurs à afficher telles quelles, un objet pour les
- * erreurs *actionnables* dont le front doit exploiter les champs (ex. le 409
- * `DOCUMENT_HOMONYME`, qui porte le `doc_id` à mettre à jour). `null` si le
- * corps n'est pas du JSON.
- */
+/** Raw `detail` from the error body — string for display-only, object for actionable errors (e.g. 409 `DOCUMENT_HOMONYME`), null if not JSON. */
 export async function readApiErrorDetail(res: Response): Promise<unknown> {
   try {
     return (await res.json())?.detail ?? null;

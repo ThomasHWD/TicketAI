@@ -7,8 +7,6 @@ import { soumettresuggestion } from "../../lib/api";
 const MIN_LENGTH = 10;
 const MAX_LENGTH = 2000;
 
-// ─── Success state ────────────────────────────────────────────────────────────
-
 function SuccessView({ onReset }: { onReset: () => void }) {
   const navigate = useNavigate();
 
@@ -54,8 +52,6 @@ function SuccessView({ onReset }: { onReset: () => void }) {
     </div>
   );
 }
-
-// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function SuggestionBox() {
   const [contenu, setContenu] = useState("");

@@ -145,23 +145,16 @@ export function useDashboard() {
   }
 
   return {
-    // URL-derived state
     onglet, periode, domaine, filterDomaine,
-    // UI state
     refreshing, refreshError, lastUpdated, analyticsOpen, onboardingDismissed,
-    // Queries
     stats, statsLoading, statsError,
     docsData, docsLoading, docsError,
     pendingLoading, pendingError,
-    // Derived
     pendingCount, assignedCount, isDataStale, variationLabel,
-    // Helpers
     assignedColorClass, formatLastUpdated,
-    // Actions
     handleRefresh, dismissOnboarding, showOnboarding, toggleAnalytics,
     setPeriode, setDomaine, setOnglet,
     queryClient,
-    // Pass-through
     userDomaines,
   };
 }

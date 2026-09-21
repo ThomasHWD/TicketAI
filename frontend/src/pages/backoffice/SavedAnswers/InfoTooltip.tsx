@@ -38,9 +38,7 @@ export default function InfoTooltip({ content, size = 12, className = "" }: Prop
     setState((s) => ({ ...s, open: false }));
   }
 
-  // Runs after every render; guard prevents infinite loop.
-  // Measures the tooltip box and clamps its position within the viewport,
-  // then shifts the arrow so it still points at the trigger.
+  // Guard prevents infinite loop — clamps tooltip to viewport and shifts arrow to stay pointed at trigger.
   useLayoutEffect(() => {
     if (!state.open || state.measured || !tooltipRef.current) return;
     const t = tooltipRef.current.getBoundingClientRect();

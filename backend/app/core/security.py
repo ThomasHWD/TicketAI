@@ -1,10 +1,4 @@
-"""JWT + dépendances d'authentification FastAPI.
-
-Après validation LDAP, on émet un JWT (``sub`` = id utilisateur, claim ``role``).
-Les endpoints protégés récupèrent l'utilisateur courant via ``get_current_user``,
-qui décode le token et charge le ``User`` en base. L'identité fait ainsi autorité
-côté serveur : elle ne provient plus du corps de la requête.
-"""
+"""JWT auth for FastAPI. User identity is authoritative server-side from the token — never derived from the request"""
 
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -29,19 +23,16 @@ _CREDENTIALS_EXC = HTTPException(
 
 
 def create_access_token(user_id: uuid.UUID | str, role: str) -> str:
-    """Émet un JWT signé pour l'utilisateur donné."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {"sub": str(user_id), "role": role, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
 def decode_token(token: str) -> dict:
-    """Décode et vérifie la signature/expiration d'un JWT. Lève ``JWTError`` sinon."""
     return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
 
 
 def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> User:
-    """Dépendance FastAPI : renvoie l'utilisateur authentifié ou lève 401."""
     try:
         payload = decode_token(token)
         user_id = payload.get("sub")
@@ -64,7 +55,6 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> User:
 def require_admin(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    """Réserve une route aux administrateurs."""
     if current_user.role != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -76,7 +66,6 @@ def require_admin(
 def require_backoffice(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    """Réserve une route aux membres backoffice (au moins un groupe) ou aux admins."""
     if current_user.role != "ADMIN" and not current_user.groupes:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -44,8 +44,6 @@ async def recheminer_ticket(ticket_id: str, payload: RecheminerRequest, current_
         user_id = ticket.user_id
         question = ticket.question
 
-        # Supprimer la réponse EN_ATTENTE éventuelle : générée sur le mauvais domaine,
-        # elle n'a aucune valeur et ne doit pas apparaître dans le fil du nouveau service.
         has_suivi = (
             db.query(Reponse)
             .filter(Reponse.ticket_id == tid, Reponse.question_suivi.isnot(None))
@@ -88,7 +86,6 @@ async def recheminer_ticket(ticket_id: str, payload: RecheminerRequest, current_
     finally:
         db.close()
 
-    # Relancer le pipeline sur le bon domaine, comme si la question avait été posée là dès le départ.
     question_job.apply_async(
         args=[question, nouveau_domaine, str(user_id) if user_id else None],
         kwargs={"ticket_id": ticket_id, "retraiter": True},

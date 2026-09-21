@@ -55,13 +55,11 @@ function Layout() {
   );
 }
 
-/** Redirection vers la base de connaissances, `?q=` compris. */
 function RedirigerVersBase() {
   const { search } = useLocation();
   return <Navigate to={`/base-de-connaissances${search}`} replace />;
 }
 
-/** Barrière d'authentification : redirige vers /login si non connecté. */
 function ProtectedRoute() {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
@@ -72,7 +70,6 @@ function ProtectedRoute() {
   return <Outlet />;
 }
 
-/** Barrière admin : redirige vers / si l'utilisateur n'est pas ADMIN. */
 function AdminRoute() {
   const { user } = useAuth();
   if (user?.role !== "ADMIN") {
@@ -81,13 +78,11 @@ function AdminRoute() {
   return <Outlet />;
 }
 
-/** Redirige les users lambda vers leur espace personnel, affiche le dashboard backoffice pour les autres. */
 function RootPage() {
   const { isBackoffice } = useAuth();
   return isBackoffice ? <Dashboard /> : <Navigate to="/mon-espace" replace />;
 }
 
-/** Barrière backoffice : accessible uniquement si l'utilisateur est dans au moins un groupe. */
 function BackofficeRoute() {
   const { userDomaines, user } = useAuth();
   if (userDomaines.length === 0 && user?.role !== "ADMIN") {
@@ -112,7 +107,6 @@ export default function App() {
     return () => window.removeEventListener("ticketai:maintenance", handler);
   }, []);
 
-  // Réinitialise le flag d'événement dès que le serveur confirme la fin de maintenance
   useEffect(() => {
     if (maintenanceData?.active === false && maintenanceEvent) {
       setMaintenanceEvent(false);

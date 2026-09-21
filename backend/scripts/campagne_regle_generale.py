@@ -529,16 +529,20 @@ def demander_suivi(db, ticket_id: str, texte: str) -> dict:
     job_id = uuid.UUID(job.id)
 
     def abouti():
+        """ÉCHOUÉ n'est pas terminal — même traitement que dans `demander`.
+
+        Un 429 écrit statut_job=ÉCHOUÉ puis question_job se rejoue 60 s plus
+        tard et aboutit avec une nouvelle Reponse. S'arrêter sur ÉCHOUÉ
+        produisait systématiquement « aucune réponse de suivi » dès que le
+        rate-limit d'Albert était atteint en cours de campagne.
+        """
         db.expire_all()
         nouvelles = [
             r
             for r in db.query(Reponse).filter(Reponse.ticket_id == tid).order_by(Reponse.created_at).all()
             if r.id not in avant
         ]
-        if nouvelles:
-            return nouvelles[-1]
-        t = db.query(Ticket).filter(Ticket.id == tid).first()
-        return t if t and t.statut_job == "ÉCHOUÉ" else None
+        return nouvelles[-1] if nouvelles else None
 
     r = attendre(abouti, 420, f"suivi « {extrait(texte, 50)} »")
     if r is None or isinstance(r, Ticket):
@@ -686,6 +690,63 @@ def tableau_reponses(db) -> None:
 
 
 # ── phases ──────────────────────────────────────────────────────────────
+
+
+def phase_nettoyer(db) -> None:
+    """Efface toutes les données du domaine T5 pour repartir d'un état vierge.
+
+    Ordre des suppressions : FK-safe (chunks → réponses → tickets / versions →
+    documents). Les points Qdrant sont supprimés en une seule requête filtrée
+    sur `domaine`, ce qui couvre chunks *et* points-réponses.
+
+    Les fichiers d'état et de relevé sont aussi effacés pour que la prochaine
+    exécution de `--phase tout` parte d'une ardoise propre.
+    """
+    from app.models.document_version import DocumentVersion
+    from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+    titre("PHASE 0 — nettoyage du domaine T5")
+
+    # ── Qdrant ──────────────────────────────────────────────────────────
+    client.delete(
+        collection_name=COLLECTION_NAME,
+        points_selector=Filter(
+            must=[FieldCondition(key="domaine", match=MatchValue(value=DOMAINE))]
+        ),
+    )
+    print("  points Qdrant supprimés", flush=True)
+
+    # ── Postgres ─────────────────────────────────────────────────────────
+    ticket_ids = [t.id for t in db.query(Ticket.id).filter(Ticket.domaine == DOMAINE)]
+    if ticket_ids:
+        reponse_ids = [r.id for r in db.query(Reponse.id).filter(Reponse.ticket_id.in_(ticket_ids))]
+        if reponse_ids:
+            db.query(ReponseChunk).filter(ReponseChunk.reponse_id.in_(reponse_ids)).delete(
+                synchronize_session=False
+            )
+        db.query(GardeDecision).filter(GardeDecision.ticket_id.in_(ticket_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(Reponse).filter(Reponse.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
+        db.query(Ticket).filter(Ticket.domaine == DOMAINE).delete(synchronize_session=False)
+
+    doc_ids = [d.doc_id for d in db.query(Document.doc_id).filter(Document.domaine == DOMAINE)]
+    if doc_ids:
+        db.query(DocumentVersion).filter(DocumentVersion.doc_id.in_(doc_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(Document).filter(Document.domaine == DOMAINE).delete(synchronize_session=False)
+
+    db.commit()
+    print(f"  Postgres : {len(ticket_ids)} tickets, {len(doc_ids)} documents supprimés", flush=True)
+
+    # ── fichiers d'état ───────────────────────────────────────────────────
+    for chemin in (ETAT, RELEVE):
+        if os.path.exists(chemin):
+            os.remove(chemin)
+            print(f"  {chemin} supprimé", flush=True)
+
+    constat(True, "domaine T5 nettoyé — ardoise vierge pour `--phase tout`")
 
 
 def phase_1(db) -> None:
@@ -1778,6 +1839,7 @@ def bilan() -> int:
 
 
 PHASES = {
+    "0": phase_nettoyer,
     "1": phase_1,
     "2": phase_2,
     "3": phase_3,
@@ -1799,12 +1861,19 @@ PHASES = {
 # 14 ferment la marche parce qu'elles ouvrent des lignées neuves (hôtel,
 # justificatifs) : jouées plus tôt, elles peupleraient le corpus de points que
 # les phases de cannibalisation n'ont pas prévus.
+# La phase 0 (nettoyage) n'est PAS dans ORDRE : `--phase tout` ne wipe jamais
+# les données silencieusement. Pour une campagne fraîche, lancer d'abord
+# `--phase 0` puis `--phase tout`.
 ORDRE = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", required=True, help="1..14, « tout », ou une liste « 4,5,6 »")
+    parser.add_argument(
+        "--phase",
+        required=True,
+        help="0 (nettoyage), 1..14, « tout » (1→14), ou une liste « 4,5,6 »",
+    )
     parser.add_argument("--etat", action="store_true", help="affiche l'état du domaine et sort")
     args = parser.parse_args()
 

@@ -13,6 +13,15 @@ sait déjà, et est-ce toujours vrai ?*
 
 ## 1. Les trois onglets
 
+### Pourquoi on fait ça
+
+Centraliser toute la mémoire accumulée du système en un seul endroit, avec une séparation
+claire entre ce qui est sûr de servir (*Canoniques*), ce qui est suspect (*À relire*), et
+ce qui a été retiré (*Obsolètes*). Sans ce tableau de bord, il serait impossible de savoir
+ce que le système sert en ce moment ni d'intervenir dessus.
+
+### Comment ça fonctionne
+
 ```mermaid
 flowchart LR
     A[Réponse validée<br/>nb_validations ≥ seuil] --> B[CANONIQUES<br/>servies automatiquement]
@@ -29,24 +38,25 @@ flowchart LR
 | **À relire** | Un document source a changé, **ou un document neuf vient les contredire**, et la machine n'a pas su trancher | **Plus sans relecteur.** Elles restent *proposées*, en SUGGESTION, et disparaissent de *Questions fréquentes* tant que le drapeau tient |
 | **Obsolètes** | Réponses retirées du service | **Non**, retirées de Qdrant |
 
-La distinction *À relire* / *Obsolète* est la plus importante de cette page, et elle n'est
-**pas** « servie » contre « retirée » — c'est **servie sans revue** contre **détruite**.
+### Détails techniques
+
+La distinction *À relire* / *Obsolète* est fondamentale et elle n'est **pas** « servie »
+contre « retirée » — c'est **servie sans revue** contre **détruite**.
 
 Un signalement « à relire » **ne retire rien et ne supprime rien** : la réponse reste
 proposée aux relecteurs, son compteur `nb_validations` est intact, et elle s'amende en un
-seul geste (« Modifier »). Ce qu'elle perd, c'est le privilège de la branche CANONIQUE —
-être servie à un employé sans que personne ne la relise — et la page *Questions fréquentes*,
-qui n'a aucun relecteur pour rattraper une erreur. Elle retrouve les deux dès que le drapeau
-est levé.
+seul geste (« Modifier »). Ce qu'elle perd, c'est le privilège de la branche CANONIQUE
+et la page *Questions fréquentes*, qui n'a aucun relecteur pour rattraper une erreur. Elle
+retrouve les deux dès que le drapeau est levé.
 
-> Pourquoi ce n'est pas « on la laisse servir » : le système vient de soupçonner qu'un
-> document la contredit, et l'invariant du produit est de **ne jamais servir une réponse
-> fausse**, même au prix de travail supplémentaire pour les validateurs.
+> Pourquoi pas « on la laisse servir » : le système vient de soupçonner qu'un document la
+> contredit, et l'invariant du produit est de **ne jamais servir une réponse fausse**, même
+> au prix de travail supplémentaire pour les validateurs.
 >
-> Pourquoi ce n'est pas non plus « on la détruit » : le lien n'est qu'une proximité
-> vectorielle entre un paragraphe et une question. Un `CONTREDITE` erroné retirerait en
-> silence une bonne canonique, et la remettre en service coûterait trois revalidations pour
-> un état final identique. **Suspendre coûte une relecture et ne détruit rien.**
+> Pourquoi pas non plus « on la détruit » : le lien n'est qu'une proximité vectorielle entre
+> un paragraphe et une question. Un `CONTREDITE` erroné retirerait en silence une bonne
+> canonique, et la remettre en service coûterait trois revalidations pour un état final
+> identique. **Suspendre coûte une relecture et ne détruit rien.**
 
 ![L'onglet Canoniques et ses réponses réutilisables](../images/23-reponses-canoniques.png)
 
@@ -58,16 +68,43 @@ propre compteur — ici 1 réponse à relire et 1 obsolète.
 
 ## 2. L'onglet Canoniques
 
-`GET /reponses/canoniques`
+### Pourquoi on fait ça
 
-### Ce qui est listé
+Piloter ce que le système sert automatiquement : corriger une réponse devenue inexacte,
+la retirer, gérer sa visibilité dans la FAQ publique, ou s'assurer que les tags sont
+cohérents pour que la recherche reste utilisable.
 
-Uniquement les **réponses sources** : celles dont `reponse_source_id` est vide, non
-obsolètes, avec `canonique = true`. Les copies SUGGESTION créées au fil des tickets ne
-sont pas listées — elles pointent toutes vers la même source, et c'est la source qui
-porte le compteur `nb_validations`.
+### Comment ça fonctionne
 
-Chaque ligne affiche :
+L'onglet liste toutes les réponses canoniques du domaine. Vous pouvez les filtrer par
+domaine (si vous en gérez plusieurs), par tag thématique, et par recherche textuelle.
+
+Le sélecteur de tri en haut à droite offre deux ordres :
+
+| Ordre | Comportement |
+|---|---|
+| **Date** (défaut) | Date de dernière validation, décroissante |
+| **Fois servie** | Nombre d'occurrences, décroissant — met en tête les réponses les plus sollicitées |
+
+Sur chaque ligne, un badge **FAQ** indique si la réponse apparaît dans la page *Questions
+fréquentes*. Cliquer sur ce badge bascule la visibilité immédiatement, sans confirmation.
+
+Les trois actions disponibles sur une réponse canonique :
+
+| Action | Ce qu'elle fait |
+|---|---|
+| **Éditer** | Réécrire le contenu de la réponse et la réindexer |
+| **Badge FAQ** | Inclure ou retirer la réponse de la page FAQ publique |
+| **Supprimer** | Suppression définitive et irréversible de toute la famille |
+
+### Détails techniques
+
+Endpoint : `GET /reponses/canoniques`.
+Seules les **réponses sources** sont listées : celles dont `reponse_source_id` est vide,
+non obsolètes, avec `canonique = true`. Les copies SUGGESTION pointent toutes vers leur
+source, qui porte le compteur `nb_validations`.
+
+Champs affichés :
 
 | Champ | Signification |
 |---|---|
@@ -78,214 +115,137 @@ Chaque ligne affiche :
 | `faq_visible` | Si la réponse apparaît dans la page FAQ (badge **FAQ** cliquable) |
 | `a_relire` | Si un signalement est en cours sur cette réponse |
 
-Tri configurable via le sélecteur en haut à droite :
-
-| Ordre | Comportement |
-|---|---|
-| **Date** (défaut) | Date de dernière validation, décroissante |
-| **Fois servie** | Nombre d'occurrences, décroissant — met en tête les réponses les plus sollicitées |
-
-Recherche (`q`) sur la question du ticket et sur la question de suivi. Pagination classique.
-
-### Filtres
-
-La barre de filtres apparaît uniquement sur l'onglet Canoniques (les deux autres onglets
-n'ont pas de tags).
-
-**Domaine** — visible seulement si l'utilisateur appartient à plusieurs domaines. Permet
-de restreindre la liste à un domaine précis ; changer de domaine réinitialise le filtre
-tag.
-
-**Tag** — combobox déroulant alimenté par `GET /tags?canoniques=true&domaine=<d>`.
-N'affiche que les tags effectivement utilisés sur des réponses canoniques non obsolètes du
-domaine sélectionné. La liste est fraîche à chaque ouverture de l'onglet (pas de cache
-côté client) et se met à jour en temps réel via SSE lorsqu'une réponse est validée,
-corrigée, rejetée ou modifiée.
-
-Au-delà de 5 tags disponibles, un champ de recherche apparaît en tête de liste. La
-sélection d'un tag filtre la liste et affiche un bouton ✕ pour effacer le filtre sans
-rouvrir le combobox. Sélectionner le tag déjà actif le désélectionne.
-
-### Tags — génération automatique
-
-Chaque réponse reçoit un **tag thématique** au moment où la question est traitée par le
-pipeline, avant toute validation humaine. Le tag est produit par un appel LLM distinct
-(`GET /tags?canoniques=true` → `suggerer_tag`) :
-
-```
-Question + contenu de la réponse (800 premiers caractères)
-    + liste des tags déjà utilisés dans le domaine
-  ──────────────────────────────────────────────────
-  → tag : 1 à 3 mots, lettres et espaces uniquement
-```
-
-Le modèle reçoit deux consignes complémentaires :
-
-1. **Nommer la catégorie thématique, pas l'objet précis de la question** — exemples
-   contrastés fournis dans le prompt (`"perte carte Swile"` → `"ticket restaurant"`, pas
-   `"Carte Swile"`).
-2. **Réutiliser un tag existant s'il convient** — la liste des tags déjà en production
-   pour ce domaine est injectée dans le contexte. Le modèle en crée un nouveau uniquement
-   si aucun existant ne couvre le thème.
-
-Ce mécanisme converge progressivement : les premiers tickets créent le vocabulaire, les
-suivants le consolident. Il n'y a pas de liste fermée imposée a priori — un thème nouveau
-produit un tag nouveau.
-
-Le tag est nettoyé après génération : les caractères spéciaux (`"`, `'`, `-`, `/`…) sont
-remplacés par des espaces, les espaces multiples normalisés, la longueur plafonnée à 100
-caractères. Si l'appel LLM échoue, `tag = null` et la réponse reste non taguée.
-
-Le tag peut être modifié manuellement depuis le backoffice via `PATCH /reponses/{id}/tag`.
-
-### Les actions
+Actions et endpoints :
 
 | Action | Endpoint | Effet |
 |---|---|---|
-| **Badge FAQ** | `PATCH /reponses/{id}/faq-visible` | Bascule `faq_visible` : inclut ou retire la réponse de la page FAQ |
-| **Éditer** | `PUT /reponses/{id}/editer` | Réécrit `contenu_corrige`, puis **réindexe** la réponse. Si elle était *à relire*, le drapeau tombe |
-| **Supprimer** | `DELETE /reponses/{id}` | Suppression **définitive**, avec toutes ses copies |
+| **Badge FAQ** | `PATCH /reponses/{id}/faq-visible` | Bascule `faq_visible` |
+| **Éditer** | `PUT /reponses/{id}/editer` | Réécrit `contenu_corrige`, réindexe. Si la réponse était *à relire*, le drapeau tombe |
+| **Supprimer** | `DELETE /reponses/{id}` | Suppression **définitive**, avec toutes ses copies. Les copies `EN_ATTENTE` sont remises dans le pipeline RAG |
 
-#### La visibilité FAQ
+**Tags — filtres et génération automatique**
 
-Chaque réponse canonique porte un badge **FAQ** dans l'en-tête de la ligne. Son état
-indique si la réponse est actuellement visible dans la page *Questions fréquentes* :
+Les tags sont le seul mécanisme de filtrage thématique de cette page. Chaque réponse en
+reçoit un automatiquement au moment du traitement (`GET /tags?canoniques=true` →
+`suggerer_tag`) : le modèle reçoit la question, le contenu et les tags déjà utilisés dans
+le domaine. Il choisit le thème large (`"ticket restaurant"`, pas `"carte Swile"`) et
+réutilise un tag existant si possible.
 
-| État | Couleur | Signification |
-|---|---|---|
-| Actif | Bleu | La réponse apparaît dans la FAQ quand elle correspond à une recherche |
-| Inactif | Gris | La réponse est canonique et servie par le pipeline, mais **absente de la FAQ** |
-
-Cliquer sur le badge bascule l'état immédiatement, sans confirmation. Une réponse
-nouvellement promue au rang canonique est **absente de la FAQ par défaut** — le validateur
-doit l'y inclure explicitement, soit au moment de la première validation (case à cocher
-dans le panneau de confirmation), soit depuis cette page.
-
-La distinction est intentionnelle : toutes les réponses canoniques ne sont pas
-nécessairement utiles à afficher dans un catalogue public — une réponse très spécifique à
-une situation individuelle, par exemple, peut avoir sa place dans le cache sans poluer la FAQ.
-
-L'édition ne touche jamais `contenu` : le texte d'origine produit par l'IA reste en base.
-C'est `contenu_corrige` qui est servi et réindexé.
-
-> **La suppression est irréversible** et emporte toute la *famille* de la réponse (la
-> source et ses copies SUGGESTION). Les copies encore `EN_ATTENTE` sont remises dans le
-> pipeline RAG pour qu'aucun ticket ne reste sans réponse. Pour un retrait réversible,
-> utilisez « retirer » depuis l'onglet À relire.
+Le tag peut être modifié manuellement via `PATCH /reponses/{id}/tag`. La liste de
+complétion dans le formulaire de validation est fraîche à chaque ouverture (pas de cache
+côté client) et se met à jour en temps réel via SSE.
 
 ---
 
 ## 3. L'onglet À relire
 
-`GET /reponses/a-relire`
+### Pourquoi on fait ça
 
-### D'où viennent ces signalements
+Regrouper les réponses que la machine suspecte d'être devenues inexactes ou incomplètes,
+pour qu'un humain tranche. Ce n'est pas un retrait définitif — c'est une mise en suspens
+qui préserve tout le travail accumulé, le temps d'une relecture.
 
-**Deux événements les déclenchent, pas un seul.**
+### Comment ça fonctionne
+
+Deux événements déclenchent un signalement :
 
 1. **Un document est remplacé par une nouvelle version.** Le système compare les deux
    versions et cherche quelles réponses validées pourraient ne plus tenir.
-2. **Un document *neuf* est importé.** Il n'y a alors aucun diff à comparer, mais le
+2. **Un document neuf est importé.** Il n'y a alors aucun diff à comparer, mais le
    nouveau texte peut parfaitement contredire une réponse déjà servie — typiquement quand
-   il **précise** une règle générale (« le télétravail est possible trois jours par
-   semaine » ← « les alternants n'y ont pas droit »). Le système confronte donc les réponses
-   déjà en service aux passages du nouveau document.
+   il *précise* une règle générale (« le télétravail est possible trois jours par semaine »
+   ← « les alternants n'y ont pas droit »).
 
-Le détail complet de ces deux raisonnements est dans
-[Mettre à jour un document](../technique/mise-a-jour-documents.md).
+Les réponses sont groupées par document pour pouvoir traiter une mise à jour d'un bloc.
+Un bandeau résume la situation : *« 1 document concerné — 1 réponse à vérifier (plus
+servies sans relecture jusqu'à votre décision) »*.
 
-Une réponse atterrit ici quand la machine **n'a pas pu conclure seule** :
+**Les trois issues disponibles :**
 
-| Raison | Ce qui s'est passé |
+| Action | Ce qu'elle fait |
 |---|---|
-| `CONTREDITE_PROBABLE` | La réponse ne cite pas le document, mais son sujet est proche d'un passage modifié — **ou d'un passage d'un document neuf** |
-| `DOC_MODIFIÉ` | Le juge LLM a hésité sur une mise à jour de document |
-| `NOUVEAU_DOC` | Le juge LLM a hésité face à un document **neuf**. Même situation, mais il n'y a **pas de diff à afficher** : c'est le document entier qui est nouveau |
-| Panne Albert | L'API n'a pas répondu |
-| Budget épuisé | Trop d'appels nécessaires, ou plus de 40 unités de changement |
+| **Toujours d'actualité** | Le drapeau tombe, la réponse retourne dans Canoniques |
+| **Confirmer tout le lot** | Lève le drapeau sur toutes les réponses signalées par une même version de document |
+| **Modifier** | Réécrit le contenu **et** lève le drapeau en une seule opération — à préférer à « Retirer » quand le fond reste juste mais incomplet |
+| **Retirer** | La réponse passe en Obsolètes et sort de Qdrant |
 
-Le point commun : **aucune de ces situations ne justifie de retirer la réponse**. Un
-humain doit regarder. Sur le chemin d'un document neuf, c'est même une garantie
-structurelle : **aucune réponse ne peut y devenir obsolète**, quelle que soit la sévérité du
-verdict.
+**Le cas le plus fréquent : un document précise une règle déjà couverte**
 
-### Ce que la ligne affiche
-
-L'API joint le document et la version concernés, ce qui permet à l'interface de montrer le
-diff AVANT/APRÈS du passage qui a déclenché le signalement, la justification du juge
-(`analyse_justification`) et les extraits retenus.
-
-Les réponses sont groupées par document (`nb_documents` donne le nombre de documents
-concernés), pour qu'un validateur puisse traiter une mise à jour d'un bloc.
+1. La réponse générale est signalée et quitte Canoniques (mais reste proposée en SUGGESTION).
+2. Préférez **Modifier** à **Retirer** : le document neuf ne rend généralement pas la
+   réponse fausse — il ajoute un cas qu'elle passe sous silence.
+3. La question spécifique ne reçoit plus la réponse générale : le garde refuse la
+   réutilisation, et la question repart dans le pipeline RAG.
+4. La réponse spécifique se crée d'elle-même via trois validations ordinaires.
+5. Les deux coexistent alors, chacune servant sa propre question.
 
 ![L'onglet « À relire », groupé par document](../images/24-reponses-a-relire.png)
 
-Le bandeau rappelle l'essentiel : *« 1 document concerné — 1 réponse concernée à vérifier
-(plus servies sans relecture jusqu'à votre décision) »*. Les réponses sont regroupées
-sous le document qui les a déclenchées, avec un bouton **Tout confirmer** pour traiter le
-lot. Sous chaque réponse figure la justification du juge, puis les trois issues :
-**Toujours d'actualité**, **Modifier**, **Retirer**.
+> La capture ci-dessus est antérieure au 18/09/2026 et porte encore l'ancien libellé.
+> À reprendre à la prochaine campagne de captures (`scripts/captures_doc.py`).
 
-> La capture ci-dessus est antérieure au 18/09/2026 et porte encore l'ancien libellé
-> (« document mis à jour », « servies en l'état »), qui disait le contraire du comportement
-> actuel. À reprendre à la prochaine campagne de captures (`scripts/captures_doc.py`).
+### Détails techniques
 
-### Les trois issues
+Endpoint : `GET /reponses/a-relire`.
 
-| Action | Endpoint | Effet |
-|---|---|---|
-| **Toujours d'actualité** | `POST /reponses/{id}/confirmer-actualite` | Le drapeau tombe, la réponse retourne dans Canoniques |
-| **Confirmer tout le lot** | `POST /reponses/confirmer-actualite` | Lève le drapeau sur **toutes** les réponses signalées par une version de document |
-| **Retirer** | `POST /reponses/{id}/retirer` | La réponse passe en Obsolètes et sort de Qdrant |
-| **Corriger** | `PUT /reponses/{id}/editer` | Réécrit le contenu **et** lève le drapeau en une seule opération |
+Raisons possibles de signalement :
 
-La confirmation en lot est restreinte aux domaines de l'appelant : les réponses des autres
-domaines signalées par le même document ne sont pas touchées.
+| Raison | Ce qui s'est passé |
+|---|---|
+| `CONTREDITE_PROBABLE` | Réponse non citante dont le sujet est proche d'un passage modifié ou d'un document neuf |
+| `DOC_MODIFIÉ` | Le juge LLM a hésité sur une mise à jour de document |
+| `NOUVEAU_DOC` | Le juge LLM a hésité face à un document **neuf** — pas de diff à afficher |
+| Panne Albert | L'API n'a pas répondu |
+| Budget épuisé | Trop d'appels nécessaires, ou plus de 40 unités de changement |
+
+Endpoints des actions :
+
+| Action | Endpoint |
+|---|---|
+| Confirmer (une) | `POST /reponses/{id}/confirmer-actualite` |
+| Confirmer (lot) | `POST /reponses/confirmer-actualite` |
+| Retirer | `POST /reponses/{id}/retirer` |
+| Modifier | `PUT /reponses/{id}/editer` |
 
 Toutes ces actions opèrent sur la **famille** de la réponse (source + copies), jamais sur
-une seule ligne — sinon une copie resterait indexée avec un contenu périmé.
-
-### Le cas le plus fréquent : un document précise une règle déjà couverte
-
-Une note de service arrive sur un sujet que la base traite déjà. Ce qui suit est la
-séquence complète, du signalement aux **deux** réponses canoniques — l'essentiel s'y fait
-sans que vous ayez rien à rédiger.
-
-1. **La réponse générale est signalée** et quitte l'onglet Canoniques : elle reste
-   proposée, mais sous vos yeux, et disparaît de *Questions fréquentes*.
-2. **Préférez « Modifier » à « Retirer ».** Le document neuf ne rend généralement pas la
-   réponse fausse — il ajoute un cas qu'elle passe sous silence. La modifier conserve ses
-   validations en un geste ; la retirer oblige à en accumuler trois nouvelles pour revenir
-   au même point. « Toujours d'actualité » convient aussi lorsque la règle générale se
-   suffit à elle-même : c'est la bonne réponse à la question générale, elle n'a pas à
-   porter l'exception.
-3. **La question spécifique ne reçoit plus la réponse générale.** Avant de réutiliser une
-   réponse enregistrée, le système vérifie que la question posée demande bien la même
-   chose ; ici elle ne le demande pas, donc la question est retraitée depuis les documents
-   — dont celui que vous venez d'importer.
-4. **La réponse spécifique se crée d'elle-même.** Elle arrive dans votre file comme
-   n'importe quelle réponse à valider, et **trois validations ordinaires** la rendent
-   canonique à son tour. Inutile de cliquer « Corriger » pour la rédiger à la main.
-5. **Les deux coexistent alors**, chacune servant sa propre question. Ce n'est pas un
-   doublon à nettoyer.
-
-Le détail technique et les mesures sont dans
-[Quand le corpus bouge](../technique/mise-a-jour-documents.md).
+une seule ligne — sinon une copie resterait indexée avec un contenu périmé. La confirmation
+en lot est restreinte aux domaines de l'appelant.
 
 ---
 
 ## 4. L'onglet Obsolètes
 
-`GET /reponses/obsoletes`
+### Pourquoi on fait ça
 
-Les réponses retirées du service. Elles ne sont plus dans Qdrant et ne seront plus jamais
-resservies, mais **elles restent visibles sur les tickets des employés** : la réponse a
-bien été donnée à l'époque, et la retirer de l'historique réécrirait le passé.
+Conserver une trace de ce qui a existé sans pour autant le servir, et offrir un filet
+de sécurité si la machine a retiré une réponse à tort. L'historique des tickets reste
+intact — l'employé qui a reçu cette réponse peut toujours la relire.
 
-C'est pourquoi l'obsolescence est un **drapeau** (`obsolete = true`) et non une valeur de
-`statut`. Le statut reste `VALIDÉE` ou `CORRIGÉE`.
+### Comment ça fonctionne
 
-Chaque ligne indique :
+L'onglet liste toutes les réponses retirées du service. Sur chaque ligne, vous voyez la
+raison du retrait, le document en cause, et la justification éventuelle du juge LLM.
+
+Un seul geste possible : **Restaurer**. La réponse revient dans Canoniques, réindexée
+dans Qdrant, prête à être resservie. C'est le filet de sécurité du pipeline de mise à
+jour documentaire : si la machine a retiré une réponse à tort, un humain la remet en
+circulation en un clic.
+
+![L'onglet « Obsolètes »](../images/25-reponses-obsoletes.png)
+
+La ligne porte le motif (`contredite`), le nombre de validations conservées, le document
+en cause **avec sa version**, et la justification du juge. Le bandeau résume la règle :
+*« Ces réponses ne sont plus servies. Leurs validations sont conservées — les restaurer
+les remet en service telles quelles. »*
+
+### Détails techniques
+
+Endpoint : `GET /reponses/obsoletes`.
+L'obsolescence est un **drapeau** (`obsolete = true`), pas un statut : le statut reste
+`VALIDÉE` ou `CORRIGÉE`. C'est pourquoi les réponses obsolètes restent visibles sur les
+tickets des employés — la réponse a bien été donnée à l'époque.
+
+Champs affichés :
 
 | Champ | Signification |
 |---|---|
@@ -295,21 +255,8 @@ Chaque ligne indique :
 | `document_supprime` | `true` si le document lui-même n'existe plus |
 | `analyse_justification` | L'explication du juge LLM |
 
-### Restaurer
-
-`POST /reponses/{id}/restaurer` remet la réponse en service : les drapeaux `obsolete`
-**et** `a_relire` sont effacés sur toute la famille, et chaque réponse concernée est
-réindexée dans Qdrant.
-
-C'est le filet de sécurité du pipeline de mise à jour documentaire : si la machine a
-retiré une réponse à tort, un humain la remet en circulation en un clic.
-
-![L'onglet « Obsolètes »](../images/25-reponses-obsoletes.png)
-
-La ligne porte le motif (`contredite`), le nombre de validations conservées, le document
-en cause **avec sa version**, et la justification du juge. Le bandeau résume la règle :
-*« Ces réponses ne sont plus servies. Leurs validations sont conservées — les restaurer
-les remet en service telles quelles. »*
+Restauration : `POST /reponses/{id}/restaurer` — efface les drapeaux `obsolete` **et**
+`a_relire` sur toute la famille, et réindexe dans Qdrant.
 
 ---
 

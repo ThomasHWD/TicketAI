@@ -12,15 +12,9 @@ def rerank(question: str, chunks: list[dict], top_k: int = 3) -> list[dict]:
 
     logger.debug("Envoi de %d chunks à l'API Albert pour reranking", len(chunks))
 
-    # 1. On extrait le texte de chaque chunk — celui qui a été indexé quand il
-    # existe. Un passage isolé peut être référentiellement opaque (« les
-    # intéressés en sont exclus ») : le cross-encoder le classerait dernier sur
-    # une question qui le vise, alors que la recherche vient de le trouver grâce
-    # à son locateur. Repli sur `contenu` : `unites_pertinentes` passe des dicts
-    # bâtis à la main, qui n'ont pas cette clé.
+    # contenu_indexe includes the locator — without it, opaque passages are re-scored without context and ranked last
     documents = [chunk.get("contenu_indexe") or chunk["contenu"] for chunk in chunks]
 
-    # 2. Appel à l'API Albert Rerank avec le bon schéma de payload
     response = requests.post(
         settings.albert_reranker_url,
         headers={
@@ -36,7 +30,6 @@ def rerank(question: str, chunks: list[dict], top_k: int = 3) -> list[dict]:
         timeout=15,
     )
 
-    # Sécurité pour voir le détail de la validation
     if response.status_code == 422:
         logger.error("Erreur de validation Albert (422): %s", response.json())
 
@@ -45,14 +38,10 @@ def rerank(question: str, chunks: list[dict], top_k: int = 3) -> list[dict]:
 
     results = []
 
-    # 3. Extraction selon la réponse officielle d'Albert
-    # Format reçu : {"results": [{"index": 0, "relevance_score": 0.95}, ...]}
     if isinstance(predictions, dict) and "results" in predictions:
         for item in predictions["results"]:
             idx = item["index"]
-            score = item["relevance_score"]  # ✅ Albert utilise 'relevance_score'
-
-            # On reconstruit le chunk d'origine avec son score
+            score = item["relevance_score"]
             chunk_copy = chunks[idx].copy()
             chunk_copy["rerank_score"] = float(score)
             results.append(chunk_copy)

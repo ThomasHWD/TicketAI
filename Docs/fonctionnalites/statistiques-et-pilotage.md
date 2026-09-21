@@ -50,9 +50,39 @@ Chaque carte affiche donc une valeur **et** sa variation par rapport à la péri
 
 ## 3. Le tableau de bord du validateur
 
-`GET /stats/dashboard`, période par défaut : `semaine`.
+### Pourquoi on fait ça
 
-### Les six cartes
+Mesurer l'activité du domaine sur une période pour répondre en un coup d'œil à : *est-ce
+que la file se vide ? Le système répond-il de plus en plus automatiquement ? Les délais
+sont-ils acceptables ?* C'est le point de départ du pilotage quotidien.
+
+### Comment ça fonctionne
+
+La page d'accueil `/` s'ouvre sur six cartes. La plus importante est **Répondu canonique**
+— elle indique le pourcentage de questions auxquelles personne n'a eu à répondre
+manuellement. Elle monte à mesure que la base de réponses validées s'enrichit.
+
+Pour voir les graphiques et la répartition par branche, cliquez **Afficher les analytiques** :
+un anneau montre la distribution des tickets entre les quatre issues possibles (CANONIQUE /
+SUGGESTION / LLM / HORS_DOMAINE), et une courbe montre l'évolution du volume par jour.
+
+> **Lire l'anneau :**
+> - Beaucoup de `HORS_DOMAINE` ⇒ le corpus a des trous — voir les [angles morts](base-de-connaissances.md#6-les-angles-morts).
+> - Beaucoup de `LLM` ⇒ les questions sont variées, ou la base de réponses est encore jeune.
+> - Beaucoup de `CANONIQUE` ⇒ le système fait son travail.
+
+Le sélecteur de période (semaine / mois / année) et le filtre domaine sont en haut de page.
+Un voyant indique quand les données ont été chargées pour la dernière fois.
+
+![Le tableau de bord du validateur](../images/21-dashboard.png)
+
+> 📸 **[CAPTURE D'ÉCRAN COMPLÉMENTAIRE]** : *Le bloc « analytiques » déplié sur une instance chargée : anneau de répartition des branches, courbe des tickets par jour, carte satisfaction.*
+
+### Détails techniques
+
+Endpoint : `GET /stats/dashboard` (période par défaut : `semaine`).
+
+**Les six cartes :**
 
 | Carte | Ce qu'elle compte |
 |---|---|
@@ -63,29 +93,7 @@ Chaque carte affiche donc une valeur **et** sa variation par rapport à la péri
 | **Temps de première réponse** | Délai moyen entre création et première réponse |
 | **Temps de clôture** | Délai moyen entre création et clôture |
 
-La carte **Répondu canonique** est l'indicateur de valeur du produit : c'est la proportion
-de questions auxquelles personne n'a eu à répondre. Elle monte à mesure que la base de
-réponses validées s'enrichit.
-
-### La répartition par branche
-
-Un anneau montre comment se répartissent les tickets entre les quatre issues possibles :
-
-| Branche | Signification |
-|---|---|
-| `CANONIQUE` | Servie automatiquement, sans revue humaine |
-| `SUGGESTION` | Réponse validée réutilisée, mais revue humaine requise |
-| `LLM` | Génération RAG complète, revue humaine requise |
-| `HORS_DOMAINE` | L'IA n'a pas trouvé l'information dans le corpus |
-
-C'est la lecture la plus instructive du tableau de bord :
-
-- Beaucoup de `HORS_DOMAINE` ⇒ **le corpus a des trous.** Allez voir
-  [les angles morts](base-de-connaissances.md#6-les-angles-morts).
-- Beaucoup de `LLM` ⇒ les questions sont variées, ou la base de réponses est encore jeune.
-- Beaucoup de `CANONIQUE` ⇒ le système fait son travail.
-
-### Les autres blocs
+**Autres blocs :**
 
 | Bloc | Contenu |
 |---|---|
@@ -93,22 +101,37 @@ C'est la lecture la plus instructive du tableau de bord :
 | **Tickets par jour** | Courbe d'activité (agrégée par mois quand la période est `annee`) |
 | **Temps de traitement par jour** | Évolution des délais |
 | **Derniers tickets** | Les 5 plus récents, avec la branche empruntée |
-| **Satisfaction** | Moyennes des notes (voir ci-dessous) |
-
-![Le tableau de bord du validateur](../images/21-dashboard.png)
-
-On y voit la file d'attente en tête (« 1 ticket en attente de validation »), puis les
-indicateurs de la période avec leur variation. Les graphiques et la répartition par
-branche se déplient via **Afficher les analytiques**.
-
-> 📸 **[CAPTURE D'ÉCRAN COMPLÉMENTAIRE]** : *Le bloc « analytiques » déplié sur une instance chargée : anneau de répartition des branches, courbe des tickets par jour, carte satisfaction. L'instance de test n'a pas assez de volume pour que ces graphiques soient parlants.*
+| **Satisfaction** | Moyennes des notes (voir [§ 4](#4-la-satisfaction)) |
 
 ---
 
 ## 4. La satisfaction
 
-Quand un employé clôture son ticket, il peut noter deux choses de 1 à 5 (voir
-[Espace utilisateur](espace-utilisateur.md#5-clôturer-un-ticket-et-noter-la-réponse)) :
+### Pourquoi on fait ça
+
+Évaluer si les réponses servent vraiment les employés — pas seulement si la question a
+été traitée. Un ticket clôturé noté 2/5 en qualité est un signal que la réponse n'était
+pas satisfaisante, même si le système l'a bien gérée techniquement.
+
+### Comment ça fonctionne
+
+La carte **Satisfaction** du tableau de bord affiche deux moyennes avec leur effectif.
+Cliquer sur la carte ouvre la liste des tickets mal notés pour pouvoir les examiner.
+
+Deux précisions indispensables pour lire ces chiffres :
+- Les moyennes portent sur les tickets **clôturés dans la période**, pas créés dans la
+  période.
+- **La notation est facultative.** Regardez toujours l'effectif (`nb_avec_notes`) avant
+  d'interpréter une moyenne — une moyenne de 4,8 sur 3 tickets ne dit pas grand-chose.
+  Quand aucun ticket n'a été noté, les moyennes valent `null` et l'interface affiche un
+  état vide plutôt qu'un zéro trompeur.
+
+> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *La carte « Satisfaction » du tableau de bord avec ses deux moyennes et l'effectif, puis la fenêtre modale « Tickets insatisfaits » ouverte listant les tickets mal notés avec leurs notes.*
+
+### Détails techniques
+
+Les notes sont saisies par l'employé à la clôture — voir
+[Espace utilisateur](espace-utilisateur.md#8-clôturer-un-ticket-et-noter-la-réponse).
 
 | Mesure | Champ |
 |---|---|
@@ -116,33 +139,40 @@ Quand un employé clôture son ticket, il peut noter deux choses de 1 à 5 (voir
 | Moyenne de la rapidité perçue | `avg_delai` |
 | Nombre de tickets notés | `nb_avec_notes` |
 
-Deux précisions indispensables pour lire ces chiffres :
-
-- Les moyennes portent sur les tickets **clôturés dans la période**, pas créés dans la
-  période.
-- **La notation est facultative.** `nb_avec_notes` est donc souvent bien inférieur au
-  nombre de tickets clôturés. Une moyenne de 4,8 sur 3 tickets ne dit pas grand-chose —
-  regardez toujours l'effectif.
-
-Quand aucun ticket n'a été noté, les moyennes valent `null` et l'interface affiche un état
-vide plutôt qu'un zéro trompeur.
-
-### Retrouver les insatisfaits
-
 Le filtre `note_max` de `GET /tickets` renvoie les tickets dont la note qualité **ou** la
 note délai est inférieure ou égale à la valeur donnée. C'est ce qui alimente la fenêtre
-« tickets insatisfaits » du tableau de bord : un clic depuis la carte satisfaction ouvre
-directement la liste des tickets mal notés.
-
-> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *La carte « Satisfaction » du tableau de bord avec ses deux moyennes et l'effectif, puis la fenêtre modale « Tickets insatisfaits » ouverte listant les tickets mal notés avec leurs notes.*
+« tickets insatisfaits » : un clic depuis la carte satisfaction ouvre directement la liste
+des tickets mal notés.
 
 ---
 
 ## 5. Les statistiques par membre
 
-`GET /stats/groupe/{groupe_id}/membres`
+### Pourquoi on fait ça
 
-### Qui peut les consulter
+Répartir la charge dans l'équipe, pas classer les individus. Voir qui traite beaucoup de
+tickets et qui peut en prendre davantage, ou qui contribue au corpus documentaire. C'est
+un outil de management, pas de notation.
+
+### Comment ça fonctionne
+
+Depuis le tableau de bord, les chefs de groupe voient un onglet **Mon équipe**. Il liste
+tous les membres du groupe avec, pour la période sélectionnée, le nombre de réponses
+traitées et le nombre de documents ajoutés.
+
+Les chefs apparaissent en tête de liste avec un badge dédié. Le total du groupe est affiché
+en pied de tableau.
+
+Si vous gérez plusieurs groupes, un sélecteur en haut de page permet de choisir le groupe
+à afficher.
+
+> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *La page de statistiques d'équipe montrant le tableau des membres du groupe avec leurs compteurs, le chef identifié, et le sélecteur de période.*
+
+### Détails techniques
+
+Endpoint : `GET /stats/groupe/{groupe_id}/membres`.
+
+**Règles d'accès :**
 
 | Profil | Accès |
 |---|---|
@@ -153,28 +183,35 @@ directement la liste des tickets mal notés.
 C'est d'ailleurs la **seule** permission supplémentaire qu'apporte le statut de chef de
 groupe.
 
-### Ce qui est mesuré
-
-Pour chaque membre du groupe, sur la période choisie : le nombre de réponses traitées (là
-où le membre figure comme validateur) et sa contribution documentaire. Les chefs
-apparaissent en tête de liste.
-
-L'objectif est la répartition de charge, pas le classement individuel : voir qui croule
-sous les tickets et qui peut en prendre.
-
-> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *La page de statistiques d'équipe montrant le tableau des membres du groupe avec leurs compteurs, le chef identifié, et le sélecteur de période.*
+Pour chaque membre du groupe, sur la période choisie : nombre de réponses traitées (là où
+le membre figure comme validateur) et contribution documentaire. Le tri est modifiable
+(tickets traités ou documents ajoutés, croissant ou décroissant).
 
 ---
 
 ## 6. La vue globale de l'administrateur
 
-Page `/admin/dashboard`, réservée au rôle `ADMIN`.
+### Pourquoi on fait ça
 
-Elle agrège la santé technique et l'activité fonctionnelle de toute la plateforme. Les
-indicateurs de supervision (services, files Celery, quotas Albert, incidents) sont
-détaillés dans [Administration](administration.md).
+Surveiller l'ensemble de la plateforme, tous domaines confondus, sans appartenir à un
+groupe particulier. Un admin peut détecter qu'un domaine spécifique accumule des tickets
+sans réponse ou que les délais s'allongent globalement.
+
+### Comment ça fonctionne
+
+Page `/admin/dashboard`, réservée au rôle `ADMIN`. Elle agrège la santé technique et
+l'activité fonctionnelle de toute la plateforme. Les mêmes indicateurs que le tableau de
+bord du validateur, mais agrégés sur tous les domaines — ou filtrés sur un domaine
+spécifique via le sélecteur en haut de page.
 
 > 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *La page « Vue globale » de l'administration (`/admin/dashboard`), montrant l'agrégation multi-domaines et les indicateurs de plateforme.*
+
+### Détails techniques
+
+Les indicateurs de supervision (services, files Celery, quotas Albert, incidents) sont
+détaillés dans [Administration](administration.md). La vue globale partage le même endpoint
+`GET /stats/dashboard` que le tableau de bord validateur, mais sans filtre de domaine pour
+les admins sans groupe.
 
 ---
 

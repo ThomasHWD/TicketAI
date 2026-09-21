@@ -35,7 +35,7 @@ Cette documentation couvre l'intégralité du produit — le parcours des utilis
 
 | Document | Contenu |
 |---|---|
-| [Espace utilisateur](fonctionnalites/espace-utilisateur.md) | Poser une question, chercher dans la FAQ, suivre son ticket, relancer le fil, clôturer, noter la réponse, boîte à suggestions. |
+| [Espace utilisateur](fonctionnalites/espace-utilisateur.md) | Tableau de bord, historique des tickets, poser une question, chercher dans la FAQ, relancer le fil, clôturer, noter la réponse, boîte à suggestions. |
 | [Traiter les tickets (backoffice)](fonctionnalites/backoffice-tickets.md) | Liste et filtres, détail d'un ticket, verrou collaboratif, assignation, valider / corriger / rejeter, timeline. |
 | [Cycle de vie et labels d'un ticket](fonctionnalites/labels-et-categories.md) | Signification de chaque badge, règle de priorité, onglets de filtrage, exemple complet jusqu'à la canonisation. |
 | [Réponses enregistrées](fonctionnalites/reponses-enregistrees.md) | Les trois onglets Canoniques / À relire / Obsolètes, éditer, retirer, restaurer, supprimer. |

@@ -2,13 +2,7 @@ import { useRef, useState } from "react";
 import { UploadCloud, FileText, XCircle } from "lucide-react";
 import { ACCEPTED_EXTS, MAX_SIZE_MB, formatSize } from "../../lib/documentUpload";
 
-/**
- * Zone de dépôt d'un fichier (glisser-déposer + sélecteur natif).
- *
- * Composant *contrôlé* : la validation et le stockage du fichier restent chez
- * l'appelant (`onPick` reçoit le fichier brut), parce que la page Ingestion et
- * la modale de mise à jour n'en font pas la même chose.
- */
+/** File drop zone. Controlled — validation and storage stay with the caller because Ingestion and UpdateDoc handle files differently. */
 export default function FileDropzone({
   file,
   onPick,

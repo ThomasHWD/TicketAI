@@ -16,14 +16,7 @@ export interface MenuAction {
 const MENU_WIDTH = 236;
 const MARGIN = 8;
 
-/**
- * Menu d'actions ancré à son déclencheur, rendu en portail.
- *
- * Le portail n'est pas un détail : le menu est déclenché depuis une ligne de
- * tableau, elle-même dans une carte `overflow-hidden`. Rendu en place, il serait
- * rogné. La position est donc calculée en coordonnées écran, et le menu se
- * referme au moindre défilement plutôt que de flotter loin de son ancre.
- */
+/** Actions menu in a portal — trigger sits inside an `overflow-hidden` card; in-place rendering gets clipped. Position is screen-coordinates; scroll closes it rather than letting it float. */
 export default function DropdownMenu({
   actions,
   ariaLabel,

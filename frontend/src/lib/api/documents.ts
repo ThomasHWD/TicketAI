@@ -10,15 +10,9 @@ import type {
   UpdateImpact,
 } from "../../types";
 
-/**
- * Un document du même nom existe déjà dans ce domaine.
- *
- * Erreur dédiée plutôt qu'un simple message : l'appelant doit pouvoir proposer
- * la mise à jour du document existant, ce qui suppose d'en connaître le `doc_id`.
- */
+/** Dedicated error class (not a message) because the caller needs `doc_id` to offer an in-place update. */
 export class DocumentHomonymeError extends Error {
-  // Champ déclaré puis affecté, et non une propriété de paramètre : le projet
-  // compile avec `erasableSyntaxOnly`.
+  // Declared then assigned, not a parameter property — project compiles with `erasableSyntaxOnly`.
   readonly document: DocumentHomonyme;
 
   constructor(document: DocumentHomonyme) {
@@ -56,7 +50,6 @@ export async function uploadDocument(
   return res.json();
 }
 
-/** Analyse l'impact d'un nouveau fichier sans rien modifier ; met le fichier en staging. */
 export async function previewDocumentUpdate(
   docId: string,
   file: File,
@@ -75,7 +68,6 @@ export async function previewDocumentUpdate(
   return res.json();
 }
 
-/** Confirme l'aperçu : réserve la version et lance le job de mise à jour. */
 export async function confirmDocumentUpdate(
   docId: string,
   stagingId: string,
@@ -116,12 +108,7 @@ export async function deleteDocument(docId: string): Promise<void> {
   if (!res.ok) throw new Error(await extractApiErrorDetail(res, "Erreur suppression document"));
 }
 
-/**
- * Télécharge une URL de l'API et déclenche l'enregistrement sous `nom`.
- *
- * Passe par fetch et non par un `<a href>` : le token est un Bearer en localStorage,
- * une navigation directe part donc sans en-tête `Authorization` et se fait refuser.
- */
+/** Download via fetch not `<a href>` — Bearer token is in localStorage, direct navigation has no Authorization header. */
 async function telecharger(url: string, nom: string, erreur: string): Promise<void> {
   const res = await apiFetch(url);
   if (!res.ok) throw new Error(await extractApiErrorDetail(res, erreur));
@@ -139,7 +126,6 @@ async function telecharger(url: string, nom: string, erreur: string): Promise<vo
   }
 }
 
-/** Télécharge le fichier de la version courante. */
 export async function downloadDocument(docId: string, filename: string | null): Promise<void> {
   await telecharger(
     `${BASE_URL}/documents/${docId}/download`,
@@ -148,14 +134,12 @@ export async function downloadDocument(docId: string, filename: string | null): 
   );
 }
 
-/** Historique des versions, la plus récente en tête. */
 export async function getDocumentVersions(docId: string): Promise<DocumentVersionsResponse> {
   const res = await apiFetch(`${BASE_URL}/documents/${docId}/versions`);
   if (!res.ok) throw new Error(await extractApiErrorDetail(res, "Erreur chargement de l'historique"));
   return res.json();
 }
 
-/** Télécharge le fichier archivé d'une version précise. */
 export async function downloadDocumentVersion(
   docId: string,
   version: number,
@@ -168,10 +152,7 @@ export async function downloadDocumentVersion(
   );
 }
 
-/**
- * Prépare la restauration d'une version archivée : même aperçu d'impact qu'une
- * mise à jour, à confirmer avec `confirmDocumentUpdate`. Ne modifie rien.
- */
+/** Stages a version restore — same impact flow as an update; confirm with `confirmDocumentUpdate`. Modifies nothing. */
 export async function restoreDocumentVersion(
   docId: string,
   version: number,

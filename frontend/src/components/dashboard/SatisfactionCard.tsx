@@ -14,11 +14,7 @@ interface SatisfactionCardProps {
   onVoirInsatisfaits?: () => void;
 }
 
-/**
- * Étoiles fractionnelles via SVG linearGradient.
- * La classe de couleur est posée sur le <svg> pour que currentColor
- * se résolve correctement dans les paths ET dans les stops du gradient.
- */
+/** Fractional star rating via SVG linearGradient. Color class on `<svg>` so `currentColor` resolves in both paths and gradient stops. */
 export function StarRating({ value, size = 15 }: { value: number; size?: number }) {
   const instanceId = useId();
   const full = Math.floor(value);
@@ -63,7 +59,6 @@ export function StarRating({ value, size = 15 }: { value: number; size?: number 
   );
 }
 
-/** Métrique compacte pour le bas de la card */
 function SubMetric({ label, value }: { label: string; value: number | null }) {
   const pct = value !== null ? Math.round((value / 5) * 100) : 0;
   return (

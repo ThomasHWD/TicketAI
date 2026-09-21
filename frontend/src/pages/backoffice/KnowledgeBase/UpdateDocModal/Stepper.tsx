@@ -1,10 +1,7 @@
 import { Check } from "lucide-react";
 import type { Etape } from "../../../../hooks/useUpdateDocModal";
 
-/**
- * Les quatre temps de la mise à jour. `submitting` partage le rang de `impact` :
- * l'écran ne change pas, seul le bouton passe en attente.
- */
+/** `submitting` shares the `impact` rank — screen doesn't change, only the button enters a waiting state. */
 const RANGS: Record<Etape, number> = {
   pick: 0,
   analyse: 1,

@@ -18,14 +18,7 @@ async def rechercher(
     q: str = Query(..., description="Question posée en langage naturel"),
     limit: int | None = Query(None, ge=1, le=20),
 ):
-    """Réponses canoniques sémantiquement proches de `q`, tous domaines confondus.
-
-    `CurrentUser` et non `BackofficeUser` : c'est tout l'objet de la page. Aucun
-    filtrage par domaine non plus — écart délibéré vis-à-vis de `check_domain_read`,
-    et le seul possible, puisqu'un utilisateur lambda n'appartient à aucun groupe.
-    Ce qui est exposé a été validé au moins `SEUIL_CANONIQUE` fois par un humain
-    pour être diffusé tel quel.
-    """
+    """Canonical answers semantically close to ``q``, all domains. ``CurrentUser`` not ``BackofficeUser`` and no"""
     question = q.strip()
     if len(question) < LONGUEUR_MIN:
         raise HTTPException(
