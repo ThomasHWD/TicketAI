@@ -13,15 +13,7 @@ interface Props {
   autoFocus?: boolean;
 }
 
-/**
- * Le champ de question, unique élément d'action de la page.
- *
- * Il grandit avec la saisie plutôt que d'imposer une hauteur fixe : une question
- * d'une ligne ne doit pas ouvrir un pavé vide, une question de cinq lignes ne
- * doit pas défiler dans une fenêtre de deux. Le bouton reste calé en bas
- * (`items-end`) pour ne pas dériver quand le champ s'allonge, et l'astuce clavier
- * vit **hors** du cadre : à l'intérieur, elle creusait un vide sous le texte.
- */
+/** FAQ question field. Auto-grows with input; button stays bottom-aligned so it doesn't drift; keyboard hint is outside the frame (inside caused empty space under text). */
 export default function FaqComposeur({
   valeur,
   onChange,

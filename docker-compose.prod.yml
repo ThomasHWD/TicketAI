@@ -1,11 +1,6 @@
 name: ticketai
 
-# Le pilote json-file de Docker n'a AUCUN plafond par défaut : un conteneur en
-# `restart: unless-stopped` écrit sans limite tant qu'il vit. Le débit mesuré est
-# pourtant faible (~1,2 ko en quelques minutes à vide) — ce n'est pas lui qui
-# justifie ce bloc, c'est le mode de défaillance : disque plein, c'est le démon
-# Docker entier qui tombe, pas un conteneur. 30 Mo par service, borné.
-# À ajouter à tout nouveau service de ce fichier ; rien ne le fait à ta place.
+# json-file sans plafond = disque plein = démon Docker entier tombé ; 3×10 Mo par service. À ajouter à tout nouveau service.
 x-logging: &logging
   driver: json-file
   options:
@@ -19,10 +14,7 @@ x-infra-healthcheck: &infra-healthcheck
   retries: 10
   start_period: 10s
 
-# Voir docker-compose.dev.yml pour le détail. L'enjeu est ici : `restart:
-# unless-stopped` ne relance QUE ce que Docker voit mourir. Un worker qui a perdu
-# le broker mais dont le process vit reste « Up » pour toujours, et la file
-# s'empile en silence. Ce healthcheck est ce qui rend cet état visible.
+# inspect ping traverse le broker : un worker qui a perdu Valkey reste « Up » sans ce check.
 x-celery-healthcheck: &celery-healthcheck
   test:
     [
@@ -99,8 +91,7 @@ services:
       VALKEY_HOST: valkey
       DOCUMENTS_STORAGE_PATH: /app/storage
       UPLOAD_DIR: /app/uploads_tmp
-      # Remplacer par l'URL publique avant déploiement, ex :
-      # ALLOWED_ORIGINS: '["https://ticketai.mon-entreprise.fr"]'
+      # Remplacer avant déploiement : ALLOWED_ORIGINS: '["https://ticketai.mon-entreprise.fr"]'
     depends_on: *infra-deps
     restart: unless-stopped
     logging: *logging
@@ -145,8 +136,7 @@ services:
 
   worker_beat:
     build: ./backend
-    # --schedule : hors de /app, pour que le code n'ait pas besoin d'être
-    # inscriptible par l'utilisateur non privilégié du conteneur.
+    # --schedule hors de /app : le code n'a pas besoin d'être inscriptible par l'utilisateur non privilégié.
     command: celery -A app.workers.celery_app beat -l info --schedule=/var/lib/celery/celerybeat-schedule
     volumes:
       - beat_schedule:/var/lib/celery
@@ -158,10 +148,7 @@ services:
     depends_on: *infra-deps
     restart: unless-stopped
     logging: *logging
-    # Pas de healthcheck, volontairement : beat n'est pas un worker et ne répond
-    # pas à `inspect ping`. Ici il est le process principal du conteneur, donc
-    # sa mort fait sortir le conteneur et `restart: unless-stopped` le relance —
-    # c'est ce qui le couvre, à la place d'un check qui serait toujours vert.
+    # Pas de healthcheck : beat ne répond pas à inspect ping ; sa mort fait sortir le conteneur, restart: le relance.
 
   frontend:
     build:

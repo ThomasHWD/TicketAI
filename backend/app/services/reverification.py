@@ -1,38 +1,4 @@
-"""Décide si une réponse déjà servie survit à la nouvelle version d'un document.
-
-C'est le seul endroit du projet où **le texte de la réponse est lu**. Tout le
-reste de la chaîne d'obsolescence compare document à document : on sait quels
-passages ont fondé une réponse, on vérifie s'ils existent encore. C'est robuste
-mais ça ne répond pas à la question qui compte. Un chunk fait 384 tokens ; y
-corriger une virgule le rend introuvable en sous-chaîne et condamnait jusqu'ici
-une réponse parfaitement juste. À l'inverse, un article ajouté ailleurs qui
-contredit frontalement une réponse ne touche aucun passage cité et passait
-inaperçu. Les deux erreurs ont la même cause : personne ne lisait la réponse.
-
-Le pipeline est un entonnoir, du gratuit au coûteux, et **seul le dernier étage
-prononce un verdict** :
-
-::
-
-    unités de changement   (diff aligné, gratuit — services/obsolescence.py)
-            ↓
-    candidates             (citantes du document + voisines du domaine, dense Qdrant)
-            ↓
-    unites_pertinentes     (reranker : quelles unités portent sur cette question ?)
-            ↓
-    juger                  (LLM : ce changement contredit-il cette réponse ?)
-            ↓
-    decider                (retrait sec / relecture / rien)
-
-Chaque étage est **orienté rappel** : un faux positif coûte un appel au modèle,
-un faux négatif laisse servir une réponse fausse en silence. Les seuils sont donc
-bas et les pannes se replient toujours vers « fais lire un humain », jamais vers
-« laisse passer » ni vers « détruis ».
-
-Étages 1 et 2+3 extraits dans :
-  - reverification_candidates.py (collecte des candidates)
-  - reverification_scoring.py (reranker + LLM)
-"""
+"""Verdicts for existing responses against a document update. Funnel: diff → candidates → reranker → LLM. False"""
 
 from app.models.reponse import Reponse
 from app.services.obsolescence import (
@@ -64,7 +30,6 @@ from app.services.reverification_scoring import (  # noqa: F401
 from sqlalchemy.orm import Session
 
 __all__ = [
-    # constants
     "MAX_UNITES",
     "MAX_JUGEMENTS",
     "MAX_UNITES_PAR_REPONSE",
@@ -76,9 +41,7 @@ __all__ = [
     "ACTION_RETIREE",
     "ACTION_A_RELIRE",
     "ACTION_INTACTE",
-    # types
     "Candidate",
-    # functions
     "rassembler_candidates",
     "questions_des_reponses",
     "unites_pertinentes",
@@ -89,14 +52,10 @@ __all__ = [
     "tracer",
 ]
 
-# Au-delà, le document n'a pas été modifié : il a été réécrit. Il n'y a plus rien
-# à discriminer — juger 200 réponses contre 300 changements coûterait une fortune
-# pour conclure « tout est suspect », ce qu'on sait déjà. Le worker bascule alors
-# sur le signalement en bloc, sans un seul appel au modèle.
+# Above this, the document was rewritten not modified — no model call would discriminate; go straight to human review.
 MAX_UNITES = 40
 
-# Budget d'appels au LLM par mise à jour. Le surplus n'est jamais ignoré : il part
-# en relecture humaine avec sa propre raison, pour que la troncature soit visible.
+# LLM call budget per update. Surplus goes to human review with its own reason — truncation is never silent.
 MAX_JUGEMENTS = 25
 
 ACTION_RETIREE = "retiree"
@@ -114,27 +73,7 @@ def decider(
     version: int,
     raison_incertain: str = RAISON_MODIF,
 ) -> str:
-    """Applique le verdict, et renvoie l'action retenue pour le comptage.
-
-    Une seule asymétrie, mais elle est le garde-fou central : **une réponse qui
-    ne cite pas le document ne peut pas être retirée automatiquement.** Elle n'a
-    été rapprochée du changement que par similarité vectorielle entre un
-    paragraphe et une question — deux objets de nature différente, indexés pour
-    autre chose. Détruire à tort une canonique à douze validations coûte bien plus
-    cher que d'imposer vingt relectures ; le verdict plafonne donc à la relecture.
-
-    C'est aussi ce qui plafonne, **structurellement**, la confrontation à
-    l'ingestion (``workers/confrontation.py``) : ``citante`` vient de
-    ``reponse_chunks``, qu'un document neuf n'a par définition jamais peuplé.
-
-    ``raison_incertain`` n'existe que pour que ce second appelant nomme
-    correctement ce qu'il signale — ``DOC_MODIFIÉ`` serait faux pour un document
-    qui vient d'arriver. Le comportement, lui, est identique.
-
-    Chaque décision est commitée séparément (``retirer_du_service`` commite) : un
-    worker qui meurt à mi-parcours conserve les jugements déjà payés, et le rejeu
-    ne repasse que sur le reliquat.
-    """
+    """Apply the verdict. Non-citing response can never be auto-withdrawn — vector similarity ≠ citation"""
     famille = _famille(db, candidate.reponse)
     extraits = serialiser_unites(unites)["unites"]
 
@@ -150,22 +89,7 @@ def decider(
 
     if verdict == VERDICT_INTACTE:
         for r in famille:
-            # Ne lever que le drapeau **qu'on a soi-même posé**. Le document ne
-            # suffit pas à l'identifier : deux analyses successives du *même*
-            # document n'instruisent pas la même question. Mesuré le 18/09/2026
-            # (campagne T5) — la confrontation à l'arrivée de doc B v1 avait
-            # signalé une canonique générale « incomplète, elle omet l'exception
-            # des missions à l'étranger » ; la ré-vérification de doc B v2, qui ne
-            # juge que le diff 45 € → 60 €, l'a trouvée INTACTE **à raison** et a
-            # effacé le signalement. La réponse est redevenue servable sans revue
-            # en omettant toujours l'exception : un verdict avait clos un motif
-            # qu'il n'avait pas examiné.
-            #
-            # La version suffit et ne coûte rien : les deux appelants posent
-            # `RAISON_ANALYSE` avec la version qu'ils repassent ici, donc l'état
-            # transitoire se résout exactement comme avant. Ce qui ne se lève
-            # plus, c'est le signalement d'une *autre* passe — il attend alors un
-            # humain (`confirmer_actualite`), seul à l'avoir vraiment instruit.
+            # lift only the flag raised by this exact pass: doc_id AND version — another pass's signal waits for a
             if r.a_relire_doc_id == doc_id and r.a_relire_version == version:
                 lever_a_relire(r)
                 r.analyse_justification = None
@@ -186,13 +110,7 @@ def signaler_sans_juger(
     doc_id: str,
     version: int,
 ) -> int:
-    """Envoie en relecture des réponses qu'on n'a pas pu juger, et le dit.
-
-    Sert les trois cas où le pipeline s'arrête avant le verdict : budget d'appels
-    épuisé, document réécrit au-delà du plafond, Albert injoignable. Aucun de ces
-    cas ne doit être silencieux — c'est précisément parce que l'ancien système
-    tronquait sans le dire qu'on ne pouvait pas lui faire confiance.
-    """
+    """Send unjudged responses to human review with an explicit reason. Budget exhausted, document rewritten, or"""
     for candidate in candidates:
         famille = _famille(db, candidate.reponse)
         poser_a_relire(famille, raison, doc_id, version)
@@ -202,12 +120,7 @@ def signaler_sans_juger(
 
 
 def _famille(db: Session, reponse: Reponse) -> list[Reponse]:
-    """La réponse et toutes ses copies encore en service.
-
-    Les copies SUGGESTION/CANONIQUE ne citent aucun chunk : elles ne se rattachent
-    à leur origine que par ``reponse_source_id``. Décider sur la seule graine
-    laisserait la copie indexée, donc resservie.
-    """
+    """Response and all active copies. Copies don't cite chunks — they'd stay indexed if only the root was decided."""
     return db.query(Reponse).filter(Reponse.id.in_(fermeture_copies(db, {reponse.id}))).all()
 
 

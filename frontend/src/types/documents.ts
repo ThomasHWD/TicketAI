@@ -38,17 +38,13 @@ export interface DocumentUploadResponse {
   version?: number;
 }
 
-/**
- * Une réponse enregistrée dont un passage cité a bougé. Elle sera jugée en
- * priorité — ce n'est plus une condamnation : le passage a pu perdre une virgule.
- */
+/** Response whose cited passage changed — judged first but not condemned; the passage may have just lost a comma. */
 export interface ImpactItem {
   reponse_id: string;
   question: string;
   canonique: boolean;
   nb_validations: number;
   chunks_modifies: number[];
-  /** Extraits tronqués des passages disparus, trois au plus. */
   extraits: string[];
 }
 
@@ -73,7 +69,6 @@ export interface DocumentVersionsResponse {
   items: DocumentVersion[];
 }
 
-/** Un changement du document, apparié avant ↔ après. */
 export interface UniteChangement {
   sens: "AJOUT" | "RETRAIT" | "REECRITURE";
   /** Vide pour un AJOUT. */
@@ -82,10 +77,7 @@ export interface UniteChangement {
   extrait_apres: string;
 }
 
-/**
- * Réponse que la mise à jour va soumettre à la ré-vérification. Rien ne lui
- * arrive à la confirmation : c'est une candidate au jugement, pas un verdict.
- */
+/** Response flagged for reverification — nothing happens at confirm time; it's a candidate for judgment, not a verdict. */
 export interface ReponseARelire {
   reponse_id: string;
   ticket_id: string;
@@ -97,14 +89,7 @@ export interface ReponseARelire {
   occurence: number;
 }
 
-/**
- * Résultat de l'aperçu : le diff réel, et **rien de plus**.
- *
- * L'aperçu n'appelle ni reranker ni LLM — il reste instantané et gratuit, y
- * compris si l'utilisateur renonce. Il ne peut donc pas dire quelles réponses
- * seront retirées : cette question ne se tranche qu'en les lisant, après
- * confirmation. Il annonce ce qui change et combien de réponses seront jugées.
- */
+/** Preview result — no reranker or LLM; cannot predict which responses will be withdrawn, only announces what changed and how many will be analyzed. */
 export interface UpdateImpact {
   staging_id: string;
   filename: string;
@@ -113,35 +98,21 @@ export interface UpdateImpact {
   restauree_depuis: number | null;
   nb_chunks_modifies: number;
   nb_total_chunks: number;
-  /**
-   * Réponses dont un passage cité a bougé. Ce n'est **pas** un compte de
-   * réponses condamnées : elles passent en tête du budget d'analyse, rien de plus.
-   */
+  /** Responses with a cited passage that changed — not condemned, just first in the analysis budget. */
   nb_prioritaires: number;
-  /** Les prioritaires, avec le passage en cause. */
   items: ImpactItem[];
-  /**
-   * `false` quand le fichier de la version courante est introuvable (documents
-   * backfillés) : aucun diff n'est calculable, et le panneau reste masqué plutôt
-   * que d'annoncer « 0 changement », qui se lirait comme une garantie.
-   */
+  /** `false` when current file is missing (backfilled docs) — panel hides rather than showing "0 changes", which would read as a guarantee. */
   diff_analysable: boolean;
   /** Zéro ⇒ reformatage pur : aucune analyse ne sera même lancée. */
   nb_unites: number;
-  /** Les trois premières unités, tronquées à la longueur d'un extrait. */
   unites: UniteChangement[];
   nb_ajoutes: number;
-  /** Trois extraits au plus. */
   extraits_ajoutes: string[];
   nb_retires: number;
   extraits_retires: string[];
-  /** Réponses qui seront jugées une fois la nouvelle version en place. */
   nb_a_analyser: number;
-  /** Combien d'entre elles sont canoniques. */
   nb_canoniques: number;
-  /** Les dix premières de `nb_a_analyser`, dans l'ordre où elles seront jugées. */
   a_analyser: ReponseARelire[];
-  /** Réponses EN_ATTENTE (non encore validées) qui seront annulées. */
   nb_en_attente: number;
 }
 
@@ -163,7 +134,6 @@ export interface DocumentStatus {
     doc_id: string;
     stored_path: string;
     nb_chunks: number;
-    /** Job de mise à jour uniquement : réponses soumises à la ré-vérification. */
     nb_a_analyser?: number;
     /** Signalées sans jugement possible (version sortante illisible). */
     nb_a_relire?: number;
@@ -171,17 +141,11 @@ export interface DocumentStatus {
   erreur?: string;
 }
 
-/**
- * Ce qu'une version de document a changé, figé au moment de la mise à jour.
- *
- * Les unités intégrales ne sont pas renvoyées ici : elles pèsent jusqu'à 256 Ko
- * et servent au worker, pas à l'écran, qui n'affiche que les extraits.
- */
+/** What a document version changed, frozen at update time. Full units excluded — up to 256 KB, worker-only; UI shows excerpts only. */
 export interface ChangementsVersion {
   nb_unites?: number;
   nb_ajoutes: number;
   nb_retires: number;
-  /** Trois extraits au plus par sens. */
   extraits_ajoutes: string[];
   extraits_retires: string[];
 }

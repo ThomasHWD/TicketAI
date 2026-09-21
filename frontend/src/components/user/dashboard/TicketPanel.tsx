@@ -10,7 +10,6 @@ function displayText(t: TicketExt): string {
   return t.objet ?? t.question;
 }
 
-// ─── TicketRow ────────────────────────────────────────────────────────────────
 
 export function UserTicketRow({
   ticket: t,
@@ -56,7 +55,6 @@ export function UserTicketRow({
   );
 }
 
-// ─── SkeletonRows ─────────────────────────────────────────────────────────────
 
 export function SkeletonRows() {
   return (
@@ -75,7 +73,6 @@ export function SkeletonRows() {
   );
 }
 
-// ─── ErrorPanel ───────────────────────────────────────────────────────────────
 
 export function ErrorPanel({ onRetry }: { onRetry: () => void }) {
   return (
@@ -105,7 +102,6 @@ export function ErrorPanel({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-// ─── AllUpToDate ──────────────────────────────────────────────────────────────
 
 export function AllUpToDate() {
   const navigate = useNavigate();
@@ -130,7 +126,6 @@ export function AllUpToDate() {
   );
 }
 
-// ─── SubLabel ─────────────────────────────────────────────────────────────────
 
 export function SubLabel({ children, hasBorderTop = false }: { children: React.ReactNode; hasBorderTop?: boolean }) {
   return (

@@ -4,14 +4,7 @@ import { renderMarkdown } from "../../../components/ticket/utils";
 import { DomaineBadge } from "../../../components/tickets/StatusBadge";
 import type { FaqResultat as Resultat } from "../../../lib/api";
 
-/**
- * Une correspondance secondaire, repliée.
- *
- * Délibérément sans carte ni ombre : ces réponses ne sont pas au même rang que
- * la première. Leur donner le même poids visuel est ce qui transformait la page
- * en grille de blocs équivalents, alors que l'écart de pertinence entre le
- * premier résultat et les suivants est en général très large.
- */
+/** Secondary match, collapsed. No card/shadow — deliberately lighter; same visual weight would imply equal relevance, but the gap is usually large. */
 export default function FaqResultat({ resultat }: { resultat: Resultat }) {
   const [ouvert, setOuvert] = useState(false);
   const panneauId = `faq-panneau-${resultat.reponse_id}`;

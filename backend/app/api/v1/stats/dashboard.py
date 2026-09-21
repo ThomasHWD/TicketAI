@@ -51,7 +51,6 @@ def get_dashboard_stats(
             ),
         )
 
-        # ── Stat cartes ──────────────────────────────────────────────────────────
         stats_cartes = {
             "nouveaux": _variation(
                 _count_nouveaux(db, curr_start, curr_end, domain_filters, reponse_validee_exists),
@@ -81,7 +80,6 @@ def get_dashboard_stats(
             ),
         }
 
-        # ── Répartition statuts ──────────────────────────────────────────────────
         nb_nouveau_rep = _count_nouveaux(db, curr_start, curr_end, domain_filters, reponse_validee_exists)
         nb_en_cours_rep = _count_en_cours(db, curr_start, curr_end, domain_filters, reponse_validee_exists)
         nb_clotures_rep = _count_tickets_closed(db, curr_start, curr_end, domain_filters)
@@ -92,7 +90,6 @@ def get_dashboard_stats(
             {"statut": "CLOTURÉ", "count": nb_clotures_rep, "pct": round(nb_clotures_rep / total_rep * 100, 1)},
         ]
 
-        # ── Répartition branches ─────────────────────────────────────────────────
         branch_rows = (
             db.query(Reponse.source, func.count(func.distinct(Reponse.ticket_id)))
             .join(Ticket, Reponse.ticket_id == Ticket.id)
@@ -119,7 +116,6 @@ def get_dashboard_stats(
              "pct": round(nb_hors_domaine / total_branches * 100, 1)},
         ]
 
-        # ── Graphiques ───────────────────────────────────────────────────────────
         today = now.date()
         if periode == "annee":
             tickets_par_jour, traitement_par_jour = _build_graphiques_annee(
@@ -130,7 +126,6 @@ def get_dashboard_stats(
                 db, curr_start, curr_end, domain_filters, reponse_domain_joins
             )
 
-        # ── Derniers tickets ─────────────────────────────────────────────────────
         derniers_tickets_rows = (
             db.query(Ticket)
             .filter(Ticket.created_at >= curr_start, Ticket.created_at < curr_end, *domain_filters)

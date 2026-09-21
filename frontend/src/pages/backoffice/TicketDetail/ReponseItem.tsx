@@ -61,7 +61,6 @@ export default function ReponseItem({
   const { isHorsDomaine, isRag, canAct: canActRaw } = actions;
   const canAct = canActRaw && !readOnly;
 
-  // Tags canoniques du domaine — pour l'autocomplete dans le panel de validation
   const { data: tags = [] } = useQuery({
     queryKey: ["tags-canoniques", domaine],
     queryFn: () => getTags(domaine, true),

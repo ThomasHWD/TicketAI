@@ -33,9 +33,7 @@ class Ticket(Base):
     note_qualite = Column(Integer, nullable=True)  # 1–5, note qualité réponse
     note_delai = Column(Integer, nullable=True)  # 1–5, note délai de traitement
 
-    # Verrou collaboratif (bail à expiration) : évite que deux validateurs
-    # traitent le même ticket en même temps. Voir app/api/v1/tickets.py.
-    locked_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    locked_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # bail à expiration, voir
     locked_at = Column(DateTime(timezone=True), nullable=True)
     lock_expires_at = Column(DateTime(timezone=True), nullable=True)
 

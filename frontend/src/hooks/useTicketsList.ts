@@ -111,21 +111,16 @@ export function useTicketsList() {
   const isFetchingBg = isFetching && !isLoading;
 
   return {
-    // state
     page, setPage,
     search, setSearch,
     debouncedSearch,
     filter, sortDir, domainFilter,
-    // computed
     multiDomain, isClosed, hasFilters, isFetchingBg,
     isCountCapped, tabCounts,
     tickets: sorted,
     total, totalPages, from, to,
-    // query state
     isLoading, isFetching, error, refetch,
-    // handlers
     handleFilterChange, handleDomainChange, handleSortToggle, handleClearFilters,
-    // auth
     userDomaines,
   };
 }

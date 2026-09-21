@@ -2,7 +2,7 @@ import { useFaq } from "../../../hooks/useFaq";
 import FaqComposeur from "./FaqComposeur";
 import FaqReponse from "./FaqReponse";
 
-/** Amorces cliquables de l'écran d'accueil. Modifiables sans risque. */
+// Safe to edit — no semantic impact on search results.
 const EXEMPLES = [
   "Combien de jours de congés puis-je reporter ?",
   "Quel matériel est fourni pour le télétravail ?",
@@ -23,8 +23,7 @@ export default function Faq() {
     />
   );
 
-  // Accueil : le champ au centre, rien d'autre. Tant qu'aucune question n'est
-  // posée, il n'y a rien à montrer — et rien à expliquer.
+  // At rest: input centered, nothing else — no question means nothing to show.
   if (faq.auRepos) {
     return (
       <div className="flex min-h-full items-center justify-center p-6">
@@ -54,8 +53,7 @@ export default function Faq() {
     <div className="mx-auto w-full max-w-2xl space-y-8 px-6 pb-24 pt-6">
       {composeur(false)}
 
-      {/* Une question à la fois : ce qui suit porte sur le contenu du champ
-          ci-dessus, et rien d'autre. */}
+      {/* One question at a time — result below always reflects the field above, nothing else. */}
       <p aria-live="polite" className="sr-only">
         {faq.isLoading
           ? "Recherche en cours"

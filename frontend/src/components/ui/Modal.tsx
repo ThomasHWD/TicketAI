@@ -1,13 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 
-/**
- * Coquille de boîte de dialogue centrée : en-tête, corps défilant, pied fixe.
- *
- * Volontairement *non* portée dans un portail : les modales de cette page sont
- * rendues à la racine de la page, et les tests existants (`updateImpact`,
- * `documentVersions`) montent le composant directement.
- */
+/** Centered dialog shell. Deliberately NOT in a portal — tests mount it directly and modals render at the page root. */
 export default function Modal({
   eyebrow,
   title,
@@ -16,7 +10,6 @@ export default function Modal({
   footer,
   widthClass = "max-w-xl",
 }: {
-  /** Ligne de contexte au-dessus du titre (petites capitales). */
   eyebrow?: ReactNode;
   title: string;
   onClose: () => void;

@@ -5,19 +5,7 @@ import { rechercherFaq } from "../lib/api";
 /** En deçà, une question n'a pas assez de matière pour une recherche sémantique. */
 export const LONGUEUR_MIN = 3;
 
-/**
- * La recherche de la page FAQ : **une question à la fois**.
- *
- * Chaque recherche est indépendante — le serveur ne voit jamais les précédentes.
- * D'où le modèle de la boîte de recherche plutôt que celui du fil de discussion :
- * la question posée reste dans le champ, son résultat s'affiche dessous, et une
- * nouvelle question remplace l'ensemble. Un transcript, lui, laisserait croire
- * qu'une relance du type « et pour un apprenti ? » hérite du contexte, ce qui est
- * faux et se solderait par un résultat vide inexplicable.
- *
- * La recherche ne part qu'à la soumission : chacune consomme un embedding Albert,
- * dont le quota est de 1 000 requêtes/jour/modèle.
- */
+/** One question at a time — no context between searches (prevents "et pour un apprenti?" from implying inherited context). Each search costs one Albert embedding. */
 export function useFaq() {
   const [saisie, setSaisie] = useState("");
   const [requete, setRequete] = useState("");
@@ -32,13 +20,7 @@ export function useFaq() {
     retry: false,
   });
 
-  /**
-   * `valeur` permet de soumettre un texte qu'on vient de poser dans le champ :
-   * `setSaisie` puis `soumettre()` lirait l'état du rendu précédent.
-   *
-   * Le champ n'est pas vidé : il porte la recherche en cours, comme dans toute
-   * barre de recherche.
-   */
+  // `valeur` lets you submit text you just set — `setSaisie` then `soumettre()` would read the previous render's state.
   function soumettre(valeur?: string) {
     const question = (valeur ?? saisie).trim();
     if (question.length < LONGUEUR_MIN) return;

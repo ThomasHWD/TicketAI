@@ -1,18 +1,4 @@
-"""Rejoue périodiquement les tickets bloqués en statut ÉCHOUÉ.
-
-Cible : tickets sans réponse (statut_ticket = "NOUVEAU") dont le job a échoué
-définitivement après ses 3 retries — typiquement un quota Albert épuisé ou une
-indisponibilité transitoire. On ne touche pas aux suivis échoués (statut_ticket
-!= "NOUVEAU") : la question de départ a déjà reçu une réponse, le suivi raté
-est un cas distinct qui mérite une décision humaine.
-
-Garde-fous :
-- Âge maximal configurable (REPLAY_MAX_AGE_JOURS) : on ne ressort pas un ticket
-  vieux de plusieurs semaines sans que l'utilisateur l'ait demandé.
-- On remet statut_job à "EN_ATTENTE" *avant* d'envoyer dans la queue, pour que
-  l'UI ne reste pas bloquée sur ÉCHOUÉ pendant le traitement.
-- Si l'enqueue lève, on remet statut_job à "ÉCHOUÉ" et on passe au suivant.
-"""
+"""Periodically replays NOUVEAU tickets stuck in ÉCHOUÉ (exhausted retries). Skips follow-ups (statut_ticket !="""
 
 import logging
 from datetime import datetime, timedelta, timezone

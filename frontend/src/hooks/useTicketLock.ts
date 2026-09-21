@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { lockTicket, unlockTicket, heartbeatTicket, LockConflictError } from "../lib/api";
 import { getValidatorId } from "../lib/currentUser";
 
-// File d'attente par ticket : garantit que lock / unlock s'exécutent dans l'ordre
-// d'émission, même sous le double-montage de React StrictMode (dev) ou lors de
-// navigations rapides. Sans ça, un `unlock` peut doubler un `lock` concurrent.
+// per-ticket queue: ensures lock/unlock execute in emission order under StrictMode double-mount or fast navigation
 const chains = new Map<string, Promise<unknown>>();
 
 function enqueue<T>(ticketId: string, op: () => Promise<T>): Promise<T> {
@@ -21,11 +19,6 @@ export interface TicketLock {
   checking: boolean;
 }
 
-/**
- * Prend automatiquement le verrou du ticket à l'ouverture, le prolonge par
- * heartbeat tant que la page reste montée, et le libère à la sortie
- * (démontage ou fermeture d'onglet).
- */
 export function useTicketLock(ticketId: string | undefined): TicketLock {
   const [isMine, setIsMine] = useState(false);
   const [lockedByEmail, setLockedByEmail] = useState<string | null>(null);
@@ -71,7 +64,6 @@ export function useTicketLock(ticketId: string | undefined): TicketLock {
         if (active) setChecking(false);
       });
 
-    // Renouvelle le verrou toutes les 2 minutes tant que la page est ouverte
     const heartbeatInterval = setInterval(() => {
       if (acquired) void heartbeatTicket(ticketId, validatorId);
     }, 2 * 60 * 1000);
@@ -80,8 +72,7 @@ export function useTicketLock(ticketId: string | undefined): TicketLock {
       active = false;
       clearInterval(heartbeatInterval);
       if (!acquired) return;
-      // Différé de 50 ms : si le composant se remonte immédiatement (StrictMode),
-      // le prochain effet annule ce timer avant qu'il parte.
+      // 50 ms delay: if the component remounts immediately (StrictMode), the next effect cancels this before it fires
       let cancelled = false;
       cancelUnlockRef.current = () => { cancelled = true; };
       setTimeout(() => {

@@ -17,12 +17,7 @@ async def lister_tags(
     domaine: str | None = None,
     canoniques: bool = False,
 ):
-    """Tags distincts utilisés dans le domaine.
-
-    `canoniques=true` : restreint aux réponses canoniques non obsolètes,
-    pour le filtre de la page Réponses enregistrées.
-    Sans ce paramètre : toutes les réponses, pour l'autocomplete d'édition.
-    """
+    """Distinct tags for the domain. ``canoniques=true`` restricts to non-obsolete canonicals (saved-answers"""
     db = SessionLocal()
     try:
         query = (

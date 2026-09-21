@@ -8,7 +8,6 @@ interface KnowledgeBaseToolbarProps {
   onglet: OngletId;
   totalAngles: number;
   onChangeOnglet: (id: OngletId) => void;
-  // documents controls
   recherche: string;
   onRecherche: (v: string) => void;
   peutAjouter: boolean;
@@ -23,7 +22,6 @@ interface KnowledgeBaseToolbarProps {
   total: number;
   termes: string[];
   isLoading: boolean;
-  // angles morts controls
   periode: string;
   onPeriode: (p: string) => void;
 }

@@ -7,13 +7,7 @@ from app.database import Base
 
 
 class Document(Base):
-    """Source de vérité des documents indexés.
-
-    Qdrant reste le magasin des chunks, mais l'identité d'un document (son ``doc_id``,
-    sa version courante, son statut) vit ici : un scroll intégral de la collection ne
-    permet ni de verrouiller une mise à jour, ni de conserver la trace d'un document
-    supprimé.
-    """
+    """Source de vérité de l'identité/version/statut des documents — Qdrant stocke les chunks, pas ces métadonnées."""
 
     __tablename__ = "documents"
 
@@ -27,9 +21,7 @@ class Document(Base):
     content_hash = Column(String(64), nullable=True, index=True)
     stored_path = Column(String, nullable=True)
     nb_chunks = Column(Integer, nullable=False, default=0, server_default="0")
-    # ACTIF | EN_MAJ | SUPPRIMÉ — EN_MAJ sert de verrou applicatif contre une mise à
-    # jour concurrente et contre un DELETE pendant l'ingestion.
-    statut = Column(String(20), nullable=False, default="ACTIF", server_default="ACTIF")
+    statut = Column(String(20), nullable=False, default="ACTIF", server_default="ACTIF")  # ACTIF | EN_MAJ | SUPPRIMÉ
     uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     update_job_id = Column(String, nullable=True)
     update_started_at = Column(DateTime(timezone=True), nullable=True)

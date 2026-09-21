@@ -81,7 +81,6 @@ export async function confirmerActualite(reponseId: string) {
   return res.json();
 }
 
-/** Confirme d'un coup toutes les réponses signalées par une version de document. */
 export async function confirmerActualiteLot(doc_id: string, version: number) {
   const res = await apiFetch(`${BASE_URL}/reponses/confirmer-actualite`, {
     method: "POST",
@@ -99,7 +98,6 @@ export async function retirerReponse(reponseId: string) {
   return res.json();
 }
 
-/** Lève le drapeau `obsolete` et relance la réindexation Qdrant de la famille. */
 export async function restaurerReponse(reponseId: string) {
   const res = await apiFetch(`${BASE_URL}/reponses/${reponseId}/restaurer`, { method: "POST" });
   if (!res.ok) throw new Error("Erreur restauration de la réponse");

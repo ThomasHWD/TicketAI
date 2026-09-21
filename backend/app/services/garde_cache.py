@@ -1,9 +1,4 @@
-"""Garde du cache canonique : vérifie que la question posée exprime exactement
-la même demande que la question indexée avant de servir une réponse sans revue humaine.
-
-Conservateur par construction : toute réponse autre que "OUI" explicite → refus.
-Erreur LLM, timeout, réponse ambiguë → refus.
-"""
+"""Guard for the canonical cache: verifies the question asks exactly the same thing as the indexed question before"""
 
 import logging
 import re
@@ -22,12 +17,7 @@ _PROMPT_SYSTEME = (
     "chiffre différent, périmètre différent, etc.)."
 )
 
-# En mode suivi, la question A n'est pas une question mais un fil : les tours
-# précédents concaténés, la précision en dernière ligne. Soumis au prompt
-# ci-dessus, un fil de deux questions ne peut pratiquement jamais « exprimer
-# exactement la même demande » qu'une question unique — le garde refusait alors
-# par artefact de format plutôt que par jugement. Ce prompt lui dit où est la
-# demande et à quoi sert le reste.
+# In follow-up mode, question A is a thread not a single question — the standard prompt got refusals by format artifact.
 _PROMPT_SYSTEME_SUIVI = (
     "Tu es un juge d'équivalence de questions. "
     "La question A est un fil de discussion : les premières lignes sont le contexte des "
@@ -43,13 +33,7 @@ _PROMPT_SYSTEME_SUIVI = (
 
 @dataclass(frozen=True)
 class Decision:
-    """Verdict du garde, avec de quoi le journaliser et l'auditer.
-
-    `court_circuit` distingue un OUI rendu sans appel LLM d'un OUI du juge :
-    les deux servent la réponse, mais ils n'ont pas la même valeur de preuve.
-    `erreur` distingue un NON jugé d'un NON par défaut faute d'avoir pu joindre
-    Albert — ce dernier ne doit pas être compté comme un refus du juge.
-    """
+    """`court_circuit` distinguishes a no-call OUI from a judged OUI — same outcome, different audit value. `erreur`"""
 
     verdict: bool
     court_circuit: bool = False
@@ -58,26 +42,15 @@ class Decision:
 
 
 def _normaliser(q: str) -> str:
-    """Normalise casse, ponctuation et espaces. **Ne retire pas les accents** :
-    NFC compose les caractères, il ne les dépouille pas. « depense » et
-    « dépense » restent donc distincts et passent par le juge.
-    """
+    """Normalize case, punctuation, whitespace. NFC composes, does not strip accents — « depense » and « dépense »"""
     q = unicodedata.normalize("NFC", q).lower()
     q = re.sub(r"[^\w\s]", " ", q)
     return re.sub(r"\s+", " ", q).strip()
 
 
 def statuer(question_posee: str, question_indexee: str, *, est_suivi: bool = False) -> Decision:
-    """Décide si la question posée appelle exactement la même réponse que la question indexée.
-
-    En mode suivi, `question_posee` est le fil concaténé et non la seule
-    précision : une précision elliptique (« et pour la médecine de prévention ? »)
-    ne veut rien dire hors de son fil.
-    """
-    # Court-circuit réservé au hors-suivi. Comparer typographiquement un fil
-    # entier à une question unique n'a pas de sens ; ne comparer que sa dernière
-    # ligne reviendrait à servir une réponse canonique en ayant jeté le contexte
-    # qui la rend sûre.
+    """Decide if the question asked calls exactly the same answer as the indexed question. In follow-up mode"""
+    # Short-circuit disabled in follow-up mode: comparing a full thread to a single question is meaningless.
     if not est_suivi and _normaliser(question_posee) == _normaliser(question_indexee):
         logger.info("Garde : répétition exacte → OUI (sans appel LLM)")
         return Decision(verdict=True, court_circuit=True)
@@ -101,9 +74,5 @@ def statuer(question_posee: str, question_indexee: str, *, est_suivi: bool = Fal
 
 
 def approuver(question_posee: str, question_indexee: str, *, est_suivi: bool = False) -> bool:
-    """Retourne True si et seulement si les deux questions expriment exactement la même demande.
-
-    Enveloppe booléenne de `statuer`, pour les appelants qui n'ont que faire du
-    détail du verdict (tests, scripts de calibration).
-    """
+    """Boolean wrapper around `statuer`, for callers that don't need verdict details (tests, calibration scripts)."""
     return statuer(question_posee, question_indexee, est_suivi=est_suivi).verdict

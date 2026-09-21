@@ -14,19 +14,11 @@ export interface FaqResultat {
 export interface FaqRecherche {
   question: string;
   resultats: FaqResultat[];
-  /**
-   * Pistes proposées **uniquement** quand `resultats` est vide : des réponses
-   * proches sans l'être assez pour être présentées comme la réponse. Le serveur
-   * garantit qu'elles ne coexistent jamais avec un résultat sûr.
-   */
+  /** Hints returned *only* when `resultats` is empty — server guarantees they never coexist with a sure result. */
   incertains: FaqResultat[];
 }
 
-/**
- * Cherche parmi les réponses canoniques, tous domaines confondus.
- *
- * Chaque appel consomme un embedding Albert : ne jamais l'appeler à la frappe.
- */
+/** Search canonical answers across all domains. Each call costs one Albert embedding — never call on keystroke. */
 export async function rechercherFaq(q: string, limit?: number): Promise<FaqRecherche> {
   const params = new URLSearchParams({ q });
   if (limit) params.set("limit", String(limit));

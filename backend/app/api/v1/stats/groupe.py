@@ -29,7 +29,6 @@ def get_groupe_membres_stats(
         if not groupe:
             raise HTTPException(404, "Groupe introuvable")
 
-        # Vérification d'accès : admin ou chef du groupe
         if current_user.role != "ADMIN":
             is_chef = db.execute(
                 select(user_groups.c.is_chef).where(

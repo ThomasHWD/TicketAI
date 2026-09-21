@@ -7,16 +7,7 @@ from app.database import Base
 
 
 class DocumentStaging(Base):
-    """Fichier téléversé, analysé, mais pas encore confirmé.
-
-    Support du flux en deux temps aperçu → confirmation. Sa raison d'être est de
-    garantir que la confirmation porte **exactement** sur le fichier dont l'impact
-    a été affiché : sans lui, il faudrait re-téléverser (sans preuve d'identité)
-    ou faire confiance au client.
-
-    Les entrées non confirmées sont balayées à chaque aperçu (cf. ``purger_staging``) ;
-    ``expires_at`` borne la validité d'un aperçu affiché puis oublié.
-    """
+    """Fichier téléversé en attente de confirmation. Garantit que la confirmation porte sur le fichier dont l'impact"""
 
     __tablename__ = "document_staging"
 

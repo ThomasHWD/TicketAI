@@ -1,32 +1,4 @@
-"""Remplacement du contenu d'un document existant, à ``doc_id`` constant.
-
-La difficulté n'est pas la ré-indexation : c'est de **capturer le texte de la
-version sortante avant de la détruire**. Qdrant est la seule source du texte des
-chunks qui ont fondé les réponses validées ; une fois les points supprimés,
-plus aucune comparaison entre versions n'est possible. D'où l'ordre imposé
-ci-dessous.
-
-Séquence :
-
-::
-
-    scroll (capture)  →  extract + diff  →  chunk + embed
-                                                  ↓
-    flaguer_en_analyse  ←  commit Postgres  ←  delete anciens  ←  upsert nouveaux
-            ↓
-    reverification_job (queue_questions, asynchrone)
-
-L'upsert précède la suppression : l'ordre inverse ouvrirait un trou de service de
-plusieurs dizaines de secondes (la durée de l'embedding) pendant lequel le
-document ne répondrait plus. Le prix est une fenêtre de quelques centaines de ms
-où les deux versions coexistent dans l'index.
-
-**Ce job ne périme plus aucune réponse validée.** Il calcule le diff, le fige sur
-la version, marque les réponses concernées « analyse en cours » et passe la main :
-décider qu'une réponse est contredite demande de la lire, ce que fait
-``workers/reverification.py``. Seules les EN_ATTENTE sont périmées ici — elles
-n'ont jamais été servies et repassent au RAG sans que personne ait à trancher.
-"""
+"""Document content replacement at constant ``doc_id``. Scroll BEFORE delete (Qdrant sole chunk source post-commit)"""
 
 import logging
 import os
@@ -69,13 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 def analyser_sortante(chemin_sortant: str | None, nouveau_texte: str) -> dict | None:
-    """Le diff avec la version sortante, lue sur le disque.
-
-    Renvoie ``None`` quand la version sortante est illisible — fichier disparu
-    (documents backfillés) ou archive corrompue. **Ne jamais** reconstituer le
-    texte sortant en concaténant les chunks capturés — le chevauchement de 128
-    tokens du splitter fabriquerait une fausse suppression à chaque couture.
-    """
+    """Diff avec la version sortante. None = fichier disparu ou corrompu (backfilled docs)."""
     if chemin_sortant is None:
         return None
     try:
@@ -88,16 +54,10 @@ def analyser_sortante(chemin_sortant: str | None, nouveau_texte: str) -> dict | 
 
 
 class TacheMaj(celery_app.Task):
-    """Porte le ``on_failure`` : sans lui, un échec laisserait le document
-    verrouillé en ``EN_MAJ`` **définitivement**, sans aucune voie de sortie."""
+    """Last-resort net: unhandled failure would leave the document locked in EN_MAJ indefinitely."""
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        """Appelé une fois les retries épuisés (un ``Retry`` ne passe pas par ici).
-
-        La version reste **inchangée** : l'ancienne indexation est toujours en place,
-        la suppression des anciens points n'ayant lieu qu'après un upsert réussi.
-        Ne couvre pas le worker tué net — d'où le garde-fou des 30 minutes côté API.
-        """
+        # version stays unchanged: old indexing is still in place (delete only happens after a successful upsert)
         doc_id = kwargs.get("doc_id")
         if doc_id:
             db = SessionLocal()
@@ -135,9 +95,7 @@ def document_update_job(
     uploaded_by: str | None = None,
     restauree_depuis: int | None = None,
 ):
-    # `new_version` est réservé par l'endpoint et transmis tel quel : le recalculer
-    # ici ferait choisir un numéro différent à chaque retry, laissant derrière lui
-    # autant de versions orphelines dans Qdrant.
+    # new_version reserved by endpoint and passed as-is — recomputing it here would create orphaned versions on retry
     logger.info("mise à jour : %s (doc %s → v%d)", filename, doc_id, new_version)
 
     try:
@@ -146,22 +104,19 @@ def document_update_job(
             doc = db.query(Document).filter(Document.doc_id == doc_id).first()
             if doc is None:
                 raise ValueError(f"Document introuvable : {doc_id}")
-            # Reprise : le job a déjà abouti, un retry ne doit rien refaire.
             if doc.version == new_version:
                 logger.info("v%d déjà en place — rien à faire", new_version)
                 return {"statut": "OK", "doc_id": doc_id, "version": new_version, "nb_a_analyser": 0}
             domaine = doc.domaine
-            # Le chemin du fichier sortant se lit ici, pas plus loin : la session
-            # ferme dans deux lignes et `doc` devient détaché.
-            chemin_sortant = chemin_du_fichier(doc.doc_id, doc.filename, doc.stored_path)
+            chemin_sortant = chemin_du_fichier(doc.doc_id, doc.filename, doc.stored_path)  # read here — session closes
         finally:
             db.close()
 
-        # Étape 1 — Capture du texte sortant, impérativement avant toute suppression
+        # Capture du texte sortant impérativement avant toute suppression.
         anciens = capturer_chunks(doc_id, new_version)
         logger.info("%d chunks de la version sortante capturés", len(anciens))
 
-        # Étape 2 — Purge défensive d'un retry partiel (points déjà écrits en v{new})
+        # Purge défensive d'un retry partiel (points déjà écrits en v{new}).
         client.delete(
             collection_name=COLLECTION_NAME,
             points_selector=FilterSelector(
@@ -174,24 +129,19 @@ def document_update_job(
             ),
         )
 
-        # Étape 3 — Extraction et détection d'impact (ni chunking ni embedding requis)
+        # Détection d'impact : ni chunking ni embedding requis.
         pages = extract_text(file_path)
         nouveau_texte = texte_complet(pages)
         indices = indices_modifies(anciens, nouveau_texte)
         logger.info("%d/%d passages modifiés", len(indices), len(anciens))
 
-        # Le fichier sortant est encore sur le disque : `store_file` (étape 5)
-        # écrit sous v{new_version}, il ne l'écrase pas.
+        # Fichier sortant encore sur disque : store_file écrit sous v{new_version}, il ne l'écrase pas.
         changements = analyser_sortante(chemin_sortant, nouveau_texte)
         if changements is None:
             logger.warning("contenu comparé impossible — toutes les réponses seront à relire")
         else:
             logger.info("%d unité(s) de changement", changements["nb_unites"])
 
-        # Étape 4 — Chunking, contextualisation puis embedding de la nouvelle version.
-        # Même insertion, même champ de payload qu'à l'ingestion : les deux
-        # producteurs écrivent des points que la recherche ne distingue pas, ils
-        # doivent encoder le même texte. Cf. services/contextualisation.py.
         chunks = chunk_text(pages)
         contextes = contextualiser(chunks, synopsis(nouveau_texte, filename, description))
         embeddings = embed_texts(
@@ -200,10 +150,9 @@ def document_update_job(
         )
         logger.info("%d chunks embarqués, %d contextualisés", len(chunks), sum(1 for c in contextes if c))
 
-        # Étape 5 — Archivage du fichier sous v{new_version}
         stored_path = store_file(file_path, doc_id, filename, new_version)
 
-        # Étape 6 — Upsert AVANT suppression : zéro trou de service
+        # Upsert AVANT suppression : zéro trou de service.
         points = [
             PointStruct(
                 id=point_id(doc_id, new_version, i),
@@ -220,10 +169,7 @@ def document_update_job(
                     "chunk_index": i,
                     "source": filename,
                     "domaine": domaine,
-                    # Brut, comme à l'ingestion : `capturer_chunks` lit `contenu`
-                    # pour bâtir le diff de la version suivante, et un préfixe
-                    # produit par un LLM y ferait paraître tous les chunks modifiés.
-                    "contenu": chunk,
+                    "contenu": chunk,  # raw, not texte_indexe — LLM prefix would make every chunk look modified at
                     "contexte": ctx,
                     "stored_path": stored_path,
                     "description": description,
@@ -236,13 +182,11 @@ def document_update_job(
         client.upsert(collection_name=COLLECTION_NAME, points=points)
         logger.info("%d points v%d indexés", len(points), new_version)
 
-        # Étape 7 — Suppression des points de toutes les versions antérieures
         client.delete(
             collection_name=COLLECTION_NAME,
             points_selector=FilterSelector(filter=filtre_anciens(doc_id, new_version)),
         )
 
-        # Étape 8 — Bascule en base
         db = SessionLocal()
         try:
             user_uuid = uuid.UUID(uploaded_by) if uploaded_by else None
@@ -286,14 +230,12 @@ def document_update_job(
             db.add(DocumentUpload(doc_id=doc_id, user_id=user_uuid, domaine=domaine, filename=filename))
             db.commit()
 
-            # Étape 9 — Les EN_ATTENTE bâties sur la version sortante. Aucun
-            # jugement requis : jamais servies, jamais indexées, et les valider
-            # plus tard publierait une réponse fondée sur un texte disparu.
+            # EN_ATTENTE : jamais servies, renvoyer au RAG plutôt que demander à un humain de juger.
             a_du_neuf = changements is None or bool(changements["nb_unites"])
             if a_du_neuf:
                 requeuer_en_attente(db, perimer_en_attente(db, doc_id, RAISON_MAJ, new_version))
 
-            # Étape 10 — Mise sous analyse. Après l'étape 9, jamais avant.
+            # Mise sous analyse après l'EN_ATTENTE, jamais avant.
             if changements is None:
                 nb_a_relire = len(racines(marquer_a_relire(db, doc_id, new_version, RAISON_ILLISIBLE)))
                 nb_a_analyser = 0
@@ -305,7 +247,7 @@ def document_update_job(
         finally:
             db.close()
 
-        # Étape 11 — Le staging n'a plus d'utilité : plus aucun retry ne suivra
+        # Le staging n'a plus d'utilité : plus aucun retry ne suivra.
         if os.path.exists(file_path):
             os.remove(file_path)
 
@@ -325,7 +267,6 @@ def document_update_job(
             },
         )
 
-        # Étape 12 — La ré-vérification, sur `queue_questions`.
         if nb_a_analyser:
             from app.workers.reverification import reverification_job  # noqa: PLC0415 — anti-circulaire
 

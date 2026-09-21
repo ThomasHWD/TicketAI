@@ -1,11 +1,4 @@
-"""Authentification LDAP / Active Directory.
-
-Point d'entrée unique : ``authenticate(username, password)``. Il renvoie une
-``LdapIdentity`` si les identifiants sont valides, ``None`` sinon.
-
-On bind avec un compte de service, on cherche l'utilisateur, puis on **re-bind
-avec son DN et son mot de passe** pour valider réellement les identifiants.
-"""
+"""LDAP/AD authentication. Two-bind protocol: service account to look up the user DN, then re-bind with user"""
 
 import ssl
 from dataclasses import dataclass
@@ -27,7 +20,6 @@ class LdapIdentity:
 
 
 def authenticate(username: str, password: str) -> LdapIdentity | None:
-    """Valide les identifiants contre l'annuaire LDAP / Active Directory."""
     if not username or not password:
         return None
     try:
@@ -38,8 +30,6 @@ def authenticate(username: str, password: str) -> LdapIdentity | None:
 
 
 def _identity_from_entry(username: str, entry) -> LdapIdentity:
-    """Construit une identité à partir d'une entrée LDAP trouvée."""
-
     def attr(name: str) -> str | None:
         value = entry[name].value if name in entry else None
         return str(value) if value else None
@@ -81,9 +71,6 @@ def _search_attributes() -> list[str]:
     return [a for a in attrs if a]
 
 
-# ── Mode réel (Active Directory / LDAP) ──────────────────────────────
-
-
 def _make_server(url: str) -> Server:
     tls = Tls(validate=ssl.CERT_REQUIRED if settings.ldap_tls_validate else ssl.CERT_NONE)
     return Server(url, tls=tls, get_info=ALL, connect_timeout=settings.ldap_timeout)
@@ -105,7 +92,6 @@ def _get_server() -> Server:
 def _authenticate_ldap(username: str, password: str) -> LdapIdentity | None:
     server = _get_server()
 
-    # 1. Bind du compte de service pour rechercher l'utilisateur.
     svc = Connection(
         server,
         user=settings.ldap_bind_dn or None,
@@ -126,7 +112,7 @@ def _authenticate_ldap(username: str, password: str) -> LdapIdentity | None:
     identity = _identity_from_entry(username, entry)
     svc.unbind()
 
-    # 2. Re-bind avec le DN de l'utilisateur : valide réellement le mot de passe.
+    # Re-bind with user DN — actually validates the password (service-account bind does not).
     user_conn = Connection(server, user=dn, password=password)
     if not user_conn.bind():
         return None

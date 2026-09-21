@@ -7,13 +7,7 @@ from app.database import Base
 
 
 class DocumentVersion(Base):
-    """Une version archivée d'un document — y compris la version courante.
-
-    ``remplacee_at IS NULL`` identifie la version courante. Le fichier de chaque
-    version vit sous ``{documents_storage_path}/{doc_id}/v{version}/{filename}`` ;
-    les documents antérieurs au versioning gardent leur fichier à la racine du
-    dossier ``{doc_id}`` et ``stored_path`` fait foi.
-    """
+    """Version archivée d'un document. `remplacee_at IS NULL` = version courante."""
 
     __tablename__ = "document_versions"
     __table_args__ = (UniqueConstraint("doc_id", "version", name="uq_document_versions_doc_version"),)
@@ -31,9 +25,5 @@ class DocumentVersion(Base):
     restauree_depuis = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     remplacee_at = Column(DateTime(timezone=True), nullable=True)
-    # Ce que cette version a changé par rapport à la précédente :
-    # {"nb_ajoutes", "nb_retires", "extraits_ajoutes": [≤3], "extraits_retires": [≤3]}.
-    # Stocké et non recalculé — la liste « à relire » se consulte des jours plus
-    # tard, quand l'archive sortante peut avoir été purgée. Sans ces extraits,
-    # « cette réponse est liée à Charte_RH v3 » ne permet de juger de rien.
-    changements = Column(JSON, nullable=True)
+    # stocké, non recalculé — l'archive sortante peut avoir été purgée quand la liste « à relire » est consultée
+    changements = Column(JSON, nullable=True)  # {"nb_ajoutes", "nb_retires", "extraits_ajoutes": [≤3]

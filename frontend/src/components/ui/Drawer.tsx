@@ -2,13 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
-/**
- * Panneau latéral (slide-over) monté en portail.
- *
- * Le composant est *monté à l'ouverture* : l'appelant le rend conditionnellement.
- * L'animation d'entrée est donc jouée depuis un `requestAnimationFrame` — sans
- * ce délai d'une frame, le navigateur applique l'état final sans transition.
- */
+/** Slide-over mounted in a portal. Entry animation runs from a `requestAnimationFrame` — without the one-frame delay the browser applies the final state immediately, skipping the transition. */
 export default function Drawer({
   title,
   description,

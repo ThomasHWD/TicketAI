@@ -9,8 +9,7 @@ export interface TicketReponse {
   ticket_id: string;
   contenu: string;
   contenu_corrige: string | null;
-  // Texte de la précision (relance) ayant déclenché cette réponse ; null pour
-  // la réponse à la question initiale.
+  // Follow-up text (relance) that triggered this response; null for the initial question's answer.
   question_suivi: string | null;
   statut: StatutReponse;
   source: Source;
@@ -64,14 +63,12 @@ export interface EditerCanoniquePayload {
   contenu: string;
 }
 
-/** Une unité telle qu'elle est figée en base : texte intégral, non tronqué. */
 export interface UniteBrute {
   sens: "AJOUT" | "RETRAIT" | "REECRITURE";
   avant: string | null;
   apres: string | null;
 }
 
-/** Réponse retirée du service parce que le document qui la fondait a changé. */
 export interface ReponseObsolete {
   reponse_id: string;
   ticket_id: string;
@@ -91,13 +88,8 @@ export interface ReponseObsolete {
     | null;
   obsolete_version: number | null;
   obsolete_at: string | null;
-  /**
-   * La phrase qui justifie le retrait, écrite à l'analyse. Sans elle, un retrait
-   * sec est indéfendable : on voit une réponse disparue et rien qui dise pourquoi.
-   * null pour les réponses retirées avant l'arrivée de la ré-vérification.
-   */
+  /** Sentence written at analysis time — null for responses withdrawn before reverification existed. */
   analyse_justification: string | null;
-  /** Les unités de changement sur lesquelles le verdict s'est appuyé. */
   analyse_extraits: UniteBrute[];
   doc_id: string | null;
   /** null si le document a été supprimé et sa ligne purgée. */
@@ -112,11 +104,7 @@ export interface ReponsesObsoletesResponse {
   items: ReponseObsolete[];
 }
 
-/**
- * Pourquoi une réponse attend une relecture. Chaque valeur dit ce que la machine
- * n'a pas pu trancher — ce n'est pas un détail d'affichage : `ANALYSE_EN_COURS`
- * est un état transitoire sur lequel aucune action ne doit être proposée.
- */
+/** ANALYSE_EN_COURS is transient — no user action should be offered while it is set. */
 export type RaisonARelire =
   /** Verdict CONTREDITE sur une réponse qui ne cite pas le document : plafonné. */
   | "CONTREDITE_PROBABLE"
@@ -130,19 +118,12 @@ export type RaisonARelire =
   | "REECRITURE_MASSIVE"
   /** Verdict INCERTAIN : le modèle a vu les changements sans pouvoir conclure. */
   | "DOC_MODIFIÉ"
-  /**
-   * Même verdict, mais déclenché par l'arrivée d'un document *neuf* et non par
-   * une mise à jour : il n'y a pas de version précédente à consulter.
-   */
+  /** Same verdict but triggered by a *new* document — no previous version to diff against. */
   | "NOUVEAU_DOC"
   /** Aucun diff n'était calculable : le fichier sortant avait disparu du disque. */
   | "VERSION_SORTANTE_ILLISIBLE";
 
-/**
- * Réponse toujours servie sur laquelle une mise à jour de document a laissé un
- * doute. Elle continue d'être servie jusqu'à ce qu'un humain tranche — d'où
- * l'absence de tout champ d'état.
- */
+/** Still served until a human decides — hence no status field. */
 export interface ReponseSignalee extends ReponseARelire {
   domaine: string;
   contenu: string;
@@ -152,7 +133,6 @@ export interface ReponseSignalee extends ReponseARelire {
   a_relire_at: string | null;
   /** Ce que le modèle a répondu, ou pourquoi il n'a pas pu répondre. */
   analyse_justification: string | null;
-  /** Les unités qui ont fondé ce signalement, propres à cette réponse. */
   analyse_extraits: UniteBrute[];
   doc_id: string | null;
   document_filename: string | null;

@@ -16,12 +16,7 @@ interface Props {
   onReessayer: () => void;
 }
 
-/**
- * Le résultat de la recherche en cours.
- *
- * Un seul bloc, remplacé à chaque nouvelle question : rien ne s'empile, donc
- * rien ne suggère qu'une question hérite de la précédente.
- */
+/** Single block replaced on each new question — nothing stacks, so nothing implies one answer carries over to the next. */
 export default function FaqReponse({
   question,
   resultats,
@@ -65,9 +60,7 @@ export default function FaqReponse({
     );
   }
 
-  // Rien d'assez proche pour être présenté comme la réponse, mais des voisins
-  // plausibles : on les propose comme pistes, sans les annoncer comme des
-  // réponses — c'est exactement leur statut.
+  // no confident result, but plausible neighbors — presented as hints, not answers
   if (!principal && incertains.length > 0) {
     return (
       <div className="space-y-5">

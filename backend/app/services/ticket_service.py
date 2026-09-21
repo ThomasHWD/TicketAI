@@ -61,11 +61,7 @@ def serialize_ticket(ticket: Ticket) -> dict:
 
 
 def acquire_lock(db: Session, tid: uuid.UUID, validator_id: uuid.UUID) -> Ticket | None:
-    """Acquiert/prolonge le bail de façon atomique (UPDATE conditionnel).
-
-    Réussit uniquement si le ticket est libre, déjà détenu par ce validateur,
-    ou si le bail précédent a expiré. Renvoie le ticket si acquis, sinon None.
-    """
+    """Atomically acquires or renews the lock (conditional UPDATE). Succeeds only if free, already held by this"""
     now = datetime.now(timezone.utc)
     expiry = now + timedelta(seconds=settings.lock_ttl_seconds)
     rows = (

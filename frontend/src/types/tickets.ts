@@ -5,9 +5,7 @@ export type StatutTicket = "NOUVEAU" | "RÉPONDU" | "VALIDÉ" | "REJETÉ";
 export interface Ticket {
   id: string;
   question: string;
-  // Titre court saisi à la création, affiché à la place de la question dans les tableaux
-  // (null pour les anciens tickets → fallback sur la question à l'affichage).
-  objet: string | null;
+  objet: string | null;  // null for old tickets — fall back to question at display
   domaine: string;
   statut_ticket: StatutTicket;
   statut_job: string;
@@ -31,7 +29,6 @@ export interface Ticket {
   locked_by: string | null;
   locked_by_email: string | null;
   lock_expires_at: string | null;
-  // Assignation à un validateur spécifique
   assigned_to: string | null;
   assigned_to_email: string | null;
   assigned_to_nom_complet: string | null;

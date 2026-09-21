@@ -1,7 +1,8 @@
 # Espace utilisateur
 
-Ce document décrit tout ce qu'un employé peut faire dans TicketAI : poser une question,
-suivre son traitement, relancer la conversation, clôturer et noter.
+Ce document décrit tout ce qu'un employé peut faire dans TicketAI : consulter son tableau
+de bord, poser une question, suivre son traitement, relancer la conversation, clôturer et
+noter.
 
 C'est l'espace par défaut. Un employé sans groupe n'a accès qu'à ces pages ; il n'entre
 jamais dans le backoffice.
@@ -21,7 +22,7 @@ jamais dans le backoffice.
 
 > Le menu latéral l'appelle **« Questions fréquentes »** ; le reste de la documentation et
 > le code disent **FAQ**. C'est la même page. Elle a sa section dédiée :
-> [§ 3. Chercher une réponse déjà validée](#3-chercher-une-réponse-déjà-validée-la-faq).
+> [§ 5. Chercher une réponse déjà validée](#5-chercher-une-réponse-déjà-validée-la-faq).
 
 Un utilisateur qui n'appartient à aucun groupe et qui visite `/` est automatiquement
 redirigé vers `/mon-espace`.
@@ -30,33 +31,137 @@ redirigé vers `/mon-espace`.
 
 ---
 
-## 2. Poser une question
+## 2. Tableau de bord — Mon espace
 
-### Le formulaire
+### Pourquoi on fait ça
 
-Trois champs, tous obligatoires :
+Voir en un coup d'œil l'état de toutes ses demandes sans ouvrir chacune. Quand on revient
+sur la plateforme, la page d'accueil répond immédiatement à *« est-ce qu'on m'a répondu ? »*
+et *« ai-je des choses à traiter ? »*.
+
+### Comment ça fonctionne
+
+À l'ouverture de `/mon-espace`, quatre cartes résument l'activité :
+
+| Carte | Ce qu'elle compte |
+|---|---|
+| **Total** | Toutes vos demandes, tous statuts confondus |
+| **En cours** | Questions en attente d'une réponse ou d'une validation |
+| **Réponse reçue** | Tickets ayant reçu une réponse validée, pas encore clôturés |
+| **Clôturés** | Demandes fermées, manuellement ou automatiquement |
+
+En dessous, la liste des tickets récents s'organise par statut : les demandes actives
+d'abord, les clôturées ensuite. Cliquer sur une ligne ouvre le fil de conversation.
+
+**Raccourci** : appuyer sur `n` depuis cette page crée directement un nouveau ticket.
+
+Si vous avez plus de 200 tickets, un avertissement s'affiche : seuls les 200 plus récents
+sont chargés. Le lien *« Voir tout l'historique »* renvoie vers la page d'historique
+complète avec filtres et pagination.
+
+La page se met à jour sans rechargement dès qu'une réponse arrive ou qu'un ticket change
+de statut — voir [Notifications et temps réel](notifications-et-temps-reel.md).
+
+### Détails techniques
+
+Fichier : `frontend/src/pages/user/UserDashboard.tsx`.
+Endpoint : `GET /api/v1/tickets?limit=200`.
+La distinction employé / validateur repose sur `isBackoffice` (hook `useAuth`) : un
+validateur ou admin qui navigue vers `/mon-espace` est redirigé vers le backoffice.
+Invalidations SSE déclenchant un rechargement : `ticket_created`, `ticket_answered`,
+`ticket_closed`.
+
+---
+
+## 3. Consulter son historique
+
+### Pourquoi on fait ça
+
+Retrouver une réponse reçue il y a plusieurs semaines, vérifier le statut d'une demande
+en cours, ou s'assurer qu'un ticket a bien été clôturé. L'historique donne accès à
+l'ensemble des demandes passées, ouvertes et fermées, avec des filtres pour les trier.
+
+### Comment ça fonctionne
+
+La page `/historique` affiche toutes vos demandes en quatre onglets :
+
+| Onglet | Contenu |
+|---|---|
+| **Tous** | L'ensemble de vos tickets, quel que soit leur état |
+| **En traitement** | Questions dont la réponse est en cours ou en attente de validation |
+| **Répondu** | Questions ayant reçu une réponse validée |
+| **Clôturé** | Demandes fermées |
+
+Chaque onglet affiche son compteur (ex. *« Répondu 3 »*). Une barre de recherche permet
+de filtrer par mot-clé dans le titre ou le texte de la question — la liste se met à jour
+à mesure que vous tapez (avec un léger délai de 300 ms).
+
+La liste est paginée à 10 tickets par page. Les flèches en bas permettent de naviguer.
+
+Si vous avez plus de 400 tickets, seuls les 400 plus récents sont chargés dans chaque onglet.
+
+![La page « Mon historique » : tous les tickets de l'utilisateur](../images/13-historique.png)
+
+### Détails techniques
+
+Fichier : `frontend/src/pages/user/UserTicketHistory.tsx`.
+Endpoint : `GET /api/v1/tickets` avec les paramètres `statut`, `closed`, `search`, `page`
+et `limit`. La recherche par UUID dans le champ `search` renvoie directement le ticket
+correspondant. L'onglet *Clôturé* passe `closed=true` ; les autres filtrent sur `statut_ticket`.
+
+---
+
+## 4. Poser une question
+
+### Pourquoi on fait ça
+
+Soumettre une demande à l'équipe d'experts du bon service — RH, IT, Juridique, etc. —
+sans savoir à qui s'adresser directement. Le système cherche automatiquement dans les
+documents internes et produit une réponse, ou la transmet à un expert si les documents ne
+suffisent pas.
+
+### Comment ça fonctionne
+
+La page `/nouveau-ticket` présente un formulaire à trois champs :
 
 | Champ | Contrainte | Rôle |
 |---|---|---|
-| **Objet** | non vide | Titre court affiché dans les listes. **N'entre pas dans le pipeline RAG** — il ne sert qu'à l'affichage. |
+| **Objet** | non vide | Titre court affiché dans les listes. **N'entre pas dans le pipeline** — il ne sert qu'à l'affichage. |
 | **Question** | 10 caractères minimum | Le texte réellement envoyé au moteur de recherche et au LLM. |
 | **Domaine** | valeur de la liste | Détermine quels documents sont fouillés et quel groupe d'experts traitera le ticket. |
 
-La liste des domaines est chargée depuis `GET /api/v1/tickets/domaines`. Elle contient les
-domaines des groupes existants — **si aucun groupe n'a été créé, aucune question ne peut
-être soumise** et l'API répond `400 Aucun domaine configuré`. Le premier domaine de la
-liste est présélectionné.
-
 Le bouton d'envoi reste désactivé tant que les trois conditions ne sont pas réunies. Si
-l'utilisateur a commencé à saisir et tente de quitter la page, le navigateur demande
-confirmation.
+vous commencez à saisir et tentez de quitter la page, le navigateur demande confirmation.
+
+Après envoi, l'écran indique *« en cours de traitement »*. Vous n'avez rien à rafraîchir :
+la réponse arrive toute seule dans votre espace dès qu'elle est prête.
+
+> **Rappel :** l'**objet** ne sert qu'à l'affichage — seule la **question** est envoyée au
+> moteur de recherche.
 
 ![Le formulaire de dépôt d'une question](../images/11-nouveau-ticket.png)
 
-Rappel de lecture : l'**objet** ne sert qu'à l'affichage dans les listes, seule la
-**question** est envoyée au moteur de recherche et au LLM.
+### Détails techniques
 
-### Ce qui se passe après l'envoi
+Endpoint : `POST /api/v1/tickets` (corps : `{ "objet", "question", "domaine" }`).
+La liste des domaines vient de `GET /api/v1/tickets/domaines` — si aucun groupe n'a été
+créé, cet endpoint répond `400 Aucun domaine configuré`. Le premier domaine est pré-sélectionné.
+L'API renvoie immédiatement un `job_id` ; le traitement est asynchrone sur la file
+`queue_questions`. L'interface suit l'avancement via `GET /tickets/{job_id}/status` et
+le flux SSE `ticket_answered`.
+Raccourci clavier : `Ctrl+Entrée` (`Cmd+Entrée` sur Mac) soumet le formulaire.
+
+**Durées typiques selon la branche empruntée :**
+
+| Branche | Durée | Pourquoi |
+|---|---|---|
+| **CANONIQUE** (court-circuit) | < 1 s | Question identique à une question déjà traitée, aucun appel LLM |
+| **CANONIQUE** (via le garde) | 2–5 s | Un appel LLM court (une seule décision OUI/NON) |
+| **SUGGESTION** | 1–3 s | Pas de génération, on réutilise une réponse existante |
+| **RAG** | 10–40 s | Reranking puis génération complète par le LLM |
+
+Sur les branches **SUGGESTION** et **RAG**, la réponse n'est pas montrée immédiatement à
+l'employé : elle attend d'être validée par un expert.
 
 ```mermaid
 sequenceDiagram
@@ -76,55 +181,25 @@ sequenceDiagram
     Note over U: L'écran se met à jour tout seul
 ```
 
-La réponse HTTP est immédiate : elle ne contient qu'un `job_id`, pas la réponse. Le
-traitement est asynchrone. L'utilisateur n'a rien à rafraîchir — l'écran se met à jour
-seul grâce au flux temps réel (voir
-[Notifications et temps réel](notifications-et-temps-reel.md)).
-
-### Combien de temps ça prend
-
-Cela dépend de la branche empruntée par la question :
-
-| Branche | Durée typique | Pourquoi |
-|---|---|---|
-| **CANONIQUE** (court-circuit) | < 1 s | Question identique à une question déjà traitée, aucun appel LLM |
-| **CANONIQUE** (via le garde) | 2–5 s | Un appel LLM court (une seule décision OUI/NON) |
-| **SUGGESTION** | 1–3 s | Pas de génération, on réutilise une réponse existante |
-| **RAG** | 10–40 s | Reranking puis génération complète par le LLM |
-
-Sur les branches **SUGGESTION** et **RAG**, la réponse n'est pas montrée immédiatement à
-l'employé : elle attend d'être validée par un expert.
-
 ---
 
-## 3. Chercher une réponse déjà validée (la FAQ)
+## 5. Chercher une réponse déjà validée (la FAQ)
 
-Page `/faq`, intitulée **« Questions fréquentes »** dans le menu. C'est le seul endroit où
-un employé obtient une réponse **sans passer par la file de validation** — précisément
-parce que rien n'y est produit sur le moment : la page *montre* des réponses qu'un humain
-a déjà validées au moins `SEUIL_CANONIQUE` fois (défaut : 3), tous domaines confondus.
-Aucun ticket n'est créé, aucun texte n'est généré, le garde n'est pas appelé.
+### Pourquoi on fait ça
 
-Seules les réponses canoniques **explicitement incluses dans la FAQ** (`faq_visible = true`)
-peuvent apparaître. Un validateur choisit d'inclure une réponse au moment de sa première
-validation ou depuis la page *Réponses enregistrées*. Les réponses canoniques non incluses
-continuent d'être servies par le pipeline, mais restent invisibles dans ce catalogue.
+Obtenir une réponse instantanée à une question courante sans attendre la validation d'un
+expert et sans créer de ticket. La page *Questions fréquentes* affiche uniquement des
+réponses qu'un humain a déjà validées plusieurs fois — rien n'est généré à la volée, aucun
+ticket n'est créé.
 
-### Le parcours
+### Comment ça fonctionne
 
-| Étape | Ce que voit l'employé |
-|---|---|
-| **Accueil** | Un champ au centre, « Que cherchez-vous ? », et trois questions d'exemple cliquables. Rien d'autre : tant qu'aucune question n'est posée, il n'y a rien à montrer. |
-| **Saisie** | Champ libre, 3 caractères minimum, 500 maximum. **Entrée** lance la recherche, **Maj+Entrée** va à la ligne (l'astuce n'est affichée qu'à l'accueil). |
-| **Recherche** | Un squelette de chargement, puis le résultat remplace le bloc précédent. Le champ conserve la question posée. |
+À l'ouverture de `/faq`, un champ de recherche centré vous accueille avec trois exemples
+de questions cliquables. Saisissez votre question (3 à 500 caractères) et appuyez sur
+**Entrée** pour lancer la recherche. **Maj+Entrée** va à la ligne si vous avez besoin de
+plusieurs lignes.
 
-La recherche part **à la soumission uniquement**, jamais à la frappe : chaque recherche
-consomme un embedding Albert. Reposer la même question dans les cinq minutes ne rappelle
-pas Albert (cache React Query), et un usage trop rapide reçoit *« Trop de recherches
-d'affilée. Patientez quelques instants. »* — c'est `FAQ_RATE_LIMIT_PAR_MINUTE`
-(défaut : 20/minute/utilisateur), avec un bouton **Réessayer**.
-
-### Ce qui s'affiche
+Trois cas possibles :
 
 | Cas | Affichage |
 |---|---|
@@ -132,63 +207,63 @@ d'affilée. Patientez quelques instants. »* — c'est `FAQ_RATE_LIMIT_PAR_MINUT
 | **Rien de sûr, mais des voisins plausibles** | *« Rien ne correspond exactement à votre question. Peut-être cherchiez-vous ceci ? »* suivi de 3 pistes repliées, au plus. |
 | **Rien du tout** | *« Aucune réponse ne correspond à cette question pour le moment. »* |
 
-Les **pistes ne cohabitent jamais avec des réponses** : le serveur ne les renvoie que
-lorsque le premier rang est vide. C'est une garantie d'API, pas une règle d'affichage —
-sans juge sur cette page, un candidat approximatif se propose sans s'affirmer. Seuils et
-justification : [Référence API](../technique/reference-api.md#faq).
+Dans les trois cas, une rangée **« Poser la question à un expert »** est présente. Elle
+ouvre `/nouveau-ticket` **avec votre question déjà recopiée** — vous n'avez plus qu'à
+choisir l'objet et le domaine.
 
-Dans les trois cas, une rangée **« Poser la question à un expert »** ferme l'écran. Elle
-ouvre `/nouveau-ticket` **avec la question déjà recopiée dans le formulaire** — l'employé
-n'a plus qu'à choisir l'objet et le domaine. C'est la porte de sortie de la page, pas son
-action principale.
+> **Trois points qui surprennent :**
+> - La recherche se déclenche **à la soumission uniquement**, jamais à la frappe.
+> - Les pistes (*voisins plausibles*) n'apparaissent que si aucune réponse sûre n'est
+>   trouvée — les deux niveaux ne cohabitent jamais.
+> - La question affichée dans les résultats n'est pas forcément celle du ticket d'origine :
+>   c'est la formulation qui a effectivement correspondu à votre recherche.
 
-### Trois points qui surprennent
+### Détails techniques
 
-- **Une question à la fois, sans mémoire.** Contrairement au fil d'un ticket (§ 4), la FAQ
-  n'empile rien : chaque recherche est indépendante et le serveur ne voit jamais les
-  précédentes. Une relance du type *« et pour un apprenti ? »* n'y a donc aucun sens — elle
-  serait cherchée telle quelle. C'est ce que le remplacement du bloc à chaque question, au
-  lieu d'un transcript, sert à rendre évident.
-- **La question affichée n'est pas forcément celle du ticket d'origine.** Une réponse est
-  indexée sous autant de formulations qu'elle a de validations humaines ; la page montre
-  **celle qui a effectivement correspondu**.
-- **Aucun score n'est affiché.** Le cosinus ordonne les résultats mais ne sort jamais de
-  l'API : il n'a pas de sens pour un utilisateur final et invite aux mauvaises lectures.
+Seules les réponses canoniques avec `faq_visible = true` apparaissent. Un validateur
+choisit d'inclure une réponse au moment de sa première validation ou depuis *Réponses
+enregistrées*.
+
+Endpoint : `GET /api/v1/faq/recherche?q=…`.
+Limite de débit : `FAQ_RATE_LIMIT_PAR_MINUTE` (défaut : 20/minute/utilisateur) — en cas
+de dépassement, le message *« Trop de recherches d'affilée. Patientez quelques instants. »*
+s'affiche avec un bouton **Réessayer**. Le limiteur est **fail-open** : une panne de Valkey
+ne bloque pas la page.
+Cache React Query : reposer la même question dans les cinq minutes ne rappelle pas Albert.
+Seuils : `FAQ_SEUIL_PERTINENCE` (défaut : 0.75) pour les résultats sûrs,
+`FAQ_SEUIL_INCERTAIN` (défaut : 0.55) pour les pistes. Référence complète :
+[Référence API](../technique/reference-api.md#faq).
 
 ![L'accueil de la FAQ : le champ centré et les trois amorces cliquables](../images/14-faq.png)
 
 ![Un résultat : la réponse dépliée, son domaine, et la sortie vers le formulaire](../images/15-faq-resultats.png)
 
-> La seconde est produite uniquement si `TAI_FAQ_Q` est défini (`captures_doc.py`) : elle
-> déclenche une vraie recherche, donc un embedding Albert.
+> La seconde capture est produite uniquement si `TAI_FAQ_Q` est défini (`captures_doc.py`) :
+> elle déclenche une vraie recherche, donc un embedding Albert.
 
 ---
 
-## 4. Suivre son ticket
+## 6. Suivre son ticket et relancer le fil
 
-### Le fil de conversation
+### Pourquoi on fait ça
 
-Le détail d'un ticket (`/historique/{id}`) présente un fil : la question initiale, la
-réponse, puis les éventuelles relances et leurs réponses.
+Garder la main sur une demande en cours, lire la réponse dès qu'elle arrive, et poser une
+question complémentaire si la réponse ne couvre pas complètement votre situation — sans
+créer un nouveau ticket et sans perdre le fil de la conversation.
 
-![La page « Mon historique » : tous les tickets de l'utilisateur](../images/13-historique.png)
+### Comment ça fonctionne
 
-> 📸 **[CAPTURE D'ÉCRAN COMPLÉMENTAIRE]** : *Le détail d'un ticket (`/historique/{id}`) avec un fil complet — question initiale, réponse validée, relance de l'utilisateur, réponse à la relance. L'instance de test ne contient pas encore de fil comportant une relance.*
+Le détail d'un ticket (`/historique/{id}`) présente un fil chronologique : la question
+initiale, puis la réponse, puis les éventuelles relances avec leurs réponses.
 
-### Relancer — les questions de suivi
+**Relancer — les questions de suivi**
 
-L'employé peut ajouter une précision au fil : *« et pour un apprenti ? »*, *« dans ce
-cas ? »*. C'est ce qu'on appelle une **question de suivi**.
+Si la réponse reçue ne couvre pas entièrement votre cas — *« et pour un apprenti ? »*,
+*« dans ce cas particulier ? »* — saisissez votre complément dans le champ en bas du fil
+et envoyez. Cette action est appelée **question de suivi**.
 
-Trois règles encadrent cette action :
-
-- Seul **le créateur du ticket** peut relancer (`403` sinon).
-- Un ticket **clôturé** n'accepte plus de relance (`409`).
-- La relance repasse par tout le pipeline — ce n'est pas une simple recherche
-  dans le fil existant.
-
-Le point important : le moteur ne voit pas la relance isolément. Il reconstruit le fil
-complet et concatène toutes les questions pour former une requête enrichie.
+Le système ne traite pas votre précision seule : il reconstruit le fil complet et forme une
+requête enrichie du contexte de toute la conversation. Votre précision y prend son sens.
 
 ```
 Question initiale : « Quel est le préavis de licenciement ? »
@@ -199,66 +274,112 @@ Requête réellement recherchée :
   Et pour un apprenti ? »
 ```
 
-Sans cela, *« et pour un apprenti ? »* ne voudrait rien dire pour le moteur de recherche.
-Le détail est décrit dans
-[Pipeline de traitement des questions](../technique/architecture-pipeline-questions.md#mode-suivi-fil-de-conversation).
+> 📸 **[CAPTURE D'ÉCRAN COMPLÉMENTAIRE]** : *Le détail d'un ticket (`/historique/{id}`) avec un fil complet — question initiale, réponse validée, relance de l'utilisateur, réponse à la relance. L'instance de test ne contient pas encore de fil comportant une relance.*
+
+### Détails techniques
+
+Endpoint : `POST /api/v1/tickets/{id}/suivi` (corps : `{ "question": "..." }`).
+Règles : seul le créateur du ticket peut relancer (`403` sinon) ; un ticket clôturé
+n'accepte plus de relance (`409`). La relance repasse par tout le pipeline — ce n'est pas
+une simple recherche dans le fil existant. Elle renvoie un `job_id`.
+Détail du mode suivi dans le pipeline :
+[Architecture pipeline questions](../technique/architecture-pipeline-questions.md#mode-suivi-fil-de-conversation).
 
 ---
 
-## 5. Quand un ticket est réacheminé
+## 7. Quand un ticket est réacheminé
 
-Un validateur peut estimer que votre demande relève d'un autre service que celui que vous
-avez contacté. Dans ce cas, il **réachemine** le ticket — le transmet au bon service sans
-que vous ayez besoin de reformuler.
+### Pourquoi on fait ça
 
-### Ce que vous voyez
+Si votre demande a été envoyée au mauvais service, un validateur peut la transmettre au
+bon sans que vous ayez à reformuler votre question ou à créer un nouveau ticket. Votre
+historique reste intact et le lien vers votre ticket continue de fonctionner.
 
-Dans le fil de votre ticket (`/historique/{id}`), une ligne apparaît entre la question
-initiale et la prochaine réponse :
+### Comment ça fonctionne
+
+Dans le fil de votre ticket (`/historique/{id}`), une ligne informationnelle apparaît :
 
 > ⇄ *Demande transmise au service [NOM DU SERVICE] · [date]*
 
-C'est purement informatif. Le ticket suit ensuite exactement le même cycle qu'un ticket
-ordinaire dans le nouveau service : l'IA répond, un validateur examine, vous recevez une
-réponse ou une notification.
+C'est purement informatif. Votre question est conservée intacte. Le pipeline repart
+automatiquement dans le nouveau service : l'IA répond à nouveau, un validateur examine,
+et vous recevez une réponse ou une notification exactement comme pour un ticket ordinaire.
+L'identifiant du ticket reste le même — votre lien continue de fonctionner.
 
-### Ce qui ne change pas
+### Détails techniques
 
-- Votre question est conservée intacte.
-- Vous n'avez rien à refaire — le pipeline repart automatiquement.
-- L'identifiant du ticket reste le même ; le lien dans votre historique continue de fonctionner.
-
-### Ce qui n'est pas possible
-
-- Vous ne pouvez pas ajouter une précision (**question de suivi**) sur un ticket qui a déjà
-  été réacheminé — le fil est réouvert par le nouveau service, pas par vous.
+Un réacheminement n'est pas possible si le ticket a déjà reçu une question de suivi —
+le fil est réouvert par le nouveau service, pas par vous. Le champ `reroute_source_domaine`
+mémorise le service d'origine pour affichage dans la barre latérale du backoffice. Un
+événement `RECHEMINE` est écrit dans la timeline avec les domaines `from`/`to` et la raison.
 
 ---
 
-## 6. Clôturer un ticket et noter la réponse
+## 8. Clôturer un ticket et noter la réponse
 
 ### Clôture manuelle
 
-Le créateur du ticket — et lui seul — peut le clôturer. La clôture est **définitive** :
-un ticket déjà clôturé renvoie `409`. Il n'est plus possible d'y ajouter une relance.
+#### Pourquoi on fait ça
 
-Au moment de clôturer, l'écran propose de noter l'expérience sur deux axes, **de façon
-facultative** :
+Signaler que votre demande est satisfaite libère le ticket de la file de suivi. La notation
+facultative qui accompagne la clôture alimente les indicateurs de satisfaction — elle aide
+l'équipe à comprendre ce qui a bien fonctionné ou ce qui peut s'améliorer.
+
+#### Comment ça fonctionne
+
+Depuis le détail d'un ticket validé, cliquez **Clôturer**. Un panneau *« Avant de
+partir… »* propose deux séries d'étoiles :
 
 | Note | Échelle | Ce qu'elle mesure |
 |---|---|---|
-| `note_qualite` | 1 à 5 étoiles | La qualité de la réponse reçue |
-| `note_delai` | 1 à 5 étoiles | La rapidité de traitement |
+| Qualité | 1 à 5 étoiles | La qualité de la réponse reçue |
+| Rapidité | 1 à 5 étoiles | La rapidité de traitement |
 
-L'utilisateur peut clôturer sans noter. Ces notes alimentent la carte « satisfaction » du
-tableau de bord et permettent aux validateurs de filtrer les tickets mal notés (voir
-[Statistiques et pilotage](statistiques-et-pilotage.md)).
+Vous pouvez clôturer sans noter — les deux champs sont facultatifs. Confirmez pour fermer
+le ticket définitivement.
 
-> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *Le panneau « Avant de partir… » qui apparaît au clic sur « Clôturer », avec les deux sélecteurs d'étoiles « Qualité de la réponse » et « Rapidité de traitement », et les boutons de confirmation. Montrer un état où quelques étoiles sont sélectionnées.*
+> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *Le panneau « Avant de partir… » avec les deux sélecteurs d'étoiles et les boutons de confirmation. Montrer un état où quelques étoiles sont sélectionnées.*
+
+#### Détails techniques
+
+Seul le créateur du ticket peut clôturer (`403` sinon). La clôture est **définitive** :
+un ticket déjà clôturé renvoie `409`. Il n'est plus possible d'y ajouter une relance.
+Endpoint : `POST /api/v1/tickets/{id}/cloturer` (corps : `{ "note_qualite": 1–5,
+"note_delai": 1–5 }`, les deux optionnels).
+Les notes alimentent `avg_qualite` et `avg_delai` dans le tableau de bord (voir
+[Statistiques et pilotage](statistiques-et-pilotage.md#4-la-satisfaction)).
+
+---
 
 ### Clôture automatique
 
-Un ticket validé qu'on laisse traîner se ferme tout seul.
+#### Pourquoi on fait ça
+
+Éviter que des tickets validés s'accumulent indéfiniment ouverts quand l'employé a obtenu
+satisfaction mais n'a pas pensé à clôturer. Des tickets qui traînent faussent les
+compteurs et occupent l'attention des équipes inutilement.
+
+#### Comment ça fonctionne
+
+Un compte à rebours apparaît sur chaque ticket validé non encore clôturé :
+
+- *« Clôture auto le 12 sept. »* — plus de deux jours restants
+- *« Clôture auto demain »* — moins de deux jours (compte à rebours en ambre)
+- *« Clôture auto dans 3 h »* — moins d'un jour (compte à rebours en rouge)
+
+À l'heure dite, le ticket se ferme automatiquement, sans action de votre part.
+
+> Le délai se compte à partir de la date de **validation**, pas de la date de création du ticket.
+
+#### Détails techniques
+
+Tâche planifiée `auto_cloture_job` dans `backend/app/workers/auto_cloture.py`,
+déclenchée **chaque nuit à 02 h 00** (UTC).
+Variable : `JOURS_AUTO_CLOTURE` (défaut : 7) — délai en jours à partir de `validated_at`.
+La clôture émet l'événement SSE `ticket_closed` sur le canal du domaine, mais **n'envoie
+pas de notification individuelle** à l'employé.
+La valeur de `JOURS_AUTO_CLOTURE` est renvoyée en lecture seule par `GET /admin/config`
+pour que l'interface puisse calculer et afficher le compte à rebours.
 
 ```mermaid
 flowchart LR
@@ -268,43 +389,46 @@ flowchart LR
     C --> E[closed_at renseigné<br/>événement SSE ticket_closed]
 ```
 
-Une tâche planifiée (`auto_cloture_job`) tourne **chaque nuit à 02 h 00**. Elle clôture
-tous les tickets `VALIDÉ`, non encore clôturés, validés depuis plus de `JOURS_AUTO_CLOTURE`
-jours (**défaut : 7**).
-
-Le compte à rebours est affiché à l'employé sur ses tickets validés : *« Clôture auto dans
-3 h »*, *« Clôture auto demain »*, *« Clôture auto le 12 sept. »*. Il vire à l'ambre à
-moins de deux jours, au rouge à moins d'un jour.
-
-> Le délai se compte à partir de `validated_at`, pas de la date de création du ticket.
-
 ---
 
-## 7. La boîte à suggestions
+## 9. La boîte à suggestions
 
-Page `/suggestion`. Elle permet à n'importe quel utilisateur authentifié d'envoyer un
-retour libre sur le produit — ce n'est **pas** un ticket, cela ne déclenche aucun
-traitement IA.
+### Pourquoi on fait ça
 
-| Contrainte | Valeur |
-|---|---|
-| Longueur minimale | 10 caractères |
-| Longueur maximale | 2 000 caractères |
+Permettre à n'importe quel employé d'envoyer un retour libre sur le produit — une idée
+d'amélioration, un problème qui ne relève pas d'une demande métier, une fonctionnalité
+manquante. Ces retours n'entrent dans aucun pipeline IA et ne créent pas de ticket : ils
+arrivent directement dans la boîte de l'équipe produit.
 
-Les suggestions arrivent dans l'onglet *Suggestions* de la page d'administration, où un
-admin peut les marquer comme lues ou les supprimer (voir
-[Administration](administration.md#5-la-boîte-à-suggestions)).
+### Comment ça fonctionne
 
-Si le compte de l'auteur est supprimé, la suggestion est conservée mais son auteur devient
-anonyme (`user_id` passe à `NULL`).
+Accédez à `/suggestion`. Rédigez votre message dans le champ de texte (qui s'agrandit
+automatiquement avec votre saisie), puis envoyez.
 
-![La boîte à suggestions](../images/12-suggestion.png)
+Un compteur de caractères s'affiche en bas du champ. Il vire à l'ambre à 100 caractères
+de la limite, pour vous avertir à temps.
+
+Après envoi, un écran de confirmation *« Merci pour votre retour ! »* apparaît. Vous
+pouvez soumettre une autre suggestion ou revenir à l'accueil.
 
 > 📸 **[CAPTURE D'ÉCRAN COMPLÉMENTAIRE]** : *L'écran de confirmation « Merci pour votre retour ! » affiché après l'envoi — il nécessite de soumettre réellement une suggestion.*
 
+### Détails techniques
+
+Fichier : `frontend/src/pages/user/SuggestionBox.tsx`.
+Endpoint : `POST /api/v1/suggestions` (corps : `{ "contenu": "..." }`).
+Contraintes : entre **10 et 2 000 caractères** (`422` si hors bornes).
+Raccourci : `Ctrl+Entrée` (`Cmd+Entrée` sur Mac) soumet le formulaire.
+Si le compte de l'auteur est supprimé, la suggestion est conservée mais son auteur devient
+anonyme (`user_id` passe à `NULL`).
+Les suggestions arrivent dans l'onglet *Suggestions* de la page d'administration — voir
+[Administration](administration.md#6-la-boîte-à-suggestions).
+
+![La boîte à suggestions](../images/12-suggestion.png)
+
 ---
 
-## 8. Ce qu'un employé ne voit jamais
+## 10. Ce qu'un employé ne voit jamais
 
 La séparation est appliquée côté serveur, pas seulement dans l'interface :
 
@@ -318,7 +442,7 @@ Les règles complètes sont dans [Auth & rôles](../technique/auth-et-roles.md).
 
 ---
 
-## 9. Récapitulatif des actions et de leurs règles
+## 11. Récapitulatif des actions et de leurs règles
 
 | Action | Endpoint | Qui | Refus possible |
 |---|---|---|---|

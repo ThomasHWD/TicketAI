@@ -1,9 +1,4 @@
-"""Router d'authentification : login LDAP → JWT, et profil courant.
-
-Le provisioning est « juste-à-temps » (JIT) : au premier login réussi, l'utilisateur
-est créé en base à partir des attributs de l'annuaire, avec le rôle ``USER`` par
-défaut. Les rôles supérieurs (VALIDATEUR/ADMIN) sont attribués manuellement en base.
-"""
+"""Auth router — LDAP login → JWT. JIT provisioning: user created on first login with USER role; higher roles"""
 
 import logging
 from typing import Annotated
@@ -56,7 +51,6 @@ router = APIRouter()
 
 
 def get_or_create_user(db: Session, identity: LdapIdentity) -> User:
-    """Upsert l'utilisateur d'après l'annuaire (clé = email). Rôle USER par défaut."""
     user = db.query(User).filter(User.email == identity.email).first()
     if user is None:
         user = User(
@@ -107,7 +101,6 @@ def _serialize_user(user: User, db: Session | None = None) -> dict:
 
 @router.post("/auth/login")
 async def login(request: Request, form: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    """Authentifie via LDAP/AD puis renvoie un JWT et le profil utilisateur."""
     _check_login_rate(request.client.host if request.client else "unknown")
     identity = ldap_auth.authenticate(form.username, form.password)
     if identity is None:
@@ -132,7 +125,6 @@ async def login(request: Request, form: Annotated[OAuth2PasswordRequestForm, Dep
 
 @router.get("/auth/me")
 async def me(current_user: CurrentUser):
-    """Renvoie le profil de l'utilisateur connecté."""
     db = SessionLocal()
     try:
         return _serialize_user(current_user, db)

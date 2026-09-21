@@ -1,12 +1,4 @@
-/**
- * La page FAQ.
- *
- * Ce qui est verrouillé ici n'est pas le rendu mais le **coût** : une recherche
- * consomme un embedding Albert, dont le quota est de 1 000 requêtes/jour/modèle.
- * Une recherche à la frappe l'épuiserait en une poignée de sessions. La saisie et
- * la requête soumise sont donc deux états distincts (`hooks/useFaq.ts`), et c'est
- * cette séparation que les tests ci-dessous tiennent.
- */
+/** FAQ cost contract: one Albert embedding per search (1 000/day quota); input and submitted query are separate states (`useFaq.ts`) so no search-as-you-type drains the budget. */
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

@@ -1,9 +1,6 @@
 import type { ReponseARelire } from "../../../../types";
 
-/**
- * Une réponse qui sera soumise au jugement. Le lien s'ouvre dans un onglet à
- * part : une navigation classique perdrait l'aperçu, donc le fichier déposé.
- */
+/** Response awaiting judgment. Link opens in a new tab — in-place navigation would lose the staging preview and the uploaded file. */
 export default function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
   return (
     <li className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">

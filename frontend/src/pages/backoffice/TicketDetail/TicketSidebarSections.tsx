@@ -5,7 +5,6 @@ import UserAvatar from "../../../components/ui/UserAvatar";
 import type { StatutTicket, Ticket } from "../../../types";
 import { formatDate } from "./utils";
 
-// ─── Primitives ───────────────────────────────────────────────────────────────
 
 export function SidebarSection({ children }: { children: React.ReactNode }) {
   return (
@@ -23,7 +22,6 @@ export function SidebarLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ─── StatutBadge ─────────────────────────────────────────────────────────────
 
 export function ticketStatutLabel(statut: StatutTicket, canonique: boolean, closed: boolean, processing: boolean, failed: boolean) {
   if (closed) return "Clôturé";
@@ -56,7 +54,6 @@ export function StatutBadge({ statut, canonique, closed, processing, failed }: {
   );
 }
 
-// ─── DetailsSection ───────────────────────────────────────────────────────────
 
 export function DetailsSection({ ticket, processing, failed }: { ticket: Ticket; processing: boolean; failed: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -127,7 +124,6 @@ export function DetailsSection({ ticket, processing, failed }: { ticket: Ticket;
   );
 }
 
-// ─── RequesterSection ─────────────────────────────────────────────────────────
 
 export function RequesterSection({ ticket }: { ticket: Ticket }) {
   const userName = ticket.user_nom_complet || ticket.user_email;
@@ -167,7 +163,6 @@ export function RequesterSection({ ticket }: { ticket: Ticket }) {
   );
 }
 
-// ─── RerouteSection ──────────────────────────────────────────────────────────
 
 export function RerouteSection({
   ticket,
@@ -199,7 +194,6 @@ export function RerouteSection({
   );
 }
 
-// ─── AssignSection ────────────────────────────────────────────────────────────
 
 interface AssignSectionProps {
   ticket: Ticket;
