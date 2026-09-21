@@ -98,39 +98,27 @@ function handleEvent(event: SSEEvent, queryClient: ReturnType<typeof useQueryCli
 
     case "saved_answers_updated":
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
-      // Restauration et suppression font passer une réponse d'une liste à l'autre.
-      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
-      // Confirmer, corriger ou retirer lève le drapeau : le badge doit tomber
-      // chez les autres validateurs du domaine, pas seulement chez l'auteur.
-      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });  // restore/delete moves a response between lists
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });  // badge must drop for all validators, not just the author
       queryClient.invalidateQueries({ queryKey: ["tags-canoniques"] });
       break;
 
-    // Fin du job de mise à jour : la version, les chunks et éventuellement des
-    // réponses enregistrées ont bougé en même temps.
     case "document_updated":
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
-      // C'est ici que la liste « À relire » se remplit : le job vient de flaguer
-      // les réponses du document, l'onglet doit le montrer sans rechargement.
-      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });  // job just flagged responses — tab must update without reload
       if (payload.doc_id) {
         queryClient.invalidateQueries({ queryKey: ["doc-versions", payload.doc_id] });
       }
       break;
 
-    // La ré-vérification commence : les réponses concernées viennent de passer
-    // en « analyse en cours », un état sur lequel aucune action n'est proposée.
     case "reverification_started":
-      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
+      queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });  // responses just moved to ANALYSE_EN_COURS
       break;
 
-    // Elle se termine : c'est le seul moment où des réponses sont réellement
-    // retirées du service. Les trois listes bougent d'un coup — un drapeau levé
-    // rend une réponse à Canoniques, un verdict de contradiction l'envoie dans
-    // Obsolètes, et le badge doit suivre.
     case "reverification_done":
+      // only moment where responses are actually withdrawn — all three lists may move
       queryClient.invalidateQueries({ queryKey: ["reponses-a-relire"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-obsoletes"] });
       queryClient.invalidateQueries({ queryKey: ["reponses-canoniques"] });
@@ -176,8 +164,7 @@ export function useSSE() {
 
         retryDelay = 1000;
 
-        // Après une reconnexion, invalider toutes les queries potentiellement
-        // périmées pendant la coupure (les events manqués sont perdus avec pub/sub)
+        // on reconnect, invalidate stale queries — missed events are lost with pub/sub
         if (hasConnectedOnce) {
           for (const key of ["tickets", "ticket", "mes-tickets", "mes-assignations", "notifications", "user-dash"]) {
             queryClient.invalidateQueries({ queryKey: [key] });

@@ -1,12 +1,4 @@
-"""FAQ : recherche sémantique dans les réponses canoniques.
-
-Consultation pure. Aucun ticket n'est créé, aucune génération LLM n'a lieu, le
-garde canonique n'est pas appelé : on ne *sert* rien sans revue humaine, on
-*montre* ce qu'un humain a déjà validé au moins `SEUIL_CANONIQUE` fois.
-
-Coût d'une recherche : un unique appel d'embedding Albert, suivi d'une seule
-interrogation vectorielle tous domaines confondus.
-"""
+"""FAQ: semantic search over canonical responses, read-only. No ticket created, no generation, no guard — shows what"""
 
 import uuid
 
@@ -16,26 +8,15 @@ from app.models.ticket import Ticket
 from app.services.search import franchit_le_rappel, rechercher_points_reponses
 from sqlalchemy.orm import Session
 
-# Une réponse porte un point Qdrant **par formulation validée**
-# (`feedback_job(..., formulation_id=...)`), et les non-canoniques seront écartées
-# par la requête SQL. On sur-échantillonne donc pour ne pas rendre moins de
-# résultats que demandé.
+# A response has one Qdrant point per validated formulation; non-canonicals are filtered out by SQL. Over-sample so we
 FACTEUR_SUR_ECHANTILLONNAGE = 4
 
-# Un repli reste un repli : au-delà de trois pistes, la page ne propose plus, elle noie.
+# Beyond three hints the page stops proposing and starts drowning.
 MAX_INCERTAINS = 3
 
 
 def _meilleurs_points(chunks: list[dict]) -> dict[str, dict]:
-    """Le meilleur point par `reponse_id`, retenu au **rang RRF**.
-
-    La question affichée sera celle de ce point, pas celle du ticket d'origine :
-    c'est la formulation que l'utilisateur a réellement matchée.
-
-    Le tri est le rôle de la fusion ; la sélection, elle, se fait par disjonction
-    sur les signaux bruts (`franchit_le_rappel`) — un point retenu par les seuls
-    mots doit pouvoir entrer, c'est tout l'intérêt de BM25.
-    """
+    """Best point per reponse_id by RRF rank. Displayed question is the indexed formulation the user actually"""
     meilleurs: dict[str, dict] = {}
     for chunk in chunks:
         reponse_id = chunk.get("reponse_id")
@@ -48,36 +29,14 @@ def _meilleurs_points(chunks: list[dict]) -> dict[str, dict]:
 
 
 def rechercher_faq(db: Session, question: str, limite: int) -> dict[str, list[dict]]:
-    """Réponses canoniques proches de `question`, tous domaines confondus.
-
-    Renvoie deux rangs :
-
-    - `resultats` — ce dont le **cosinus** franchit `faq_seuil_pertinence` ;
-    - `incertains` — **uniquement si `resultats` est vide** : ce qui atteint
-      `faq_seuil_incertain`, ou ce qui n'est passé que par la **porte lexicale**.
-
-    Un candidat retenu par les seuls mots va donc en piste, jamais en réponse. La
-    raison tient en une phrase : ailleurs dans le système, un tel candidat est
-    soumis au juge, qui tranche ; ici il n'y a pas de juge, donc rien ne vient
-    confirmer qu'un recouvrement de mots vaut une réponse. On le propose sans
-    l'affirmer.
-
-    Le cantonnement des pistes au cas « rien trouvé » est une règle métier, pas un
-    choix d'affichage : proposer de l'incertain à côté d'une réponse sûre ne
-    ferait que la diluer.
-    """
+    """Two tiers — resultats when cosine is confident, incertains (hint only) when not; lexical-only candidates land"""
     chunks = rechercher_points_reponses(question, top_k=limite * FACTEUR_SUR_ECHANTILLONNAGE)
 
     meilleurs = _meilleurs_points(chunks)
     if not meilleurs:
         return {"resultats": [], "incertains": []}
 
-    # Miroir SQL de `peut_servir_sans_revue` (services/question_pipeline.py), plus
-    # les prédicats de GET /reponses/canoniques (api/v1/reponses/listing.py).
-    # `a_relire` est filtré parce que **cette page n'a aucun relecteur** : y montrer
-    # une réponse qu'un juge soupçonne contredite, c'est exactement la servir sans
-    # revue. Le pipeline, lui, continue de la proposer — en SUGGESTION, sous les
-    # yeux d'un humain. Elle réapparaît ici dès que le drapeau est levé.
+    # SQL mirror of peut_servir_sans_revue; a_relire filtered — this page has no reviewer, showing it would serve it
     resultats = (
         db.query(Reponse, Ticket)
         .join(Ticket, Ticket.id == Reponse.ticket_id)
@@ -96,8 +55,7 @@ def rechercher_faq(db: Session, question: str, limite: int) -> dict[str, list[di
     for reponse, ticket in resultats:
         point = meilleurs[str(reponse.id)]
         question_indexee = point.get("question_indexee")
-        # Seul le **cosinus** ouvre le rang des réponses : sans juge pour le
-        # confirmer, un simple recouvrement de mots ne fait qu'une piste.
+        # cosine only opens resultats — without a judge, word overlap alone is only a hint.
         sur = point.get("score_cosinus", 0.0) >= settings.faq_seuil_pertinence
         rang = certains if sur else incertains
         rang.append(
@@ -105,7 +63,7 @@ def rechercher_faq(db: Session, question: str, limite: int) -> dict[str, list[di
                 point.get("score_rrf", 0.0),
                 {
                     "reponse_id": str(reponse.id),
-                    # Repli pour les points écrits avant l'indexation multi-formulations.
+                    # fallback for points written before multi-formulation indexing.
                     "question": question_indexee or reponse.question_suivi or ticket.question,
                     "domaine": ticket.domaine,
                     "contenu": reponse.contenu_corrige or reponse.contenu,
@@ -116,8 +74,7 @@ def rechercher_faq(db: Session, question: str, limite: int) -> dict[str, list[di
             )
         )
 
-    # Le rang RRF ordonne — c'est son rôle — mais aucun score ne sort de l'API :
-    # ils n'ont aucun sens pour un utilisateur et invitent à des lectures fausses.
+    # scores order results but never leave the API — meaningless to users.
     def ordonner(rang: list[tuple[float, dict]], maximum: int) -> list[dict]:
         rang.sort(key=lambda paire: paire[0], reverse=True)
         return [item for _, item in rang[:maximum]]

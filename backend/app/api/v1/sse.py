@@ -1,16 +1,4 @@
-"""Endpoint Server-Sent Events : stream temps réel par utilisateur authentifié.
-
-Canaux Redis :
-  sse:user:{id}      — événements privés (notification, réponse au ticket)
-  sse:domain:{dom}   — événements de domaine (tickets, verrous, assignations)
-  sse:global         — événements système (bannière)
-  sse:admin          — événements d'administration (groupes, réponses canoniques)
-
-Abonnement :
-  USER        → sse:user:{id} + sse:global
-  VALIDATEUR  → + sse:domain:{domaine} pour chaque groupe
-  ADMIN       → + sse:admin + psubscribe("sse:domain:*")  ← tous les domaines
-"""
+"""Per-user SSE stream. Subscriptions by role: USER → user:{id}+global; VALIDATEUR → +domain:{dom} per group; ADMIN"""
 
 import asyncio
 import logging

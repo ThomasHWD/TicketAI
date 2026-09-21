@@ -86,11 +86,7 @@ async def valider_reponse(reponse_id: str, current_user: BackofficeUser, payload
 
         if reponse.reponse_source_id and reponse_source:
             feedback_job.apply_async(args=[str(reponse_source.id)], queue="queue_ingestion")
-            # Le validateur vient de confirmer que la réponse source répond à la
-            # question de CE ticket-ci. C'est une formulation de plus, validée par
-            # un humain : on l'indexe sous son propre point, sans quoi elle serait
-            # perdue et la réponse resterait atteignable depuis la seule question
-            # d'origine — c'est ce qui rendait certaines entrées invisibles au cache.
+            # new formulation validated by a human — index it under its own point so the cache can reach it
             feedback_job.apply_async(
                 args=[str(reponse_source.id), reponse_id], queue="queue_ingestion"
             )

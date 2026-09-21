@@ -1,13 +1,4 @@
-"""Reconstruction de la table ``documents`` à partir de Qdrant.
-
-Qdrant a longtemps été la seule trace des documents indexés. Ce module rejoue son
-contenu dans les tables ``documents`` / ``document_versions``, sans jamais toucher au
-disque ni aux points eux-mêmes.
-
-**Qdrant fait foi, pas ``document_uploads``** : un ``doc_id`` présent en base mais
-absent de la collection correspond à une ingestion échouée et ne doit pas ressusciter
-sous forme de document actif.
-"""
+"""Reconstructs ``documents`` from Qdrant. Qdrant is authoritative — a doc_id in DB but absent from the collection"""
 
 import os
 import uuid
@@ -30,12 +21,7 @@ def _uuid_ou_none(valeur) -> uuid.UUID | None:
 
 
 def collecter_documents_qdrant() -> dict[str, dict]:
-    """Agrège les points de la collection par ``doc_id``.
-
-    Les points dépourvus de ``doc_id`` sont ignorés : ce sont ceux de ``feedback_job``,
-    qui indexent une question et non un document. Les inclure créerait des documents
-    fantômes portant le texte d'une réponse.
-    """
+    """Aggregate collection points by ``doc_id``; points without ``doc_id`` are response-feedback points and would"""
     docs: dict[str, dict] = {}
     offset = None
 
@@ -67,8 +53,7 @@ def collecter_documents_qdrant() -> dict[str, dict]:
                 },
             )
             entree["nb_chunks"] += 1
-            # Le payload d'un document ancien peut être partiel d'un point à l'autre :
-            # on retient la première valeur non vide rencontrée.
+            # Older payloads may be partial across points — keep first non-empty value found.
             for cle in ("stored_path", "content_hash", "uploaded_by", "description"):
                 if not entree[cle] and p.get(cle):
                     entree[cle] = p[cle]
@@ -80,11 +65,7 @@ def collecter_documents_qdrant() -> dict[str, dict]:
 
 
 def _resoudre_stored_path(entree: dict) -> str | None:
-    """Chemin du fichier d'origine, ou None s'il n'est plus sur le disque.
-
-    Les documents backfillés gardent leur fichier là où il est — à la racine du dossier
-    ``{doc_id}``, sans sous-dossier ``v1/``. Le backfill ne déplace rien.
-    """
+    """File path, or None if not on disk. Backfilled docs live at root ``{doc_id}/``, no ``v1/`` subdirectory."""
     chemin = entree.get("stored_path")
     if chemin and os.path.isfile(chemin):
         return chemin
@@ -103,8 +84,7 @@ def reconcilier_documents(db: Session) -> dict:
         (v.doc_id, v.version) for v in db.query(DocumentVersion.doc_id, DocumentVersion.version).all()
     }
 
-    # Repli sur la trace d'upload quand le payload ne porte pas d'auteur (cas nominal
-    # pour les documents antérieurs au champ) — l'absence d'auteur reste acceptable.
+    # Payload may lack author for documents older than the field — fall back to upload trace.
     auteurs: dict[str, uuid.UUID] = {}
     for du in db.query(DocumentUpload.doc_id, DocumentUpload.user_id).all():
         if du.user_id and du.doc_id not in auteurs:

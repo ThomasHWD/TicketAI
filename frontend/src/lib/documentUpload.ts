@@ -1,11 +1,4 @@
-/**
- * Règles de validation d'un fichier avant envoi au backend.
- *
- * Miroir volontaire des contrôles de `POST /documents` : le serveur reste seul
- * juge (extension, taille, magic bytes), ces fonctions évitent simplement un
- * aller-retour réseau pour un fichier manifestement irrecevable. Partagées par
- * la page Ingestion et la modale de mise à jour.
- */
+/** Client-side file validation — mirrors `POST /documents` checks to avoid a round-trip for obviously invalid files. Server remains authoritative. */
 
 export const ACCEPTED_EXTS = [".pdf", ".docx", ".txt", ".md"];
 export const MAX_SIZE_MB = 50;
@@ -15,7 +8,6 @@ export function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
-/** Message d'erreur à afficher, ou `null` si le fichier est acceptable. */
 export function validateFile(file: File): string | null {
   const ext = "." + file.name.split(".").pop()?.toLowerCase();
   if (!ACCEPTED_EXTS.includes(ext)) {

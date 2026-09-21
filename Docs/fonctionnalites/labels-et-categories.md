@@ -7,6 +7,12 @@ calculés, et à quoi correspondent les onglets de filtrage dans la liste des ti
 
 ## 1. Les badges de statut
 
+### Pourquoi on fait ça
+
+Pour comprendre en un coup d'œil où en est un ticket sans avoir à l'ouvrir. Dans une liste
+de vingt demandes, le badge répond immédiatement à *« laquelle attend encore quelque chose
+de moi ? »* — sans avoir à lire le contenu de chacune.
+
 Chaque ticket affiche un badge coloré qui reflète son état courant. Voici tous les badges
 possibles, par ordre de priorité d'affichage.
 
@@ -47,6 +53,12 @@ Cinq des sept badges sont visibles ci-dessus : **En cours**, **Nouvelle**, **Sug
 ---
 
 ## 2. Le cycle de vie d'un ticket
+
+### Pourquoi on fait ça
+
+Pour suivre le chemin qu'a pris chaque question, de l'arrivée à la clôture. Comprendre les
+transitions possibles permet de diagnostiquer rapidement pourquoi un ticket se trouve dans
+tel état — et de savoir s'il faut intervenir ou laisser le système finir son travail.
 
 ```mermaid
 flowchart TD

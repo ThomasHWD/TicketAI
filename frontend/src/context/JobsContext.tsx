@@ -8,11 +8,7 @@ export interface TrackedJob {
   /** Absent = ingestion : les jobs déjà en localStorage restent lisibles. */
   kind?: "ingestion" | "maj";
   nb_chunks?: number;
-  /**
-   * Mise à jour uniquement : réponses soumises à la ré-vérification. Le job de
-   * mise à jour ne retire plus rien lui-même — il ne peut donc annoncer qu'un
-   * nombre de réponses à juger, jamais un nombre de réponses archivées.
-   */
+  /** Update jobs only — worker no longer withdraws anything itself; this is responses queued for judgment, not responses withdrawn. */
   nb_a_analyser?: number;
   /** Signalées sans jugement possible (version sortante illisible). */
   nb_a_relire?: number;

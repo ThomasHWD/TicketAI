@@ -1,14 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, MessageSquarePlus } from "lucide-react";
 
-/**
- * L'issue quand la FAQ ne suffit pas : poser la question à un expert.
- *
- * Une rangée cliquable et non un bouton plein : c'est une **porte de sortie**,
- * pas l'action principale de la page. Un bouton d'accent posé après un
- * paragraphe flottait sans rattachement ; ici le bloc occupe la largeur du
- * contenu et se lit comme la suite naturelle de la réponse.
- */
+/** Fallback when FAQ doesn't suffice. Row not button — it's an exit, not the primary action; same visual width as content so it reads as a natural continuation. */
 export default function FaqRepli({ question, sousTitre }: { question: string; sousTitre: string }) {
   return (
     <Link

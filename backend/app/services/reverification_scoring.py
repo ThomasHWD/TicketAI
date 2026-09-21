@@ -1,9 +1,4 @@
-"""Étages 2 et 3 du pipeline de révérification : scoring et verdict LLM.
-
-Étage 2 — ``unites_pertinentes`` : reranker, quelles unités de changement portent
-sur la question de cette réponse ?
-Étage 3 — ``juger`` : LLM, ce changement contredit-il la réponse servie ?
-"""
+"""Étages 2 et 3 du pipeline de révérification : scoring (reranker) et verdict LLM."""
 
 import json
 import logging
@@ -15,15 +10,9 @@ from app.services.reranker import rerank
 
 logger = logging.getLogger(__name__)
 
-# Seuil du reranker. Bas pour la même raison que SEUIL_RAPPEL, et pour une
-# seconde : le rapprochement se fait entre un paragraphe de document et une
-# *question*, deux objets de nature différente dont les scores ne se comparent
-# pas à ceux d'un couple question/question.
-SEUIL_RERANK = 0.15
+SEUIL_RERANK = 0.15  # bas : paragraph↔question scores aren't comparable to question↔question scores
 
-# Unités montrées au modèle pour une réponse donnée. Au-delà, le prompt se dilue
-# et le verdict se dégrade.
-MAX_UNITES_PAR_REPONSE = 3
+MAX_UNITES_PAR_REPONSE = 3  # beyond this the prompt dilutes and verdict degrades
 
 VERDICT_CONTREDITE = "CONTREDITE"
 VERDICT_INTACTE = "INTACTE"
@@ -90,23 +79,7 @@ LONGUEUR_JUSTIFICATION = 200
 
 
 def unites_pertinentes(question: str, unites: list[Unite]) -> tuple[list[Unite], bool]:
-    """Les changements qui concernent cette question, et si le tri est digne de foi.
-
-    Un appel de reranker par **réponse**, et non par couple (réponse, unité) :
-    l'API prend une requête et une liste de documents, elle rend directement le
-    classement cherché. Le cross-encoder est bien meilleur que le cosinus pour
-    « ce passage porte-t-il sur cette question ? », qui est exactement la question
-    posée ici.
-
-    Le second membre du tuple vaut ``False`` quand le tri n'a pas eu lieu. Ce
-    n'est pas un détail : ``rerank`` renvoie une liste **vide** sans lever quand
-    la réponse d'Albert n'a pas la forme attendue (cf. ``services/reranker.py``,
-    la branche ``if "results" in predictions`` n'a pas de ``else``). Lire cette
-    liste vide comme « aucune unité pertinente » ferait sortir silencieusement
-    toutes les réponses du pipeline le jour où le format de l'API change — soit
-    exactement la panne qui ne se voit pas. On renvoie donc les unités non
-    triées, et l'appelant les fait juger quand même.
-    """
+    """Relevant change units for this question. ``rerank`` returns [] on unexpected API shape — never read as"""
     if len(unites) <= 1:
         return unites, True
 
@@ -125,19 +98,7 @@ def unites_pertinentes(question: str, unites: list[Unite]) -> tuple[list[Unite],
 
 
 def juger(question: str, reponse_servie: str, unites: list[Unite]) -> tuple[str, str]:
-    """Demande au modèle si ces changements contredisent cette réponse.
-
-    Le prompt montre **le diff, pas l'état actuel du document**. C'est délibéré :
-    « ce qui a changé contredit-il cette réponse ? » est une question fermée, dont
-    les deux termes sont sous les yeux du modèle. « cette réponse est-elle encore
-    déductible du document ? » ferait re-juger tout le pipeline RAG et
-    condamnerait des réponses correctes au seul motif que la recherche ne les
-    retrouve pas — on remplacerait une machine à faux positifs par une autre.
-
-    Lève en cas d'échec HTTP : c'est à l'appelant de décider quoi faire d'une
-    panne, et il n'a pas les mêmes options qu'une hésitation du modèle. Une sortie
-    illisible, en revanche, vaut ``INCERTAIN`` — jamais ``INTACTE``.
-    """
+    """Demande au modèle si ces changements contredisent cette réponse. Shows the diff, not the document"""
     changements = "\n\n".join(_formater(u) for u in unites)
     messages = [
         {"role": "system", "content": PROMPT_SYSTEME},
@@ -160,25 +121,7 @@ def juger_confrontation(
     unites: list[Unite],
     extraits_source: list[str],
 ) -> tuple[str, str]:
-    """Même question, mais posée sur un document qui vient d'arriver.
-
-    Trois différences avec ``juger``, toutes dictées par le fait qu'il n'y a pas
-    de diff ici — le document est neuf, donc tout est un ajout :
-
-    * le prompt dit que les deux documents sont **en vigueur en même temps**.
-      Sans ça, le modèle traite le nouveau texte comme une v2 qui abroge la v1 et
-      condamne des réponses parfaitement valables ;
-    * il nomme explicitement le cas « règle générale puis exception », qui est la
-      raison d'être de cette branche ;
-    * il reçoit ``extraits_source``, les passages sur lesquels la réponse avait
-      été bâtie. C'est ce qui lui permet de distinguer une réponse fausse d'une
-      réponse incomplète, et d'écarter les faux appariements du rappel à 0,35.
-      La liste peut être vide (copie sans chunks cités, document supprimé) : le
-      prompt l'annonce, et le jugement reste meilleur que pas de jugement.
-
-    Lève en cas d'échec HTTP, comme ``juger`` : l'appelant n'a pas les mêmes
-    options face à une panne que face à une hésitation du modèle.
-    """
+    """Même question, mais posée sur un document qui vient d'arriver (pas de diff). Prompt says both documents are"""
     nouveaux = "\n\n".join(_formater(u) for u in unites)
     source = "\n\n---\n\n".join(extraits_source) if extraits_source else "(non disponibles)"
     messages = [
@@ -206,14 +149,7 @@ def _formater(unite: Unite) -> str:
 
 
 def _lire_verdict(brut: str) -> tuple[str, str]:
-    """Extrait ``(verdict, justification)`` d'une sortie de modèle.
-
-    Tolère l'encadrement en bloc de code et le bavardage autour de l'objet, que
-    les modèles produisent malgré la consigne. Tout ce qui reste illisible ou
-    inattendu retombe sur ``INCERTAIN`` : le seul repli acceptable est celui qui
-    fait relire un humain, jamais celui qui laisse la réponse en service sans
-    l'avoir vérifiée.
-    """
+    """Extrait (verdict, justification) ; illisible ou inattendu → INCERTAIN, jamais INTACTE."""
     debut, fin = brut.find("{"), brut.rfind("}")
     if debut == -1 or fin <= debut:
         logger.error("réponse Albert illisible (pas de JSON) : %r", brut)

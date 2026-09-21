@@ -112,7 +112,6 @@ export function useTicketTracking() {
     setSearch("");
   }
 
-  // derived ticket state
   function isTicketProcessing(t: Ticket) { return isProcessingTicket(t); }
   function isTicketClosed(t: Ticket) { return !!t.closed_at; }
 
@@ -124,7 +123,6 @@ export function useTicketTracking() {
     total, totalPages, from, to,
     isFetchingBg, hasActiveFilters,
     isTicketProcessing, isTicketClosed,
-    // query state per tab
     loading: tab === "assigned" ? assignedLoading : participatedLoading,
     error: (tab === "assigned" ? assignedError : participatedError) as Error | null,
     onRetry: tab === "assigned" ? refetchAssigned : refetchParticipated,

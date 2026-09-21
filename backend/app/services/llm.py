@@ -14,14 +14,7 @@ def chat(
     timeout: float = 120,
     model: str | None = None,
 ) -> str:
-    """Appel brut au ``/chat/completions`` d'Albert, sans prompt imposé.
-
-    Extrait de ``generate`` pour que la ré-vérification puisse poser sa propre
-    question au modèle — un verdict JSON, pas une réponse d'assistant — sans
-    hériter du prompt système RAG ni de l'exigence d'un ``rerank_score`` sur
-    chaque chunk. ``generate`` reste l'unique appelant côté pipeline RAG et son
-    comportement est inchangé.
-    """
+    """Raw Albert /chat/completions call without an imposed system prompt. Extracted from `generate` so"""
     response = httpx.post(
         f"{settings.albert_llm_url}/chat/completions",
         headers={
@@ -53,24 +46,8 @@ def generate(
     chunks: list[dict],
     historique: list[dict] | None = None,
 ) -> tuple[str, bool]:
-    """
-    Génère une réponse via LLM.
-
-    Retourne ``(contenu, hors_domaine)`` où ``hors_domaine`` est True quand le LLM
-    signale qu'il ne dispose pas du contexte pour répondre.
-
-    `historique` (optionnel) : messages alternés {"role": "user"|"assistant",
-    "content": ...} des tours précédents du fil. Fourni pour une précision
-    (suivi) afin que le LLM interprète la question courante dans son contexte.
-    """
-    # Construction du contexte à partir des chunks rerankés.
-    # `contenu_indexe` est le texte réellement encodé : le chunk précédé du
-    # locateur qui le situe dans son document (cf. services/contextualisation.py).
-    # Le montrer au modèle est ce qui rend exploitable un passage autrement opaque
-    # (« les intéressés en sont exclus » — exclus de quoi ?). Le prompt système
-    # interdit par ailleurs d'ajouter le moindre fait absent du contexte, et le
-    # locateur est plafonné à 200 caractères : il situe, il n'affirme pas.
-    # Repli sur `contenu` pour les points indexés avant ce champ.
+    """Generate a response. Returns (content, hors_domaine) where hors_domaine is True when the LLM signals the"""
+    # contenu_indexe includes the locator prefix — makes otherwise opaque passages ("les intéressés en sont exclus
     context = "\n\n---\n\n".join(
         [
             f"[pertinence={c['rerank_score']:.2f}]\n{c.get('contenu_indexe') or c['contenu']}"

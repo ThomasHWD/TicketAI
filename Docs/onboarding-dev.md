@@ -282,9 +282,8 @@ TicketAI/
 ├── Docs/                    # Documentation
 │   ├── fonctionnalites/     # Ce que fait le produit, écran par écran
 │   └── technique/           # Comment le moteur fonctionne
-├── docker-compose.yml       # Services infra (postgres, qdrant, valkey)
-├── docker-compose.dev.yml   # Surcharge dev (hot-reload backend + frontend)
-├── docker-compose.prod.yml  # Surcharge prod (nginx, build optimisé)
+├── docker-compose.dev.yml   # Stack de développement complète (hot-reload)
+├── docker-compose.prod.yml  # Stack de production (nginx, build optimisé)
 └── Makefile                 # Raccourcis make up/down/dev/prod/reset-db
 ```
 

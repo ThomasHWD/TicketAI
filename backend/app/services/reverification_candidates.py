@@ -1,9 +1,4 @@
-"""Étage 1 du pipeline de révérification : collecte des réponses candidates.
-
-Deux sources : les réponses qui citent le document modifié (citantes) et celles
-dont la question ressemble à un changement (voisines). Voir reverification.py
-pour la description complète du pipeline.
-"""
+"""Étage 1 du pipeline de révérification : collecte des réponses candidates (citantes + voisines)."""
 
 import logging
 import uuid
@@ -30,11 +25,9 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-# Réponses ramenées par unité de changement lors du rappel vectoriel.
 TOP_K_UNITE = 20
 
-# Seuil du rappel dense. Délibérément bas : l'embedding ne décide de rien, il
-# élargit. Le reranker filtre derrière, et le modèle tranche.
+# Low: embedding decides nothing, it widens; reranker filters behind it.
 SEUIL_RAPPEL = 0.35
 
 
@@ -44,12 +37,8 @@ class Candidate:
 
     reponse: Reponse
     question: str
-    # Cite au moins un chunk du document modifié. Conditionne la sévérité maximale
-    # atteignable : voir `decider`.
-    citante: bool
-    # Cite un chunk qui a *disparu* de la nouvelle version. Signal factuel, pas
-    # statistique : il court-circuite le filtre de pertinence.
-    prioritaire: bool = False
+    citante: bool  # cite au moins un chunk du document modifié — conditionne la sévérité max (voir `decider`)
+    prioritaire: bool = False  # cite un chunk disparu — signal factuel qui court-circuite le filtre de pertinence
 
     @property
     def texte(self) -> str:
@@ -66,28 +55,7 @@ def rassembler_candidates(
     unites: list[Unite],
     indices_disparus: set[int],
 ) -> list[Candidate]:
-    """Les réponses susceptibles d'être touchées, les plus exposées d'abord.
-
-    Deux sources, et il faut les deux :
-
-    * **les citantes** — toutes les VALIDÉE encore servies qui s'appuient sur ce
-      document. Le périmètre est le document entier et non « près de la zone
-      modifiée » : la contradiction est par définition ailleurs dans le cas qu'on
-      cherche à rattraper.
-    * **les voisines du domaine** — celles dont la question ressemble à un
-      changement, retrouvées en interrogeant Qdrant avec le texte de l'unité.
-      Elles couvrent le cas où le nouvel article d'une charte contredit une
-      réponse bâtie sur un *autre* document.
-
-    Le tri n'est pas cosmétique : c'est l'ordre dans lequel le budget d'appels au
-    modèle sera dépensé. Les prioritaires d'abord, puis les canoniques, puis les
-    plus validées — c'est-à-dire les plus resservies, donc celles dont l'erreur
-    se propage le plus.
-
-    La liste est réduite à ses ``racines`` : les deux sources remontent les copies
-    SUGGESTION/CANONIQUE, et une réponse réutilisée cinq fois coûterait sinon cinq
-    jugements identiques. ``decider`` rouvre la famille au moment d'appliquer.
-    """
+    """Réponses susceptibles d'être touchées, les plus exposées d'abord. Sort order = LLM budget order: prioritaires"""
     citantes = reponses_obsoletes(db, doc_id, indices=None)
     ids_citantes = {r.id for r in citantes}
 
@@ -114,34 +82,7 @@ def rassembler_candidates(
 
 
 def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
-    """Réponses validées du domaine dont la question ressemble à un changement.
-
-    Une requête **dense uniquement**, et c'est désormais un choix, plus une
-    contrainte : depuis le 11/09/2026 ``embed_texts`` produit un vrai vecteur BM25
-    (``services/bm25.py``), la branche lexicale est donc interrogeable ici. On s'en
-    abstient délibérément. Ce qu'on rapproche est un **paragraphe** d'une
-    **question** : leur recouvrement lexical est dominé par le vocabulaire commun au
-    domaine, et l'étage suivant (``unites_pertinentes``, un rerank) n'a pas de juge
-    derrière lui pour rattraper un candidat entré par les seuls mots. Le rappel de
-    cette étape prime sur sa précision, mais pas au prix d'un bruit qu'aucun étage
-    ne filtre. Décision à mesurer séparément, avec son propre protocole.
-    On n'emprunte pas non plus ``search_hybrid``, qui ne sait pas cibler les points
-    de réponse.
-
-    ``must_not=[IsEmpty("reponse_id")]`` est le seul moyen d'isoler ces points :
-    ``feedback_job`` les écrit avec
-    ``{reponse_id, ticket_id, contenu, domaine, question_indexee}`` et **sans**
-    ``doc_id``, dans la même collection que les chunks de document.
-    ``init_collection`` pose un index de payload ``keyword`` sur ``reponse_id``
-    (``services/qdrant.py``), le filtre ne dégénère donc pas en scan.
-
-    Une réponse porte un point par formulation humainement validée : le scroll peut
-    donc la remonter plusieurs fois, sous des ``question_indexee`` différentes. D'où
-    le ``set`` de ``reponse_id`` — c'est la réponse qu'on juge, pas la formulation.
-
-    Une panne d'embedding ou de Qdrant rend une liste vide et n'interrompt rien :
-    les citantes, elles, sont connues sans appel réseau et restent jugées.
-    """
+    """Validated domain responses whose question resembles a change unit. Dense-only — lexical paragraph↔question"""
     if not unites:
         return []
 
@@ -183,9 +124,7 @@ def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
     if not trouves:
         return []
 
-    # Une copie SUGGESTION/CANONIQUE ne porte pas de point à elle : c'est la source
-    # qui a été retrouvée. La descente transitive ramène la famille, faute de quoi
-    # on retirerait la graine et la copie continuerait d'être servie.
+    # fermeture_copies: a SUGGESTION/CANONIQUE copy has no Qdrant point of its own — withdrawing only the root leaves
     return (
         db.query(Reponse)
         .filter(
@@ -198,17 +137,7 @@ def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
 
 
 def questions_des_reponses(db: Session, reponses: list[Reponse]) -> dict[uuid.UUID, str]:
-    """La question à laquelle chaque réponse répond — la précision si elle existe.
-
-    ``question_suivi`` prime sur la question du ticket pour la même raison qu'à
-    l'indexation (cf. ``feedback_job``) : quand une réponse est née d'une relance,
-    c'est la relance qui la décrit, pas la demande initiale du fil.
-
-    Publique parce que la confrontation à l'ingestion
-    (``workers/confrontation.py``) constitue ses candidates sans passer par
-    ``rassembler_candidates`` — elle part d'un appariement chunk → réponse déjà
-    calculé, pas d'un diff.
-    """
+    """La question à laquelle chaque réponse répond. Public: confrontation.py builds its candidates from a"""
     ids = {r.ticket_id for r in reponses if r.ticket_id is not None}
     tickets = {t.id: t.question for t in db.query(Ticket).filter(Ticket.id.in_(ids)).all()} if ids else {}
     return {r.id: r.question_suivi or tickets.get(r.ticket_id, "") for r in reponses}

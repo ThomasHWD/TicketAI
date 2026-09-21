@@ -61,8 +61,7 @@ def verifier_auto_validation(reponse: Reponse, validator_id: uuid.UUID, ticket: 
 
 
 def verifier_verrou(ticket: Ticket, validator_id: uuid.UUID) -> None:
-    """Refuse l'écriture si le ticket est assigné à quelqu'un d'autre,
-    ou verrouillé par un autre validateur (bail encore actif)."""
+    """Refuse l'écriture si le ticket est assigné à quelqu'un d'autre, ou verrouillé par un autre validateur (bail"""
     if not ticket:
         return
     if ticket.assigned_to and ticket.assigned_to != validator_id:

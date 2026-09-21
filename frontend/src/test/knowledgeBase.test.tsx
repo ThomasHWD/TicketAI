@@ -1,13 +1,4 @@
-/**
- * La page « Base de connaissances », née de la fusion de l'ancienne page
- * d'indexation et de la liste des documents indexés.
- *
- * Ce qui est verrouillé ici n'est pas la mise en page mais les deux propriétés
- * que la fusion pouvait discrètement casser : l'ingestion doit rester
- * accessible *sans quitter la liste*, et les actions d'écriture doivent rester
- * fermées quand le serveur les refuserait de toute façon — un menu qui propose
- * une action vouée au 403 ou au 409 est pire qu'un menu qui ne la propose pas.
- */
+/** KnowledgeBase fusion contract: ingestion accessible without leaving the list; write actions hidden when the server would refuse them (403/409) — offering a doomed action is worse than hiding it. */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";

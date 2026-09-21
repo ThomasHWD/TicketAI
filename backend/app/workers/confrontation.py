@@ -1,33 +1,4 @@
-"""Juge les réponses déjà servies contre un document qui vient d'être ingéré.
-
-Enfilé par ``ingestion_job`` juste après le commit des lignes de document, sur
-``queue_questions`` : comme la ré-vérification, ce job n'est que de l'attente
-réseau Albert et n'a rien à faire dans la file qui sérialise les ingestions.
-
-**Frère de ``reverification_job``, pas une réutilisation.** Le pipeline de
-décision est le même à partir de l'étage 2 (``unites_pertinentes`` → ``juger`` →
-``decider``) ; ce qui diffère est l'étage 1, et deux détails de
-``reverification_job`` le rendaient inutilisable ici :
-
-* il relit ses unités depuis ``DocumentVersion.changements`` et bascule en
-  ``RAISON_MASSIVE`` au-delà de ``MAX_UNITES``. Sur un document neuf chaque
-  paragraphe est un ajout : tout document d'un peu de volume dégénérerait en
-  ``marquer_a_relire``, qui matche **zéro** réponse — rien ne cite un document
-  neuf — et ne ferait donc rien, en silence ;
-* ``rassembler_candidates`` → ``_voisines`` ré-embarque chaque unité chez
-  Albert. L'ingestion vient de payer ces vecteurs ; l'appariement arrive donc
-  tout fait, dans ``cibles``.
-
-Le job démarre sur un lot déjà marqué ``ANALYSE_EN_COURS`` — posé dans le commit
-de l'ingestion, pas ici, ce qui ferme la fenêtre de course. Ce drapeau est
-transitoire et **le job a l'obligation de le résoudre** : trois filets s'en
-assurent, le repli par réponse, le balayage final de ``rabattre``, et le
-``on_failure``.
-
-Ce que ce job ne fait **jamais** : rendre une réponse obsolète. ``decider`` ne
-retire du service que sur ``CONTREDITE`` **et** ``citante``, et ``citante`` est
-faux par construction ici (cf. ``services/confrontation.py``).
-"""
+"""Juge les réponses déjà servies contre un document qui vient d'être ingéré. Sibling de reverification_job (même"""
 
 import logging
 import uuid
@@ -77,11 +48,7 @@ JUSTIF_SANS_TEXTE = "Les passages du nouveau document n'ont pas pu être relus :
 
 
 class TacheConfrontation(celery_app.Task):
-    """Le filet de dernier recours, identique à celui de la ré-vérification.
-
-    Sans lui, un worker tué net laisserait des réponses en « analyse en cours »
-    indéfiniment : servies, marquées douteuses, et présentées à personne.
-    """
+    """Last-resort net: OOM-kill would leave responses stuck in ANALYSE_EN_COURS forever without this."""
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         doc_id, version = kwargs.get("doc_id"), kwargs.get("version")
@@ -113,25 +80,14 @@ def confrontation_job(
     domaine: str,
     cibles: dict[str, list[int]],
 ):
-    """Confronte chaque réponse visée aux chunks du document qui l'ont appariée.
-
-    ``cibles`` est le ``{reponse_id: [chunk_index, …]}`` produit par
-    ``cibles_confrontation`` à l'ingestion. Il transite par le broker plutôt
-    qu'être recalculé ici : les vecteurs qui l'ont produit n'existent plus, et le
-    refaire coûterait un ré-embedding complet du document.
-
-    Convergent : ``familles_servies`` écarte ce qui est déjà obsolète, et un
-    rejeu ne reprend que le reliquat encore en ``ANALYSE_EN_COURS``.
-    """
+    """Confronte chaque réponse visée aux chunks du document qui l'ont appariée. `cibles` travels through the broker"""
     logger.info("confrontation : doc %s v%d, %d réponse(s) visée(s)", doc_id, version, len(cibles or {}))
     db = SessionLocal()
 
     try:
         doc = db.query(Document).filter(Document.doc_id == doc_id).first()
         if doc is None or doc.version != version:
-            # Le document a été remplacé ou supprimé entre-temps : `cibles`
-            # désigne des chunks qui ne sont plus indexés, et la mise à jour porte
-            # son propre job sur son propre périmètre.
+            # document replaced or deleted — update job covers its own scope
             nb = rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
             logger.info("version dépassée — abandon, %d réponse(s) rabattues", nb)
             return {"statut": "DEPASSE", "doc_id": doc_id, "version": version}
@@ -159,8 +115,6 @@ def confrontation_job(
 
         for rang, (candidate, indices) in enumerate(candidates):
             if budget <= 0:
-                # Le surplus n'est jamais ignoré en silence — il part en relecture
-                # avec sa raison, pour que la troncature soit visible.
                 nb_indisponibles += signaler_sans_juger(
                     db, [c for c, _ in candidates[rang:]], RAISON_PARTIELLE, JUSTIF_PARTIELLE, doc_id, version
                 )
@@ -169,7 +123,6 @@ def confrontation_job(
 
             unites = [Unite(SENS_AJOUT, None, textes[i]) for i in indices if textes.get(i)]
             if not unites:
-                # Les chunks appariés ont disparu de l'index depuis la détection.
                 nb_indisponibles += signaler_sans_juger(
                     db, [candidate], RAISON_INDISPONIBLE, JUSTIF_SANS_TEXTE, doc_id, version
                 )
@@ -177,8 +130,6 @@ def confrontation_job(
 
             pertinentes, fiable = unites_pertinentes(candidate.question, unites)
             if fiable and not pertinentes:
-                # Le nouveau document ne dit rien qui porte sur cette question :
-                # rien à juger, et surtout rien à laisser en analyse.
                 comptes[decider(db, candidate, VERDICT_INTACTE, "", [], doc_id, version)] += 1
                 continue
 
@@ -208,9 +159,7 @@ def confrontation_job(
             comptes[action] += 1
             logger.info("%s → %s (%s)", candidate.reponse.id, verdict, action)
 
-        # Filet intermédiaire : une réponse flaguée à l'ingestion mais absente du
-        # lot de candidates (validée puis rejetée entre-temps, famille recomposée)
-        # resterait sinon en « analyse en cours » sans que rien ne la résolve.
+        # safety net: a response flagged at ingestion but absent from candidates would stay stuck otherwise
         nb_indisponibles += rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
 
         return publier_bilan(
@@ -233,20 +182,7 @@ def confrontation_job(
 
 
 def _candidates(db, cibles: dict[str, list[int]]) -> list[tuple[Candidate, list[int]]]:
-    """Les réponses visées, chacune avec les indices de chunks qui l'ont appariée.
-
-    ``citante=False`` n'est pas une convention d'écriture, c'est un fait : aucune
-    réponse ne peut citer un document qui n'existait pas quand elle a été
-    générée. C'est ce qui interdit structurellement le retrait sec sur ce chemin.
-
-    Réduit aux ``racines`` pour la même raison que ``rassembler_candidates`` :
-    une réponse réutilisée cinq fois coûterait sinon cinq jugements identiques.
-    ``decider`` rouvre la famille au moment d'appliquer.
-
-    Le tri dépense le budget sur les canoniques d'abord, puis sur les plus
-    validées — c'est-à-dire les plus resservies, donc celles dont l'erreur se
-    propage le plus.
-    """
+    """Les réponses visées, chacune avec les indices de chunks qui l'ont appariée. `citante=False` by construction"""
     par_id = {str(k): v for k, v in cibles.items()}
     servies = familles_servies(db, identifiants(cibles))
     distinctes = racines(servies)
@@ -265,13 +201,7 @@ def _candidates(db, cibles: dict[str, list[int]]) -> list[tuple[Candidate, list[
 
 
 def _indices(par_id: dict[str, list[int]], reponse: Reponse) -> list[int]:
-    """Les chunks appariés à cette réponse, ou à la copie qui l'a fait remonter.
-
-    ``racines`` peut retenir une copie dont la source est hors ensemble, et c'est
-    la *source* qui porte les points Qdrant : l'appariement est alors enregistré
-    sous l'identifiant de la source. Sans ce repli, la copie arriverait sans
-    aucun chunk et serait écartée du jugement.
-    """
+    """Chunks appariés à cette réponse, ou à sa source (qui holds the Qdrant points when a copy was retained by"""
     indices = set(par_id.get(str(reponse.id), []))
     source: uuid.UUID | None = reponse.reponse_source_id
     if source is not None:

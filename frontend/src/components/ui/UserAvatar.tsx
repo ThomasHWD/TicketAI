@@ -6,7 +6,6 @@ function hueFromString(s: string): number {
 }
 
 interface UserAvatarProps {
-  /** Prénom + nom ou email — sert à calculer l'initiale et la couleur. */
   name: string;
   /** URL d'une photo personnalisée ; si absente, on affiche le SVG généré. */
   src?: string | null;

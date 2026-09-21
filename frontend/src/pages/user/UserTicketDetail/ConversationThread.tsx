@@ -186,7 +186,6 @@ export default function ConversationThread({
   reponses,
   rerouteEvents = [],
 }: ConversationThreadProps) {
-  // Interleave responses and reroute events chronologically.
   type Item = { kind: "reponse"; data: TicketReponse } | { kind: "rechemine"; data: WorkflowEvent };
   const items: Item[] = [
     ...reponses.map((r): Item => ({ kind: "reponse", data: r })),

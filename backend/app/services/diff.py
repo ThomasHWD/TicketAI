@@ -1,9 +1,4 @@
-"""Calcul de diff textuel entre deux versions d'un document.
-
-Module pur : aucune dépendance sur la base de données ni sur les modèles.
-Seul le cycle de vie des réponses (marquer_obsoletes, etc.) réside dans
-``services/obsolescence.py``, qui importe ce module.
-"""
+"""Calcul de diff textuel entre deux versions d'un document. Module pur : pas de dépendance DB ni modèles."""
 
 import json
 import re
@@ -31,14 +26,7 @@ SENS_REECRITURE = "REECRITURE"
 
 @dataclass(frozen=True)
 class Unite:
-    """Un changement isolé entre deux versions, apparié quand c'est une réécriture.
-
-    L'appariement est ce qui distingue cette structure des deux listes plates que
-    produisait ``passages_ajoutes`` appelé dans les deux sens. « ce paragraphe a
-    été remplacé par celui-ci » se juge ; « un paragraphe est apparu quelque part
-    et un autre a disparu ailleurs » ne se juge pas — c'est la même information
-    privée de ce qui la rend exploitable, par un humain comme par un modèle.
-    """
+    """Changement isolé entre deux versions, apparié (AVANT/APRÈS) quand c'est une réécriture."""
 
     sens: str  # SENS_AJOUT | SENS_RETRAIT | SENS_REECRITURE
     avant: str | None  # None pour un ajout
@@ -51,12 +39,7 @@ class Unite:
 
 
 def extrait(texte: str) -> str:
-    """Passage tronqué pour affichage.
-
-    Vit ici, et non dans ``api/v1/documents/``, pour que l'écran d'impact et
-    les ``changements`` figés par le worker montrent exactement le même texte —
-    ce sont les deux faces du même signalement, à quelques secondes d'écart.
-    """
+    """Passage tronqué pour affichage. Centralised so preview screen and frozen changements show identical text."""
     texte = " ".join(texte.split())
     return texte if len(texte) <= LONGUEUR_EXTRAIT else texte[:LONGUEUR_EXTRAIT] + "…"
 
@@ -98,14 +81,7 @@ def _requalifier(unite: Unite, ref_ancien: str, ref_nouveau: str) -> Unite | Non
 
 
 def unites_de_changement(ancien_texte: str, nouveau_texte: str) -> list[Unite]:
-    """Ce qui a changé d'une version à l'autre, apparié quand c'est appariable.
-
-    ``autojunk=False`` n'est pas un détail : à ``True`` (le défaut), l'heuristique
-    « junk » écarte tout élément présent dans plus de 1 % d'une séquence de plus
-    de 200 items. Sur un document à en-têtes ou mentions répétés — la norme pour
-    une charte paginée — elle fabrique des ``replace`` entre paragraphes sans
-    rapport, donc des réécritures inventées.
-    """
+    """Ce qui a changé, apparié quand appariable. `autojunk=False`: with True, headers/footers repeated in >1% of"""
     anciens = decouper_en_passages(ancien_texte)
     nouveaux = decouper_en_passages(nouveau_texte)
 
@@ -124,12 +100,7 @@ def unites_de_changement(ancien_texte: str, nouveau_texte: str) -> list[Unite]:
 
 
 def analyser_changements(ancien_texte: str, nouveau_texte: str) -> dict:
-    """Le résumé des changements, tel qu'il est affiché puis figé sur la version.
-
-    Fonction **pure** à deux chaînes : l'aperçu et le worker en avaient chacun
-    une copie. Les deux appelants gardent leur propre ``extract_text`` ; la logique
-    ne vit plus qu'ici.
-    """
+    """Résumé des changements, affiché sur l'écran d'impact et figé sur la version."""
     unites = unites_de_changement(ancien_texte, nouveau_texte)
     ajoutes = [u for u in unites if u.sens in (SENS_AJOUT, SENS_REECRITURE)]
     retires = [u for u in unites if u.sens in (SENS_RETRAIT, SENS_REECRITURE)]

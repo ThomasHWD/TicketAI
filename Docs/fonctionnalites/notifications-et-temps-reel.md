@@ -20,24 +20,42 @@ En clair : la **notification** dit *« votre réponse a été validée »*. Le *
 
 ## 1. Les notifications
 
-### Quand elles sont créées
+### Pourquoi on fait ça
 
-Une notification est écrite en base pour **l'employé propriétaire du ticket**, au moment
-où un validateur rend son verdict.
+Permettre à un employé d'être informé qu'une réponse à sa question est disponible, ou
+qu'elle a été rejetée, sans avoir à surveiller l'écran en permanence. La notification
+persiste dans la base — elle est toujours là même si l'employé était déconnecté au moment
+où le verdict a été rendu.
+
+### Comment ça fonctionne
+
+Une pastille rouge sur la cloche 🔔 en haut à droite indique le nombre de notifications
+non lues. Cliquez la cloche pour les voir apparaître dans un menu déroulant : chaque ligne
+montre l'objet du ticket concerné.
+
+- Cliquez une notification pour ouvrir le ticket directement.
+- Cliquez la coche à côté d'une notification pour la marquer comme lue.
+- Le bouton **Tout marquer comme lu** vide le compteur d'un coup.
+
+Les notifications lues disparaissent du compteur mais le ticket reste accessible dans
+l'historique.
+
+> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *La cloche de notification ouverte dans la barre de navigation, avec 3 ou 4 notifications non lues affichant l'objet du ticket, et le bouton « Tout marquer comme lu » visible. Montrer aussi la pastille de compteur sur l'icône.*
+
+### Détails techniques
+
+**Quand une notification est créée :**
 
 | Type | Déclencheur |
 |---|---|
 | `REPONSE_VALIDEE` | Un validateur a validé **ou corrigé** la réponse |
 | `REPONSE_REJETEE` | Un validateur a rejeté la réponse |
 
-Une notification est aussi créée par le pipeline lorsqu'une réponse est produite pour
-l'employé.
+Une notification est aussi créée par le pipeline lorsqu'une réponse est produite.
+Pas d'auto-notification : si le validateur est lui-même le propriétaire du ticket, aucune
+notification n'est créée.
 
-> **Pas d'auto-notification.** Si le validateur est lui-même le propriétaire du ticket,
-> aucune notification n'est créée — la fonction retourne immédiatement. (Ce cas est rare :
-> l'anti-auto-validation l'empêche déjà pour les verdicts.)
-
-### Les consulter
+Endpoints :
 
 | Action | Endpoint | Comportement |
 |---|---|---|
@@ -45,27 +63,41 @@ l'employé.
 | Marquer une notification lue | `POST /notifications/{id}/lire` | Idempotent. `404` si elle ne vous appartient pas |
 | Tout marquer lu | `POST /notifications/tout-lire` | Vide la cloche d'un coup |
 
-Chaque notification renvoyée porte l'objet et la question du ticket, ce qui évite à
-l'interface une requête supplémentaire pour afficher la ligne.
-
-> **Conséquence à connaître :** `GET /notifications` filtre sur `read_at IS NULL`. Une
-> notification lue disparaît définitivement de l'API — il n'y a pas d'historique des
-> notifications consultables.
-
+`GET /notifications` filtre sur `read_at IS NULL`. Une notification lue disparaît
+définitivement de l'API — il n'y a pas d'historique des notifications consultables.
 Les notifications sont supprimées en cascade si le ticket, la réponse ou l'utilisateur
 associé est supprimé.
-
-> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *La cloche de notification ouverte dans la barre de navigation, avec 3 ou 4 notifications non lues affichant l'objet du ticket, et le bouton « Tout marquer comme lu » visible. Montrer aussi la pastille de compteur sur l'icône.*
 
 ---
 
 ## 2. Le flux temps réel (SSE)
 
-### Le principe
+### Pourquoi on fait ça
 
-À la connexion, le navigateur ouvre **une seule** connexion HTTP longue vers
-`GET /api/v1/sse/stream`. Le serveur la garde ouverte et y pousse les événements au fil de
-l'eau. Derrière, c'est un `pub/sub` Redis (Valkey).
+Maintenir tous les écrans à jour sans que personne n'ait à appuyer sur « rafraîchir ».
+Quand un ticket arrive dans la file d'un validateur, quand un collègue prend un verrou,
+quand une bannière change, tous les onglets concernés se rerechargent seuls — la
+collaboration en temps réel devient naturelle.
+
+### Comment ça fonctionne
+
+Ce mécanisme est **invisible pour les utilisateurs** : il n'y a rien à cliquer, rien à
+activer. Les effets se voient dans les mises à jour automatiques — la liste de tickets
+qui se recharge, les cadenas qui apparaissent, les compteurs qui changent.
+
+À la connexion, le navigateur ouvre une connexion avec le serveur et reste en écoute.
+Chaque fois qu'un événement se produit (nouveau ticket, verdict rendu, etc.), le serveur
+envoie un signal discret qui dit au navigateur quelles données recharger. Si la connexion
+est coupée (réseau instable, onglet en veille), elle se rétablit automatiquement avec un
+délai croissant, et les données sont rechargées en bloc pour rattraper ce qui a été manqué.
+
+**Un effet secondaire important** : quand vous fermez un onglet ou vous déconnectez, tous
+les verrous que vous déteniez sur des tickets sont relâchés automatiquement.
+
+### Détails techniques
+
+Le serveur utilise **Server-Sent Events (SSE)** sur `GET /api/v1/sse/stream`. Derrière, un
+`pub/sub` Valkey (Redis-compatible).
 
 ```mermaid
 sequenceDiagram
@@ -86,7 +118,7 @@ sequenceDiagram
     N->>N: invalide les caches React Query concernés
 ```
 
-### Les canaux
+**Les canaux :**
 
 | Canal | Contenu |
 |---|---|
@@ -95,7 +127,7 @@ sequenceDiagram
 | `sse:global` | Événements système : bannière |
 | `sse:admin` | Événements d'administration : groupes, réponses enregistrées |
 
-### Qui est abonné à quoi
+**Abonnements par profil :**
 
 | Profil | Abonnements |
 |---|---|
@@ -104,25 +136,17 @@ sequenceDiagram
 | **Admin avec groupes** | idem + `sse:admin` |
 | **Admin sans groupe** | `sse:user` + `sse:global` + `sse:admin` + **`sse:domain:*`** (motif — tous les domaines) |
 
-Le dernier cas mérite d'être noté : un administrateur qui n'appartient à aucun groupe
-s'abonne à *tous* les domaines par motif, afin que la supervision reste possible. Un admin
-qui appartient à un groupe ne reçoit que ses domaines.
-
-### Robustesse
+**Robustesse :**
 
 | Mécanisme | Détail |
 |---|---|
-| **Keepalive** | Un commentaire `:ping` toutes les 20 s sans trafic, pour que les proxys ne coupent pas la connexion |
+| **Keepalive** | Un commentaire `:ping` toutes les 20 s sans trafic |
 | **Reconnexion** | `retry: 5000` côté serveur ; côté client, une relance avec délai croissant à partir de 1 s |
-| **Rattrapage** | À la **re**connexion, le client invalide en bloc `tickets`, `ticket`, `mes-tickets`, `mes-assignations`, `notifications`, `user-dash` |
+| **Rattrapage** | À la reconnexion, le client invalide en bloc `tickets`, `ticket`, `mes-tickets`, `mes-assignations`, `notifications`, `user-dash` |
 | **Libération des verrous** | À la fermeture du flux, **tous les verrous détenus par cet utilisateur sont relâchés** |
 
-Le rattrapage est indispensable : le `pub/sub` Redis ne conserve rien. Les événements
-émis pendant une coupure réseau sont **définitivement perdus**. Plutôt que de tenter de
-les rejouer, le client repart d'un état propre en rechargeant les données.
-
-> C'est aussi pour cela que le flux SSE ne doit jamais être la seule source de vérité :
-> il déclenche des rechargements, il ne transporte pas d'état métier.
+Le `pub/sub` Redis ne conserve rien : les événements émis pendant une coupure réseau sont
+**définitivement perdus**. Le client repart d'un état propre en rechargeant les données.
 
 ---
 
@@ -158,7 +182,7 @@ interface.
 |---|---|---|
 | `document_updated` | Fin du job de mise à jour | Recharge documents, canoniques, obsolètes, à relire, versions du document |
 | `reverification_started` | Les réponses passent en « analyse en cours » | Recharge l'onglet À relire |
-| `reverification_done` | Le verdict est rendu | Recharge les trois onglets — c'est là que des réponses sortent du service |
+| `reverification_done` | Le verdict est rendu | Recharge les trois onglets |
 | `job_completed` | Fin d'un job suivi | Met à jour le suivi de tâche |
 
 ### Système
@@ -175,7 +199,7 @@ interface.
 
 ### Émettre un événement
 
-Deux fonctions dans `app/services/broadcast.py`, à choisir selon le contexte :
+Deux fonctions dans `app/services/broadcast.py` :
 
 ```python
 # Depuis un worker Celery (code synchrone)
@@ -186,8 +210,7 @@ await broadcast_async(f"sse:user:{user_id}", "notification_created", {"ticket_id
 ```
 
 Les deux **avalent leurs exceptions** et se contentent d'écrire un log. C'est délibéré :
-une panne de Valkey ne doit jamais faire échouer une validation. Le prix à payer est que
-l'écran ne se rafraîchit pas tout seul — l'utilisateur doit recharger la page.
+une panne de Valkey ne doit jamais faire échouer une validation.
 
 ### Ajouter un nouvel événement
 

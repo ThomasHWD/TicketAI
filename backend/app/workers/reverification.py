@@ -1,26 +1,4 @@
-"""Ré-vérifie, réponse par réponse, ce qu'une nouvelle version de document invalide.
-
-Enfilé par ``document_update_job`` juste après la bascule de version, sur
-``queue_questions`` : ce job n'est que de l'attente réseau Albert, il n'a rien à
-faire dans la file qui sérialise les ingestions.
-
-Le job démarre sur un lot de réponses déjà marquées ``ANALYSE_EN_COURS`` — le
-drapeau est posé dans la foulée du commit de version, pas ici. C'est ce qui ferme
-la fenêtre de course : entre la publication de la v2 et le verdict il s'écoule de
-trente secondes à quelques minutes, pendant lesquelles les réponses continuent
-d'être servies. Elles le sont, mais plus jamais sans que l'interface le dise.
-
-Ce drapeau est un état transitoire, et **le job a l'obligation de le résoudre**
-pour chacune des réponses qu'il a reçues : il le lève (``INTACTE``), l'aggrave en
-obsolescence (``CONTREDITE`` sur une citante), ou le requalifie en une raison de
-relecture explicite. Trois filets successifs garantissent qu'aucune réponse ne
-reste coincée : le repli par réponse en cas de panne d'Albert, le balayage final
-de ``rabattre``, et le ``on_failure`` de la tâche pour le worker tué net.
-
-Toute la logique de décision vit dans ``services/reverification.py``, qui ne
-connaît pas Celery et se teste sans broker. Ce module ne porte que la politique :
-les plafonds, l'ordre de dépense du budget, les replis et les événements SSE.
-"""
+"""Reverification worker: runs after document_update_job, on queue_questions (Albert network waits, not ingestion"""
 
 import logging
 
@@ -59,10 +37,7 @@ from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
-# Échecs d'appel au modèle consécutifs à partir desquels on considère Albert
-# injoignable plutôt que capricieux. Insister coûterait un timeout de 60 s par
-# candidate restante pour un résultat connu d'avance ; le reliquat part donc
-# directement en relecture.
+# Above this threshold Albert is down — remaining candidates go to human review immediately rather than burning 60 s
 MAX_ECHECS = 3
 
 JUSTIF_PANNE = "Le service d'analyse n'a pas répondu : la réponse n'est plus servie sans revue, à vérifier à la main."
@@ -71,13 +46,7 @@ JUSTIF_MASSIVE = "Document réécrit en profondeur : trop de changements pour ju
 
 
 def unites_figees(db, doc_id: str, version: int) -> list[Unite]:
-    """Les unités de changement telles qu'elles ont été enregistrées sur la version.
-
-    Relues et non recalculées, pour deux raisons. L'archive de la version
-    sortante peut avoir été purgée entre-temps, et surtout : l'humain a vu ce
-    diff-là sur l'écran d'impact avant de confirmer. Recalculer ouvrirait la
-    possibilité que le modèle juge sur autre chose que ce qui a été montré.
-    """
+    """Units from the stored version, not recomputed — archive may be purged, and the human confirmed this diff."""
     ligne = (
         db.query(DocumentVersion).filter(DocumentVersion.doc_id == doc_id, DocumentVersion.version == version).first()
     )
@@ -85,7 +54,6 @@ def unites_figees(db, doc_id: str, version: int) -> list[Unite]:
 
 
 def restees_en_analyse(db, doc_id: str, version: int) -> list[Reponse]:
-    """Les réponses de ce lot dont personne n'a encore résolu le drapeau transitoire."""
     return (
         db.query(Reponse)
         .filter(
@@ -99,14 +67,7 @@ def restees_en_analyse(db, doc_id: str, version: int) -> list[Reponse]:
 
 
 def rabattre(db, doc_id: str, version: int, raison: str, justification: str) -> int:
-    """Requalifie en relecture explicite ce qui est resté « analyse en cours ».
-
-    ``ANALYSE_EN_COURS`` est le seul état transitoire du modèle de données, et un
-    état transitoire qui survit est un bug silencieux : la réponse reste servie,
-    l'interface annonce une analyse qui n'aura jamais lieu, et personne n'est
-    sollicité. Le rabattement est toujours conservateur — la réponse n'est jamais
-    retirée du service sur une panne, elle est mise dans la file de relecture.
-    """
+    """Requalify lingering ANALYSE_EN_COURS as explicit human review. A persistent transient state is a silent bug."""
     restes = restees_en_analyse(db, doc_id, version)
     if not restes:
         return 0
@@ -117,13 +78,7 @@ def rabattre(db, doc_id: str, version: int, raison: str, justification: str) -> 
 
 
 class TacheReverif(celery_app.Task):
-    """Porte le filet de dernier recours : un worker tué ne laisse rien en suspens.
-
-    Appelé une fois les retries épuisés (un ``Retry`` ne passe pas par ici). Sans
-    lui, un OOM-kill à mi-parcours laisserait indéfiniment des réponses en
-    « analyse en cours » — servies, marquées douteuses, et jamais présentées à
-    personne.
-    """
+    """Last-resort net: OOM-kill would leave responses stuck in ANALYSE_EN_COURS forever without this."""
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         doc_id, version = kwargs.get("doc_id"), kwargs.get("version")
@@ -155,21 +110,14 @@ def reverification_job(
     domaine: str,
     indices_disparus: list[int] | None = None,
 ):
-    """Juge les réponses du lot et applique les verdicts, dans la limite du budget.
-
-    Convergent par construction : ``reponses_obsoletes`` écarte ce qui est déjà
-    obsolète et ``delete_response_point`` sur un identifiant absent est un no-op,
-    donc un rejeu ne fait que reprendre le reliquat.
-    """
+    """Judge each response in the batch. Convergent: already-obsolete responses skipped, upserts are idempotent."""
     logger.info("ré-vérification : doc %s v%d", doc_id, version)
     db = SessionLocal()
 
     try:
         doc = db.query(Document).filter(Document.doc_id == doc_id).first()
         if doc is None or doc.version != version:
-            # Une v(n+1) est passée entre-temps : elle a reflagué le même périmètre
-            # à son propre numéro et porte son propre job. Juger sur un diff périmé
-            # produirait des verdicts sur un texte qui n'est plus servi.
+            # v(n+1) arrived while this was queued — judging a stale diff produces verdicts on text no longer served.
             nb = rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
             logger.info("version dépassée — abandon, %d réponse(s) rabattues", nb)
             return {"statut": "DEPASSE", "doc_id": doc_id, "version": version}
@@ -177,16 +125,13 @@ def reverification_job(
         unites = unites_figees(db, doc_id, version)
 
         if not unites:
-            # `document_update_job` n'enfile qu'avec au moins une unité : arriver
-            # ici signale une ligne de version tronquée ou perdue, pas un
-            # reformatage. On ne se tait pas là-dessus.
+            # document_update_job only enqueues with at least one unit — arriving here signals a truncated version row.
             nb = rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
             logger.warning("aucune unité relue — %d réponse(s) en relecture", nb)
             return publier_bilan(doc_id, version, domaine, {"nb_indisponibles": nb})
 
         if len(unites) > MAX_UNITES:
-            # Le document n'a pas été modifié, il a été réécrit : il n'y a plus
-            # rien à discriminer et aucun appel au modèle ne le dirait mieux.
+            # rewritten not modified — no model call would discriminate.
             touchees = marquer_a_relire(db, doc_id, version, RAISON_MASSIVE)
             tracer(db, touchees, JUSTIF_MASSIVE, None)
             nb = len(racines(touchees))
@@ -209,9 +154,7 @@ def reverification_job(
 
         for rang, candidate in enumerate(candidates):
             if budget <= 0:
-                # Le surplus n'est jamais ignoré en silence : c'est précisément ce
-                # que faisait l'ancien système, et c'est pour ça qu'on ne pouvait
-                # pas lui faire confiance. Il part en relecture, avec sa raison.
+                # surplus goes to human review — truncation is never silent.
                 nb_indisponibles += signaler_sans_juger(
                     db, candidates[rang:], RAISON_PARTIELLE, JUSTIF_PARTIELLE, doc_id, version
                 )
@@ -221,14 +164,11 @@ def reverification_job(
             pertinentes, fiable = unites_pertinentes(candidate.question, unites)
 
             if candidate.prioritaire and not pertinentes:
-                # Un passage cité par cette réponse a disparu de la nouvelle
-                # version : c'est un fait, pas une ressemblance. Le reranker,
-                # qui n'est qu'un tri, n'a pas à pouvoir annuler ce signal.
+                # cited passage disappeared — a fact, not a similarity guess; reranker can't override this signal.
                 pertinentes = unites[:MAX_UNITES_PAR_REPONSE]
 
             if fiable and not pertinentes:
-                # Aucun changement ne porte sur cette question : rien à juger, et
-                # surtout rien à laisser traîner — le drapeau transitoire tombe.
+                # no changes touch this question — clear the transient flag without calling the model.
                 comptes[decider(db, candidate, VERDICT_INTACTE, "", [], doc_id, version)] += 1
                 continue
 
@@ -250,9 +190,7 @@ def reverification_job(
             comptes[action] += 1
             logger.info("%s → %s (%s)", candidate.reponse.id, verdict, action)
 
-        # Filet intermédiaire : une réponse flaguée à l'étape 10 de la mise à jour
-        # mais absente du lot de candidates (session concurrente, famille recomposée)
-        # resterait sinon en « analyse en cours » sans que rien ne la résolve.
+        # safety net: a response flagged by document_update but absent from candidates would stay stuck otherwise.
         nb_indisponibles += rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
 
         return publier_bilan(
@@ -275,18 +213,7 @@ def reverification_job(
 
 
 def publier_bilan(doc_id: str, version: int, domaine: str, comptes: dict) -> dict:
-    """Publie le bilan et le rend à Celery.
-
-    ``saved_answers_updated`` sur ``sse:admin`` n'est pas redondant avec
-    l'événement de domaine : sans lui, l'onglet « Réponses enregistrées » d'un
-    admin affiche une liste périmée jusqu'au prochain rafraîchissement manuel,
-    alors que des réponses viennent d'y entrer ou d'en sortir.
-
-    Publique parce que ``workers/confrontation.py`` en a exactement le même usage
-    et doit émettre exactement les mêmes événements : côté front, un verdict rendu
-    sur un document neuf déplace les mêmes listes qu'un verdict rendu sur une
-    mise à jour.
-    """
+    """Broadcast results and return to Celery. sse:admin is separate from the domain event — admin's saved-answers"""
     bilan = {
         "nb_contredites": 0,
         "nb_a_relire": 0,

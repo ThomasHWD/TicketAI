@@ -44,11 +44,9 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
     staleTime: 30_000,
   });
 
-  // Escape key + focus trap
   useEffect(() => {
     const trigger = document.activeElement as HTMLElement | null;
 
-    // Focus first focusable element on open
     const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );

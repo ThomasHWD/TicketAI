@@ -18,11 +18,7 @@ logger = logging.getLogger(__name__)
 
 client = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
 
-# Vaut "ticketai" partout sauf sous pytest, où conftest force un suffixe `_test`
-# avant l'import de ce module. Attention : `search.py` et `workers/document_update.py`
-# importent cette constante PAR VALEUR (`from ... import COLLECTION_NAME`), donc la
-# réaffecter après coup n'atteint pas ces modules — c'est l'environnement qui doit
-# être fixé avant l'import, pas la constante après.
+# conftest forces a `_test` suffix before import; consumers import by value so env must be set before import time
 COLLECTION_NAME = settings.qdrant_collection
 
 
@@ -39,12 +35,8 @@ def init_collection():
                         distance=Distance.COSINE,
                     )
                 },
-                # `Modifier.IDF` : Qdrant pondère les termes par leur rareté dans la
-                # collection, ce que le client ne peut pas faire — l'IDF change à
-                # chaque insertion. `services/bm25.py` ne fournit que l'autre moitié,
-                # les indices de tokens et leur saturation TF.
-                # Ce paramètre se fixe **à la création** : une collection existante
-                # créée sans lui doit être recréée pour en bénéficier.
+                # Modifier.IDF: Qdrant supplies server-side IDF; bm25.py only provides token indices + TF saturation.
+                # Fixed at collection creation — existing collections without it must be recreated.
                 sparse_vectors_config={
                     "sparse": SparseVectorParams(
                         index=SparseIndexParams(on_disk=False),
@@ -54,10 +46,7 @@ def init_collection():
             )
             logger.info("Collection '%s' créée.", COLLECTION_NAME)
         except UnexpectedResponse as exc:
-            # collection_exists() puis create_collection() n'est pas atomique :
-            # avec `uvicorn --workers N`, le lifespan tourne dans chaque process
-            # et deux workers peuvent créer la collection en même temps. Le
-            # perdant reçoit un 409 et doit converger, pas tuer le démarrage.
+            # collection_exists() + create_collection() is not atomic — 409 = another worker won the race
             if exc.status_code != 409:
                 raise
             logger.info("Collection '%s' créée en parallèle par un autre worker.", COLLECTION_NAME)
@@ -78,8 +67,6 @@ def init_collection():
     )
     logger.debug("Index payload 'content_hash' assuré.")
 
-    # Index payload pour cibler un document et une version — sans eux, les filtres
-    # (doc_id, version) de la mise à jour dégénèrent en scan complet de la collection.
     client.create_payload_index(
         collection_name=COLLECTION_NAME,
         field_name="doc_id",
@@ -94,9 +81,6 @@ def init_collection():
     )
     logger.debug("Index payload 'version' assuré.")
 
-    # Index payload pour cibler les points de réponse sans scanner la collection :
-    # `delete_response_point` filtre dessus, et la FAQ ne cherche que parmi eux
-    # (`FILTRE_POINTS_REPONSE`, services/search.py).
     client.create_payload_index(
         collection_name=COLLECTION_NAME,
         field_name="reponse_id",
@@ -106,13 +90,7 @@ def init_collection():
 
 
 def filtre_anciens(doc_id: str, version_cible: int) -> Filter:
-    """Les points du document qui ne sont pas ceux de la version en cours d'écriture.
-
-    Utilisé pour la capture *et* pour la suppression afin de porter sur exactement
-    le même ensemble, y compris en présence d'un retry partiel.
-    Les documents backfillés n'ont pas de clé ``version`` dans leur payload :
-    un ``Range`` sur clé absente ne matche pas, d'où le ``must_not`` par valeur.
-    """
+    """Points du document hors version en cours. Used for capture AND deletion to hit the exact same set on retries."""
     return Filter(
         must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))],
         must_not=[FieldCondition(key="version", match=MatchValue(value=version_cible))],
@@ -120,10 +98,7 @@ def filtre_anciens(doc_id: str, version_cible: int) -> Filter:
 
 
 def capturer_chunks(doc_id: str, version_cible: int) -> dict[int, str]:
-    """``{chunk_index: contenu}`` de la version sortante, lu dans Qdrant.
-
-    À appeler **avant toute suppression** : c'est la seule source du texte sortant.
-    """
+    """``{chunk_index: contenu}`` de la version sortante. Must be called before any delete."""
     anciens: dict[int, str] = {}
     offset = None
     while True:
@@ -144,18 +119,7 @@ def capturer_chunks(doc_id: str, version_cible: int) -> dict[int, str]:
 
 
 def delete_response_point(reponse_id: str) -> None:
-    """Supprime de Qdrant **tous** les points associés à une réponse.
-
-    Sélection par le payload `reponse_id`, et non par l'id déterministe du point.
-    C'est ce qui rend le retrait complet : une réponse porte un point par
-    formulation validée (`feedback_job(..., formulation_id=...)`), et non plus un
-    seul. Supprimer par id ne retirerait que la question d'origine et laisserait
-    la réponse servable depuis ses alias — un retrait pour obsolescence ou
-    contradiction serait alors sans effet.
-
-    Filtrer sur le payload couvre aussi les points écrits avant l'introduction
-    des formulations multiples.
-    """
+    """Supprime **tous** les points associés à une réponse. By payload filter not point id — one response has one"""
     client.delete(
         collection_name=COLLECTION_NAME,
         points_selector=Filter(
