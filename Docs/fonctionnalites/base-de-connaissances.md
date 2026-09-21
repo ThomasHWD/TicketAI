@@ -86,11 +86,41 @@ flowchart LR
     E --> F[Deux vecteurs par chunk :<br/>dense Albert BGE-M3<br/>+ creux BM25 calculé localement]
     F --> G[Upsert Qdrant]
     G --> H[Stockage permanent<br/>du fichier d'origine]
+    H --> I[Confrontation des réponses<br/>déjà servies]
 ```
 
 Le traitement est **asynchrone** : l'API renvoie un `job_id` immédiatement et le travail
 part sur la file `queue_ingestion`. L'interface suit l'avancement via
 `GET /documents/{job_id}/status` et le suivi de tâches.
+
+### Un import n'ajoute pas seulement : il confronte
+
+Un document neuf peut parfaitement **contredire une réponse déjà servie**, typiquement quand il
+précise une règle générale : la charte dit « le télétravail est possible trois jours par
+semaine », une réponse canonique en découle, puis arrive une note qui dit « les alternants n'y
+ont pas droit ».
+
+Le système compare donc chaque passage du nouveau document aux réponses déjà validées du même
+domaine, et **renvoie en relecture** celles qu'il soupçonne d'être devenues fausses ou
+incomplètes. Elles apparaissent dans l'onglet
+[*À relire*](reponses-enregistrees.md#3-longlet-à-relire), avec la raison `NOUVEAU_DOC`.
+
+Trois choses à savoir :
+
+- **Cela ne coûte aucun appel supplémentaire à Albert pour la détection** — les vecteurs du
+  document viennent d'être calculés, ils sont réutilisés tels quels.
+- **Aucune réponse n'est jamais retirée du service par ce chemin.** Un import ne peut que
+  *demander une relecture*, jamais détruire. C'est une garantie structurelle, pas un réglage.
+- Une réponse signalée reste proposée aux validateurs mais **n'est plus servie sans relecture**,
+  et disparaît de *Questions fréquentes* le temps que le drapeau tienne.
+- **La réponse spécifique qui manquait se crée ensuite d'elle-même**, sans rédaction manuelle :
+  la question spécifique n'obtient plus la réponse générale, elle repart des documents — dont
+  celui qu'on vient d'importer — et trois validations ordinaires la rendent canonique à son
+  tour. Les deux canoniques coexistent alors, chacune servant sa question. Séquence détaillée
+  dans [*À relire*](reponses-enregistrees.md#3-longlet-à-relire).
+
+> Le détail complet est dans
+> [Quand le corpus bouge § 3 ter](../technique/mise-a-jour-documents.md#3-ter-ingestion-dun-document-neuf--la-confrontation).
 
 | Paramètre de découpage | Valeur | Pourquoi |
 |---|---|---|

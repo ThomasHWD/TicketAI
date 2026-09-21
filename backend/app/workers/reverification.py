@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 # directement en relecture.
 MAX_ECHECS = 3
 
-JUSTIF_PANNE = "Le service d'analyse n'a pas répondu : la réponse reste servie, à vérifier à la main."
+JUSTIF_PANNE = "Le service d'analyse n'a pas répondu : la réponse n'est plus servie sans revue, à vérifier à la main."
 JUSTIF_PARTIELLE = "Budget d'analyse épuisé pour cette mise à jour : aucun verdict rendu sur cette réponse."
 JUSTIF_MASSIVE = "Document réécrit en profondeur : trop de changements pour juger réponse par réponse."
 
@@ -182,7 +182,7 @@ def reverification_job(
             # reformatage. On ne se tait pas là-dessus.
             nb = rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
             logger.warning("aucune unité relue — %d réponse(s) en relecture", nb)
-            return _termine(doc_id, version, domaine, {"nb_indisponibles": nb})
+            return publier_bilan(doc_id, version, domaine, {"nb_indisponibles": nb})
 
         if len(unites) > MAX_UNITES:
             # Le document n'a pas été modifié, il a été réécrit : il n'y a plus
@@ -191,7 +191,7 @@ def reverification_job(
             tracer(db, touchees, JUSTIF_MASSIVE, None)
             nb = len(racines(touchees))
             logger.info("%d unités (> %d) — %d réponse(s) en relecture, 0 appel LLM", len(unites), MAX_UNITES, nb)
-            return _termine(doc_id, version, domaine, {"nb_a_relire": nb})
+            return publier_bilan(doc_id, version, domaine, {"nb_a_relire": nb})
 
         candidates = rassembler_candidates(db, doc_id, domaine, unites, set(indices_disparus or []))
         logger.info("%d unité(s), %d réponse(s) à examiner", len(unites), len(candidates))
@@ -255,7 +255,7 @@ def reverification_job(
         # resterait sinon en « analyse en cours » sans que rien ne la résolve.
         nb_indisponibles += rabattre(db, doc_id, version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
 
-        return _termine(
+        return publier_bilan(
             doc_id,
             version,
             domaine,
@@ -274,13 +274,18 @@ def reverification_job(
         db.close()
 
 
-def _termine(doc_id: str, version: int, domaine: str, comptes: dict) -> dict:
+def publier_bilan(doc_id: str, version: int, domaine: str, comptes: dict) -> dict:
     """Publie le bilan et le rend à Celery.
 
     ``saved_answers_updated`` sur ``sse:admin`` n'est pas redondant avec
     l'événement de domaine : sans lui, l'onglet « Réponses enregistrées » d'un
     admin affiche une liste périmée jusqu'au prochain rafraîchissement manuel,
     alors que des réponses viennent d'y entrer ou d'en sortir.
+
+    Publique parce que ``workers/confrontation.py`` en a exactement le même usage
+    et doit émettre exactement les mêmes événements : côté front, un verdict rendu
+    sur un document neuf déplace les mêmes listes qu'un verdict rendu sur une
+    mise à jour.
     """
     bilan = {
         "nb_contredites": 0,

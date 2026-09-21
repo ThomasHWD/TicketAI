@@ -614,8 +614,15 @@ class TestMarquerARelire:
         assert (r.a_relire_version, r.a_relire_at) == (None, None)
 
     def test_reponse_signalee_reste_reutilisable(self, scenario):
-        """Le signalement est un tri, pas un retrait — la branche CANONIQUE
-        continue de servir la réponse jusqu'au jugement humain."""
+        """Le signalement est un tri, pas un retrait — la réponse reste **proposée**.
+
+        Ce qu'elle perd est ailleurs : `peut_servir_sans_revue` lui retire le
+        privilège de la branche CANONIQUE, donc elle ressort en SUGGESTION, sous
+        les yeux d'un relecteur (cf. `test_question_logic.py`). Ici on épingle
+        qu'elle n'est pas pour autant **retirée du service** : la détruire
+        coûterait `SEUIL_CANONIQUE` revalidations pour un état final identique,
+        et le soupçon n'est qu'un cosinus entre un paragraphe et une question.
+        """
         from app.workers.question import SEUIL_COSINUS, _trouver_reponse_reutilisable
 
         r = scenario(chunks=[1], canonique=True)

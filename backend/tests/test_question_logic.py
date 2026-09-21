@@ -1,4 +1,5 @@
 import uuid
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -236,3 +237,75 @@ def test_canonique_true_quand_seuil_atteint():
 
     assert reponse_source.nb_validations == 3
     assert reponse_source.canonique is True
+
+
+# ── `a_relire` suspend la branche CANONIQUE ────────────────────────────────
+
+
+class _PartiAuRag(Exception):
+    """Sentinelle : on n'atteint le rerank qu'en ayant quitté la branche cache."""
+
+
+@pytest.mark.parametrize(
+    "a_relire, verdict, sans_revue",
+    [
+        pytest.param(False, True, True, id="intacte-approuvee-servie-sans-revue"),
+        pytest.param(True, True, False, id="signalee-approuvee-suggestion"),
+        pytest.param(True, False, None, id="signalee-refusee-rag"),
+    ],
+)
+def test_une_canonique_signalee_est_jugee_et_ne_sert_jamais_sans_revue(a_relire, verdict, sans_revue):
+    """Un juge vient de dire qu'un document la contredit : plus de service sans revue.
+
+    Les trois cas ne diffèrent que par `a_relire` et le verdict, tout le reste
+    étant identique — canonique, au-dessus de `SEUIL_COSINUS`, servable.
+
+    Deux propriétés distinctes, et la seconde a coûté une mesure. **`a_relire`
+    ferme la porte du service sans revue, pas celle du juge** : le candidat
+    signalé est interrogé comme les autres, et c'est le verdict qui départage
+    SUGGESTION et RAG. Ne pas l'appeler passait pour une économie tant qu'un
+    refus sortait *lui aussi* en SUGGESTION ; depuis que le refus jugé renvoie au
+    RAG, ça sert au relecteur une réponse dont personne n'a vérifié qu'elle
+    répondait à la question. Mesuré le 18/09/2026 (bout en bout télétravail) : la
+    canonique générale signalée `CONTREDITE_PROBABLE` était proposée à « est ce
+    que télétravail possible ? pour les alternant ? », alors que le juge la
+    refuse 3/3 et que le RAG répond juste 3/3.
+    """
+    from app.services.garde_cache import Decision
+    from app.services.question_pipeline import Candidat
+    from app.workers.question import SEUIL_COSINUS, question_job
+
+    reponse = SimpleNamespace(
+        id=uuid.uuid4(), ticket_id=uuid.uuid4(), canonique=True, a_relire=a_relire, nb_validations=3
+    )
+
+    question_job.push_request(id=str(uuid.uuid4()), retries=0)
+    try:
+        with (
+            patch("app.workers.question._ticket_existe", return_value=True),
+            patch("app.workers.question.search_hybrid", return_value=[]),
+            patch(
+                "app.workers.question.trouver_reponse_reutilisable",
+                return_value=Candidat(reponse, SEUIL_COSINUS + 0.05, 0.0, "Le télétravail est-il autorisé ?"),
+            ),
+            patch("app.workers.question.statuer", return_value=Decision(verdict=verdict)) as juge,
+            patch("app.workers.question.journaliser_garde"),
+            patch("app.workers.question.servir_reutilisation", return_value={}) as servir,
+            patch("app.workers.question.rerank", side_effect=_PartiAuRag) as rerankeur,
+        ):
+            if sans_revue is None:
+                with pytest.raises(_PartiAuRag):
+                    question_job.run(question="Le télétravail est-il autorisé ?", domaine="RH")
+            else:
+                question_job.run(question="Le télétravail est-il autorisé ?", domaine="RH")
+    finally:
+        question_job.pop_request()
+
+    juge.assert_called_once()
+    if sans_revue is None:
+        servir.assert_not_called()
+        rerankeur.assert_called_once()
+    else:
+        servir.assert_called_once()
+        assert servir.call_args.args[11] is sans_revue
+        rerankeur.assert_not_called()

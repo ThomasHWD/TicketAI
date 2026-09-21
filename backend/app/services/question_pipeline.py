@@ -27,6 +27,31 @@ SEUIL_COSINUS = settings.seuil_cosinus
 SEUIL_SUGGESTION = SEUIL_COSINUS - 0.05
 
 
+def peut_servir_sans_revue(reponse: Reponse) -> bool:
+    """Cette réponse a-t-elle encore le droit d'être servie sans relecteur ?
+
+    `a_relire` est un **tri, pas un retrait** : `trouver_reponse_reutilisable`
+    continue de rendre la réponse, qui ressort en SUGGESTION et reste amendable
+    en un geste, `nb_validations` intact. Ce qu'elle perd ici est le seul
+    privilège de la branche CANONIQUE — être servie sans que personne ne la
+    relise — et elle le perd précisément quand un juge vient de dire qu'un
+    document la contredit.
+
+    C'est la réponse à « faut-il passer `a_relire` en obsolète ? » : ni l'un ni
+    l'autre. Détruire coûterait `SEUIL_CANONIQUE` revalidations pour un état
+    final identique, et un `CONTREDITE` erroné — le lien n'est qu'un cosinus à
+    `SEUIL_RAPPEL` entre un paragraphe et une question — retirerait en silence
+    une bonne canonique. Ne rien faire, en revanche, laissait le système servir
+    sans revue une réponse qu'il soupçonne fausse. Suspendre le privilège coûte
+    une relecture et ne détruit rien.
+
+    Le miroir SQL de ce prédicat est dans `services/faq.py` (`a_relire.is_(False)`,
+    `canonique.is_(True)`) : les deux doivent dire la même chose, un test les
+    compare.
+    """
+    return bool(reponse.canonique) and not reponse.a_relire
+
+
 def ticket_existe(ticket_id: uuid.UUID) -> bool:
     """Session courte et dédiée : on interroge avant d'ouvrir le pipeline."""
     db = SessionLocal()
@@ -223,7 +248,14 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
         db.query(Reponse)
         .filter(
             Reponse.id.in_([uuid.UUID(r) for r in meilleur_par_reponse]),
-            Reponse.statut == "VALIDÉE",
+            # CORRIGÉE aussi, et pas seulement VALIDÉE : c'est le texte qu'un
+            # relecteur a **écrit lui-même**, parce que la réponse proposée ne
+            # convenait pas. L'exclure faisait du bon geste — « Corriger » plutôt
+            # que « Valider » — un geste stérile : la réponse spécifique partait
+            # dans Qdrant, servait de matière au contexte RAG, et n'était jamais
+            # resservie. Elle ne pouvait donc pas accumuler de validations, donc
+            # jamais devenir canonique ; la générale gardait le terrain.
+            Reponse.statut.in_(("VALIDÉE", "CORRIGÉE")),
             Reponse.obsolete.is_(False),
         )
         .all()
@@ -231,12 +263,27 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
     if not candidats:
         return AUCUN_CANDIDAT
 
+    # La pertinence d'abord, le statut en départage — et non l'inverse.
+    #
+    # `r.canonique` était la clé **primaire**, le rang RRF n'arrivant qu'en
+    # troisième : une canonique générale à 0,77 battait donc une réponse
+    # spécifique validée à 0,98. La spécifique n'était jamais proposée, donc
+    # jamais validée, donc jamais canonique — une famine structurelle qui rendait
+    # impossibles des canoniques distinctes (une générale, une spécifique) pour
+    # un même sujet.
+    #
+    # Le RRF est le signal d'ordonnancement déclaré du système (`services/search.py`)
+    # et il était déjà dans cette clé : on le remonte, on ne l'invente pas. Le
+    # coût assumé est qu'à quasi-égalité une réponse fraîche peut prendre le pas
+    # sur une canonique — soit du CANONIQUE échangé contre du SUGGESTION, une
+    # relecture de plus et non un risque : ce qui décide de servir sans revue
+    # reste le garde.
     reponse_liee = max(
         candidats,
         key=lambda r: (
+            meilleur_par_reponse[str(r.id)].get("score_rrf", 0.0),
             r.canonique,
             r.nb_validations,
-            meilleur_par_reponse[str(r.id)].get("score_rrf", 0.0),
             str(r.id),
         ),
     )
@@ -279,7 +326,7 @@ def servir_reutilisation(
     contenu = reponse_liee.contenu_corrige or reponse_liee.contenu
     franchit = franchit_le_rappel({"score_cosinus": score_liee, "score_lexical": score_lexical}, SEUIL_COSINUS)
 
-    if autoriser_canonique and reponse_liee.canonique and franchit:
+    if autoriser_canonique and peut_servir_sans_revue(reponse_liee) and franchit:
         logger.info("Réponse canonique servie : %s (score=%.3f)", reponse_liee.id, score_liee)
         ticket = upsert_ticket(
             db,

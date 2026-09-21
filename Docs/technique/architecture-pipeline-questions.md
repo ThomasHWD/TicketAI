@@ -22,14 +22,17 @@ flowchart TD
     B -->|non| C
     B2 --> C[Étape 1<br/>Embedding dense Albert<br/>+ recherche Qdrant, top 15]
 
-    C --> D{Étape 2<br/>Une réponse VALIDÉE<br/>avec score ≥ SEUIL_SUGGESTION ?}
+    C --> D{Étape 2<br/>Une réponse VALIDÉE ou CORRIGÉE<br/>franchit-elle le rappel ?<br/>cosinus ≥ SEUIL_SUGGESTION<br/>OU BM25 par terme}
 
-    D -->|oui, canonique<br/>et score ≥ SEUIL_COSINUS| E{Garde LLM<br/>Question posée ≡<br/>question indexée ?}
-    D -->|oui, mais non canonique<br/>ou score < SEUIL_COSINUS| F[SUGGESTION<br/>revue humaine requise]
+    D -->|oui, et le verdict<br/>peut changer l'issue| E{Garde LLM<br/>Question posée ≡<br/>question indexée ?}
+    D -->|oui, mais lexical seul<br/>ET non canonique| G
     D -->|non| G
 
-    E -->|OUI| H[CANONIQUE<br/>servie sans revue humaine]
-    E -->|NON| F
+    E -->|OUI| E2{Canonique, non signalée<br/>a_relire, et rappel franchi<br/>au niveau SEUIL_COSINUS ?}
+    E2 -->|oui| H[CANONIQUE<br/>servie sans revue humaine]
+    E2 -->|non| F[SUGGESTION<br/>revue humaine requise]
+    E -->|NON jugé| G
+    E -->|pas de verdict<br/>panne Albert| F
 
     G[Étape 3<br/>Reranking Albert, top 5]
     G --> I[Étape 4<br/>Génération LLM<br/>temperature = 0.1]
@@ -41,14 +44,30 @@ flowchart TD
     style K fill:#dbeafe,stroke:#2563eb
 ```
 
+**Trois choses se lisent sur ce diagramme, toutes acquises le 18/09/2026 :**
+
+1. **Ni le score ni le statut ne décident *si* le juge est appelé.** La condition est
+   `peut_servir_sans_revue(reponse) or candidat.servable` : on consulte le juge **dès que son
+   verdict peut changer l'issue**, donc aussi sur une réponse non canonique ou signalée
+   `a_relire`. Seul le candidat retenu par les seuls mots **et** non canonique saute l'appel —
+   son issue est le RAG quel que soit le verdict, c'est la seule branche où ne pas appeler est
+   une économie et non une issue perdue.
+2. **Un OUI ouvre deux portes différentes selon le candidat.** Ce que le juge approuve, c'est
+   l'équivalence des deux questions ; c'est `servir_reutilisation` qui décide ensuite si cela
+   vaut CANONIQUE ou SUGGESTION. La porte du service sans revue est donc strictement la même
+   qu'avant l'élargissement — **on se sert du refus du juge, jamais de son accord**.
+3. **Un refus *jugé* repart au RAG ; une absence de verdict non.** `Decision.erreur` porte la
+   distinction. La flèche « pas de verdict » ne mène en SUGGESTION que si le candidat est
+   `servable` ; sinon elle rejoint le RAG.
+
 ---
 
 ## Seuils de décision
 
 | Variable | Valeur par défaut | Rôle |
 |---|---|---|
-| `SEUIL_COSINUS` | 0.80 | Cosinus minimum pour présenter un candidat canonique au garde |
-| `SEUIL_SUGGESTION` | `SEUIL_COSINUS − 0.05` = 0.75 | Cosinus minimum pour la branche SUGGESTION |
+| `SEUIL_COSINUS` | 0.80 | **La porte CANONIQUE** — ce qu'un OUI du garde a le droit d'ouvrir, évalué dans `servir_reutilisation` |
+| `SEUIL_SUGGESTION` | `SEUIL_COSINUS − 0.05` = 0.75 | Le **rappel** : cosinus minimum pour qu'un candidat existe, donc pour qu'un appel au juge ait lieu |
 | `SEUIL_LEXICAL_PAR_TERME` | 1.0 | BM25 **par terme** minimum — la porte lexicale, en disjonction du cosinus. `0` la referme |
 | `SEUIL_CANONIQUE` | 3 | Nombre de validations pour promouvoir une réponse en canonique |
 
@@ -78,9 +97,27 @@ d'un terme**, donc aucun effet sur la valeur calibrée du seuil.
 > du modèle d'embedding, donc il mesure ce que la porte coûte sans voir ce qu'elle rapporte.
 > **Un balayage ne peut pas arbitrer sur une population absente de son jeu de test.**
 
-`SEUIL_COSINUS` est un **filtre de coût**, pas un filtre de sécurité : c'est le garde LLM qui décide si la réponse peut être servie sans revue humaine. Abaisser ce seuil augmente le nombre d'appels LLM au garde ; le relever en réduit le nombre mais risque de rater des candidats légitimes. Porté de 0,90 à 0,85 le 05/09/2026 : à 0,90 il refusait à la place du juge et écartait des reformulations équivalentes. Puis à 0,80 le 07/09/2026, campagne rejouée à l'identique : CANONIQUE 14 → 19 sur 48, appels au juge 15 → 22, toujours aucun faux positif. Ne pas descendre plus bas — la bande [0,80 ; 0,85) contenait 5 reformulations équivalentes, la bande [0,75 ; 0,80) n'en contient aucune sur 4. Voir [`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md), § 12.
+`SEUIL_COSINUS` n'est **ni un filtre de sécurité ni un filtre de coût** : c'est la **porte
+CANONIQUE**. Il ne décide plus *si* le juge est appelé — depuis le 18/09/2026, le garde est
+consulté sur tout candidat dont le verdict peut changer l'issue — mais uniquement ce qu'un OUI
+ouvre : CANONIQUE s'il est franchi, SUGGESTION sinon. Ce qui mesure le nombre d'appels au juge
+est en amont, c'est `SEUIL_SUGGESTION` : le rappel décide combien de candidats existent.
 
-Le seuil ne peut plus **dégrader** l'issue en étant franchi : un refus du garde rend le candidat à la branche SUGGESTION, il ne le renvoie pas au RAG.
+Son calibrage reste valable, parce qu'il mesurait exactement cela — quelles reformulations
+méritent d'être **servies** à chaque niveau. Porté de 0,90 à 0,85 le 05/09/2026 : à 0,90 il
+refusait à la place du juge et écartait des reformulations équivalentes. Puis à 0,80 le
+07/09/2026, campagne rejouée à l'identique : CANONIQUE 14 → 19 sur 48, appels au juge 15 → 22,
+toujours aucun faux positif. Ne pas descendre plus bas — la bande [0,80 ; 0,85) contenait
+5 reformulations équivalentes, la bande [0,75 ; 0,80) n'en contient aucune sur 4. Voir
+[`rapport-test-cache-semantique.md`](rapport-test-cache-semantique.md), § 12 et § 17.
+
+**Franchir le seuil ne peut ni améliorer ni dégrader l'issue par surprise.** L'ancienne
+rédaction justifiait ici le repli d'un refus en SUGGESTION par la non-monotonie : un candidat à
+0,84 sortait en SUGGESTION sans être jugé, tandis que le même à 0,86 était jugé et, refusé,
+partait au RAG — franchir le seuil *dégradait* l'issue. Les deux moitiés de cet argument sont
+tombées ensemble le 18/09/2026 : la discontinuité n'existe plus, puisque le juge est appelé des
+deux côtés du seuil ; et sa prémisse — un candidat refusé vaut mieux que le RAG — est ce que la
+mesure contredit.
 
 ---
 
@@ -132,20 +169,71 @@ sont que des exemples courants). Aucune fuite inter-domaine n'est possible.
 
 La fonction `trouver_reponse_reutilisable` parcourt les 15 chunks retournés et cherche si l'un d'eux porte un `reponse_id` (lien vers une réponse validée, inscrit lors du feedback) **qui franchit le rappel** : cosinus ≥ `SEUIL_SUGGESTION` **ou** BM25 par terme ≥ `SEUIL_LEXICAL_PAR_TERME` (`franchit_le_rappel`, `services/search.py`).
 
-Si plusieurs réponses validées matchent, on choisit de manière déterministe : `canonique` d'abord, puis `nb_validations`, puis meilleur score, puis UUID.
+Les candidats sont les réponses `VALIDÉE` **ou `CORRIGÉE`**, non obsolètes. Inclure `CORRIGÉE`
+n'est pas un détail : exclure ces réponses faisait du bon geste — « Corriger » plutôt que
+« Valider » — un geste **stérile**. Le texte qu'un relecteur avait écrit lui-même partait bien
+dans Qdrant et servait de matière au contexte RAG, mais n'était jamais resservi, donc
+n'accumulait jamais de validations, donc ne devenait jamais canonique : la réponse générale
+gardait le terrain indéfiniment.
+
+Si plusieurs réponses matchent, on choisit de manière déterministe avec la clé
+`(score_rrf, canonique, nb_validations, id)` — **la pertinence d'abord, le statut en
+départage**. C'était l'inverse : `canonique` était la clé primaire et le rang RRF n'arrivait
+qu'en troisième, si bien qu'une canonique *générale* à 0,010 de RRF battait une réponse
+*spécifique* validée à 0,030. La spécifique n'était donc jamais proposée, jamais validée,
+jamais canonique — une **famine structurelle** qui rendait impossibles deux canoniques
+distinctes sur un même sujet, et renvoyait indéfiniment la réponse générale à une question
+spécifique. Le RRF est le signal d'ordonnancement déclaré du système
+([§ Étape 1](#étape-1--recherche-hybride)) et il était déjà dans cette clé : on l'a remonté, on
+ne l'a pas inventé. Coût assumé : à quasi-égalité, une réponse fraîche peut prendre le pas sur
+une canonique — du CANONIQUE échangé contre du SUGGESTION, soit une relecture de plus et non un
+risque, puisque ce qui décide de servir sans revue reste le garde.
 
 **Conditions pour CANONIQUE** (servie sans revue humaine) :
-- réponse trouvée avec `reponse.canonique == True`
+- `peut_servir_sans_revue(reponse)` — c'est-à-dire `canonique == True` **et
+  `a_relire == False`**. Une canonique que la réverification ou la confrontation soupçonne
+  d'être contredite reste *proposée*, jamais servie sans relecteur (voir
+  [`mise-a-jour-documents.md`](mise-a-jour-documents.md))
 - le candidat franchit le rappel **au niveau `SEUIL_COSINUS`** : `score_cosinus >= SEUIL_COSINUS` **ou** BM25 par terme ≥ `SEUIL_LEXICAL_PAR_TERME`
 - le garde LLM confirme que la question posée exprime exactement la même demande que la question indexée (voir [`garde-cache-canonique.md`](garde-cache-canonique.md))
+
+Ces trois conditions sont retestées **ensemble dans `servir_reutilisation`** : la porte du
+service sans revue n'a qu'une seule définition dans le code, et le garde peut donc être
+interrogé largement sans jamais l'élargir.
 
 La « question indexée » est celle portée par le **point qui a matché** (payload `question_indexee`), remontée par `trouver_reponse_reutilisable` avec la réponse et le score. Une réponse en porte une par formulation validée ; la redériver de `Ticket.question` soumettrait au garde une paire que la recherche n'a pas produite. Repli sur `Ticket.question` / `Reponse.question_suivi` pour les points antérieurs à cette clé.
 
 **Conditions pour SUGGESTION** (revue humaine requise) :
-- réponse trouvée avec `reponse.statut == "VALIDÉE"` et `obsolete == False`
-- mais au moins une condition CANONIQUE non remplie : rappel franchi seulement au niveau `SEUIL_SUGGESTION`, réponse pas encore canonique, **ou garde ayant refusé**
+- le candidat est `servable` (il ne doit pas son existence aux seuls mots, ou bien il est canonique)
+- **et** le garde a dit OUI, mais une condition CANONIQUE manque : réponse pas encore canonique,
+  réponse signalée `a_relire`, ou rappel franchi seulement au niveau `SEUIL_SUGGESTION`
+- **ou bien** il n'y a **pas de verdict** : Albert injoignable, ou aucune question indexable à
+  soumettre
 
-Un refus du garde sort donc en SUGGESTION, pas en RAG : le garde tranche sur le service *sans revue*, pas sur la pertinence du candidat pour un relecteur. Le refus reste tracé dans `garde_decisions` — en base, la SUGGESTION produite est indiscernable des autres.
+**Un refus *jugé* du garde repart au RAG** (inversé le 18/09/2026 ; ce paragraphe disait
+exactement le contraire). Le juge vient de dire que les deux questions ne posent pas la même
+demande : le candidat ne répond donc pas à celle-ci, et le proposer au relecteur revient à lui
+mettre sous les yeux quelque chose que le système a déjà jugé hors sujet — sur l'écran où
+« Valider » est le bouton le moins cher, celui-là même qui écrit un alias
+([§ Feedback](#feedback--comment-une-réponse-devient-réutilisable)). Mieux vaut une génération
+fondée sur les documents, pour la question réellement posée. Mesuré sur la campagne de 48 cas :
+9 refus, dont **6 sortaient en SUGGESTION** là où le RAG était attendu — « Qui valide un
+engagement de dépense ? » se voyait proposer « Comment fait on un engagement de dépense » à
+0,8254, juste après le refus.
+
+**Seul un refus *jugé* fait cela.** `Decision.erreur` existe pour cette distinction : une panne
+Albert, ou l'absence de question indexable, n'est pas « pas la même demande », c'est une
+**absence de verdict**. On garde alors le comportement antérieur — SUGGESTION sous revue
+humaine. Une panne réseau ne doit décider ni d'une branche ni d'une génération : *une panne
+d'Albert ne se paie pas en appels à Albert*.
+
+Coût assumé, à ne pas « récupérer » en assouplissant le prompt du juge : un refus **prudent**
+sur une paire en fait équivalente prive le relecteur d'une réponse réutilisable et fait naître
+une lignée parallèle sur le même sujet. La sélection par pertinence ci-dessus l'amortit.
+
+Toute invocation du garde est tracée dans `garde_decisions`, refus compris — en base, la
+SUGGESTION produite reste indiscernable des autres, et une réponse RAG issue d'un refus est
+indiscernable d'une réponse sans candidat. C'est cette table qui porte la piste d'audit.
 
 Dans les deux cas, `reponse_source_id` pointe vers la réponse originale. Pour SUGGESTION, `nb_validations` est suivi sur la source, pas sur la copie.
 
@@ -204,6 +292,35 @@ Le payload du point inclut `reponse_id`, ce qui permet à `trouver_reponse_reuti
 
 **Une réponse porte un point par formulation validée par un humain.** Quand un validateur approuve une copie SUGGESTION, il confirme que la réponse source répond aussi à la question de *ce* ticket-là : `valider_reponse` émet alors un second `feedback_job(source_id, formulation_id)` qui indexe cette question sur un point distinct, `uuid5(f"{source.id}:{copie.id}")`. Sans cela, une réponse promue canonique à trois validations n'était atteignable que depuis **une seule** formulation — les deux autres, pourtant validées explicitement, étaient perdues.
 
+### Le second point d'appel du garde
+
+> ⚠️ **Cet alias est soumis au juge *avant* d'être écrit** (`_alias_juge`, `workers/feedback.py`).
+> C'est le **deuxième** site d'appel de `garde_cache.statuer`, et le plus fort des deux.
+
+Écrire un alias est un acte **plus lourd** que tout ce sur quoi le garde tranche au service. Le
+point porte la question de la copie avec le `reponse_id` de la **source** : la prochaine
+question identique scorera donc ~1,0, déclenchera le court-circuit typographique, et sera servie
+CANONIQUE **sans aucun appel au juge**. Un alias faux ne *passe* pas le garde, il le
+**contourne** — et rien ne le vérifiait. Il suffisait d'un relecteur cliquant « Valider » au
+lieu de « Corriger » sur une SUGGESTION plausible mais à côté de la plaque, et le bouton vert
+est le chemin le moins cher de l'écran.
+
+Trois issues, sur le même axe que le service :
+
+| Verdict | Effet |
+|---|---|
+| OUI | l'alias est écrit |
+| NON **jugé** | pas d'alias — c'est exactement le comportement d'avant la multi-formulation, pas une perte |
+| `Decision.erreur` | `retry` — un refus par défaut jetterait en silence une formulation qu'un humain a validée |
+
+Tracé dans `garde_decisions` avec `score_cosinus = NULL` : la paire vient d'un **geste humain**,
+pas d'une recherche, et un `0.0` se lirait comme un candidat très lointain. Coût : un appel par
+validation humaine, zéro quand les deux formulations sont typographiquement identiques.
+
+La portée est volontairement limitée à l'alias : `nb_validations` reste incrémenté par
+l'endpoint HTTP. Le conditionner imposerait un appel LLM **synchrone dans une requête web**,
+pour un signal qui *promeut* sans *servir*.
+
 L'identifiant du point d'origine reste un UUID5 déterministe dérivé de `reponse_id` (un upsert ultérieur écrase proprement l'ancien). Corollaire : **`delete_response_point` supprime par filtre de payload `reponse_id`, pas par id de point** — supprimer par id laisserait la réponse servable depuis ses alias, et un retrait pour obsolescence serait sans effet.
 
 Quand `nb_validations` atteint `SEUIL_CANONIQUE` (défaut : 3), la réponse passe `canonique=True`. Elle est alors servie directement sur de nouvelles questions similaires, sans revue humaine.
@@ -242,6 +359,7 @@ Les autres tâches planifiées ou déclenchées sont :
 | `ingestion_job` | `queue_ingestion` | Import d'un document |
 | `document_update_job` | `queue_ingestion` | Confirmation d'une nouvelle version |
 | `reverification_job` | `queue_questions` | Enchaîné par le job de mise à jour |
+| `confrontation_job` | `queue_questions` | Enchaîné par l'ingestion d'un document **neuf**, s'il y a des cibles |
 | `auto_cloture_job` | `queue_questions` | **Celery Beat, chaque nuit à 02 h 00** |
 
 ---

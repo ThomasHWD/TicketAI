@@ -47,6 +47,7 @@ from app.models.document import Document
 from app.models.document_upload import DocumentUpload
 from app.models.document_version import DocumentVersion
 from app.services.broadcast import broadcast_sync
+from app.services.contextualisation import contextualiser, synopsis, texte_indexe
 from app.services.embedding import embed_texts
 from app.services.obsolescence import (
     RAISON_ILLISIBLE,
@@ -187,10 +188,17 @@ def document_update_job(
         else:
             logger.info("%d unité(s) de changement", changements["nb_unites"])
 
-        # Étape 4 — Chunking + embedding de la nouvelle version
+        # Étape 4 — Chunking, contextualisation puis embedding de la nouvelle version.
+        # Même insertion, même champ de payload qu'à l'ingestion : les deux
+        # producteurs écrivent des points que la recherche ne distingue pas, ils
+        # doivent encoder le même texte. Cf. services/contextualisation.py.
         chunks = chunk_text(pages)
-        embeddings = embed_texts(chunks, is_query=False)
-        logger.info("%d chunks embarqués", len(chunks))
+        contextes = contextualiser(chunks, synopsis(nouveau_texte, filename, description))
+        embeddings = embed_texts(
+            [texte_indexe(chunk, ctx) for chunk, ctx in zip(chunks, contextes, strict=True)],
+            is_query=False,
+        )
+        logger.info("%d chunks embarqués, %d contextualisés", len(chunks), sum(1 for c in contextes if c))
 
         # Étape 5 — Archivage du fichier sous v{new_version}
         stored_path = store_file(file_path, doc_id, filename, new_version)
@@ -212,14 +220,18 @@ def document_update_job(
                     "chunk_index": i,
                     "source": filename,
                     "domaine": domaine,
+                    # Brut, comme à l'ingestion : `capturer_chunks` lit `contenu`
+                    # pour bâtir le diff de la version suivante, et un préfixe
+                    # produit par un LLM y ferait paraître tous les chunks modifiés.
                     "contenu": chunk,
+                    "contexte": ctx,
                     "stored_path": stored_path,
                     "description": description,
                     "content_hash": content_hash,
                     "uploaded_by": uploaded_by,
                 },
             )
-            for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=False))
+            for i, (chunk, ctx, emb) in enumerate(zip(chunks, contextes, embeddings, strict=False))
         ]
         client.upsert(collection_name=COLLECTION_NAME, points=points)
         logger.info("%d points v%d indexés", len(points), new_version)
