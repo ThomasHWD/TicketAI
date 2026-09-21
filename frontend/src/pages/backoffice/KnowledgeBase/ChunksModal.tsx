@@ -7,11 +7,7 @@ import type { IndexedDocument } from "../../../types";
 
 const PAR_PAGE = 3;
 
-/**
- * Lecture du document tel qu'il est *réellement* indexé : les chunks, dans
- * l'ordre, avec leurs coupes. C'est ce texte-là que la recherche voit — pas le
- * fichier d'origine.
- */
+/** Shows the document as actually indexed — the chunks in order, not the source file. This is the text the search engine sees. */
 export default function ChunksModal({
   doc,
   onClose,

@@ -26,7 +26,6 @@ function TitreSection({
   );
 }
 
-/** Le diff réel : ce que la nouvelle version dit de différent, et rien de plus. */
 function BlocChangements({ impact }: { impact: UpdateImpact }) {
   const restantes = impact.nb_unites - impact.unites.length;
 
@@ -49,10 +48,7 @@ function BlocChangements({ impact }: { impact: UpdateImpact }) {
   );
 }
 
-/**
- * Ce qui part au jugement. Le ton est ambre et non rouge : la confirmation ne
- * détruit rien, elle enfile des relectures — la plupart des réponses survivront.
- */
+/** Responses queued for judgment — amber not red because confirmation enqueues reviews, destroys nothing. */
 function BlocARelire({ impact }: { impact: UpdateImpact }) {
   const n = impact.nb_a_analyser;
 
@@ -95,10 +91,7 @@ function BlocARelire({ impact }: { impact: UpdateImpact }) {
   );
 }
 
-/**
- * Les réponses qui citent un passage modifié. Elles passent en tête du budget
- * d'analyse — ce n'est pas une condamnation, et l'encadré doit le dire.
- */
+/** Responses citing a modified passage — prioritized in the analysis budget, not condemned; the box must say so. */
 function BlocPrioritaires({ impact }: { impact: UpdateImpact }) {
   const n = impact.nb_prioritaires;
   if (n === 0) return null;
@@ -127,13 +120,7 @@ function BlocPrioritaires({ impact }: { impact: UpdateImpact }) {
   );
 }
 
-/**
- * Rien à signaler — deux cas qu'il ne faut surtout pas confondre.
- *
- * « Rien n'a changé » est une garantie ; « rien n'a pu être comparé » est un
- * avertissement. Afficher le vert dans le second cas promettrait ce qu'on ne
- * sait pas, alors que les réponses partiront quand même en relecture manuelle.
- */
+/** Two distinct "nothing to report" cases — "nothing changed" (green, a guarantee) vs "couldn't compare" (amber, not a guarantee). Showing green in the second case would imply a guarantee that doesn't exist. */
 function BlocSansChangement({ impact }: { impact: UpdateImpact }) {
   if (!impact.diff_analysable) {
     return (

@@ -1,16 +1,8 @@
-// Identité de l'utilisateur courant.
-//
-// Depuis la mise en place de l'authentification LDAP/JWT, l'id renvoyé est celui
-// de l'utilisateur connecté (lu depuis le profil stocké par l'AuthProvider).
-// Le backend fait de toute façon autorité : il dérive l'identité du token JWT.
-// Cette fonction reste exposée pour les rares endroits qui ont besoin de l'id
-// utilisateur côté client (ex. filtre « mes tickets »).
+// Exposed for the rare client-side spots that need the user id (e.g. "mes tickets" filter) — backend always has authority via JWT.
 
 import { USER_KEY, type AuthUser } from "./api";
 
-// Fallback UUID quand aucun utilisateur n'est connecté (ne devrait pas arriver
-// derrière une route protégée).
-const FALLBACK_ID = "00000000-0000-0000-0000-000000000001";
+const FALLBACK_ID = "00000000-0000-0000-0000-000000000001";  // should never be reached behind a protected route
 
 export function getValidatorId(): string {
   try {

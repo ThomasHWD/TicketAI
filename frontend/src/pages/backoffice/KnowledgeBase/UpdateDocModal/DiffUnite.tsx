@@ -15,16 +15,7 @@ const SENS: Record<UniteChangement["sens"], { label: string; classes: string }> 
   },
 };
 
-/**
- * Une unité de changement, appariée avant ↔ après façon diff GitHub.
- *
- * Les deux versants sont montrés ensemble parce que c'est le *couple* qui rend
- * le changement jugeable : « 2 jours » seul ne dit rien, « 2 jours → 3 jours »
- * dit tout. C'est aussi sous cette forme que l'unité part au verdict côté worker.
- *
- * Les extraits sont des nœuds de texte directs, sans `<span>` intermédiaire —
- * les tests les cherchent par leur texte propre.
- */
+/** Before↔after diff unit. Both sides shown together because the pair makes the change judgeable; text nodes without `<span>` wrappers because tests query by text. */
 export default function DiffUnite({ unite }: { unite: UniteChangement }) {
   const sens = SENS[unite.sens];
 

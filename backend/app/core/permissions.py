@@ -1,9 +1,4 @@
-"""Helpers de contrôle d'accès par domaine et ownership.
-
-Deux règles distinctes :
-- Lecture : l'admin voit tout ; backoffice = son domaine ; lambda = son ticket.
-- Écriture : tout le monde (y compris l'admin) doit être membre du domaine cible.
-"""
+"""Domain access helpers. Read: admin=all, backoffice=own domain, lambda=own ticket. Write: must be a domain member"""
 
 from fastapi import HTTPException
 
@@ -17,10 +12,7 @@ def user_domaines(user: User) -> set[str]:
 
 
 def check_ticket_read(ticket: Ticket, current_user: User) -> None:
-    """Lecture d'un ticket.
-
-    Admin = accès global. Backoffice = domaine du ticket. Lambda = propriétaire.
-    """
+    """Read access — admin=global, backoffice=domain, lambda=owner."""
     if current_user.groupes:
         if ticket.user_id == current_user.id:
             return
@@ -32,11 +24,7 @@ def check_ticket_read(ticket: Ticket, current_user: User) -> None:
 
 
 def check_domain_read(domaine: str, current_user: User) -> None:
-    """Lecture d'une ressource rattachée à un domaine (document, chunk, fichier).
-
-    Même règle que ``check_ticket_read`` : l'admin voit tout, les autres sont
-    limités à leurs domaines.
-    """
+    """Read access to a domain resource — admin sees all, others limited to their domains."""
     if current_user.role == "ADMIN":
         return
     if domaine not in user_domaines(current_user):
@@ -44,9 +32,6 @@ def check_domain_read(domaine: str, current_user: User) -> None:
 
 
 def check_domain_write(domaine: str, current_user: User) -> None:
-    """Action d'écriture sur un domaine.
-
-    L'utilisateur doit être membre du domaine — sans exception pour l'admin.
-    """
+    """Write access — user must be a domain member, no admin exception."""
     if domaine not in user_domaines(current_user):
         raise HTTPException(403, f"Vous n'êtes pas membre du domaine {domaine}.")

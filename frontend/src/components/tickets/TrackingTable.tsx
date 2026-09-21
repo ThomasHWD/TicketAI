@@ -4,7 +4,6 @@ import { Search, X } from "lucide-react";
 import type { Ticket, StatutTicket } from "../../types";
 import type { FilterKey } from "../../hooks/useTicketTracking";
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string | null) {
   if (!iso) return "—";
@@ -24,7 +23,6 @@ function getErrorMessage(error: unknown): { text: string; canRetry: boolean; can
   return { text: "Impossible de charger les tickets. Vérifiez votre connexion.", canRetry: true, canReload: false };
 }
 
-// ─── StatutBadge ─────────────────────────────────────────────────────────────
 
 type BadgeVariant = "default" | "success" | "warn" | "danger" | "muted" | "processing";
 
@@ -61,7 +59,6 @@ function StatutBadge({ statut, canonique, closed, processing }: {
   );
 }
 
-// ─── FilterBar ────────────────────────────────────────────────────────────────
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "tous",       label: "Tous" },
@@ -155,7 +152,6 @@ export function FilterBar({
   );
 }
 
-// ─── TicketRow ────────────────────────────────────────────────────────────────
 
 export function TrackingTicketRow({ ticket }: { ticket: Ticket }) {
   const navigate = useNavigate();
@@ -193,7 +189,6 @@ export function TrackingTicketRow({ ticket }: { ticket: Ticket }) {
   );
 }
 
-// ─── TicketTable ──────────────────────────────────────────────────────────────
 
 function SkeletonTable() {
   return (

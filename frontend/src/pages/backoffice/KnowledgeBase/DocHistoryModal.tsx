@@ -32,7 +32,6 @@ function LigneVersion({
   v: DocumentVersion;
   docId: string;
   peutRestaurer: boolean;
-  /** Prépare la restauration ; l'appelant enchaîne sur l'écran d'impact. */
   onRestaurer: (version: number) => void;
   restaurationEnCours: number | null;
 }) {
@@ -139,11 +138,7 @@ export default function DocHistoryModal({
   /** Miroir de `check_domain_write` : sans droit d'écriture, l'historique reste en lecture. */
   peutRestaurer: boolean;
   onClose: () => void;
-  /**
-   * L'aperçu d'impact de la restauration est prêt : à l'appelant d'ouvrir
-   * `UpdateDocModal` dessus. La restauration passe par le même écran, et le même
-   * bouton de confirmation, qu'une mise à jour classique.
-   */
+  /** Restoration impact preview ready — caller opens `UpdateDocModal` on it; restore and update share the same confirmation screen. */
   onImpact: (impact: UpdateImpact) => void;
 }) {
   const [erreur, setErreur] = useState<string | null>(null);

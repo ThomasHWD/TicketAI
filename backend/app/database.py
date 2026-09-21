@@ -3,12 +3,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.config import settings
 
-# Configuration de la base de données.
-# pool_pre_ping : valide la connexion avant chaque checkout. Sans lui, un
-# redémarrage de Postgres laisse des connexions mortes dans le pool et les N
-# requêtes suivantes lèvent OperationalError avant que SQLAlchemy ne reconnecte.
-# pool_recycle : recycle la connexion avant que Postgres ou un firewall ne coupe
-# une session restée trop longtemps inactive.
+# pool_pre_ping prevents stale connections after a Postgres restart from raising OperationalError.
+# pool_recycle prevents idle-session cuts by Postgres or a firewall.
 engine = create_engine(
     settings.database_url,
     pool_size=20,

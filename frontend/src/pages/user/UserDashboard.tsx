@@ -29,7 +29,6 @@ export default function UserDashboard() {
     refetchInterval: 30_000,
   });
 
-  // Shortcut N → new ticket (outside input fields)
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const active = document.activeElement;
@@ -59,7 +58,6 @@ export default function UserDashboard() {
     </div>
   );
 
-  // Full-page error (no cached data)
   if (isError && !data) {
     return (
       <main className="p-6 space-y-8">
@@ -83,7 +81,6 @@ export default function UserDashboard() {
     );
   }
 
-  // Empty state
   if (data && total === 0) {
     return (
       <main className="p-6 space-y-8">

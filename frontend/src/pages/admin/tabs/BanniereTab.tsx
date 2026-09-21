@@ -165,7 +165,6 @@ export default function BanniereTab({
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["site-config"], queryFn: getSiteConfig });
 
-  // --- Bannière ---
   const [bannerMessage, setBannerMessage] = useState<string | null>(null);
   const [bannerActive, setBannerActive]   = useState<boolean | null>(null);
   const [bannerUrl, setBannerUrl]         = useState<string | null>(null);
@@ -182,7 +181,6 @@ export default function BanniereTab({
     url     !== (data.banner.url     ?? "")
   );
 
-  // --- Maintenance ---
   const [maintActive, setMaintActive]     = useState<boolean | null>(null);
   const [maintMessage, setMaintMessage]   = useState<string | null>(null);
   const [showMaintConfirm, setShowMaintConfirm] = useState(false);
@@ -199,7 +197,6 @@ export default function BanniereTab({
     onDirtyChange?.(isDirty || isDirtyMaintenance);
   }, [isDirty, isDirtyMaintenance, onDirtyChange]);
 
-  // --- Mutations bannière ---
   const mutation = useMutation({
     mutationFn: () => setSiteConfig("banner", { active, message, url }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["site-config"] }),
@@ -216,7 +213,6 @@ export default function BanniereTab({
     if (!url.trim() || /^https?:\/\/.+/.test(url.trim())) setUrlError(null);
   }, [url]);
 
-  // --- Mutations maintenance ---
   const mutationMaintenance = useMutation({
     mutationFn: () => setSiteConfig("maintenance", { active: mActive, message: mMessage }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["site-config"] }),
@@ -242,7 +238,6 @@ export default function BanniereTab({
   };
 
   const handleSaveMaintenance = () => {
-    // Demande confirmation quand on active (OFF → ON)
     const wasActive = data?.maintenance?.active ?? false;
     if (mActive && !wasActive) {
       setShowMaintConfirm(true);
@@ -278,10 +273,8 @@ export default function BanniereTab({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 max-w-4xl">
 
-        {/* ── Carte bannière ── */}
         <div className="glass-card rounded-2xl overflow-hidden flex flex-col">
 
-          {/* Header */}
           <div className="flex items-start gap-3 px-5 py-4 border-b border-gray-100 dark:border-white/[0.06]">
             <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
               <Megaphone size={16} className="text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -307,10 +300,8 @@ export default function BanniereTab({
             <Toggle checked={active} onChange={() => setBannerActive(!active)} label="Activer la bannière d'annonce" />
           </div>
 
-          {/* Body */}
           <div className="px-5 py-4 space-y-4 flex-1">
 
-            {/* Message */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label htmlFor="banner-message" className="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -331,7 +322,6 @@ export default function BanniereTab({
               />
             </div>
 
-            {/* URL */}
             <div className="space-y-1.5">
               <label htmlFor="banner-url" className="text-xs font-medium text-gray-500 dark:text-gray-400">
                 Lien <span className="font-normal">(optionnel)</span>
@@ -354,7 +344,6 @@ export default function BanniereTab({
 
             <Sep />
 
-            {/* Preview */}
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Prévisualisation</p>
               <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-white/10">
@@ -385,7 +374,6 @@ export default function BanniereTab({
             )}
           </div>
 
-          {/* Footer */}
           <div className="px-5 pb-4">
             <CardActions
               isDirty={isDirty}
@@ -398,12 +386,10 @@ export default function BanniereTab({
           </div>
         </div>
 
-        {/* ── Carte maintenance ── */}
         <div className={`glass-card rounded-2xl overflow-hidden flex flex-col transition-shadow duration-200 ${
           mActive ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""
         }`}>
 
-          {/* Header */}
           <div className={`flex items-start gap-3 px-5 py-4 border-b transition-colors duration-200 ${
             mActive
               ? "bg-amber-50/60 dark:bg-amber-500/10 border-amber-200/70 dark:border-amber-500/20"
@@ -437,10 +423,8 @@ export default function BanniereTab({
             <Toggle checked={mActive} onChange={() => setMaintActive(!mActive)} color="amber" label="Activer le mode maintenance" />
           </div>
 
-          {/* Body */}
           <div className="px-5 py-4 space-y-4 flex-1">
 
-            {/* Message */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label htmlFor="maint-message" className="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -463,7 +447,6 @@ export default function BanniereTab({
 
             <Sep />
 
-            {/* Preview */}
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Prévisualisation</p>
               <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#0d0d0d]">
@@ -482,7 +465,6 @@ export default function BanniereTab({
             </div>
           </div>
 
-          {/* Footer */}
           <div className="px-5 pb-4">
             <CardActions
               isDirty={isDirtyMaintenance}

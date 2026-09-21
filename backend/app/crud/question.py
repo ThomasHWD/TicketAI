@@ -9,13 +9,7 @@ from app.models.ticket import Ticket
 
 
 class TicketDisparu(Exception):
-    """Le ticket ciblé n'existe plus en base : le job n'a plus d'objet.
-
-    Ce n'est pas une panne, c'est une course perdue — une suppression, ou un
-    retraitement enfilé sur un ticket effacé depuis. La distinguer d'une erreur
-    ordinaire est indispensable : réessayer ne peut rien y changer, et chaque
-    tentative repaie l'embedding, le rerank et la génération pour rien.
-    """
+    """Ticket no longer exists — retrying would be pointless and would re-spend embedding+rerank+generation."""
 
 
 def upsert_ticket(db: Session, job_id: uuid.UUID, ticket_id: uuid.UUID | None = None, **fields) -> Ticket:

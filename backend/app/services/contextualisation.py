@@ -1,26 +1,4 @@
-"""Situe chaque chunk dans son document avant de l'indexer (Contextual Retrieval).
-
-Un chunk est vectorisé **isolé** : ni le dense ni le creux ne portent ce que le
-document dit autour de lui. « Les alternants n'en bénéficient pas » ne contient
-pas le mot « télétravail » : aucune recherche sur le télétravail ne le ramène, et
-la réponse énonce la règle générale sans son exception.
-
-Le rattrapage consiste à préfixer chaque chunk d'une phrase qui le *situe* — de
-quelle règle il relève, à qui elle s'applique — et à indexer ce texte-là. La
-phrase est un **locateur**, pas un résumé : elle sert à retrouver le passage,
-jamais à le remplacer.
-
-Économie du procédé. La recette d'origine remet le document entier à chaque
-chunk : sur ce corpus (578 chunks) ≈ 5,8 M jetons d'entrée, pour un quota Albert
-de 1 280 000 jetons/jour **et** 1 000 requêtes/jour, l'un comme l'autre attachés
-au modèle. On paie donc un **synopsis** une fois (1 appel), puis on contextualise
-par **lots de 5** : ≈ 2 300 jetons par appel, ≈ 130 appels pour le même corpus.
-
-**Tout est best-effort.** Panne réseau, JSON illisible, tableau de longueur
-inattendue : la fonction rend ``""`` et l'ingestion retombe très exactement sur
-son comportement d'avant ce module. Une contextualisation ratée dégrade le
-rappel ; elle ne doit jamais faire échouer une ingestion par ailleurs réussie.
-"""
+"""Contextual Retrieval: prefix each chunk with a one-sentence locator before indexing. Best-effort throughout — a"""
 
 import json
 import logging
@@ -32,27 +10,18 @@ logger = logging.getLogger(__name__)
 
 SEPARATEUR = "\n\n"
 
-# Un locateur, pas un résumé. Au-delà, le préfixe pèse plus lourd que le passage
-# dans le vecteur creux et dilue les termes qui font justement trouver le chunk.
+# A locator, not a summary — beyond this the prefix outweighs the chunk in the sparse vector and dilutes the terms that
 MAX_CARACTERES_CONTEXTE = 200
 
-# Chunks par appel. Plus large, le modèle perd le fil de la numérotation et rend
-# des tableaux décalés — que `_lire_locateurs` jette, donc autant ne pas les payer.
+# Wider batches lose the numbering and return offset arrays — _lire_locateurs rejects them, so there's no point paying
 TAILLE_LOT = 5
 
-# Troncature du document soumis au synopsis (≈ 3 000 jetons). L'objet et le
-# périmètre d'une note se lisent dans ses premières pages ; la suite n'ajoute
-# rien à un texte qui doit tenir en trois phrases.
+# Object and scope of a note are in the first pages; anything beyond adds nothing to a three-sentence synopsis.
 MAX_CARACTERES_SYNOPSIS = 12000
 
-# Jetons de sortie pour un lot : TAILLE_LOT × MAX_CARACTERES_CONTEXTE, plus la
-# ponctuation JSON.
-MAX_TOKENS_LOT = 600
+MAX_TOKENS_LOT = 600  # TAILLE_LOT × MAX_CARACTERES_CONTEXTE + JSON punctuation
 
-# Lots consécutifs en échec avant d'abandonner le document. Un 429 d'Albert vaut
-# pour la journée entière : insister ferait attendre 130 fois le réseau pour 130
-# échecs certains, au milieu d'une ingestion. Même discipline que le `MAX_ECHECS`
-# de `workers/reverification.py`.
+# A 429 from Albert is day-wide — keep hammering would mean 130 guaranteed failures mid-ingestion.
 MAX_ECHECS = 3
 
 _PROMPT_SYNOPSIS = """Tu résumes un document de référence interne pour qu'un autre modèle puisse
@@ -88,35 +57,14 @@ longueur est inexploitable et sera rejeté."""
 
 
 def texte_indexe(contenu: str, contexte: str | None) -> str:
-    """Le texte réellement encodé pour un chunk de document.
-
-    Définition **unique**, importée par les deux producteurs
-    (``workers/ingestion.py``, ``workers/document_update.py``) et par
-    ``scripts/reencoder_vecteurs_creux.py``. Si ces trois-là divergeaient, la
-    prochaine recalibration BM25 réécrirait les vecteurs creux à partir d'un
-    autre texte que celui indexé — silencieusement, puisque rien ne lève.
-
-    ``contexte`` vide rend ``contenu`` **inchangé**, caractère pour caractère :
-    c'est ce qui fait que les points écrits avant ce module restent exacts.
-    """
+    """Single definition of "what text was encoded" — imported by both producers and by"""
     if not contexte:
         return contenu
     return f"{contexte}{SEPARATEUR}{contenu}"
 
 
 def synopsis(texte: str, filename: str = "", description: str = "") -> str:
-    """Deux ou trois phrases sur ce qu'est ce document — un seul appel.
-
-    C'est l'ancrage que ``contextualiser`` réutilise sur chaque lot : sans lui,
-    situer un passage demanderait de renvoyer le document entier à chaque fois.
-
-    Le nom du fichier et la description sont joints parce qu'ils portent souvent
-    le périmètre que le corps du texte tait (« charte_teletravail_2026.pdf »).
-
-    Rend ``""`` sur n'importe quelle panne : ``contextualiser`` sait travailler
-    sans ancrage, et le prompt lui dit de rendre une chaîne vide pour tout
-    extrait qu'il ne parvient pas à situer.
-    """
+    """Two or three sentences describing the document — one call, reused across all batches. Filename and"""
     if not settings.contextualisation_active or not texte.strip():
         return ""
 
@@ -141,17 +89,7 @@ def synopsis(texte: str, filename: str = "", description: str = "") -> str:
 
 
 def contextualiser(chunks: list[str], resume: str) -> list[str]:
-    """Un locateur par chunk, dans l'ordre — ``""`` pour ceux qu'on n'a pas su situer.
-
-    La liste rendue fait **toujours** la longueur de ``chunks`` : l'appelant
-    l'apparie par position, et un décalage préfixerait chaque passage du sujet
-    de son voisin. C'est le seul mode d'échec qui serait pire que l'absence de
-    contexte, parce qu'il ferait trouver le mauvais chunk au lieu de n'en
-    trouver aucun.
-
-    Un lot qui échoue ne condamne que ses cinq chunks. Trois lots consécutifs en
-    échec abandonnent le document : voir ``MAX_ECHECS``.
-    """
+    """One locator per chunk, always len(chunks) — "" for those that couldn't be located. A misaligned list would"""
     if not chunks:
         return []
     if not settings.contextualisation_active:
@@ -175,27 +113,12 @@ def contextualiser(chunks: list[str], resume: str) -> list[str]:
 
 
 def _modele() -> str:
-    """Le modèle du contexte, avec repli sur celui des tags.
-
-    Lu à l'appel et non à l'import, comme ``albert_garde_model_name`` : le quota
-    Albert est compté **par modèle**, et il faut pouvoir déplacer celui-ci sans
-    toucher un ``.py`` — ce qui relancerait uvicorn et les workers en pleine
-    ingestion.
-    """
+    """Read at call time, not import — Albert quota is per-model, and changing it must not require editing a .py"""
     return settings.albert_contexte_model_name or settings.albert_tag_model_name
 
 
 def _contextualiser_lot(lot: list[str], resume: str) -> list[str]:
-    """Les locateurs d'un lot, ou ``[]`` si ce lot n'a rien donné d'exploitable.
-
-    La longueur attendue est **redite en fin de message**, et le prompt système
-    ne montre plus de tableau d'exemple. Mesuré le 17/09/2026 : avec un exemple
-    ``["…", "…"]`` figé à deux éléments, un lot d'un seul extrait recevait
-    ``[ "…", "" ]`` — le modèle recopiait l'arité de l'exemple et complétait par
-    du vide — 3 fois sur 3, contre 0 échec à 2 et à 3 extraits. `_lire_locateurs`
-    rejetait, l'ingestion retombait sur le texte brut sans que rien n'échoue.
-    Le dernier lot d'un document sur cinq perdait ainsi son contexte, en silence.
-    """
+    """Locators for a batch, or [] if nothing exploitable was returned. Expected count is repeated at end of user"""
     numerotes = "\n\n".join(f"[{i + 1}]\n{c}" for i, c in enumerate(lot))
     try:
         brut = chat(
@@ -223,14 +146,7 @@ def _contextualiser_lot(lot: list[str], resume: str) -> list[str]:
 
 
 def _lire_locateurs(brut: str, attendus: int) -> list[str]:
-    """Extrait un tableau de ``attendus`` chaînes d'une sortie de modèle.
-
-    Tolère l'encadrement en bloc de code et le bavardage autour du tableau, que
-    les modèles produisent malgré la consigne. Toute autre forme rend ``[]`` :
-    ici, contrairement à ``_lire_verdict``, il n'existe pas de repli prudent — un
-    tableau de la mauvaise longueur n'est pas une hésitation qu'on pourrait
-    arrondir, c'est un appariement dont on ne sait plus rien.
-    """
+    """Extract exactly `attendus` strings from model output. Wrong-length array → [], not a partial result — a"""
     debut, fin = brut.find("["), brut.rfind("]")
     if debut == -1 or fin <= debut:
         logger.warning("contextualisation : pas de tableau JSON dans %r", brut[:200])

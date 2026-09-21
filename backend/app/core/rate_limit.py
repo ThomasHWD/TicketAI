@@ -1,11 +1,4 @@
-"""Garde-fou de débit générique, adossé à Valkey.
-
-Généralise le motif de `_check_login_rate` (api/v1/auth.py), avec une différence
-assumée : **fail-open**. Le login se ferme (503) parce qu'il protège des
-identifiants ; les routes de lecture, elles, ne doivent pas devenir inutilisables
-parce que Valkey hoquette — d'autant que Valkey est aussi le broker Celery, donc
-son indisponibilité se voit largement ailleurs.
-"""
+"""Generic rate limiter backed by Valkey — fail-open (unlike login's fail-closed) because a Valkey blip must not"""
 
 import logging
 
@@ -18,11 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def limiter(nom: str, identifiant: str, max_par_fenetre: int, fenetre_secondes: int = 60) -> None:
-    """Lève un 429 si `identifiant` dépasse `max_par_fenetre` sur la fenêtre glissante.
-
-    `max_par_fenetre <= 0` désactive la limite — c'est ce qui rend le réglage
-    débrayable depuis le `.env` sans toucher au code.
-    """
+    """Raise 429 when ``identifiant`` exceeds ``max_par_fenetre`` in the window. ``max_par_fenetre <= 0`` disables"""
     if max_par_fenetre <= 0:
         return
 

@@ -49,11 +49,7 @@ def previsualiser_maj(
     db: DB,
     description: str | None = None,
 ):
-    """Analyse l'impact d'un nouveau fichier sans rien modifier.
-
-    ``def`` et non ``async def`` : l'extraction PyMuPDF est bloquante, Starlette
-    l'exécute dans son threadpool pour ne pas geler la boucle d'événements.
-    """
+    """Analyse impact without modifying anything. ``def`` not ``async def`` — PyMuPDF text extraction is blocking"""
     doc = preparer_maj(db, doc_id, current_user)
 
     contents = file.file.read()
@@ -208,10 +204,7 @@ async def telecharger_version(doc_id: str, version: int, current_user: Backoffic
 
 @router.post("/documents/{doc_id}/versions/{version}/restaurer")
 def restaurer_version(doc_id: str, version: int, current_user: BackofficeUser, db: DB):
-    """Aperçu d'impact d'une restauration — la confirmation passe par `confirm`.
-
-    ``def`` et non ``async def`` : l'extraction de texte est bloquante.
-    """
+    """Impact preview for a version restore — confirmation goes through ``confirm``. ``def`` not ``async def``"""
     doc = preparer_maj(db, doc_id, current_user)
     v = get_version(db, doc, version)
 

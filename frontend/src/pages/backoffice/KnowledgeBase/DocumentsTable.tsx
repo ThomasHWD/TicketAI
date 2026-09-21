@@ -187,7 +187,6 @@ export default function DocumentsTable({
   highlightDocId,
 }: {
   docs: IndexedDocument[];
-  /** Un document n'est modifiable que par un membre de son domaine. */
   estInscriptible: (doc: IndexedDocument) => boolean;
   actions: ActionsDocument;
   highlightDocId?: string;

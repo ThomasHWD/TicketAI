@@ -33,49 +33,63 @@ de version courante du document.
 
 ## 2. Importer un document
 
-### Formats et limites
+### Pourquoi on fait ça
 
-| Contrainte | Valeur |
+Enrichir le corpus d'un domaine, c'est directement améliorer la qualité des réponses que
+le système peut produire sur ce sujet. Sans document, l'IA répond *« je n'ai pas
+l'information »*. Avec un document à jour et bien structuré, elle répond correctement et
+ses réponses peuvent devenir canoniques.
+
+### Comment ça fonctionne
+
+Cliquez **Importer un document** (ou le bouton `+` dans la barre d'outils). Un panneau
+latéral s'ouvre. Déposez votre fichier dans la zone prévue (ou cliquez pour le parcourir),
+sélectionnez le domaine, ajoutez éventuellement une description, et confirmez.
+
+L'import est **asynchrone** : le panneau se ferme immédiatement et un suivi de tâche
+apparaît en haut de la page avec une barre de progression. Vous pouvez continuer à
+travailler pendant ce temps.
+
+Si vous importez un fichier déjà présent dans ce domaine, deux situations se distinguent :
+
+| Situation | Ce qui se passe |
 |---|---|
-| Formats acceptés | **PDF, DOCX, TXT, MD** |
-| Taille maximale | **50 Mo** |
-| Encodage (TXT / MD) | UTF-8 obligatoire |
+| **Même contenu** (doublon exact) | L'API signale *« document déjà indexé »* — aucune action, pas d'erreur |
+| **Même nom, contenu différent** | L'interface propose : *nouvelle version* (flux de mise à jour) ou *document distinct* (import séparé) |
 
-Le fichier est validé avant tout traitement :
+> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *Le tiroir d'import de document ouvert, avec la zone de dépôt de fichier, le sélecteur de domaine et le champ description. Prendre une seconde capture pendant l'ingestion, montrant la barre de progression du suivi de tâche.*
 
-1. **Le nom est assaini** — chemins, octets nuls et caractères exotiques sont neutralisés
-   (protection contre le *path traversal*).
-2. **L'extension doit être supportée**.
-3. **Le contenu doit correspondre à l'extension** : les octets de signature sont vérifiés.
-   Un exécutable renommé en `.pdf` est refusé.
-4. **Un `content_hash` SHA-256 est calculé** — c'est lui qui détecte les doublons.
+**Un import ne fait pas qu'ajouter : il confronte**
 
-### Doublons et homonymes
+Dès qu'un document est indexé, le système compare ses passages aux réponses déjà validées
+du même domaine. Si une réponse existante pourrait avoir été rendue inexacte ou incomplète
+par ce nouveau document, elle est envoyée en *À relire* avec la raison `NOUVEAU_DOC`.
 
-Deux situations différentes, deux comportements différents :
+Trois choses à savoir :
+- Cela ne coûte aucun appel supplémentaire à Albert pour la détection.
+- Aucune réponse n'est jamais retirée du service par ce chemin.
+- La réponse spécifique qui manquait se crée ensuite d'elle-même via trois validations
+  ordinaires — inutile de la rédiger à la main.
 
-```mermaid
-flowchart TD
-    A[Fichier téléversé] --> B{Même content_hash<br/>dans ce domaine ?}
-    B -->|oui| C[DÉJÀ_INDEXÉ<br/>rien n'est fait, pas d'erreur]
-    B -->|non| D{Même nom de fichier<br/>dans ce domaine ?}
-    D -->|oui| E[409 DOCUMENT_HOMONYME<br/>l'interface demande quoi faire]
-    D -->|non| F[Ingestion lancée]
-    E -->|« nouvelle version »| G[Flux de mise à jour]
-    E -->|« document distinct »<br/>force_nouveau=true| F
-```
+### Détails techniques
 
-- **Doublon exact** (même contenu) : l'API répond `DÉJÀ_INDEXÉ` avec le document existant.
-  Ce n'est pas une erreur — réimporter deux fois le même fichier ne crée pas de doublon.
-- **Homonyme** (même nom, contenu différent) : l'API répond `409` avec le code
-  `DOCUMENT_HOMONYME`. C'est presque toujours le signe qu'il s'agit d'une **nouvelle
-  version**. L'interface propose alors soit le flux de mise à jour, soit de forcer la
-  création d'un document distinct (`force_nouveau=true`).
+Formats acceptés : **PDF, DOCX, TXT, MD**. Taille maximale : **50 Mo**. Encodage (TXT/MD) :
+UTF-8 obligatoire.
 
-Le contrôle porte sur le **couple (fichier, domaine)** : le même règlement peut être
-indexé dans deux domaines différents.
+Validations appliquées avant tout traitement :
+1. Le nom est assaini (protection contre le *path traversal*).
+2. L'extension doit être supportée.
+3. Le contenu doit correspondre à l'extension (vérification des octets de signature).
+4. Un `content_hash` SHA-256 est calculé — c'est lui qui détecte les doublons.
 
-### Le pipeline d'ingestion
+Doublon : réponse `DÉJÀ_INDEXÉ` avec le document existant. Homonyme : `409 DOCUMENT_HOMONYME`.
+Le contrôle porte sur le **couple (fichier, domaine)** : le même règlement peut être indexé
+dans deux domaines différents.
+
+Endpoint : `POST /documents` (multipart, champ `force_nouveau=true` pour forcer un document
+distinct malgré un nom identique). Suivi : `GET /documents/{job_id}/status`.
+
+**Pipeline d'ingestion :**
 
 ```mermaid
 flowchart LR
@@ -89,39 +103,6 @@ flowchart LR
     H --> I[Confrontation des réponses<br/>déjà servies]
 ```
 
-Le traitement est **asynchrone** : l'API renvoie un `job_id` immédiatement et le travail
-part sur la file `queue_ingestion`. L'interface suit l'avancement via
-`GET /documents/{job_id}/status` et le suivi de tâches.
-
-### Un import n'ajoute pas seulement : il confronte
-
-Un document neuf peut parfaitement **contredire une réponse déjà servie**, typiquement quand il
-précise une règle générale : la charte dit « le télétravail est possible trois jours par
-semaine », une réponse canonique en découle, puis arrive une note qui dit « les alternants n'y
-ont pas droit ».
-
-Le système compare donc chaque passage du nouveau document aux réponses déjà validées du même
-domaine, et **renvoie en relecture** celles qu'il soupçonne d'être devenues fausses ou
-incomplètes. Elles apparaissent dans l'onglet
-[*À relire*](reponses-enregistrees.md#3-longlet-à-relire), avec la raison `NOUVEAU_DOC`.
-
-Trois choses à savoir :
-
-- **Cela ne coûte aucun appel supplémentaire à Albert pour la détection** — les vecteurs du
-  document viennent d'être calculés, ils sont réutilisés tels quels.
-- **Aucune réponse n'est jamais retirée du service par ce chemin.** Un import ne peut que
-  *demander une relecture*, jamais détruire. C'est une garantie structurelle, pas un réglage.
-- Une réponse signalée reste proposée aux validateurs mais **n'est plus servie sans relecture**,
-  et disparaît de *Questions fréquentes* le temps que le drapeau tienne.
-- **La réponse spécifique qui manquait se crée ensuite d'elle-même**, sans rédaction manuelle :
-  la question spécifique n'obtient plus la réponse générale, elle repart des documents — dont
-  celui qu'on vient d'importer — et trois validations ordinaires la rendent canonique à son
-  tour. Les deux canoniques coexistent alors, chacune servant sa question. Séquence détaillée
-  dans [*À relire*](reponses-enregistrees.md#3-longlet-à-relire).
-
-> Le détail complet est dans
-> [Quand le corpus bouge § 3 ter](../technique/mise-a-jour-documents.md#3-ter-ingestion-dun-document-neuf--la-confrontation).
-
 | Paramètre de découpage | Valeur | Pourquoi |
 |---|---|---|
 | Taille de chunk | **384 tokens** BGE-M3 | Compromis entre contexte suffisant et précision de la recherche |
@@ -132,44 +113,78 @@ Trois choses à savoir :
 > ferait apparaître des différences fantômes sur *tous* les documents existants. Voir
 > [Mettre à jour un document](../technique/mise-a-jour-documents.md).
 
-**Chaque chunk reçoit deux vecteurs, pas un.** Le dense vient d'Albert ; le creux (BM25) est
-calculé sur la machine, Albert n'en expose pas. Conséquence pour l'exploitation : changer les
-paramètres BM25 ou la tokenisation invalide les vecteurs creux déjà écrits, et se répare avec
-`scripts/reencoder_vecteurs_creux.py` — **sans** réingérer, donc sans racheter un embedding
-Albert par chunk. Détail dans
-[Onboarding développeur § 9](../onboarding-dev.md#9-la-recherche-est-réellement-hybride--ce-quil-faut-savoir-avant-dy-toucher).
+**Chaque chunk reçoit deux vecteurs, pas un.** Le dense vient d'Albert ; le creux (BM25)
+est calculé sur la machine. Changer les paramètres BM25 invalide les vecteurs creux déjà
+écrits — utilisez `scripts/reencoder_vecteurs_creux.py` pour les recalculer sans réingérer.
 
-Le champ **description** est facultatif et purement documentaire : il aide les validateurs
-à s'y retrouver, il n'entre pas dans l'index.
-
-> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *Le tiroir d'import de document ouvert, avec la zone de dépôt de fichier, le sélecteur de domaine et le champ description. Prendre une seconde capture pendant l'ingestion, montrant la barre de progression du suivi de tâche.*
+Le champ **description** est facultatif et purement documentaire — il n'entre pas dans l'index.
 
 ---
 
 ## 3. Consulter un document
 
-| Action | Endpoint | Détail |
-|---|---|---|
-| **Lister** | `GET /documents` | Documents vivants uniquement, triés par date de mise à jour. Cap à 500 (max 1 000) |
-| **Voir les chunks** | `GET /documents/{doc_id}/chunks` | Les morceaux réellement indexés, dans l'ordre, lus depuis Qdrant |
-| **Télécharger** | `GET /documents/{doc_id}/download` | Le fichier d'origine tel qu'il a été importé |
+### Pourquoi on fait ça
 
-La vue des chunks est l'outil de diagnostic le plus utile de cette page : quand une
-réponse RAG est mauvaise, c'est souvent parce que le découpage a coupé au mauvais endroit,
-ou que l'extraction a mal lu le PDF. Les chunks montrent exactement ce que l'IA a vu.
+Vérifier ce que l'IA voit vraiment. Quand une réponse RAG est mauvaise, c'est souvent
+parce que le découpage a coupé au mauvais endroit, ou que l'extraction a mal lu le PDF.
+La vue des chunks montre exactement le texte que le système a indexé et peut retourner.
 
-> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *La fenêtre modale des chunks d'un document, montrant plusieurs chunks numérotés avec leur contenu. C'est la capture qui explique le mieux « ce que l'IA voit du document ».*
+### Comment ça fonctionne
+
+Sur la ligne d'un document, trois actions sont disponibles :
+
+| Action | Ce que ça fait |
+|---|---|
+| **Passages** (icône loupe) | Ouvre une fenêtre avec tous les chunks numérotés — c'est *ce que l'IA a vu* |
+| **Télécharger** | Récupère le fichier original tel qu'il a été importé |
+| **Historique** (icône horloge) | Liste les versions successives du document |
+
+La vue des passages est l'outil de diagnostic le plus utile : si un chunk contient du
+texte illisible ou est coupé à mi-phrase, c'est le signe que l'extraction n'a pas bien
+fonctionné et qu'une ingestion sur un fichier corrigé est nécessaire.
+
+> 📸 **[CAPTURE D'ÉCRAN REQUISE]** : *La fenêtre modale des chunks d'un document, montrant plusieurs chunks numérotés avec leur contenu.*
+
+### Détails techniques
+
+Endpoints :
+- `GET /documents` — Documents vivants uniquement, triés par date de mise à jour. Cap à 500 (max 1 000).
+- `GET /documents/{doc_id}/chunks` — Les morceaux réellement indexés, dans l'ordre, lus depuis Qdrant.
+- `GET /documents/{doc_id}/download` — Le fichier d'origine tel qu'il a été importé.
 
 ---
 
 ## 4. Mettre à jour un document
 
-Remplacer le fichier d'un document **conserve son `doc_id`** et crée la version N+1. La
-version sortante est archivée et reste téléchargeable.
+### Pourquoi on fait ça
 
-C'est le mécanisme le plus délicat du produit : changer un document peut rendre fausses
-des réponses déjà validées. Le flux se déroule en deux temps (prévisualisation puis
-confirmation) et déclenche une ré-vérification automatique des réponses concernées.
+Quand une procédure change, importer la nouvelle version sans perdre l'identifiant du
+document, l'historique des versions, et les réponses validées qui s'appuyaient dessus. Une
+mise à jour propre évite d'avoir deux documents homonymes et garantit que les réponses
+obsolètes sont signalées automatiquement.
+
+### Comment ça fonctionne
+
+Cliquez l'icône de mise à jour sur la ligne du document. Une fenêtre s'ouvre en deux étapes :
+
+1. **Prévisualisation** — déposez le nouveau fichier. L'interface calcule le diff entre
+   les deux versions (paragraphes ajoutés, supprimés, modifiés) et l'affiche pour que
+   vous puissiez vérifier ce qui change. **Rien n'est modifié à cette étape.**
+2. **Confirmation** — si le diff correspond à vos attentes, confirmez. Le pipeline se
+   lance, la nouvelle version est indexée, et les réponses concernées sont envoyées en
+   *À relire*.
+
+Un document en cours de mise à jour porte le statut `EN_MAJ` et **ne peut pas être
+supprimé** (`409`) tant que l'opération n'est pas terminée.
+
+**Restaurer une version antérieure** : cliquez l'icône *Historique* sur la ligne du document
+pour accéder à la liste des versions. Le bouton **Restaurer** sur une version archivée
+lance le même flux prévisualisation/confirmation — la restauration crée une version N+1,
+elle ne revient pas en arrière.
+
+### Détails techniques
+
+Endpoints :
 
 | Endpoint | Rôle |
 |---|---|
@@ -177,21 +192,40 @@ confirmation) et déclenche une ré-vérification automatique des réponses conc
 | `POST /documents/{doc_id}/versions/confirm` | Applique le changement |
 | `GET /documents/{doc_id}/versions` | Historique des versions |
 | `GET /documents/{doc_id}/versions/{v}/download` | Télécharge une version archivée |
-| `POST /documents/{doc_id}/versions/{v}/restaurer` | Revient à une version antérieure |
+| `POST /documents/{doc_id}/versions/{v}/restaurer` | Prévisualise une restauration (même flux) |
 
-**Le fonctionnement complet — le diff, l'entonnoir de décision, ce qui devient « obsolète »
-plutôt que « à relire », et pourquoi — est documenté à part :
-[Mettre à jour un document](../technique/mise-a-jour-documents.md).** C'est une lecture
+Le bouton **Restaurer** est désactivé si le fichier archivé est introuvable. La restauration
+est une mise à jour normale, elle ne passe pas par un mécanisme spécial.
+
+**Le fonctionnement complet** — diff, entonnoir de décision, distinction *obsolète* vs
+*à relire* — est documenté dans :
+[Mettre à jour un document](../technique/mise-a-jour-documents.md). C'est une lecture
 obligatoire avant toute intervention sur ce pipeline.
-
-Un document en cours de mise à jour porte le statut `EN_MAJ` et **ne peut pas être
-supprimé** (`409`).
 
 ---
 
 ## 5. Supprimer un document
 
-`DELETE /documents/{doc_id}` — c'est une **suppression douce** :
+### Pourquoi on fait ça
+
+Retirer du corpus un document périmé, incorrect ou hors périmètre, sans effacer
+l'historique des tickets ni des réponses qu'il a nourries. Les employés qui ont reçu une
+réponse basée sur ce document peuvent toujours la retrouver dans leurs tickets.
+
+### Comment ça fonctionne
+
+Cliquez l'icône de suppression sur la ligne du document. Une fenêtre de confirmation
+s'affiche, listant le nombre de réponses qui seront marquées obsolètes. Confirmez pour
+lancer la suppression.
+
+La suppression est **plus brutale qu'une mise à jour** : elle ne passe pas par le juge LLM.
+Un document supprimé signifie que ce qu'il disait n'a plus de source, donc toute réponse
+qui s'appuyait dessus est retirée du service. Ces réponses restent restaurables depuis
+l'onglet *Obsolètes*.
+
+### Détails techniques
+
+Endpoint : `DELETE /documents/{doc_id}` — suppression **douce** :
 
 | Ce qui est fait | Ce qui est conservé |
 |---|---|
@@ -199,49 +233,53 @@ supprimé** (`409`).
 | Le répertoire de stockage est effacé | L'historique des tickets et des réponses |
 | `nb_chunks` retombe à 0 | |
 
-Puis les réponses qui **citaient** ce document sont marquées obsolètes avec la raison
-`DOC_SUPPRIMÉ`. Les réponses encore `EN_ATTENTE` qui en dépendaient sont **remises dans le
-pipeline RAG** — sans quoi elles resteraient bloquées sur un document qui n'existe plus.
-
-> La suppression est plus brutale que la mise à jour : elle ne passe pas par le juge LLM.
-> Un document supprimé signifie que ce qu'il disait n'a plus de source, donc toute réponse
-> qui s'appuyait dessus est retirée du service. Ces réponses restent restaurables depuis
-> l'onglet [Obsolètes](reponses-enregistrees.md#4-longlet-obsolètes).
+Les réponses **citant** ce document sont marquées obsolètes (`DOC_SUPPRIMÉ`). Les réponses
+encore `EN_ATTENTE` qui en dépendaient sont **remises dans le pipeline RAG** pour ne pas
+rester bloquées sur un document qui n'existe plus.
 
 ---
 
 ## 6. Les angles morts
 
-Onglet *Angles morts*, alimenté par `GET /stats/hors-domaine`.
+### Pourquoi on fait ça
 
-### Ce que c'est
+Identifier les lacunes du corpus en analysant les questions auxquelles le système n'a pas
+su répondre. Une même question qui revient dix fois avec la réponse *« hors domaine »* est
+un signal fort : il manque un document sur ce sujet, ou le document existant ne couvre pas
+ce cas.
 
-Quand le LLM ne trouve pas l'information dans les documents fournis, il préfixe sa réponse
-par `[HORS_DOMAINE]` et la réponse est enregistrée avec `source = "HORS_DOMAINE"`.
+### Comment ça fonctionne
 
-Ces questions sont précieuses : **elles disent ce qui manque au corpus.** Une même question
-qui revient dix fois en hors-domaine est un document à écrire ou à importer.
+Dans l'onglet **Angles morts**, sélectionnez la période d'analyse (semaine / mois / année,
+défaut : mois). Les questions apparaissent groupées par domaine, chacune accompagnée du
+nombre de tickets concernés.
 
-### La vue
+Pour écarter une question qui n'est pas une vraie lacune (test, question mal formulée,
+sujet délibérément hors périmètre), cliquez la **croix** en fin de ligne. La question
+disparaît de la liste. Le ticket lui-même n'est pas touché — seule sa contribution à
+cette vue est retirée.
 
-Les questions sont regroupées par domaine, avec le nombre de tickets concernés et les 50
-plus récentes. Une période est sélectionnable (`semaine` / `mois` / `annee`, défaut
-`mois`). Un validateur ne voit que ses domaines.
-
-### Masquer une question
-
-`DELETE /stats/hors-domaine/{ticket_id}` positionne `masque_angles_morts = true` sur le
-ticket. La question disparaît de la liste — **le ticket lui-même n'est pas touché**, seule
-sa contribution à cette vue est retirée.
-
-C'est pour écarter le bruit : une question mal posée, un test, une question réellement hors
-sujet pour l'entreprise. Ce qui reste est une vraie liste de lacunes documentaires.
+Ce qui reste après le nettoyage est une liste exploitable de sujets à documenter.
 
 ![L'onglet « Angles morts »](../images/27-angles-morts.png)
 
 Les questions sont regroupées par domaine avec leur compteur (`2 tickets`), le sélecteur
 de période est en haut à droite, et la croix en fin de ligne masque la question de cette
 vue **sans toucher au ticket**.
+
+### Détails techniques
+
+Endpoint : `GET /stats/hors-domaine?periode={semaine|mois|annee}`.
+Retourne les 50 questions les plus récentes par domaine (filtré sur les domaines de
+l'appelant).
+
+Masquage : `DELETE /stats/hors-domaine/{ticket_id}` — positionne
+`masque_angles_morts = true` sur le ticket. Opération idempotente et réversible uniquement
+en base.
+
+Le signal *hors domaine* est produit quand le LLM préfixe sa réponse par `[HORS_DOMAINE]`
+(constante `_HORS_DOMAINE_MARKER` dans `services/llm.py`), la réponse est alors enregistrée
+avec `source = "HORS_DOMAINE"`.
 
 ---
 

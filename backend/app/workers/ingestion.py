@@ -23,21 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 def version_dir(doc_id: str, version: int) -> str:
-    """Dossier d'archive d'une version : {storage}/{doc_id}/v{n}/."""
+    """Archive directory for a version: {storage}/{doc_id}/v{n}/."""
     return os.path.join(settings.documents_storage_path, doc_id, f"v{version}")
 
 
 def chemin_du_fichier(doc_id: str, filename: str, stored_path: str | None) -> str | None:
-    """Chemin sur disque du fichier courant d'un document, ou None s'il a disparu.
-
-    Le repli couvre les documents backfillés, dont le fichier est resté à la racine
-    du dossier ``{doc_id}`` au lieu d'un sous-dossier ``v{n}/``.
-
-    Prend des chaînes plutôt qu'un ``Document`` : le job de mise à jour l'appelle
-    après avoir fermé sa session, où l'instance est détachée. Et il vit ici plutôt
-    que dans ``api/v1/documents.py``, qui importe déjà le job — l'inverse fermerait
-    le cycle.
-    """
+    """Path to the current file on disk, or None if it has disappeared. Fallback covers backfilled documents whose"""
     if stored_path and os.path.isfile(stored_path):
         return stored_path
     repli = os.path.join(settings.documents_storage_path, doc_id, filename)
@@ -45,12 +36,7 @@ def chemin_du_fichier(doc_id: str, filename: str, stored_path: str | None) -> st
 
 
 def store_file(tmp_path: str, doc_id: str, filename: str, version: int = 1) -> str:
-    """Copie le fichier de /tmp vers le stockage permanent de la version.
-
-    Copie et non déplacement : après un ``move`` réussi, un retry Celery échouerait
-    sur ``extract_text`` (fichier disparu) et boucherait jusqu'à ``max_retries``.
-    Le temporaire n'est supprimé qu'une fois le job abouti.
-    """
+    """Copy (not move) the file to permanent storage — a move would cause retries to fail on extract_text (file"""
     dest_dir = version_dir(doc_id, version)
     os.makedirs(dest_dir, exist_ok=True)
     dest_path = os.path.join(dest_dir, filename)
@@ -59,7 +45,7 @@ def store_file(tmp_path: str, doc_id: str, filename: str, version: int = 1) -> s
 
 
 def point_id(doc_id: str, version: int, index: int) -> str:
-    """Id de point déterministe : un retry réécrit les mêmes points au lieu d'en créer."""
+    """Deterministic point id — a retry rewrites the same points instead of creating duplicates."""
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{doc_id}:{version}:{index}"))
 
 
@@ -80,34 +66,25 @@ def ingestion_job(
     uploaded_by: str | None = None,
     doc_id: str | None = None,
 ):
-    # doc_id vient de l'appelant : le régénérer ici ferait naître un document
-    # différent à chaque retry, chacun laissant ses chunks derrière lui.
+    # caller-provided doc_id — regenerating here would create a new document on every retry.
     doc_id = doc_id or str(uuid.uuid5(uuid.NAMESPACE_DNS, str(self.request.id)))
     version = 1
 
     try:
         logger.info("début de l'ingestion : %s", filename)
 
-        # Étape 1 — Extraction
         pages = extract_text(file_path)
         logger.info("%d pages extraites", len(pages))
 
-        # Étape 2 — Chunking
         chunks = chunk_text(pages)
         logger.info("%d chunks générés", len(chunks))
 
         texte = texte_complet(pages)
 
-        # Étape 2 bis — Contextualisation : un locateur par chunk, indexé avec lui.
-        # Un chunk isolé ne dit pas de quelle règle il relève (« les alternants
-        # n'en bénéficient pas » ne contient pas le mot « télétravail ») ; c'est
-        # ce préfixe qui le rend trouvable. Best-effort de bout en bout : la
-        # liste fait toujours la longueur de `chunks`, remplie de `""` si Albert
-        # est injoignable, et l'indexation retombe alors sur le texte brut.
+        # Locator prefix makes context-dependent chunks findable; list is always len(chunks) — "" on Albert failure
         contextes = contextualiser(chunks, synopsis(texte, filename, description))
         logger.info("%d/%d chunks contextualisés", sum(1 for c in contextes if c), len(chunks))
 
-        # Étape 3 — Embedding
         logger.info("embedding de %d chunks...", len(chunks))
         embeddings = embed_texts(
             [texte_indexe(chunk, ctx) for chunk, ctx in zip(chunks, contextes, strict=True)],
@@ -115,13 +92,10 @@ def ingestion_job(
         )
         logger.info("embeddings générés")
 
-        # Étape 4 — Stockage permanent, avant l'indexation : le chemin fait partie du
-        # payload, l'écrire après imposerait un set_payload correctif et laisserait une
-        # fenêtre où les points portent stored_path: None.
+        # Stored before indexing — stored_path is part of the payload; writing it after would require a set_payload and
         stored_path = store_file(file_path, doc_id, filename, version)
         logger.info("fichier stocké : %s", stored_path)
 
-        # Étape 5 — Indexation Qdrant (batch unique)
         logger.info("indexation dans Qdrant...")
         points = []
         for i, (chunk, ctx, emb) in enumerate(zip(chunks, contextes, embeddings, strict=False)):
@@ -141,12 +115,7 @@ def ingestion_job(
                         "chunk_index": i,
                         "source": filename,
                         "domaine": domaine,
-                        # `contenu` reste **brut**. Le préfixe vit à côté, jamais
-                        # dedans : `capturer_chunks` lit `contenu` pour le diff
-                        # d'une mise à jour, et une sortie de LLM varie d'une
-                        # exécution à l'autre — chaque chunk paraîtrait modifié à
-                        # chaque version. Le texte encodé se recompose par
-                        # `texte_indexe(contenu, contexte)`, seule définition.
+                        # contenu stays raw — contexte is LLM output (varies per run); folding it in would make every
                         "contenu": chunk,
                         "contexte": ctx,
                         "stored_path": stored_path,
@@ -160,17 +129,13 @@ def ingestion_job(
         client.upsert(collection_name=COLLECTION_NAME, points=points)
         logger.info("%d points indexés dans Qdrant", len(points))
 
-        # Étape 6 — Quelles réponses déjà servies ce document interpelle-t-il ?
-        # Gratuit : `embeddings` est encore là, la détection ne coûte que des
-        # requêtes Qdrant. Sous try/except parce qu'une ingestion réussie ne doit
-        # pas échouer sur son propre effet de bord.
+        # Free: embeddings already computed, only Qdrant queries needed.
         try:
             cibles = cibles_confrontation(embeddings, domaine)
         except Exception as exc:
             logger.error("détection de confrontation impossible (%s) — ingestion poursuivie", exc)
             cibles = {}
 
-        # Étape 7 — Enregistrement en base
         db = SessionLocal()
         try:
             user_uuid = uuid.UUID(uploaded_by) if uploaded_by else None
@@ -196,11 +161,7 @@ def ingestion_job(
                 )
             )
 
-            # `ANALYSE_EN_COURS` posé **dans le même commit** que les lignes de
-            # document : entre la publication du document et le verdict il
-            # s'écoule de trente secondes à quelques minutes, pendant lesquelles
-            # les réponses continuent d'être servies. Elles le sont — mais plus
-            # jamais sans que l'interface le dise.
+            # ANALYSE_EN_COURS flagged in same commit — closes the race window between document publication and verdict.
             famille = familles_servies(db, identifiants(cibles))
             poser_a_relire(famille, RAISON_ANALYSE, doc_id, version)
             nb_a_analyser = len(racines(famille))
@@ -209,24 +170,18 @@ def ingestion_job(
         finally:
             db.close()
 
-        # Étape 8 — Le temporaire n'a plus d'utilité : plus aucun retry ne suivra
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        # Étape 9 — La confrontation, sur `queue_questions` : de l'attente réseau
-        # Albert, qui n'a rien à faire dans la file qui sérialise les ingestions.
-        # Enfilée seulement s'il y a des cibles — sinon le job n'aurait rien à
-        # résoudre, et `rabattre` balaierait un lot vide.
+        # confrontation on queue_questions: Albert network waits have nothing to do in the ingestion queue.
         if nb_a_analyser:
-            from app.workers.confrontation import confrontation_job  # noqa: PLC0415 — anti-circulaire
+            from app.workers.confrontation import confrontation_job  # noqa: PLC0415 — anti-circular
 
             confrontation_job.apply_async(
                 kwargs={"doc_id": doc_id, "version": version, "domaine": domaine, "cibles": cibles},
                 queue="queue_questions",
             )
-            # Sans cet événement l'onglet « À relire » ne se remplirait qu'au
-            # prochain rafraîchissement manuel : `job_completed` est adressé au
-            # seul déposant, et il n'est pas forcément validateur du domaine.
+            # required: job_completed targets the uploader only, not domain validators.
             broadcast_sync(
                 f"sse:domain:{domaine}",
                 "reverification_started",
@@ -267,12 +222,7 @@ def _enregistrer_document(
     db, *, doc_id, version, filename, domaine, description, content_hash, stored_path, nb_chunks, uploaded_by,
     changements=None,
 ) -> None:
-    """Crée (ou met à jour, si un retry est passé par là) les lignes documents/versions.
-
-    ``changements`` est le résumé « tout est ajouté » de ``resume_ajout`` : sans
-    lui, l'onglet « À relire » afficherait « le détail de cette mise à jour n'a
-    pas été conservé » pour un document qui n'a jamais été mis à jour.
-    """
+    """Create or update document/version rows. changements prevents 'update history not preserved' in À-relire for a"""
     doc = db.query(Document).filter(Document.doc_id == doc_id).first()
     if doc is None:
         doc = Document(doc_id=doc_id)

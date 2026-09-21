@@ -1,14 +1,4 @@
-/**
- * L'écran d'impact d'une mise à jour.
- *
- * Cet écran a un rôle précis et étroit : montrer ce que la nouvelle version
- * change, et **rien d'autre**. L'aperçu n'appelle ni reranker ni LLM — il ne
- * peut donc pas dire quelles réponses seront retirées du service, et il ne doit
- * jamais laisser croire qu'il le sait. Les tests ci-dessous verrouillent cette
- * frontière : le diff est affiché apparié, les réponses sont annoncées comme
- * « à relire » et non comme condamnées, et un document qu'on n'a pas pu comparer
- * ne passe pas pour un document inchangé.
- */
+/** Impact screen contract: diff shown paired, responses announced as "to review" not condemned, unanalyzable doc never reads as "unchanged". No reranker or LLM — cannot predict withdrawals. */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";

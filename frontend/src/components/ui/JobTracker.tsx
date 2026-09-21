@@ -4,14 +4,7 @@ import { CheckCircle2, FileText, Loader2, X, XCircle } from "lucide-react";
 import { getDocumentStatus } from "../../lib/api";
 import { type TrackedJob, useJobs } from "../../context/JobsContext";
 
-/**
- * Bilan d'un job réussi.
- *
- * Une mise à jour ne se termine plus sur un verdict : elle publie la version et
- * passe la main à la ré-vérification. Le bandeau annonce donc ce qui commence,
- * pas ce qui est acquis — dire « 4 réponses obsolètes » ici serait faux, la
- * plupart survivront.
- */
+/** Job completion summary. Update jobs announce what begins (responses queued for review), not what's concluded — saying "4 obsolete" here would be wrong; most will survive. */
 function resume(job: TrackedJob): string {
   const chunks = `${job.nb_chunks} chunk${(job.nb_chunks ?? 0) > 1 ? "s" : ""}`;
   if (job.kind !== "maj") return `Indexé — ${chunks}`;

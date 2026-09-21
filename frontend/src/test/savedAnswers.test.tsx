@@ -1,13 +1,4 @@
-/**
- * L'onglet « À relire » de *Réponses enregistrées*.
- *
- * L'écran répond à un problème de volume, pas de rendu : une phrase réécrite
- * dans une charte qui porte 40 réponses en signale 39. Ce qui est verrouillé ici,
- * c'est donc l'ergonomie qui rend l'onglet vidable — le diff lu **une fois** par
- * document, la confirmation en lot, et un badge qui compte les documents et non
- * les réponses. Une liste plate ferait relire le même diff trente-neuf fois, et
- * l'onglet ne redescendrait jamais à zéro.
- */
+/** "À relire" tab ergonomics: diff read once per document, bulk confirm, badge counts documents not responses — a flat list would force re-reading the same diff for every response. */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -67,11 +58,7 @@ function canonique(overrides: Partial<ReponseCanonique> = {}): ReponseCanonique 
   };
 }
 
-/**
- * Un `fetch` routé par URL : la page tire quatre requêtes concurrentes (liste et
- * compteur, pour chaque onglet). Un stub qui renverrait le même corps à toutes
- * ferait passer les tests pour de mauvaises raisons.
- */
+/** URL-routed fetch stub — the page fires four concurrent requests; returning the same body to all would pass tests for the wrong reason. */
 function router(reponses: {
   canoniques?: ReponseCanonique[];
   aRelire?: ReponseSignalee[];

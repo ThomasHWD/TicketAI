@@ -174,10 +174,7 @@ def compter_en_attente(db: Session, doc_id: str) -> int:
 
 
 def analyser_sortante(doc: Document, nouveau_texte: str) -> dict | None:
-    """Le diff avec la version actuellement en ligne, lue sur le disque.
-
-    ``None`` quand la version courante est illisible.
-    """
+    """Diff avec la version actuellement en ligne. None si la version courante est illisible."""
     chemin_courant = chemin_du_fichier(doc.doc_id, doc.filename, doc.stored_path)
     if chemin_courant is None:
         return None
@@ -216,11 +213,7 @@ def stager_et_analyser(
     user_id,
     restauree_depuis: int | None = None,
 ) -> dict:
-    """Met le fichier en staging et annonce ce que la confirmation déclenchera.
-
-    Partagé par la mise à jour et la restauration : restaurer une version, c'est
-    mettre à jour avec un fichier venu des archives.
-    """
+    """Met le fichier en staging et annonce l'impact. Partagé par la mise à jour et la restauration."""
     purger_staging(db)
 
     os.makedirs(STAGING_DIR, exist_ok=True)
