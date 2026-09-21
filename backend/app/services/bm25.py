@@ -24,7 +24,7 @@ def _est_bruit_numerique(mot: str) -> bool:
 
 
 # Position-based elision removal, not letter-set — preserves meaningful single-letter tokens (disque C, vitamine D).
-_ELISION = regex.compile(r"\b(?:lorsqu|puisqu|quoiqu|jusqu|qu|[ldjnstcm])['']")
+_ELISION = regex.compile(r"\b(?:lorsqu|puisqu|quoiqu|jusqu|qu|[ldjnstcm])['’]")
 
 # Stopwords don't discriminate and, without query-side IDF, would dominate scores by frequency alone.
 _STOP_WORDS = frozenset(
