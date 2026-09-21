@@ -51,6 +51,12 @@ RAISON_INDISPONIBLE = "ANALYSE_INDISPONIBLE"  # a_relire_raison, repli
 RAISON_PARTIELLE = "ANALYSE_PARTIELLE"  # a_relire_raison, budget épuisé
 RAISON_MASSIVE = "REECRITURE_MASSIVE"  # a_relire_raison, document réécrit
 
+# Confrontation à l'ingestion (cf. `services/confrontation.py`). Distinct de
+# `RAISON_MODIF` parce que le document n'a pas été modifié : il vient d'arriver.
+# Le relecteur n'a donc pas de version précédente à consulter, et le dire évite
+# qu'il cherche un diff qui n'existe pas.
+RAISON_NOUVEAU_DOC = "NOUVEAU_DOC"  # a_relire_raison, verdict INCERTAIN à l'ingestion
+
 
 def fermeture_copies(db: Session, graines: set[uuid.UUID]) -> set[uuid.UUID]:
     """Descend des réponses-graines vers toutes leurs copies, transitivement.
@@ -80,10 +86,9 @@ def reponses_obsoletes(
 
     ``indices=None`` → tout le document est concerné (cas de la suppression).
     VALIDÉE et CORRIGÉE sont retenues : les deux sont indexées dans Qdrant par
-    ``feedback_job`` et doivent être retirées de l'index à la suppression du
-    document source. CORRIGÉE n'est pas resservie directement (filtre VALIDÉE
-    dans ``_trouver_reponse_reutilisable``) mais son point Qdrant subsiste et
-    polluerait le contexte RAG si on ne le supprime pas.
+    ``feedback_job``, les deux sont réutilisables par
+    ``trouver_reponse_reutilisable``, et les deux doivent donc être retirées de
+    l'index à la suppression du document source.
     """
     if indices is not None and not indices:
         return []

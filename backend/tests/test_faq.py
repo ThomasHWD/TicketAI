@@ -30,19 +30,34 @@ def point(reponse_id, score, question="Question indexée ?"):
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "attribut",
-    ["non_canonique", "obsolete", "faq_invisible"],
-    ids=["réponse non canonique", "réponse canonique obsolète", "réponse canonique non exposée"],
+    ["non_canonique", "obsolete", "a_relire", "faq_invisible"],
+    ids=[
+        "réponse non canonique",
+        "réponse canonique obsolète",
+        "réponse canonique signalée à relire",
+        "réponse canonique non exposée",
+    ],
 )
 def test_seules_les_canoniques_servies_sortent(db_session, attribut):
-    """La propriété de sûreté : un score parfait ne suffit pas à être exposé."""
+    """La propriété de sûreté : un score parfait ne suffit pas à être exposé.
+
+    Chaque cas n'écarte qu'un drapeau, tous les autres étant passants — sans quoi
+    le test passerait pour la mauvaise raison.
+
+    `a_relire` : cette page n'a **aucun relecteur**. Y montrer une réponse qu'un
+    juge soupçonne contredite serait exactement la servir sans revue, ce que la
+    FAQ ne fait jamais. Le pipeline, lui, continue de la proposer — en SUGGESTION,
+    sous les yeux d'un humain.
+    """
     _, reponse = seed_ticket_reponse(
         db_session,
         statut="VALIDÉE",
         canonique=(attribut != "non_canonique"),
         nb_validations=3,
+        faq_visible=(attribut != "faq_invisible"),
     )
-    if attribut == "obsolete":
-        reponse.obsolete = True
+    if attribut in ("obsolete", "a_relire"):
+        setattr(reponse, attribut, True)
         db_session.commit()
 
     with patch(
@@ -53,6 +68,39 @@ def test_seules_les_canoniques_servies_sortent(db_session, attribut):
 
     # Ni servie, ni même proposée comme piste incertaine.
     assert rangs == {"resultats": [], "incertains": []}
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("canonique", "a_relire"),
+    [(True, False), (True, True), (False, False), (False, True)],
+)
+def test_le_filtre_sql_dit_la_meme_chose_que_le_predicat_python(db_session, canonique, a_relire):
+    """Le filtre SQL de la FAQ et `peut_servir_sans_revue` ne doivent pas diverger.
+
+    Deux endroits énoncent « cette réponse a-t-elle le droit d'être vue sans
+    relecteur » : un prédicat Python dans le pipeline, une clause SQL ici. Une
+    divergence ne lèverait rien — elle rouvrirait juste, d'un côté, la porte que
+    l'autre a fermée. Même risque que `obsolete`, déjà filtré des deux côtés.
+
+    Les drapeaux hors du prédicat (`obsolete`, `faq_visible`) sont tenus passants :
+    c'est la paire `(canonique, a_relire)` qu'on compare, rien d'autre.
+    """
+    from app.services.question_pipeline import peut_servir_sans_revue
+
+    _, reponse = seed_ticket_reponse(
+        db_session, statut="VALIDÉE", canonique=canonique, nb_validations=3, faq_visible=True
+    )
+    reponse.a_relire = a_relire
+    db_session.commit()
+
+    with patch(
+        "app.services.faq.rechercher_points_reponses",
+        return_value=[point(reponse.id, 0.99)],
+    ):
+        expose = bool(rechercher_faq(db_session, "peu importe", 5)["resultats"])
+
+    assert expose is peut_servir_sans_revue(reponse)
 
 
 @pytest.mark.integration

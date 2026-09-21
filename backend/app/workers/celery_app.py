@@ -13,6 +13,7 @@ celery_app = Celery(
         "app.workers.question",
         "app.workers.feedback",
         "app.workers.reverification",
+        "app.workers.confrontation",
         "app.workers.auto_cloture",
         "app.workers.replay_echoues",
     ],

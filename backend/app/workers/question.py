@@ -16,6 +16,7 @@ from app.services.question_pipeline import (
     SEUIL_SUGGESTION,  # noqa: F401
     charger_contexte_fil,
     journaliser_garde,
+    peut_servir_sans_revue,
     servir_reutilisation,
     ticket_existe,
     trouver_reponse_reutilisable,
@@ -47,6 +48,7 @@ def _on_failure_question_job(self, exc, task_id, args, kwargs, einfo):
     if not ticket_id:
         return
     import uuid as _uuid
+
     try:
         db = SessionLocal()
         try:
@@ -108,7 +110,10 @@ def question_job(
             # l'autre, donc lire les journaux exige de voir les deux.
             logger.debug(
                 "#%d cosinus=%.4f lexical=%.2f/terme source=%s",
-                i + 1, chunk["score_cosinus"], chunk.get("score_lexical", 0.0), chunk["source"],
+                i + 1,
+                chunk["score_cosinus"],
+                chunk.get("score_lexical", 0.0),
+                chunk["source"],
             )
 
         top_score = chunks[0]["score_cosinus"] if chunks else 0.0
@@ -124,7 +129,40 @@ def question_job(
             if reponse_liee is not None:
                 logger.info("score %.4f → réponse validée %s", score_liee, reponse_liee.id)
 
-                if reponse_liee.canonique and candidat.franchit(SEUIL_COSINUS):
+                # **Le juge est consulté exactement quand son verdict peut changer
+                # l'issue** : dès que le candidat serait réutilisé sous une forme ou
+                # une autre, CANONIQUE *ou* SUGGESTION. Ni le score ni le statut ne
+                # décident *si on appelle* — ils décident seulement *ce qu'un OUI
+                # ouvre*, et `servir_reutilisation` le reteste lui-même.
+                #
+                # L'asymétrie est ce qui rend l'élargissement sûr : **on se sert du
+                # refus du juge, jamais de son accord.** Un OUI n'ouvre rien que
+                # `peut_servir_sans_revue` n'autorisait déjà — une réponse signalée
+                # `a_relire` que le juge approuve ressort en SUGGESTION, exactement
+                # comme sans lui. Ce qu'on récupère, ce sont les **NON** qu'on ne
+                # demandait à personne.
+                #
+                # La branche SUGGESTION n'avait aucun juge (cf. la docstring de
+                # `Candidat.servable` : « la branche CANONIQUE a un juge pour la
+                # protéger, la branche SUGGESTION n'en a aucun »), ce qui était sans
+                # conséquence tant qu'un refus sortait *lui aussi* en SUGGESTION.
+                # Depuis que le refus jugé renvoie au RAG, ne pas appeler le juge ne
+                # fait plus économiser un appel : ça pose sur l'écran du relecteur
+                # une réponse dont personne n'a vérifié qu'elle répondait à la
+                # question — là où « Valider » est le bouton le moins cher.
+                #
+                # Mesuré le 18/09/2026, bout en bout télétravail, domaine neuf : la
+                # canonique *générale*, signalée `CONTREDITE_PROBABLE` par la
+                # confrontation, était proposée telle quelle à « est ce que
+                # télétravail possible ? pour les alternant ? » (3 passes sur 3,
+                # cosinus 0,8047, zéro ligne dans `garde_decisions`). Interrogé, le
+                # juge la refuse 3 fois sur 3, et le RAG répond juste 3 fois sur 3
+                # (« règle générale + exception », doc B reranké #1 à 0,9677).
+                #
+                # Quand ni `peut_servir_sans_revue` ni `servable` ne tiennent
+                # (candidat retenu par les seuls mots et non canonique), l'issue est
+                # le RAG quel que soit le verdict : on n'appelle pas.
+                if peut_servir_sans_revue(reponse_liee) or candidat.servable:
                     # La question portée par le point qui a matché fait foi : une
                     # réponse est indexée sous autant de formulations qu'elle a de
                     # validations humaines, et le garde doit juger celle-là. Repli
@@ -158,8 +196,19 @@ def question_job(
                             score_lexical=candidat.score_lexical,
                         )
 
-                    if decision is not None and decision.verdict:
-                        logger.info("garde : OUI → CANONIQUE")
+                    approuve = decision is not None and decision.verdict
+
+                    if approuve and peut_servir_sans_revue(reponse_liee):
+                        # CANONIQUE **si** le candidat franchit aussi `SEUIL_COSINUS` ;
+                        # `servir_reutilisation` le vérifie et rabat sur SUGGESTION
+                        # sinon. On passe donc `True` sans redonder le test ici : la
+                        # porte du service sans revue n'a qu'une seule définition.
+                        #
+                        # `peut_servir_sans_revue` ne conditionne plus l'appel au
+                        # juge, seulement ce que son accord ouvre : un OUI sur une
+                        # réponse signalée `a_relire` tombe dans la branche
+                        # SUGGESTION ci-dessous, comme avant qu'on l'interroge.
+                        logger.info("garde : OUI → CANONIQUE si le seuil est franchi, sinon SUGGESTION")
                         return servir_reutilisation(
                             db,
                             job_id,
@@ -176,20 +225,51 @@ def question_job(
                             objet,
                             score_lexical=candidat.score_lexical or 0.0,
                         )
-                    # Refus du garde → SUGGESTION, pas RAG. Le garde répond
-                    # « pas la même demande », ce qui disqualifie le service sans
-                    # revue — pas la proposition au relecteur. Sans ce repli, le
-                    # système était non monotone : un candidat à 0,84 sortait en
-                    # SUGGESTION sans être jugé, alors que le même à 0,86 était
-                    # soumis au garde et, sur refus, renvoyé au RAG sans candidat.
-                    # Franchir SEUIL_COSINUS dégradait donc l'issue. Le refus reste
-                    # tracé dans `garde_decisions`.
+                    # **Refus du garde → RAG, toujours.** Le juge vient de dire que
+                    # les deux questions ne posent pas la même demande : le candidat
+                    # ne répond donc pas à celle-ci, et le proposer au relecteur,
+                    # c'est lui mettre sous les yeux quelque chose que le système a
+                    # déjà jugé hors sujet — sur l'écran où « Valider » est le bouton
+                    # le moins cher. Mieux vaut une génération fondée sur les
+                    # documents, pour la question réellement posée.
                     #
-                    # Sauf si le candidat n'est entré que par la porte lexicale :
-                    # le juge vient de le refuser et rien d'autre ne le soutient,
-                    # le proposer à un relecteur serait lui montrer du bruit.
-                    if candidat.servable:
-                        logger.info("garde : NON → SUGGESTION (revue humaine)")
+                    # C'est la règle que `Candidat.servable` énonçait déjà pour les
+                    # candidats purement lexicaux (« s'il n'est pas canonique, ou si
+                    # le juge le refuse, il repart au RAG ») ; elle était abandonnée
+                    # au-dessus de `SEUIL_SUGGESTION` sans raison. Mesuré sur la
+                    # campagne 48 cas : 9 refus, dont 6 sortaient en SUGGESTION alors
+                    # que le RAG était attendu — « Qui valide un engagement de
+                    # dépense ? » se voyait proposer « Comment fait on un engagement
+                    # de dépense » à 0,8254, juste après le refus.
+                    #
+                    # L'ancien repli invoquait la non-monotonie (« franchir le seuil
+                    # dégradait l'issue »). Sa prémisse — un candidat vaut mieux que
+                    # le RAG — est précisément ce que ces 6 cas contredisent, et le
+                    # juge est désormais appelé sans condition de score, donc la
+                    # discontinuité n'existe plus.
+                    #
+                    # Coût assumé : un refus *prudent* (paire en fait équivalente,
+                    # cf. le cas à 0,8841) prive le relecteur d'une réponse validée
+                    # réutilisable et fait naître une lignée parallèle sur le même
+                    # sujet. C1 l'amortit — la sélection par pertinence fera remonter
+                    # la meilleure des deux. Le refus reste tracé dans `garde_decisions`.
+                    #
+                    # **Seul un refus jugé envoie au RAG.** `Decision.erreur` existe
+                    # exactement pour ça : « ce dernier ne doit pas être compté comme
+                    # un refus du juge ». Albert injoignable, ou aucune question
+                    # indexable à soumettre, ce n'est pas « pas la même demande » —
+                    # c'est l'absence de verdict. On garde alors le comportement
+                    # antérieur, SUGGESTION sous revue humaine : une panne réseau ne
+                    # doit pas décider d'une branche, ni coûter une génération.
+                    refus_juge = decision is not None and not approuve and not decision.erreur
+
+                    if not refus_juge and candidat.servable:
+                        logger.info(
+                            "garde → SUGGESTION (revue humaine) : %s",
+                            "OUI, mais réponse signalée a_relire ou non canonique"
+                            if approuve
+                            else (decision.erreur if decision else "aucune question indexée"),
+                        )
                         return servir_reutilisation(
                             db,
                             job_id,
@@ -206,28 +286,13 @@ def question_job(
                             objet,
                             score_lexical=candidat.score_lexical or 0.0,
                         )
-                    logger.info("garde : NON + candidat lexical seul → RAG")
-                elif candidat.servable:
-                    return servir_reutilisation(
-                        db,
-                        job_id,
-                        ticket_uuid,
-                        question,
-                        domaine,
-                        user_uuid,
-                        reponse_liee,
-                        score_liee,
-                        question_suivi,
-                        est_suivi,
-                        self.request.retries,
-                        False,
-                        objet,
-                        score_lexical=candidat.score_lexical or 0.0,
-                    )
+                    logger.info("garde : NON → RAG (génération sur la question posée)")
                 else:
-                    # Candidat retenu par les seuls mots, et non canonique : aucun
-                    # juge ne le verra, donc il ne doit pas être proposé.
-                    logger.info("candidat lexical seul, non canonique → RAG")
+                    # Candidat retenu par les seuls mots, et non canonique : ni
+                    # servable ni autorisé à servir sans revue, l'issue est le RAG
+                    # quel que soit le verdict. C'est la seule branche où ne pas
+                    # appeler le juge est une économie et non une issue perdue.
+                    logger.info("candidat lexical seul, non canonique → RAG (juge inutile)")
 
         finally:
             db.close()

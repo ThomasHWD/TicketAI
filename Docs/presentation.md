@@ -22,40 +22,50 @@ Chaque validation renforce la base : au bout de trois validations, une réponse 
 
 ---
 
-## Les trois branches de réponse
+## Les quatre branches de réponse
 
 ```mermaid
 flowchart TD
     A[Question de l'employé] --> B[Recherche hybride Qdrant<br/>dense + BM25<br/>filtrée par domaine]
     B --> C{Une réponse validée<br/>est-elle réutilisable ?}
 
-    C -->|Canonique et franchissant le rappel<br/>cosinus ≥ SEUIL_COSINUS OU<br/>BM25/terme ≥ SEUIL_LEXICAL_PAR_TERME| D{Garde LLM :<br/>les deux questions<br/>demandent-elles<br/>la même chose ?}
-    C -->|Validée mais pas canonique,<br/>ou sous le rappel des deux côtés| F[SUGGESTION]
+    C -->|Oui, et le verdict du juge<br/>peut changer l'issue| D{Garde LLM :<br/>les deux questions<br/>demandent-elles<br/>la même chose ?}
     C -->|Aucune| G[RAG]
 
-    D -->|OUI| E[CANONIQUE]
-    D -->|NON| F
+    D -->|OUI| D2{Canonique, non signalée<br/>à relire, et franchissant<br/>SEUIL_COSINUS ?}
+    D2 -->|oui| E[CANONIQUE]
+    D2 -->|non| F[SUGGESTION]
+    D -->|NON jugé| G
+    D -->|Pas de verdict :<br/>panne Albert| F
 
     E --> H[Servie immédiatement<br/>sans revue humaine]
     F --> I[Revue humaine requise]
     G --> J[Rerank + génération LLM<br/>revue humaine requise]
+    J --> K{Le modèle signale-t-il<br/>que le contexte ne porte<br/>pas la réponse ?}
+    K -->|oui| L[HORS_DOMAINE]
 
     style E fill:#d1fae5,stroke:#059669
     style F fill:#fef3c7,stroke:#d97706
     style G fill:#dbeafe,stroke:#2563eb
+    style L fill:#f3f4f6,stroke:#6b7280
 ```
 
 **CANONIQUE** — une réponse déjà validée plusieurs fois a été retrouvée, **et un juge LLM a
 confirmé que la question posée demande exactement la même chose** que celle sous laquelle
-la réponse est indexée. Aucune intervention humaine.
+la réponse est indexée, **et** rien ne l'a signalée à relire depuis. Aucune intervention
+humaine.
 
 **SUGGESTION** — une réponse validée existe mais n'est pas encore canonique, son score est
-trop bas, **ou le garde a refusé de la servir sans revue**. Elle est réutilisée, mais
-l'expert doit confirmer ou corriger.
+trop bas, ou elle est signalée à relire ; ou bien le juge n'a pas pu se prononcer. Elle est
+réutilisée, mais l'expert doit confirmer ou corriger.
 
-**RAG** — aucune réponse réutilisable. Le système reranke les
-chunks de documents pertinents et génère une réponse via LLM (Albert API). Elle est
-toujours soumise à validation avant d'être publiée.
+**RAG** — aucune réponse réutilisable, **ou le garde a jugé que le candidat ne répondait pas à
+la question posée**. Le système reranke les chunks de documents pertinents et génère une
+réponse via LLM (Albert API). Elle est toujours soumise à validation avant d'être publiée.
+
+**HORS_DOMAINE** — la génération a bien eu lieu, mais le modèle a lui-même signalé que les
+documents fournis ne portent pas la réponse. C'est une **abstention, pas une panne** : la
+branche existe pour que le système dise « je ne sais pas » au lieu d'inventer.
 
 > **Le seuil de similarité ne décide pas de ce qui est sûr.** Deux questions peuvent être
 > quasi identiques vectoriellement et appeler des réponses opposées (« puis-je

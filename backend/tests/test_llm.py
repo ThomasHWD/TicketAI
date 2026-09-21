@@ -51,3 +51,45 @@ def test_generate_avec_historique_insere_les_tours_avant_la_question(monkeypatch
     assert "Et pour un CDD ?" in messages[-1]["content"]
     # Le system prompt mentionne la prise en compte de l'historique.
     assert "historique" in messages[0]["content"].lower()
+
+
+def test_generate_enonce_la_hierarchie_des_regles(monkeypatch):
+    """Lex specialis : la règle spécifique l'emporte, et l'absence d'extrait se dit.
+
+    Sans cette consigne, « le télétravail est-il possible pour les alternants ? »
+    reçoit la règle générale — soit parce que le modèle ignore l'exception qu'il
+    a pourtant sous les yeux, soit parce qu'aucun extrait ne la porte et qu'il
+    applique le cas général par défaut. La dernière phrase traite le second cas
+    et compte autant que la première.
+    """
+    post = MagicMock(return_value=_fake_response())
+    monkeypatch.setattr(llm.httpx, "post", post)
+
+    llm.generate("Ma question", [CHUNK])
+
+    systeme = post.call_args.kwargs["json"]["messages"][0]["content"]
+    assert "la règle spécifique l'emporte sur la générale" in systeme
+    assert "dis-le au lieu d'appliquer la règle générale par défaut" in systeme
+
+
+def test_generate_montre_le_chunk_avec_son_locateur(monkeypatch):
+    """La génération lit le texte **indexé**, pas le chunk nu.
+
+    « Les intéressés en sont exclus » est inexploitable seul : c'est le locateur
+    qui dit de quelle règle ils sont exclus. Repli sur `contenu` pour les points
+    indexés avant la contextualisation.
+    """
+    post = MagicMock(return_value=_fake_response())
+    monkeypatch.setattr(llm.httpx, "post", post)
+
+    llm.generate(
+        "Ma question",
+        [
+            {"rerank_score": 0.9, "contenu": "brut A", "contenu_indexe": "locateur\n\nbrut A"},
+            {"rerank_score": 0.5, "contenu": "brut B"},
+        ],
+    )
+
+    contexte = post.call_args.kwargs["json"]["messages"][-1]["content"]
+    assert "locateur\n\nbrut A" in contexte
+    assert "brut B" in contexte

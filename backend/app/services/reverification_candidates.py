@@ -98,7 +98,7 @@ def rassembler_candidates(
     voisines = [r for r in _voisines(db, domaine, unites) if r.id not in ids_citantes]
 
     distinctes = racines(citantes + voisines)
-    questions = _questions(db, distinctes)
+    questions = questions_des_reponses(db, distinctes)
     candidates = [
         Candidate(
             reponse=r,
@@ -197,12 +197,17 @@ def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
     )
 
 
-def _questions(db: Session, reponses: list[Reponse]) -> dict[uuid.UUID, str]:
+def questions_des_reponses(db: Session, reponses: list[Reponse]) -> dict[uuid.UUID, str]:
     """La question à laquelle chaque réponse répond — la précision si elle existe.
 
     ``question_suivi`` prime sur la question du ticket pour la même raison qu'à
     l'indexation (cf. ``feedback_job``) : quand une réponse est née d'une relance,
     c'est la relance qui la décrit, pas la demande initiale du fil.
+
+    Publique parce que la confrontation à l'ingestion
+    (``workers/confrontation.py``) constitue ses candidates sans passer par
+    ``rassembler_candidates`` — elle part d'un appariement chunk → réponse déjà
+    calculé, pas d'un diff.
     """
     ids = {r.ticket_id for r in reponses if r.ticket_id is not None}
     tickets = {t.id: t.question for t in db.query(Ticket).filter(Ticket.id.in_(ids)).all()} if ids else {}

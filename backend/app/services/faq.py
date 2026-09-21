@@ -72,15 +72,19 @@ def rechercher_faq(db: Session, question: str, limite: int) -> dict[str, list[di
     if not meilleurs:
         return {"resultats": [], "incertains": []}
 
-    # Mêmes prédicats que GET /reponses/canoniques (api/v1/reponses/listing.py).
-    # `a_relire` n'est volontairement pas filtré : le pipeline continue de servir
-    # ces réponses, la FAQ doit dire la même chose que lui.
+    # Miroir SQL de `peut_servir_sans_revue` (services/question_pipeline.py), plus
+    # les prédicats de GET /reponses/canoniques (api/v1/reponses/listing.py).
+    # `a_relire` est filtré parce que **cette page n'a aucun relecteur** : y montrer
+    # une réponse qu'un juge soupçonne contredite, c'est exactement la servir sans
+    # revue. Le pipeline, lui, continue de la proposer — en SUGGESTION, sous les
+    # yeux d'un humain. Elle réapparaît ici dès que le drapeau est levé.
     resultats = (
         db.query(Reponse, Ticket)
         .join(Ticket, Ticket.id == Reponse.ticket_id)
         .filter(
             Reponse.id.in_([uuid.UUID(r) for r in meilleurs]),
             Reponse.canonique.is_(True),
+            Reponse.a_relire.is_(False),
             Reponse.obsolete.is_(False),
             Reponse.faq_visible.is_(True),
         )
