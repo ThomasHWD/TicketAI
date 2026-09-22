@@ -171,7 +171,8 @@ def test_restaurer_hors_domaine_renvoie_403(client, db_session, validator, auth_
 
 
 def test_supprimer_obsolete_non_canonique_autorise(client, db_session, validator, auth_header):
-    """L'onglet Obsolètes doit pouvoir purger une réponse jamais devenue canonique."""
+    """L'onglet Obsolètes peut purger une réponse non canonique : retrait Qdrant + obsolete=False.
+    La ligne DB est conservée pour que le fil de conversation du ticket reste visible."""
     from app.models.reponse import Reponse
 
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=False)
@@ -181,11 +182,14 @@ def test_supprimer_obsolete_non_canonique_autorise(client, db_session, validator
 
     assert resp.status_code == 200
     db_session.expunge_all()
-    assert db_session.get(Reponse, reponse.id) is None
+    après = db_session.get(Reponse, reponse.id)
+    assert après is not None
+    assert après.obsolete is False
 
 
-def test_supprimer_supprime_aussi_les_copies_deja_obsoletes(client, db_session, validator, auth_header):
-    """Les copies déjà obsolètes sont supprimées avec la source, pas seulement détachées."""
+def test_supprimer_preserve_copies_validees_meme_si_obsoletes(client, db_session, validator, auth_header):
+    """Les copies VALIDÉE obsolètes sont conservées en DB pour le fil historique du ticket.
+    Seul le retrait Qdrant est effectué ; le flag obsolete est effacé."""
     from app.models.reponse import Reponse
 
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
@@ -199,4 +203,4 @@ def test_supprimer_supprime_aussi_les_copies_deja_obsoletes(client, db_session, 
 
     assert resp.status_code == 200
     db_session.expunge_all()
-    assert db_session.get(Reponse, copie_id) is None
+    assert db_session.get(Reponse, copie_id) is not None
