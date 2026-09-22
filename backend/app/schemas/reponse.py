@@ -17,6 +17,8 @@ class RejeterRequest(BaseModel):
 
 class CorrigerRequest(BaseModel):
     contenu_corrige: str
+    tag: str | None = None
+    faq_visible: bool = False
 
 
 class EditerCanoniqueRequest(BaseModel):
