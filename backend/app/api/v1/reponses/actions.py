@@ -368,22 +368,12 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeU
             if not copie.obsolete:
                 delete_response_point(str(copie.id))
             db.query(ReponseChunk).filter(ReponseChunk.reponse_id == copie.id).delete(synchronize_session=False)
-            if copie.statut in ("VALIDÉE", "CORRIGÉE"):
-                # Réponse déjà servie à un utilisateur — on la détache de la source mais on la garde
-                # comme record historique dans le thread du ticket.
-                copie.reponse_source_id = None
-                copie.canonique = False
-            else:
-                db.delete(copie)
+            db.delete(copie)
         db.flush()
 
         delete_response_point(reponse_id)
         db.query(ReponseChunk).filter(ReponseChunk.reponse_id == reponse.id).delete(synchronize_session=False)
-        if reponse.statut in ("VALIDÉE", "CORRIGÉE"):
-            # Même logique pour la source : on la retire du service actif sans effacer l'historique.
-            reponse.canonique = False
-        else:
-            db.delete(reponse)
+        db.delete(reponse)
         db.commit()
     finally:
         db.close()
