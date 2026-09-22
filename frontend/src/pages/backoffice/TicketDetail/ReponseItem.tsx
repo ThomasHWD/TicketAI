@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { AlertCircle, Bot, Check, Sparkles } from "lucide-react";
+import { AlertCircle, Bot, Check, Sparkles, Archive } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import UserAvatar from "../../../components/ui/UserAvatar";
 import { useReponseActions } from "../../../hooks/useReponseActions";
@@ -65,7 +65,7 @@ export default function ReponseItem({
     queryKey: ["tags-canoniques", domaine],
     queryFn: () => getTags(domaine, true),
     staleTime: 0,
-    enabled: isRag && canAct,
+    enabled: (isRag || isHorsDomaine) && canAct,
   });
 
   const errorId = `edit-error-${reponse.id}`;
@@ -124,6 +124,12 @@ export default function ReponseItem({
               · Promotion imminente
             </span>
           )}
+          {reponse.obsolete && (
+            <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400" title={`Retirée du service actif${reponse.obsolete_raison ? ` — ${reponse.obsolete_raison}` : ""}`}>
+              <Archive size={11} aria-hidden="true" />
+              Obsolète
+            </span>
+          )}
         </div>
 
         {/* Source context */}
@@ -150,6 +156,11 @@ export default function ReponseItem({
             onDraftChange={actions.updateDraft}
             onSubmit={actions.handleCorriger}
             onCancel={actions.handleCancel}
+            tagDraft={actions.tagDraft}
+            tags={tags}
+            faqVisible={actions.faqVisible}
+            onTagChange={actions.setTagDraft}
+            onFaqVisibleChange={actions.setFaqVisible}
           />
         ) : isHorsDomaine && !reponse.contenu_corrige ? (
           <p className="text-sm text-gray-500 dark:text-gray-400 italic">

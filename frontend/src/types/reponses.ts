@@ -21,6 +21,8 @@ export interface TicketReponse {
   validator_nom_complet: string | null;
   raison_rejet: string | null;
   tag: string | null;
+  obsolete: boolean;
+  obsolete_raison: string | null;
 }
 
 export interface ReponseEnAttente {
@@ -167,4 +169,6 @@ export interface RejeterPayload {
 export interface CorrigerPayload {
   contenu_corrige: string;
   validator_id: string;
+  tag?: string | null;
+  faq_visible?: boolean;
 }

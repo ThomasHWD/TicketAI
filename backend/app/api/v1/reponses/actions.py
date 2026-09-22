@@ -183,6 +183,14 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest, current_us
         reponse.validator_id = current_user.id
         reponse.validated_at = datetime.now(timezone.utc)
 
+        if reponse.source == "HORS_DOMAINE":
+            reponse.tag = payload.tag.strip() if payload.tag else None
+            if payload.faq_visible:
+                reponse.faq_visible = True
+            reponse.nb_validations += 1
+            if reponse.nb_validations >= settings.seuil_canonique:
+                reponse.canonique = True
+
         if reponse.a_relire:
             lever_a_relire(reponse)
 
@@ -352,6 +360,7 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeU
 
         famille = fermeture_copies(db, {reponse.id})
         copies = db.query(Reponse).filter(Reponse.id.in_(famille), Reponse.id != reponse.id).all()
+
         en_attente_copies = [r for r in copies if r.statut == "EN_ATTENTE" and not r.obsolete]
         requeuer_en_attente(db, en_attente_copies)
 
