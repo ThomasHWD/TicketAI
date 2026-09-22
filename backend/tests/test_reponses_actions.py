@@ -239,6 +239,26 @@ def test_corriger_transition(client, db_session, validator, auth_header):
     assert reloaded.contenu_corrige == "Texte corrigé"
 
 
+def test_corriger_suggestion_propage_correction_au_canonique(client, db_session, validator, auth_header):
+    """Corriger une SUGGESTION doit mettre à jour contenu_corrige sur toute la chaîne source,
+    sinon le canonique (prioritaire dans le ranking) continue de servir l'ancien texte."""
+    from app.models.reponse import Reponse
+
+    _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
+    _, copie = seed_ticket_reponse(db_session, reponse_source_id=source.id)
+
+    resp = client.put(
+        f"{API}/reponses/{copie.id}/corriger",
+        json={"contenu_corrige": "Texte corrigé"},
+        headers=auth_header(validator),
+    )
+
+    assert resp.status_code == 200
+    db_session.expire_all()
+    source_après = db_session.get(Reponse, source.id)
+    assert source_après.contenu_corrige == "Texte corrigé"
+
+
 def test_corriger_contenu_vide_renvoie_400(client, db_session, validator, auth_header):
     _, reponse = seed_ticket_reponse(db_session)
 
@@ -339,7 +359,8 @@ def test_supprimer_non_canonique_renvoie_409(client, db_session, validator, auth
     assert resp.status_code == 409
 
 
-def test_supprimer_canonique_supprime_les_copies(client, db_session, validator, auth_header, mock_side_effects):
+def test_supprimer_canonique_preserve_reponses_validees(client, db_session, validator, auth_header, mock_side_effects):
+    """Les réponses VALIDÉE/CORRIGÉE restent en DB pour le fil historique du ticket."""
     from app.models.reponse import Reponse
 
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
@@ -350,15 +371,15 @@ def test_supprimer_canonique_supprime_les_copies(client, db_session, validator, 
     assert resp.status_code == 200
     assert mock_side_effects.delete_point.called
     db_session.expunge_all()
-    assert db_session.get(Reponse, source.id) is None
-    assert db_session.get(Reponse, copie.id) is None
+    assert db_session.get(Reponse, source.id).canonique is False
+    assert db_session.get(Reponse, copie.id).canonique is False
 
 
-def test_supprimer_canonique_supprime_les_copies_deja_obsoletes(
+def test_supprimer_canonique_preserve_copies_obsoletes(
     client, db_session, validator, auth_header, mock_side_effects
 ):
-    """Une copie déjà obsolète (mise hors service par une MAJ de document) ne doit
-    pas réapparaître dans l'onglet Obsolètes après suppression de la source."""
+    """Une copie VALIDÉE/CORRIGÉE obsolète est conservée en DB pour le fil historique,
+    même si elle était hors service. La source est dépromue et retirée de l'onglet Obsolètes."""
     from app.models.reponse import Reponse
 
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
@@ -366,6 +387,9 @@ def test_supprimer_canonique_supprime_les_copies_deja_obsoletes(
     copie.obsolete = True
     copie.obsolete_raison = "DOC_MIS_A_JOUR"
     copie.obsolete_at = datetime.now(timezone.utc)
+    source.obsolete = True
+    source.obsolete_raison = "DOC_MIS_A_JOUR"
+    source.obsolete_at = datetime.now(timezone.utc)
     source_id = source.id
     copie_id = copie.id
     db_session.commit()
@@ -374,8 +398,10 @@ def test_supprimer_canonique_supprime_les_copies_deja_obsoletes(
 
     assert resp.status_code == 200
     db_session.expunge_all()
-    assert db_session.get(Reponse, source_id) is None
-    assert db_session.get(Reponse, copie_id) is None
+    source_après = db_session.get(Reponse, source_id)
+    assert source_après.canonique is False
+    assert source_après.obsolete is False
+    assert db_session.get(Reponse, copie_id).canonique is False
 
 
 def test_supprimer_canonique_nettoie_les_chunks(client, db_session, validator, auth_header):

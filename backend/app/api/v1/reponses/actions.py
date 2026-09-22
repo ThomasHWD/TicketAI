@@ -203,12 +203,29 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest, current_us
         domaine = ticket.domaine if ticket else None
         ticket_id_str = str(reponse.ticket_id)
         user_id = str(ticket.user_id) if ticket and ticket.user_id else None
+
+        # Propagate correction to all ancestors so the canonical serves the corrected text
+        sources_a_reindexer: list[str] = []
+        ancetre_id = reponse.reponse_source_id
+        vus: set = {reponse.id}
+        while ancetre_id and ancetre_id not in vus:
+            ancetre = db.query(Reponse).filter(Reponse.id == ancetre_id).first()
+            if not ancetre:
+                break
+            vus.add(ancetre.id)
+            if not ancetre.obsolete:
+                ancetre.contenu_corrige = payload.contenu_corrige
+                sources_a_reindexer.append(str(ancetre.id))
+            ancetre_id = ancetre.reponse_source_id
+
         db.commit()
     finally:
         db.close()
 
     logger.info("Réponse %s corrigée et en cours d'indexation dans Qdrant.", reponse_id)
     feedback_job.apply_async(args=[reponse_id], queue="queue_ingestion")
+    for sid in sources_a_reindexer:
+        feedback_job.apply_async(args=[sid], queue="queue_ingestion")
     if domaine:
         await broadcast_async(
             f"sse:domain:{domaine}", "reponse_corrected", {"ticket_id": ticket_id_str, "domaine": domaine}
@@ -368,12 +385,20 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeU
             if not copie.obsolete:
                 delete_response_point(str(copie.id))
             db.query(ReponseChunk).filter(ReponseChunk.reponse_id == copie.id).delete(synchronize_session=False)
-            db.delete(copie)
+            if copie.statut in ("VALIDÉE", "CORRIGÉE"):
+                copie.canonique = False  # conserve pour le fil historique du ticket
+            else:
+                db.delete(copie)
         db.flush()
 
         delete_response_point(reponse_id)
         db.query(ReponseChunk).filter(ReponseChunk.reponse_id == reponse.id).delete(synchronize_session=False)
-        db.delete(reponse)
+        reponse.canonique = False
+        reponse.obsolete = False
+        reponse.obsolete_raison = None
+        reponse.obsolete_doc_id = None
+        reponse.obsolete_version = None
+        reponse.obsolete_at = None
         db.commit()
     finally:
         db.close()
