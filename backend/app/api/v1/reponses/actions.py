@@ -183,6 +183,14 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest, current_us
         reponse.validator_id = current_user.id
         reponse.validated_at = datetime.now(timezone.utc)
 
+        if reponse.source == "HORS_DOMAINE":
+            reponse.tag = payload.tag.strip() if payload.tag else None
+            if payload.faq_visible:
+                reponse.faq_visible = True
+            reponse.nb_validations += 1
+            if reponse.nb_validations >= settings.seuil_canonique:
+                reponse.canonique = True
+
         if reponse.a_relire:
             lever_a_relire(reponse)
 
@@ -352,6 +360,7 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeU
 
         famille = fermeture_copies(db, {reponse.id})
         copies = db.query(Reponse).filter(Reponse.id.in_(famille), Reponse.id != reponse.id).all()
+
         en_attente_copies = [r for r in copies if r.statut == "EN_ATTENTE" and not r.obsolete]
         requeuer_en_attente(db, en_attente_copies)
 
@@ -359,12 +368,22 @@ async def supprimer_reponse_canonique(reponse_id: str, current_user: BackofficeU
             if not copie.obsolete:
                 delete_response_point(str(copie.id))
             db.query(ReponseChunk).filter(ReponseChunk.reponse_id == copie.id).delete(synchronize_session=False)
-            db.delete(copie)
+            if copie.statut in ("VALIDÉE", "CORRIGÉE"):
+                # Réponse déjà servie à un utilisateur — on la détache de la source mais on la garde
+                # comme record historique dans le thread du ticket.
+                copie.reponse_source_id = None
+                copie.canonique = False
+            else:
+                db.delete(copie)
         db.flush()
 
         delete_response_point(reponse_id)
         db.query(ReponseChunk).filter(ReponseChunk.reponse_id == reponse.id).delete(synchronize_session=False)
-        db.delete(reponse)
+        if reponse.statut in ("VALIDÉE", "CORRIGÉE"):
+            # Même logique pour la source : on la retire du service actif sans effacer l'historique.
+            reponse.canonique = False
+        else:
+            db.delete(reponse)
         db.commit()
     finally:
         db.close()

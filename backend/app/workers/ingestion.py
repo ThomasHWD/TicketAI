@@ -11,7 +11,13 @@ from app.models.document import Document
 from app.models.document_upload import DocumentUpload
 from app.models.document_version import DocumentVersion
 from app.services.broadcast import broadcast_sync
-from app.services.confrontation import cibles_confrontation, familles_servies, identifiants, resume_ajout
+from app.services.confrontation import (
+    cibles_confrontation,
+    familles_servies,
+    hors_domaine_canoniques,
+    identifiants,
+    resume_ajout,
+)
 from app.services.contextualisation import contextualiser, synopsis, texte_indexe
 from app.services.embedding import embed_texts
 from app.services.obsolescence import RAISON_ANALYSE, poser_a_relire, racines
@@ -161,10 +167,22 @@ def ingestion_job(
                 )
             )
 
+            # HORS_DOMAINE canoniques : Qdrant ne les atteint pas par similarité (sujet absent de la
+            # base à l'époque). On les injecte avec tous les indices de chunks — le reranker dans
+            # confrontation_job filtrera ceux qui ne sont pas pertinents pour la question.
+            tous_indices = list(range(len(chunks)))
+            hd_ids = hors_domaine_canoniques(db, domaine)
+            logger.info("HORS_DOMAINE canoniques dans le domaine %s : %d", domaine, len(hd_ids))
+            for hd_id in hd_ids:
+                cibles.setdefault(str(hd_id), tous_indices)
+
+            logger.info("cibles confrontation après injection HORS_DOMAINE : %d réponse(s)", len(cibles))
             # ANALYSE_EN_COURS flagged in same commit — closes the race window between document publication and verdict.
             famille = familles_servies(db, identifiants(cibles))
             poser_a_relire(famille, RAISON_ANALYSE, doc_id, version)
             nb_a_analyser = len(racines(famille))
+            etat = "enfilé" if nb_a_analyser else "ignoré"
+            logger.info("nb_a_analyser=%d — confrontation_job %s", nb_a_analyser, etat)
 
             db.commit()
         finally:

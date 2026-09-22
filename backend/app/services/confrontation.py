@@ -5,6 +5,7 @@ import uuid
 
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
+from app.models.ticket import Ticket
 from app.services.diff import MAX_EXTRAITS, decouper_en_passages, extrait
 from app.services.obsolescence import fermeture_copies
 from app.services.qdrant import COLLECTION_NAME, client
@@ -72,6 +73,30 @@ def cibles_confrontation(embeddings: list[dict], domaine: str) -> dict[str, list
     }
 
 
+def hors_domaine_canoniques(db: Session, domaine: str) -> list[uuid.UUID]:
+    """IDs des réponses HORS_DOMAINE canoniques encore servies dans ce domaine.
+
+    Qdrant ne peut pas les atteindre par similarité (la question portait sur un sujet absent de
+    la base à l'époque — aucun point existant ne ressemblera aux chunks d'un nouveau document sur
+    ce même sujet). On les injecte manuellement dans les cibles pour que le reranker décide.
+    """
+    return [
+        r[0]
+        for r in (
+            db.query(Reponse.id)
+            .join(Ticket, Ticket.id == Reponse.ticket_id)
+            .filter(
+                Reponse.source == "HORS_DOMAINE",
+                Reponse.canonique.is_(True),
+                Reponse.obsolete.is_(False),
+                Reponse.statut.in_(["VALIDÉE", "CORRIGÉE"]),
+                Ticket.domaine == domaine,
+            )
+            .all()
+        )
+    ]
+
+
 def familles_servies(db: Session, ids: set[uuid.UUID]) -> list[Reponse]:
     """La famille complète des réponses visées, restreinte à ce qui est encore servi. fermeture_copies"""
     if not ids:
@@ -80,7 +105,7 @@ def familles_servies(db: Session, ids: set[uuid.UUID]) -> list[Reponse]:
         db.query(Reponse)
         .filter(
             Reponse.id.in_(fermeture_copies(db, ids)),
-            Reponse.statut == "VALIDÉE",
+            Reponse.statut.in_(["VALIDÉE", "CORRIGÉE"]),
             Reponse.obsolete.is_(False),
         )
         .all()

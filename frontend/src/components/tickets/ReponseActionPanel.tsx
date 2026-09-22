@@ -12,11 +12,17 @@ interface EditingPanelProps {
   onDraftChange: (v: string) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  tagDraft?: string;
+  tags?: string[];
+  faqVisible?: boolean;
+  onTagChange?: (v: string) => void;
+  onFaqVisibleChange?: (v: boolean) => void;
 }
 
 export function EditingPanel({
   draft, loading, error, errorId, isHorsDomaine, reponseDate,
   onDraftChange, onSubmit, onCancel,
+  tagDraft, tags, faqVisible, onTagChange, onFaqVisibleChange,
 }: EditingPanelProps) {
   return (
     <div className="space-y-3">
@@ -33,6 +39,39 @@ export function EditingPanel({
       />
       {isHorsDomaine && draft && (
         <p className="text-[11px] text-gray-500 dark:text-gray-400">Brouillon sauvegardé localement.</p>
+      )}
+      {isHorsDomaine && onTagChange && (
+        <div className="space-y-2 pt-1 border-t border-gray-100 dark:border-white/[0.07]">
+          <div className="space-y-1">
+            <label htmlFor="tag-hd-input" className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+              <Tag size={10} aria-hidden="true" />
+              Catégorie <span className="text-gray-400/60 dark:text-gray-500/60">(optionnel)</span>
+            </label>
+            <input
+              id="tag-hd-input"
+              list="tag-hd-list"
+              value={tagDraft ?? ""}
+              onChange={(e) => onTagChange(e.target.value)}
+              placeholder="Ex : congés, télétravail, paie…"
+              maxLength={100}
+              disabled={loading}
+              className="w-full px-2.5 py-1.5 text-xs rounded-md border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 disabled:opacity-50 transition-colors"
+            />
+            <datalist id="tag-hd-list">
+              {(tags ?? []).map((t) => <option key={t} value={t} />)}
+            </datalist>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={faqVisible ?? false}
+              onChange={(e) => onFaqVisibleChange?.(e.target.checked)}
+              disabled={loading}
+              className="w-3.5 h-3.5 rounded border-gray-300 dark:border-white/15 accent-emerald-600 disabled:opacity-50"
+            />
+            <span className="text-xs text-gray-600 dark:text-gray-300">Inclure dans la FAQ</span>
+          </label>
+        </div>
       )}
       {error && (
         <p id={errorId} className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>

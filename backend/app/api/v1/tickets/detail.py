@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import or_
 
 from app.core.permissions import check_ticket_read
 from app.core.security import CurrentUser
@@ -27,7 +28,13 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
         check_ticket_read(ticket, current_user)
         reponses = (
             db.query(ReponseModel)
-            .filter(ReponseModel.ticket_id == tid, ReponseModel.obsolete.is_(False))
+            .filter(
+                ReponseModel.ticket_id == tid,
+                or_(
+                    ReponseModel.obsolete.is_(False),
+                    ReponseModel.statut.in_(["VALIDÉE", "CORRIGÉE"]),
+                ),
+            )
             .order_by(ReponseModel.created_at.asc())
             .all()
         )
@@ -48,6 +55,8 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
                 "validator_nom_complet": full_name(r.validator) or (r.validator.email if r.validator else None),
                 "raison_rejet": r.raison_rejet,
                 "tag": r.tag,
+                "obsolete": r.obsolete,
+                "obsolete_raison": r.obsolete_raison,
             }
             for r in reponses
         ]

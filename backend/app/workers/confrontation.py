@@ -18,7 +18,9 @@ from app.services.obsolescence import (
     RAISON_INDISPONIBLE,
     RAISON_NOUVEAU_DOC,
     RAISON_PARTIELLE,
+    fermeture_copies,
     racines,
+    retirer_du_service,
 )
 from app.services.reverification import (
     ACTION_A_RELIRE,
@@ -45,6 +47,10 @@ from app.workers.reverification import (
 logger = logging.getLogger(__name__)
 
 JUSTIF_SANS_TEXTE = "Les passages du nouveau document n'ont pas pu être relus : réponse signalée par précaution."
+JUSTIF_HORS_DOMAINE = (
+    "Un nouveau document traite d'un sujet couvert par cette question"
+    " — la réponse hors-domaine est peut-être désormais possible."
+)
 
 
 class TacheConfrontation(celery_app.Task):
@@ -123,9 +129,29 @@ def confrontation_job(
 
             unites = [Unite(SENS_AJOUT, None, textes[i]) for i in indices if textes.get(i)]
             if not unites:
+                logger.warning(
+                    "pas de texte pour %s (source=%s, indices=%s, textes keys=%s)",
+                    candidate.reponse.id, candidate.reponse.source, indices[:5], sorted(textes.keys())[:5],
+                )
                 nb_indisponibles += signaler_sans_juger(
                     db, [candidate], RAISON_INDISPONIBLE, JUSTIF_SANS_TEXTE, doc_id, version
                 )
+                continue
+
+            # HORS_DOMAINE : retire du service immédiatement, sans passer par le reranker ni
+            # par la relecture humaine. La réponse dit « pas d'information dans notre base » ;
+            # l'existence même d'un nouveau document pertinent la rend obsolète — il n'y a rien
+            # à valider. La restauration reste possible depuis l'onglet Obsolètes si le nouveau
+            # document s'avère hors-sujet.
+            if candidate.reponse.source == "HORS_DOMAINE":
+                logger.info("HORS_DOMAINE détecté : %s — retrait du service", candidate.reponse.id)
+                famille = db.query(Reponse).filter(
+                    Reponse.id.in_(fermeture_copies(db, {candidate.reponse.id})),
+                    Reponse.obsolete.is_(False),
+                ).all()
+                logger.info("famille HORS_DOMAINE : %d réponse(s) à retirer", len(famille))
+                retirer_du_service(db, famille, RAISON_NOUVEAU_DOC, doc_id, version)
+                comptes[ACTION_RETIREE] += 1
                 continue
 
             pertinentes, fiable = unites_pertinentes(candidate.question, unites)

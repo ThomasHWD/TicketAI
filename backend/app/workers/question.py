@@ -279,7 +279,7 @@ def question_job(
                 )
                 reponse_id = str(reponse.id)
 
-                for chunk in chunks_rerankes:
+                for chunk in chunks_rerankes if not hors_domaine else []:
                     if not chunk.get("doc_id"):
                         continue
                     rc = ReponseChunk(
