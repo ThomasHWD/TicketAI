@@ -61,7 +61,11 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
     if (!draft.trim() || draft.trim() === reponse.contenu.trim()) { setEditing(false); return; }
     setLoading(true); setError(null);
     try {
-      await corrigerReponse(reponse.id, { contenu_corrige: draft, validator_id: getValidatorId() });
+      await corrigerReponse(reponse.id, {
+        contenu_corrige: draft,
+        validator_id: getValidatorId(),
+        ...(isHorsDomaine && { tag: tagDraft.trim() || null, faq_visible: faqVisible }),
+      });
       if (isHorsDomaine) localStorage.removeItem(DRAFT_KEY);
       setEditing(false);
       onChanged();
