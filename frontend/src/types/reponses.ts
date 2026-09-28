@@ -7,7 +7,8 @@ export type Source = "LLM" | "SUGGESTION" | "CANONIQUE" | "HORS_DOMAINE";
 export interface TicketReponse {
   id: string;
   ticket_id: string;
-  contenu: string;
+  // null when the viewer cannot review it (EN_ATTENTE / REJETÉE for a non-reviewer) — masked server-side.
+  contenu: string | null;
   contenu_corrige: string | null;
   // Follow-up text (relance) that triggered this response; null for the initial question's answer.
   question_suivi: string | null;
@@ -23,6 +24,10 @@ export interface TicketReponse {
   tag: string | null;
   obsolete: boolean;
   obsolete_raison: string | null;
+  /** SUGGESTION copy: the reused answer is flagged for review (or withdrawn). Reviewers only. */
+  source_a_relire: boolean;
+  source_a_relire_raison: string | null;
+  source_analyse_justification: string | null;
 }
 
 export interface ReponseEnAttente {

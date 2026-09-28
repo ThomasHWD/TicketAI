@@ -18,7 +18,7 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
   const [editing, setEditing] = useState(isHorsDomaine && canAct);
   const [draft, setDraft] = useState<string>(() => {
     if (isHorsDomaine) return localStorage.getItem(DRAFT_KEY) ?? "";
-    return reponse.contenu;
+    return reponse.contenu ?? "";
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
   }
 
   async function handleCorriger() {
-    if (!draft.trim() || draft.trim() === reponse.contenu.trim()) { setEditing(false); return; }
+    if (!draft.trim() || draft.trim() === (reponse.contenu ?? "").trim()) { setEditing(false); return; }
     setLoading(true); setError(null);
     try {
       await corrigerReponse(reponse.id, {
@@ -84,7 +84,7 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
   }
 
   function handleCancel() {
-    setDraft(isHorsDomaine ? (localStorage.getItem(DRAFT_KEY) ?? "") : reponse.contenu);
+    setDraft(isHorsDomaine ? (localStorage.getItem(DRAFT_KEY) ?? "") : (reponse.contenu ?? ""));
     setEditing(false);
     setError(null);
   }
