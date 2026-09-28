@@ -14,6 +14,7 @@ def make_reponse(statut="EN_ATTENTE"):
     r.ticket_id = uuid.uuid4()
     r.contenu = "Réponse test"
     r.contenu_corrige = None
+    r.obsolete = False
     r.validator_id = None
     r.validated_at = None
     return r

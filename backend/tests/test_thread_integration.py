@@ -215,6 +215,41 @@ def test_reponses_exposent_question_suivi(client, db_session, owner, auth_header
     assert "Et pour un CDD ?" in suivis  # tour de suivi
 
 
+@pytest.mark.parametrize("lecteur, visible", [("owner", False), ("backoffice_user", True)])
+def test_brouillon_non_relu_ne_sort_que_vers_un_relecteur(client, db_session, owner, auth_header, request,
+                                                          lecteur, visible):
+    """Le front du demandeur masquait le brouillon, mais l'API le lui livrait : l'invariant
+    ne tenait qu'à l'interface. Le relecteur du domaine, lui, doit le lire pour valider."""
+    ticket, _ = seed_ticket_reponse(db_session, user_id=owner.id)
+    db_session.add(Reponse(ticket_id=ticket.id, contenu="Brouillon LLM", statut="EN_ATTENTE", source="LLM",
+                           question_suivi="Et pour un CDD ?"))
+    db_session.commit()
+
+    resp = client.get(f"{API}/tickets/{ticket.id}/reponses", headers=auth_header(request.getfixturevalue(lecteur)))
+
+    contenus = [r["contenu"] for r in resp.json()]
+    assert "Réponse initiale" in contenus
+    assert ("Brouillon LLM" in contenus) is visible
+
+
+def test_suggestion_signale_au_relecteur_une_source_a_relire(client, db_session, backoffice_user, auth_header):
+    """La copie SUGGESTION naît sans le drapeau de sa source : le relecteur validait à
+    l'aveugle une réponse que l'analyse juge probablement contredite."""
+    _, source = seed_ticket_reponse(db_session)
+    source.a_relire, source.a_relire_raison = True, "CONTREDITE_PROBABLE"
+    source.analyse_justification = "Le délai passe de 2 à 3 mois."
+    ticket, _ = seed_ticket_reponse(db_session, reponse_statut="EN_ATTENTE")
+    copie = db_session.query(Reponse).filter(Reponse.ticket_id == ticket.id).one()
+    copie.source, copie.reponse_source_id = "SUGGESTION", source.id
+    db_session.commit()
+
+    resp = client.get(f"{API}/tickets/{ticket.id}/reponses", headers=auth_header(backoffice_user))
+
+    (item,) = resp.json()
+    assert item["source_a_relire"] is True
+    assert item["source_analyse_justification"] == "Le délai passe de 2 à 3 mois."
+
+
 # --------------------------------------------------------------------------- #
 # Worker : mode suivi (helpers)
 # --------------------------------------------------------------------------- #
@@ -236,6 +271,18 @@ def test_upsert_reponse_mode_suivi_ajoute_sans_ecraser(db_session):
     reponses = db_session.query(Reponse).filter(Reponse.ticket_id == ticket.id).all()
     assert len(reponses) == 2
     # La réponse initiale n'a pas été écrasée.
+    assert db_session.get(Reponse, initiale.id).contenu == "Réponse initiale"
+
+
+def test_retraitement_n_ecrase_jamais_une_reponse_validee(db_session):
+    """Hors mode suivi, seul le brouillon de la question initiale est réécrit. Une
+    réponse validée réécrite garde son statut VALIDÉE : texte non relu servi."""
+    ticket, initiale = seed_ticket_reponse(db_session, reponse_statut="VALIDÉE")
+
+    nouvelle = _upsert_reponse(db_session, ticket, "Texte régénéré non relu", 0.5)
+    db_session.commit()
+
+    assert nouvelle.id != initiale.id
     assert db_session.get(Reponse, initiale.id).contenu == "Réponse initiale"
 
 
@@ -267,13 +314,14 @@ def test_canoniques_affiche_la_question_de_la_precision(client, db_session, back
     assert "Question initiale ?" not in questions
 
 
-def test_feedback_indexe_la_precision_sous_sa_propre_question(db_session, monkeypatch):
-    """Une réponse de suivi validée doit être indexée sous le texte de la précision
-    (`question_suivi`), pas sous la question initiale du ticket — sinon elle ne
-    pourrait jamais devenir canonique pour la bonne question."""
+@pytest.mark.parametrize("reformulation", ["Combien de jours de congés pour un CDD ?", None])
+def test_feedback_indexe_la_precision_sous_sa_question_autonome(db_session, monkeypatch, reformulation):
+    """Ni la question initiale (la réponse spécifique servirait la générale), ni la
+    précision nue (« Et pour un CDD ? » répondrait à tout fil finissant ainsi) : la
+    reformulation autonome, calculée sur le fil. Inexploitable → rien d'indexé."""
     import app.workers.feedback as feedback_module
 
-    ticket, _ = seed_ticket_reponse(db_session, question="Question initiale ?")
+    ticket, _ = seed_ticket_reponse(db_session, question="Combien de jours de congés ?")
     precision = Reponse(
         ticket_id=ticket.id,
         contenu="Réponse à la précision",
@@ -284,21 +332,43 @@ def test_feedback_indexe_la_precision_sous_sa_propre_question(db_session, monkey
     db_session.add(precision)
     db_session.commit()
 
-    captured = {}
-
-    def fake_embed(texts):
-        captured["texts"] = texts
-        return [{"dense": [0.1], "sparse": {"indices": [0], "values": [0.2]}}]
-
-    upsert_mock = MagicMock()
-    monkeypatch.setattr(feedback_module, "embed_texts", fake_embed)
-    monkeypatch.setattr(feedback_module.client, "upsert", upsert_mock)
+    fils, embarques = [], []
+    monkeypatch.setattr(feedback_module, "question_autonome", lambda fil: fils.append(fil) or reformulation)
+    monkeypatch.setattr(feedback_module, "embed_texts", lambda texts: embarques.append(texts) or [
+        {"dense": [0.1], "sparse": {"indices": [0], "values": [0.2]}}])
+    monkeypatch.setattr(feedback_module.client, "upsert", MagicMock())
 
     feedback_module.feedback_job.apply(args=[str(precision.id)], throw=True)
 
-    # Le texte embarqué est la précision, pas la question initiale.
-    assert captured["texts"] == ["Et pour un CDD ?"]
-    assert upsert_mock.called
+    assert fils == [["Combien de jours de congés ?", "Et pour un CDD ?"]]
+    assert embarques == ([[reformulation]] if reformulation else [])
+    db_session.refresh(precision)
+    assert precision.question_autonome == reformulation
+
+
+@pytest.mark.parametrize(
+    "question_suivi, question_autonome, fiable",
+    [
+        pytest.param("Et pour un CDD ?", None, False, id="suivi-herite-sans-contexte"),
+        pytest.param("Quel est le préavis d'un CDD ?", "Quel est le préavis d'un CDD ?", True,
+                     id="suivi-deja-autonome"),
+    ],
+)
+@pytest.mark.parametrize("porteur", ["reponse", "copie"])
+def test_question_du_point_fiable(db_session, question_suivi, question_autonome, fiable, porteur):
+    """Un point porte la question de la réponse, ou celle d'une copie (alias)."""
+    from app.services.question_pipeline import question_du_point_fiable
+
+    ticket, source = seed_ticket_reponse(db_session)
+    tour = source
+    if porteur == "copie":
+        tour = Reponse(ticket_id=ticket.id, contenu="c", statut="VALIDÉE", source="SUGGESTION",
+                       reponse_source_id=source.id)
+        db_session.add(tour)
+    tour.question_suivi, tour.question_autonome = question_suivi, question_autonome
+    db_session.commit()
+
+    assert question_du_point_fiable(db_session, source, question_suivi) is fiable
 
 
 def test_upsert_ticket_mode_suivi_ne_reecrit_pas_la_question(db_session):
@@ -357,6 +427,22 @@ def test_charger_contexte_fil_construit_historique_et_requete(db_session):
     assert requete == ("Comment poser mes congés payés ?\nCombien de jours par an ?\nEt pour un CDD ?")
 
 
+def test_charger_contexte_fil_ignore_les_tours_retires(db_session):
+    """Une précision re-soumise après retrait de son brouillon ne doit ni le voir en
+    historique (contenu jugé faux) ni retrouver sa propre question deux fois."""
+    ticket, _ = seed_ticket_reponse(db_session, question="Comment poser mes congés payés ?")
+    db_session.add(
+        Reponse(ticket_id=ticket.id, contenu="Brouillon contredit", statut="EN_ATTENTE", source="SUGGESTION",
+                question_suivi="Et pour un CDD ?", obsolete=True)
+    )
+    db_session.commit()
+
+    historique, requete = _charger_contexte_fil(ticket.id, "Et pour un CDD ?")
+
+    assert "Brouillon contredit" not in [m["content"] for m in historique]
+    assert requete == "Comment poser mes congés payés ?\nEt pour un CDD ?"
+
+
 def test_charger_contexte_fil_ticket_introuvable(db_session):
     historique, requete = _charger_contexte_fil(uuid.uuid4(), "Et pour un CDD ?")
     assert historique == []
@@ -379,6 +465,7 @@ def test_question_job_suivi_contextualise_recherche_et_generation(db_session, mo
         "contenu": "Texte source",
         "doc_id": str(uuid.uuid4()),
         "chunk_index": 0,
+        "version": 4,
         "reponse_id": None,
     }
     search_mock = MagicMock(return_value=[chunk])
@@ -402,12 +489,16 @@ def test_question_job_suivi_contextualise_recherche_et_generation(db_session, mo
         "role": "user",
         "content": "Comment poser mes congés payés ?",
     }
-    # Une recherche a bien été contextualisée (intentions du fil concaténées),
-    # en plus de la recherche initiale sur la précision brute.
+    # Une seule recherche, sur le fil, qui sert la réutilisation ET le RAG : cherchée nue,
+    # la précision ne rappelait pas la question autonome indexée (cos 0,65 vs 0,98, 28/09/2026).
     requetes = [call.args[0] for call in search_mock.call_args_list]
-    assert "Comment poser mes congés payés ?\nEt pour un CDD ?" in requetes
+    assert requetes == ["Comment poser mes congés payés ?\nEt pour un CDD ?"]
     # Le rerank utilise également la requête contextualisée.
     assert rerank_mock.call_args.args[0] == ("Comment poser mes congés payés ?\nEt pour un CDD ?")
+    # La citation retient la version du passage : l'index seul désigne un autre texte après mise à jour.
+    from app.models.reponse_chunk import ReponseChunk
+
+    assert [c.version for c in db_session.query(ReponseChunk).all()] == [4]
 
 
 def test_upsert_ticket_mode_suivi_rebascule_le_statut(db_session):

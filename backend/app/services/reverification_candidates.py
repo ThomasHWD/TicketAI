@@ -54,6 +54,7 @@ def rassembler_candidates(
     domaine: str,
     unites: list[Unite],
     indices_disparus: set[int],
+    version_sortante: int | None = None,
 ) -> list[Candidate]:
     """Réponses susceptibles d'être touchées, les plus exposées d'abord. Sort order = LLM budget order: prioritaires"""
     citantes = reponses_obsoletes(db, doc_id, indices=None)
@@ -61,7 +62,9 @@ def rassembler_candidates(
 
     ids_prioritaires: set[uuid.UUID] = set()
     if indices_disparus:
-        ids_prioritaires = {r.id for r in reponses_obsoletes(db, doc_id, indices=indices_disparus)}
+        ids_prioritaires = {
+            r.id for r in reponses_obsoletes(db, doc_id, indices=indices_disparus, version=version_sortante)
+        }
 
     voisines = [r for r in _voisines(db, domaine, unites) if r.id not in ids_citantes]
 
@@ -129,15 +132,50 @@ def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
         db.query(Reponse)
         .filter(
             Reponse.id.in_(fermeture_copies(db, trouves)),
-            Reponse.statut == "VALIDÉE",
+            # CORRIGÉE included: a hand-corrected HORS_DOMAINE canonical cites no chunk — neighbours are its way in.
+            Reponse.statut.in_(("VALIDÉE", "CORRIGÉE")),
             Reponse.obsolete.is_(False),
         )
         .all()
     )
 
 
+MAX_PASSAGES_ACTUELS = 3
+
+
+def passages_actuels(reponse: Reponse, doc_id: str, version: int) -> list[str]:
+    """Passages of the document's current version closest to the response's question. Zero Albert calls: the query
+    vector is the response's own indexed question point. No point or Qdrant failure → [] (diff-only judgement)."""
+    try:
+        points = client.retrieve(
+            collection_name=COLLECTION_NAME,
+            ids=[str(uuid.uuid5(uuid.NAMESPACE_DNS, str(reponse.id)))],
+            with_vectors=["dense"],
+        )
+        if not points or not points[0].vector:
+            return []
+        vecteur = points[0].vector["dense"] if isinstance(points[0].vector, dict) else points[0].vector
+        res = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=vecteur,
+            using="dense",
+            query_filter=Filter(
+                must=[
+                    FieldCondition(key="doc_id", match=MatchValue(value=doc_id)),
+                    FieldCondition(key="version", match=MatchValue(value=version)),
+                ]
+            ),
+            limit=MAX_PASSAGES_ACTUELS,
+            with_payload=["contenu"],
+        )
+    except Exception as exc:
+        logger.warning("texte actuel indisponible pour %s (%s) — jugement sur le seul diff", reponse.id, exc)
+        return []
+    return [t for t in ((p.payload or {}).get("contenu") for p in res.points) if t]
+
+
 def questions_des_reponses(db: Session, reponses: list[Reponse]) -> dict[uuid.UUID, str]:
     """La question à laquelle chaque réponse répond. Public: confrontation.py builds its candidates from a"""
     ids = {r.ticket_id for r in reponses if r.ticket_id is not None}
     tickets = {t.id: t.question for t in db.query(Ticket).filter(Ticket.id.in_(ids)).all()} if ids else {}
-    return {r.id: r.question_suivi or tickets.get(r.ticket_id, "") for r in reponses}
+    return {r.id: r.question_autonome or r.question_suivi or tickets.get(r.ticket_id, "") for r in reponses}

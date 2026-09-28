@@ -23,6 +23,8 @@ class Reponse(Base):
     correction_suggeree = Column(Text, nullable=True)
     passages_pertinents = Column(JSON, nullable=True)  # {"ajoutes": [...], "retires": [...]} ou null
     question_suivi = Column(Text, nullable=True)  # null pour la réponse à la question initiale
+    # follow-up rewritten as a self-contained question — what gets indexed (services/reformulation.py)
+    question_autonome = Column(Text, nullable=True)
     chunks = relationship("ReponseChunk", back_populates="reponse")
     score_similarite = Column(Float, nullable=True)
     validator_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
