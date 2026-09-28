@@ -48,10 +48,21 @@ def upsert_reponse(
     nouveau: bool = False,
     tag: str | None = None,
 ) -> Reponse:
+    # Only the initial question's draft may be overwritten — a validated answer or a follow-up turn never is
+    # (re-processing used to overwrite the validated answer's contenu, left VALIDÉE: unreviewed text served).
     reponse = (
         None
         if nouveau
-        else (db.query(Reponse).filter(Reponse.ticket_id == ticket.id, Reponse.obsolete.is_(False)).first())
+        else (
+            db.query(Reponse)
+            .filter(
+                Reponse.ticket_id == ticket.id,
+                Reponse.obsolete.is_(False),
+                Reponse.statut == "EN_ATTENTE",
+                Reponse.question_suivi.is_(None),
+            )
+            .first()
+        )
     )
     if reponse is None:
         reponse = Reponse(

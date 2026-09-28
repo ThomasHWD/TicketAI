@@ -412,6 +412,19 @@ class TestReponsesObsoletes:
 
         assert touchees == {source.id, copie.id}
 
+    def test_suppression_retire_et_rend_les_brouillons_des_copies(self, scenario, _qdrant_muet):
+        """Une copie SUGGESTION en attente ne cite rien : ni `reponses_obsoletes` (statut)
+        ni `perimer_en_attente` (citation) ne la voyaient. Elle restait validable sur un
+        document supprimé, et son ticket n'était jamais renvoyé au pipeline."""
+        source = scenario(chunks=[1], canonique=True)
+        brouillon = scenario(source=source, statut="EN_ATTENTE")
+
+        _, a_renvoyer = marquer_obsoletes(scenario.db, scenario.doc_id, "DOC_SUPPRIMÉ")
+
+        scenario.db.refresh(brouillon)
+        assert brouillon.obsolete is True
+        assert [r.id for r in a_renvoyer] == [brouillon.id]
+
     def test_transitif_profondeur_2(self, scenario):
         """A ← B ← C : `corriger_reponse` réindexe la copie, une copie peut donc
         être à son tour source."""

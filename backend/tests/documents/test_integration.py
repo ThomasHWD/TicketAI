@@ -226,6 +226,7 @@ class TestChaineComplete:
             "version": 2,
             "domaine": "RH",
             "indices_disparus": [0],
+            "version_sortante": 1,
         }
 
     def test_reformatage_ne_rend_rien_obsolete(self, client, db_reelle, staging_tmp, job_maj_reel):

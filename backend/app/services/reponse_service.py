@@ -53,6 +53,9 @@ def verifier_etat_initial(reponse: Reponse) -> None:
             409,
             f"Réponse déjà traitée (statut={reponse.statut}). Seules les réponses EN_ATTENTE peuvent être traitées.",
         )
+    if reponse.obsolete:
+        # withdrawn draft (source contradicted, document removed) — validating it would serve a judged-false answer
+        raise HTTPException(409, "Réponse retirée du service : elle ne peut plus être traitée.")
 
 
 def verifier_auto_validation(reponse: Reponse, validator_id: uuid.UUID, ticket: Ticket) -> None:

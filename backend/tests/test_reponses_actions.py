@@ -150,6 +150,20 @@ def test_valider_etat_final_renvoie_409(client, db_session, validator, auth_head
     assert resp.status_code == 409
 
 
+def test_brouillon_retire_ni_liste_ni_validable(client, db_session, validator, auth_header):
+    """Un brouillon retiré (source contredite) reste EN_ATTENTE : sans filtre, la file
+    le proposait et le valider servait une réponse jugée fausse."""
+    _, reponse = seed_ticket_reponse(db_session)
+    reponse.obsolete = True
+    db_session.commit()
+
+    file = client.get(f"{API}/reponses/en-attente", headers=auth_header(validator))
+    resp = client.post(f"{API}/reponses/{reponse.id}/valider", headers=auth_header(validator))
+
+    assert str(reponse.id) not in [r["reponse_id"] for r in file.json()]
+    assert resp.status_code == 409
+
+
 def test_valider_auto_validation_renvoie_403(client, db_session, auth_header):
     from app.models.groupe import Groupe
 
@@ -239,13 +253,23 @@ def test_corriger_transition(client, db_session, validator, auth_header):
     assert reloaded.contenu_corrige == "Texte corrigé"
 
 
-def test_corriger_suggestion_propage_correction_au_canonique(client, db_session, validator, auth_header):
-    """Corriger une SUGGESTION doit mettre à jour contenu_corrige sur toute la chaîne source,
-    sinon le canonique (prioritaire dans le ranking) continue de servir l'ancien texte."""
+@pytest.mark.parametrize("verdict_enregistre, propagee", [(True, True), (False, False), (None, False)])
+def test_corriger_suggestion_ne_propage_que_si_le_juge_a_dit_oui(
+    client, db_session, validator, auth_header, verdict_enregistre, propagee
+):
+    """Correction de détail sur la même question (juge OUI) : la canonique en profite.
+    SUGGESTION servie sans verdict favorable (panne Albert, refus) : elle peut être un cas
+    spécifique d'une générale — la réécrire servirait la réponse spécifique à tous."""
+    from app.models.garde_decision import GardeDecision
     from app.models.reponse import Reponse
 
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
-    _, copie = seed_ticket_reponse(db_session, reponse_source_id=source.id)
+    ticket, copie = seed_ticket_reponse(db_session, reponse_source_id=source.id)
+    if verdict_enregistre is not None:
+        db_session.add(GardeDecision(job_id=ticket.job_id, question_posee="q", question_indexee="q",
+                                     reponse_id=source.id, verdict=verdict_enregistre,
+                                     erreur=None if verdict_enregistre else "timeout"))
+        db_session.commit()
 
     resp = client.put(
         f"{API}/reponses/{copie.id}/corriger",
@@ -255,8 +279,8 @@ def test_corriger_suggestion_propage_correction_au_canonique(client, db_session,
 
     assert resp.status_code == 200
     db_session.expire_all()
-    source_après = db_session.get(Reponse, source.id)
-    assert source_après.contenu_corrige == "Texte corrigé"
+    assert (db_session.get(Reponse, source.id).contenu_corrige == "Texte corrigé") is propagee
+    assert db_session.get(Reponse, copie.id).contenu_corrige == "Texte corrigé"
 
 
 def test_corriger_contenu_vide_renvoie_400(client, db_session, validator, auth_header):
