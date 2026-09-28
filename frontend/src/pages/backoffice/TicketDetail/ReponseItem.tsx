@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { AlertCircle, Bot, Check, Sparkles, Archive } from "lucide-react";
+import { AlertCircle, AlertTriangle, Bot, Check, Sparkles, Archive } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import UserAvatar from "../../../components/ui/UserAvatar";
 import { useReponseActions } from "../../../hooks/useReponseActions";
@@ -11,6 +11,7 @@ import { getTags } from "../../../lib/api";
 import type { TicketReponse, StatutReponse } from "../../../types";
 import { formatDate, BotAvatar } from "./utils";
 import { renderMarkdown } from "../../../components/ticket/utils";
+import { RAISONS } from "../SavedAnswers/utils";
 
 const SOURCE_LABEL: Record<string, { label: string; icon: typeof Bot }> = {
   SUGGESTION:   { label: "Suggestion",   icon: Sparkles },
@@ -138,6 +139,20 @@ export default function ReponseItem({
             Réutilise une réponse validée antérieure — vérifiez qu'elle s'applique à ce cas.
           </p>
         )}
+        {isPending && reponse.source_a_relire && (
+          <div role="note" className="flex items-start gap-1.5 text-xs leading-relaxed text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-lg px-3 py-2">
+            <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>
+              La réponse réutilisée est signalée à relire suite à un changement de document
+              {reponse.source_analyse_justification
+                ? ` : ${reponse.source_analyse_justification}`
+                : reponse.source_a_relire_raison && reponse.source_a_relire_raison in RAISONS
+                  ? ` : ${RAISONS[reponse.source_a_relire_raison as keyof typeof RAISONS]}`
+                  : "."}
+              {" "}Vérifiez-la contre le document avant de valider.
+            </span>
+          </div>
+        )}
         {isPending && isRag && (
           <p className="text-xs text-amber-600/80 dark:text-amber-400/80 -mt-1">
             Générée par l'IA à partir des documents — relisez attentivement avant de valider.
@@ -168,7 +183,7 @@ export default function ReponseItem({
           </p>
         ) : (
           <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
-            {renderMarkdown(reponse.contenu_corrige ?? reponse.contenu)}
+            {renderMarkdown(reponse.contenu_corrige ?? reponse.contenu ?? "")}
           </p>
         )}
 
