@@ -86,8 +86,11 @@ def retry_ticket(ticket_id: UUID, _: AdminUser, db: DB):
 
     from app.workers.question import question_job
 
+    # Same call as the hourly replay: without retraiter the job took ticket_id for a follow-up — the question was
+    # stored as the employee's own précision (ghost SUIVI in the timeline), and without user_id nobody was notified.
     question_job.apply_async(
-        kwargs={"ticket_id": str(ticket.id), "question": ticket.question, "domaine": ticket.domaine},
+        args=[ticket.question, ticket.domaine, str(ticket.user_id) if ticket.user_id else None],
+        kwargs={"ticket_id": str(ticket.id), "objet": ticket.objet, "retraiter": True},
         task_id=str(new_job_id),
         queue="queue_questions",
     )

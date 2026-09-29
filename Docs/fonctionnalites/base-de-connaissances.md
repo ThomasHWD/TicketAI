@@ -215,13 +215,16 @@ réponse basée sur ce document peuvent toujours la retrouver dans leurs tickets
 ### Comment ça fonctionne
 
 Cliquez l'icône de suppression sur la ligne du document. Une fenêtre de confirmation
-s'affiche, listant le nombre de réponses qui seront marquées obsolètes. Confirmez pour
-lancer la suppression.
+rappelle ce qui sera effacé et ce qu'il advient des réponses. Confirmez pour lancer la
+suppression.
 
-La suppression est **plus brutale qu'une mise à jour** : elle ne passe pas par le juge LLM.
-Un document supprimé signifie que ce qu'il disait n'a plus de source, donc toute réponse
-qui s'appuyait dessus est retirée du service. Ces réponses restent restaurables depuis
-l'onglet *Obsolètes*.
+Un document supprimé signifie que ce qu'il disait n'a plus de source : toute réponse
+construite avec lui est **retirée du service immédiatement**. Mais une réponse retient
+comme sources les cinq passages de son contexte, qu'elle s'en soit servie ou non — un
+document sans rapport peut donc en faire partie. Juste après la suppression, chaque
+réponse retirée est réexaminée : si ses autres sources, toujours en vigueur, contiennent
+explicitement chacune de ses informations, elle est remise en service. Sinon elle reste
+dans l'onglet *Obsolètes*, avec le motif, et reste restaurable à la main.
 
 ### Détails techniques
 
@@ -236,6 +239,23 @@ Endpoint : `DELETE /documents/{doc_id}` — suppression **douce** :
 Les réponses **citant** ce document sont marquées obsolètes (`DOC_SUPPRIMÉ`). Les réponses
 encore `EN_ATTENTE` qui en dépendaient sont **remises dans le pipeline RAG** pour ne pas
 rester bloquées sur un document qui n'existe plus.
+
+Le réexamen (`reexamen_retrait_job`, `queue_questions`, `services/retrait.py`) ne peut que
+**remettre en service** — jamais retirer davantage :
+
+| Cas | Issue | Appel LLM |
+|---|---|---|
+| Le document supprimé était la source principale (meilleur `rerank_score`) | reste retirée | aucun |
+| Aucune autre source encore en vigueur | reste retirée | aucun |
+| Famille déjà signalée *À relire* avant la suppression | jamais réexaminée | aucun |
+| Juge : `SOUTENUE` (chaque information figure dans les passages restants) | remise en service, points d'origine réindexés | 1 |
+| Juge : `DEPENDANTE`, `INCERTAIN`, sortie illisible ou Albert en panne | reste retirée, motif affiché | 1 |
+
+Au plus 100 jugements par suppression (`MAX_REEXAMENS`) ; au-delà, les réponses restent
+retirées. Les passages supprimés et restants sont lus **avant** l'effacement des points
+Qdrant. Une source restante mise à jour depuis la réponse est lue dans sa version actuelle
+(la réponse a survécu à sa ré-vérification). Juge mesuré le 29/09/2026 : 15/15 sur 5 cas
+× 3 passes, dont l'exception présente dans le seul document supprimé → `DEPENDANTE`.
 
 ---
 
