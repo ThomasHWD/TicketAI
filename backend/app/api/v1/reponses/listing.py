@@ -24,7 +24,8 @@ async def lister_reponses_en_attente(
         query = (
             db.query(Reponse, Ticket)
             .join(Ticket, Ticket.id == Reponse.ticket_id)
-            .filter(Reponse.statut == "EN_ATTENTE")
+            # obsolete drafts judged contradicted stay EN_ATTENTE — listing them offered them for validation.
+            .filter(Reponse.statut == "EN_ATTENTE", Reponse.obsolete.is_(False))
         )
 
         if domaine:
@@ -108,7 +109,7 @@ async def lister_reponses_canoniques(
                 {
                     "reponse_id": str(r.id),
                     "ticket_id": str(r.ticket_id),
-                    "question": r.question_suivi or t.question,
+                    "question": r.question_autonome or r.question_suivi or t.question,
                     "domaine": t.domaine,
                     "contenu": r.contenu,
                     "contenu_corrige": r.contenu_corrige,
@@ -172,7 +173,7 @@ async def lister_reponses_obsoletes(
                 {
                     "reponse_id": str(r.id),
                     "ticket_id": str(r.ticket_id),
-                    "question": r.question_suivi or t.question,
+                    "question": r.question_autonome or r.question_suivi or t.question,
                     "domaine": t.domaine,
                     "contenu": r.contenu,
                     "contenu_corrige": r.contenu_corrige,
@@ -255,7 +256,7 @@ async def lister_reponses_a_relire(
                 {
                     "reponse_id": str(r.id),
                     "ticket_id": str(r.ticket_id),
-                    "question": r.question_suivi or t.question,
+                    "question": r.question_autonome or r.question_suivi or t.question,
                     "domaine": t.domaine,
                     "contenu": r.contenu,
                     "contenu_corrige": r.contenu_corrige,

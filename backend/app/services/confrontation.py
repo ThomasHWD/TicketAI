@@ -152,7 +152,7 @@ def contexte_source(db: Session, reponse: Reponse) -> list[str]:
     """Passages sur lesquels la réponse a été construite (version courante). Lets the judge distinguish false from"""
     try:
         lignes = (
-            db.query(ReponseChunk.doc_id, ReponseChunk.chunk_index)
+            db.query(ReponseChunk.doc_id, ReponseChunk.version, ReponseChunk.chunk_index)
             .filter(ReponseChunk.reponse_id.in_(_lignee(db, reponse)))
             .order_by(ReponseChunk.rerank_score.desc().nullslast())
             .limit(MAX_EXTRAITS_SOURCE)
@@ -162,21 +162,24 @@ def contexte_source(db: Session, reponse: Reponse) -> list[str]:
         logger.warning("contexte source illisible pour %s (%s)", reponse.id, exc)
         return []
 
-    par_document: dict[str, set[int]] = {}
-    for doc_id, chunk_index in lignes:
-        par_document.setdefault(doc_id, set()).add(chunk_index)
+    # grouped by version: after an update the same index names another passage — a cited version no longer in
+    # Qdrant yields nothing rather than the wrong text. NULL (legacy row) = unknown version, read by index.
+    par_document: dict[tuple[str, int | None], set[int]] = {}
+    for doc_id, version, chunk_index in lignes:
+        par_document.setdefault((doc_id, version), set()).add(chunk_index)
 
     textes: list[str] = []
-    for doc_id, indices in par_document.items():
+    for (doc_id, version), indices in par_document.items():
+        conditions = [
+            FieldCondition(key="doc_id", match=MatchValue(value=doc_id)),
+            FieldCondition(key="chunk_index", match=MatchAny(any=sorted(indices))),
+        ]
+        if version is not None:
+            conditions.append(FieldCondition(key="version", match=MatchValue(value=version)))
         try:
             points, _ = client.scroll(
                 collection_name=COLLECTION_NAME,
-                scroll_filter=Filter(
-                    must=[
-                        FieldCondition(key="doc_id", match=MatchValue(value=doc_id)),
-                        FieldCondition(key="chunk_index", match=MatchAny(any=sorted(indices))),
-                    ]
-                ),
+                scroll_filter=Filter(must=conditions),
                 with_payload=["contenu"],
                 with_vectors=False,
                 limit=len(indices),

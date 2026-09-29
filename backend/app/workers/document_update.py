@@ -267,7 +267,9 @@ def document_update_job(
             },
         )
 
-        if nb_a_analyser:
+        # Enqueued whenever something changed, not only when a response cites the document: a change can contradict
+        # a canonical built on another document, or written by hand — only the neighbour search reaches those.
+        if changements is not None and changements["nb_unites"]:
             from app.workers.reverification import reverification_job  # noqa: PLC0415 — anti-circulaire
 
             reverification_job.apply_async(
@@ -276,6 +278,8 @@ def document_update_job(
                     "version": new_version,
                     "domaine": domaine,
                     "indices_disparus": sorted(indices),
+                    # the version those indices belong to — None on jobs enqueued before this field existed
+                    "version_sortante": ancienne_version,
                 },
                 queue="queue_questions",
             )

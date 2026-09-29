@@ -20,7 +20,7 @@ from app.services.obsolescence import (
     RAISON_PARTIELLE,
     fermeture_copies,
     racines,
-    retirer_du_service,
+    retirer_et_requeuer,
 )
 from app.services.reverification import (
     ACTION_A_RELIRE,
@@ -150,7 +150,7 @@ def confrontation_job(
                     Reponse.obsolete.is_(False),
                 ).all()
                 logger.info("famille HORS_DOMAINE : %d réponse(s) à retirer", len(famille))
-                retirer_du_service(db, famille, RAISON_NOUVEAU_DOC, doc_id, version)
+                retirer_et_requeuer(db, famille, RAISON_NOUVEAU_DOC, doc_id, version)
                 comptes[ACTION_RETIREE] += 1
                 continue
 

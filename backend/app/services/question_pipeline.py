@@ -15,6 +15,7 @@ from app.models.ticket import Ticket
 from app.services.broadcast import broadcast_sync
 from app.services.garde_cache import Decision
 from app.services.search import franchit_le_rappel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -86,14 +87,25 @@ def charger_contexte_fil(ticket_id: uuid.UUID, precision: str) -> tuple[list[dic
         if ticket is None:
             return [], precision
 
-        reponses = db.query(Reponse).filter(Reponse.ticket_id == ticket_id).order_by(Reponse.created_at.asc()).all()
+        # Obsolete turns skipped: a withdrawn answer must not seed generation, and a re-processed follow-up's
+        # obsolete draft would otherwise put its own question in the thread twice.
+        reponses = (
+            db.query(Reponse)
+            .filter(Reponse.ticket_id == ticket_id, Reponse.obsolete.is_(False))
+            .order_by(Reponse.created_at.asc())
+            .all()
+        )
 
         historique: list[dict] = []
         questions_utilisateur: list[str] = [ticket.question]
         premier = True
         for r in reponses:
             if premier:
-                historique.append({"role": "user", "content": ticket.question})
+                ouverture = ticket.question
+                if r.question_suivi:  # initial turn withdrawn — first surviving turn is a follow-up
+                    ouverture += "\n" + r.question_suivi
+                    questions_utilisateur.append(r.question_suivi)
+                historique.append({"role": "user", "content": ouverture})
                 premier = False
             elif r.question_suivi:
                 historique.append({"role": "user", "content": r.question_suivi})
@@ -105,6 +117,23 @@ def charger_contexte_fil(ticket_id: uuid.UUID, precision: str) -> tuple[list[dic
         return historique, requete_recherche
     finally:
         db.close()
+
+
+def question_du_point_fiable(db: Session, reponse: Reponse, question_indexee: str) -> bool:
+    """False for a follow-up point written before reformulation — indexed under its bare text (« et pour un
+    apprenti ? »), the judge compares a thread to an identical context-free question — not a judgeable pair (it
+    held NON 3/3 on one measured case, which proves nothing general). Checked on the response and its copies (alias
+    points carry the copy's question). scripts/reindexer_suivis.py rewrites them."""
+    tours = (
+        db.query(Reponse.question_autonome)
+        .filter(
+            or_(Reponse.id == reponse.id, Reponse.reponse_source_id == reponse.id),
+            Reponse.question_suivi == question_indexee,
+        )
+        .all()
+    )
+    # a follow-up already self-contained is rewritten verbatim — its stored rewrite vouches for the point
+    return all(t.question_autonome == question_indexee for t in tours)
 
 
 class Candidat(NamedTuple):

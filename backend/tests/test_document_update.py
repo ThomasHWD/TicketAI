@@ -374,6 +374,17 @@ class TestMiseSousAnalyse:
         assert kwargs["indices_disparus"] == [0]  # le 1er paragraphe a été réécrit
         assert scenario_maj.enfilees[0]["queue"] == "queue_questions"
 
+    def test_modification_sans_citante_enfile_quand_meme(self, scenario_maj):
+        """Aucune réponse ne cite le document, mais le changement peut contredire une
+        canonique bâtie sur un autre document ou écrite à la main : seule la recherche
+        de voisines, dans la ré-vérification, les atteint."""
+        from app.workers.document_update import document_update_job
+
+        resultat = document_update_job(**scenario_maj.kwargs)
+
+        assert resultat["nb_a_analyser"] == 0
+        assert len(scenario_maj.enfilees) == 1
+
     def test_reponse_sur_passage_intact_part_aussi_en_analyse(self, scenario_maj):
         """Le correctif du défaut n° 2 : le périmètre est le document entier.
 

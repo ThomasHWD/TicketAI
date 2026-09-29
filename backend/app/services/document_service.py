@@ -229,7 +229,7 @@ def stager_et_analyser(
     nb_en_attente = compter_en_attente(db, doc.doc_id)
     changements = analyser_sortante(doc, nouveau_texte)
 
-    prioritaires = racines(reponses_obsoletes(db, doc.doc_id, indices))
+    prioritaires = racines(reponses_obsoletes(db, doc.doc_id, indices, version=doc.version))
     a_analyser = (
         racines(reponses_obsoletes(db, doc.doc_id, None))
         if changements is not None and changements["nb_unites"]
@@ -265,7 +265,7 @@ def stager_et_analyser(
         "nb_prioritaires": len(prioritaires),
         "nb_a_analyser": len(a_analyser),
         "nb_canoniques": sum(1 for r in a_analyser if r.canonique),
-        "items": [item_impact(db, r, doc.doc_id, indices, anciens) for r in prioritaires],
+        "items": [item_impact(db, r, doc.doc_id, indices, anciens, doc.version) for r in prioritaires],
         "a_analyser": items_a_analyser(db, a_analyser)[:MAX_A_RELIRE],
         **(changements or MUET),
     }

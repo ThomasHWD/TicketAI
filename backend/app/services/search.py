@@ -94,6 +94,7 @@ def reciprocal_rank_fusion(
             "domaine": payloads[pid].get("domaine"),
             "doc_id": payloads[pid].get("doc_id"),
             "chunk_index": payloads[pid].get("chunk_index"),
+            "version": payloads[pid].get("version"),
             "reponse_id": payloads[pid].get("reponse_id"),
             # indexed question for this point — a response has one point per validated formulation; guard must judge
             "question_indexee": payloads[pid].get("question_indexee"),

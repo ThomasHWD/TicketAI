@@ -458,6 +458,29 @@ class TestDecider:
         assert copie.obsolete is True
         assert str(copie.id) in famille.retires
 
+    @pytest.mark.parametrize("question_suivi", [None, "Et pour un apprenti ?"])
+    def test_la_copie_en_attente_retiree_repart_au_pipeline_sous_sa_question(
+        self, famille, monkeypatch, question_suivi
+    ):
+        """Retirée sans renvoi, la SUGGESTION en attente disparaît du fil (obsolète non
+        validée) et le ticket reste RÉPONDU sans réponse. Une précision doit repartir en
+        mode suivi — sous la question initiale, elle écrasait la réponse initiale."""
+        import app.workers.question as q
+
+        envois = []
+        monkeypatch.setattr(q.question_job, "delay", lambda **kw: envois.append(kw))
+        graine = famille(canonique=True)
+        copie = famille(cite=False, source=graine)
+        copie.statut, copie.question_suivi = "EN_ATTENTE", question_suivi
+        famille.db.commit()
+
+        decider(famille.db, _candidate(graine, citante=True), VERDICT_CONTREDITE, "Contredite.", [UNITE],
+                famille.doc_id, 2)
+
+        assert [(e["ticket_id"], e["question"], e["retraiter"]) for e in envois] == [
+            (str(copie.ticket_id), question_suivi or "Combien de jours de teletravail ?", question_suivi is None)
+        ]
+
     def test_signaler_sans_juger_marque_toute_la_famille(self, famille):
         graine = famille()
         copie = famille(cite=False, source=graine)
@@ -478,3 +501,36 @@ class TestDecider:
         assert graine.a_relire_raison == "ANALYSE_INDISPONIBLE"
         assert graine.obsolete is False, "une panne ne détruit jamais"
         assert famille.retires == []
+
+
+@pytest.mark.integration
+def test_une_canonique_corrigee_a_la_main_est_atteinte_par_les_voisines(famille, monkeypatch):
+    """Une HORS_DOMAINE corrigée à la main ne cite aucun chunk : les voisines sont son
+    seul chemin vers la ré-vérification, et elles excluaient `CORRIGÉE`."""
+    from types import SimpleNamespace
+
+    import app.services.reverification_candidates as candidates
+
+    r = famille(cite=False, canonique=True, nb_validations=3)
+    r.statut, r.source = "CORRIGÉE", "HORS_DOMAINE"
+    famille.db.commit()
+    monkeypatch.setattr(candidates, "embed_texts", lambda textes, is_query: [{"dense": [0.1]}])
+    point = SimpleNamespace(score=0.9, payload={"reponse_id": str(r.id)})
+    monkeypatch.setattr(candidates.client, "query_points", lambda **kw: SimpleNamespace(points=[point]))
+
+    assert [v.id for v in candidates._voisines(famille.db, "RH", [UNITE])] == [r.id]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("version_citee, rapprochee", [(1, False), (2, True), (None, True)])
+def test_un_index_ne_rapproche_que_les_citations_de_sa_version(famille, version_citee, rapprochee):
+    """Après une mise à jour, l'index 0 désigne un autre passage : rapprocher une citation de
+    la v1 des indices modifiés de la v2 accusait une réponse d'un texte qu'elle n'a jamais lu.
+    Version inconnue (ligne héritée) : rapprochée comme avant, faute de mieux."""
+    from app.services.obsolescence import reponses_obsoletes
+
+    r = famille(cite=False)
+    famille.db.add(ReponseChunk(reponse_id=r.id, doc_id=famille.doc_id, chunk_index=0, version=version_citee))
+    famille.db.commit()
+
+    assert (r in reponses_obsoletes(famille.db, famille.doc_id, {0}, version=2)) is rapprochee
