@@ -70,6 +70,7 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
     cel_beat = ServiceStatus(status="error", detail="Beat non démarré")
     try:
         from app.workers.auto_cloture import BEAT_HEARTBEAT_KEY, BEAT_STARTED_KEY
+
         r_beat = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=2)
         if r_beat.get(BEAT_HEARTBEAT_KEY):
             cel_beat = ServiceStatus(status="ok")
@@ -142,6 +143,58 @@ def get_health(_: AdminUser, db: DB) -> HealthResponse:
     )
 
 
+def _modeles_configures() -> set[str]:
+    return {
+        m
+        for m in (
+            settings.albert_llm_model_name,
+            settings.albert_garde_model_name,
+            settings.albert_reverif_model_name,
+            settings.albert_tag_model_name,
+            settings.albert_contexte_model_name,
+            settings.albert_embeddings_model_name,
+            settings.albert_reranker_model_name,
+        )
+        if m
+    }
+
+
+def _usage_par_modele(base: str, headers: dict, debut: int, fin: int) -> list[AlbertModelUsage]:
+    """Today's usage of each model TicketAI calls. Albert's /me/usage now requires end_time and returns buckets
+    without a model field — the breakdown only exists through its `models` filter, which takes canonical ids,
+    not the aliases in our config (an alias returns an empty list). Measured 29/09/2026."""
+    try:
+        catalogue = httpx.get(f"{base}/models", headers=headers, timeout=5.0).json().get("data") or []
+    except Exception:
+        return []
+    canonique = {}
+    for m in catalogue:
+        for nom in [m.get("id"), *(m.get("aliases") or [])]:
+            if nom:
+                canonique[nom] = m["id"]
+    resultat = []
+    for modele in sorted({canonique.get(m, m) for m in _modeles_configures()}):
+        try:
+            r = httpx.get(
+                f"{base}/me/usage",
+                headers=headers,
+                params={"start_time": debut, "end_time": fin, "models": [modele], "limit": 100},
+                timeout=10.0,
+            )
+            r.raise_for_status()
+            seaux = r.json().get("data") or []
+        except Exception:
+            continue
+        resultat.append(
+            AlbertModelUsage(
+                nom=modele,
+                tokens_aujourd_hui=sum(b.get("prompt_tokens") or 0 for b in seaux),
+                requetes_aujourd_hui=sum(b.get("requests") or 0 for b in seaux),
+            )
+        )
+    return resultat
+
+
 @router.get("/albert-quotas", response_model=AlbertQuotasResponse)
 def get_albert_quotas(_: AdminUser) -> AlbertQuotasResponse:
     base = settings.albert_llm_url
@@ -157,27 +210,7 @@ def get_albert_quotas(_: AdminUser) -> AlbertQuotasResponse:
 
     now_utc = datetime.now(timezone.utc)
     start_of_today = int(datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc).timestamp())
-
-    usage_data: list = []
-    try:
-        PAGE = 100
-        offset = 0
-        while True:
-            r = httpx.get(
-                f"{base}/me/usage",
-                headers=headers,
-                params={"start_time": start_of_today, "limit": PAGE, "offset": offset},
-                timeout=10.0,
-            )
-            if not r.is_success:
-                break
-            page = r.json().get("data") or []
-            usage_data.extend(page)
-            if len(page) < PAGE:
-                break
-            offset += PAGE
-    except Exception:
-        pass
+    modeles = _usage_par_modele(base, headers, start_of_today, int(now_utc.timestamp()))
 
     limits_raw: list = info.get("limits") or []
     tpd_values = [lim["value"] for lim in limits_raw if lim.get("type") == "tpd" and lim.get("value") is not None]
@@ -185,29 +218,9 @@ def get_albert_quotas(_: AdminUser) -> AlbertQuotasResponse:
     limite_tpd: int | None = min(tpd_values) if tpd_values else None
     limite_rpd: int | None = min(rpd_values) if rpd_values else None
 
-    today = now_utc.date()
-    aggregated: dict[str, dict] = {}
-    for event in usage_data:
-        created = event.get("created") or 0
-        if datetime.fromtimestamp(created, tz=timezone.utc).date() != today:
-            continue
-        model = event.get("model") or "inconnu"
-        if model not in aggregated:
-            aggregated[model] = {"tokens": 0, "requests": 0}
-        usage_evt = event.get("usage") or {}
-        aggregated[model]["tokens"] += usage_evt.get("prompt_tokens") or 0
-        aggregated[model]["requests"] += 1
-
     return AlbertQuotasResponse(
         limite_tpd=limite_tpd,
         limite_rpd=limite_rpd,
         budget=info.get("budget"),
-        modeles=[
-            AlbertModelUsage(
-                nom=model,
-                tokens_aujourd_hui=data["tokens"],
-                requetes_aujourd_hui=data["requests"],
-            )
-            for model, data in sorted(aggregated.items())
-        ],
+        modeles=modeles,
     )
