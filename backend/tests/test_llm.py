@@ -6,6 +6,7 @@ Mockent ``httpx.post`` → pas d'appel réseau, pas d'infra requise.
 from unittest.mock import MagicMock
 
 import app.services.llm as llm
+import pytest
 
 CHUNK = {"source": "doc.md", "rerank_score": 0.5, "contenu": "Extrait"}
 
@@ -93,3 +94,19 @@ def test_generate_montre_le_chunk_avec_son_locateur(monkeypatch):
     contexte = post.call_args.kwargs["json"]["messages"][-1]["content"]
     assert "locateur\n\nbrut A" in contexte
     assert "brut B" in contexte
+
+
+@pytest.mark.parametrize(
+    "brut, texte, hors_domaine",
+    [
+        ("[HORS_DOMAINE] Rien sur ce sujet.", "Rien sur ce sujet.", True),
+        ("  **[HORS_DOMAINE]** Rien sur ce sujet.", "Rien sur ce sujet.", True),  # `startswith` le ratait
+        ("« [HORS_DOMAINE] » : Rien sur ce sujet.", "Rien sur ce sujet.", True),
+        ("Le préavis est d'un mois. [HORS_DOMAINE]", "Le préavis est d'un mois.", False),  # jamais montré brut
+        ("Le préavis est d'un mois.", "Le préavis est d'un mois.", False),
+    ],
+)
+def test_lire_marqueur(brut, texte, hors_domaine):
+    from app.services.llm import lire_marqueur
+
+    assert lire_marqueur(brut) == (texte, hors_domaine)

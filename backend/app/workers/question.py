@@ -20,6 +20,7 @@ from app.services.question_pipeline import (
     question_du_point_fiable,
     servir_reutilisation,
     ticket_existe,
+    trouver_candidats,
     trouver_reponse_reutilisable,
 )
 from app.services.reranker import rerank
@@ -36,6 +37,21 @@ _upsert_ticket = upsert_ticket
 _ticket_existe = ticket_existe
 _trouver_reponse_reutilisable = trouver_reponse_reutilisable
 _servir_reutilisation = servir_reutilisation
+
+
+def _question_a_juger(db, reponse, question_du_point: str | None) -> tuple[str | None, bool]:
+    """(question indexed for this point, known unjudgeable). A response has one point per validated formulation.
+    A follow-up point with no context is known unreliable, not unknown: treated as a refusal. As SUGGESTION it handed
+    the reviewer the paternity answer to a bonus question (measured 28/09/2026)."""
+    if question_du_point and not question_du_point_fiable(db, reponse, question_du_point):
+        logger.warning("point de suivi indexé sans contexte (réponse %s) — non jugé", reponse.id)
+        return None, True
+    if question_du_point:
+        return question_du_point, False
+    if reponse.question_suivi:
+        return reponse.question_autonome, reponse.question_autonome is None
+    ticket_source = db.query(Ticket).filter(Ticket.id == reponse.ticket_id).first()
+    return (ticket_source.question if ticket_source else None), False
 
 
 def _on_failure_question_job(self, exc, task_id, args, kwargs, einfo):
@@ -115,101 +131,88 @@ def question_job(
 
         db = SessionLocal()
         try:
-            candidat = trouver_reponse_reutilisable(db, chunks)
-            reponse_liee, score_liee = candidat.reponse, candidat.score_cosinus
-            question_du_point = candidat.question_indexee
+            question_a_comparer = requete_recherche if est_suivi else question
+            candidats = trouver_candidats(db, chunks)
+            for rang, candidat in enumerate(candidats, 1):
+                reponse_liee, score_liee = candidat.reponse, candidat.score_cosinus
+                logger.info("candidat %d : score %.4f → réponse validée %s", rang, score_liee, reponse_liee.id)
 
-            if reponse_liee is not None:
-                logger.info("score %.4f → réponse validée %s", score_liee, reponse_liee.id)
+                # Guard called whenever its verdict changes the outcome — judged NON → next candidate, then RAG.
+                if not (peut_servir_sans_revue(reponse_liee) or candidat.servable):
+                    # Lexical-only non-canonical → never served whatever the verdict: the only call worth skipping.
+                    logger.info("candidat lexical seul, non canonique → suivant (juge inutile)")
+                    continue
 
-                # Guard called whenever its verdict changes the outcome — judged NON → RAG; Albert unreachable
-                if peut_servir_sans_revue(reponse_liee) or candidat.servable:
-                    # indexed question for this point — a response has one point per validated formulation.
-                    question_indexee = question_du_point
-                    # A follow-up point with no context is known unreliable, not unknown: treated as a refusal (RAG).
-                    # As SUGGESTION it handed the reviewer the paternity answer to a bonus question (measured).
-                    non_jugeable = False
-                    if question_indexee and not question_du_point_fiable(db, reponse_liee, question_indexee):
-                        logger.warning("point de suivi indexé sans contexte (réponse %s) — RAG", reponse_liee.id)
-                        question_indexee, non_jugeable = None, True
-                    elif not question_indexee:
-                        if reponse_liee.question_suivi:
-                            question_indexee = reponse_liee.question_autonome
-                            non_jugeable = question_indexee is None
-                        else:
-                            ticket_source = db.query(Ticket).filter(Ticket.id == reponse_liee.ticket_id).first()
-                            question_indexee = ticket_source.question if ticket_source else None
-                    question_a_comparer = requete_recherche if est_suivi else question
+                question_indexee, non_jugeable = _question_a_juger(db, reponse_liee, candidat.question_indexee)
+                decision = None
+                if question_indexee:
+                    decision = statuer(question_a_comparer, question_indexee, est_suivi=est_suivi)
+                    journaliser_garde(
+                        decision,
+                        job_id=job_id,
+                        ticket_id=ticket_uuid,
+                        domaine=domaine,
+                        est_suivi=est_suivi,
+                        question_posee=question_a_comparer,
+                        question_indexee=question_indexee,
+                        reponse_id=reponse_liee.id,
+                        score_cosinus=candidat.score_cosinus,
+                        score_lexical=candidat.score_lexical,
+                    )
+                approuve = decision is not None and decision.verdict
 
-                    decision = None
-                    if question_indexee:
-                        decision = statuer(question_a_comparer, question_indexee, est_suivi=est_suivi)
-                        journaliser_garde(
-                            decision,
-                            job_id=job_id,
-                            ticket_id=ticket_uuid,
-                            domaine=domaine,
-                            est_suivi=est_suivi,
-                            question_posee=question_a_comparer,
-                            question_indexee=question_indexee,
-                            reponse_id=reponse_liee.id,
-                            score_cosinus=candidat.score_cosinus,
-                            score_lexical=candidat.score_lexical,
-                        )
+                # Each candidate served has its own OUI: a refusal of the first never lends anything to the second.
+                if approuve and peut_servir_sans_revue(reponse_liee):
+                    # OUI on a_relire → SUGGESTION (not CANONIQUE); servir_reutilisation checks it again.
+                    logger.info("garde : OUI → CANONIQUE si le seuil est franchi, sinon SUGGESTION")
+                    return servir_reutilisation(
+                        db,
+                        job_id,
+                        ticket_uuid,
+                        question,
+                        domaine,
+                        user_uuid,
+                        reponse_liee,
+                        score_liee,
+                        question_suivi,
+                        est_suivi,
+                        self.request.retries,
+                        True,
+                        objet,
+                        score_lexical=candidat.score_lexical or 0.0,
+                    )
 
-                    approuve = decision is not None and decision.verdict
+                # Judged refusal → next candidate, then RAG; Albert unreachable → SUGGESTION. Network failure must not
+                # decide a branch — nor buy more calls: an unreachable judge stops the search.
+                refus_juge = non_jugeable or (decision is not None and not approuve and not decision.erreur)
+                if refus_juge:
+                    logger.info("garde : NON → candidat suivant, sinon RAG")
+                    continue
 
-                    if approuve and peut_servir_sans_revue(reponse_liee):
-                        # OUI on a_relire → SUGGESTION (not CANONIQUE); servir_reutilisation checks it again.
-                        logger.info("garde : OUI → CANONIQUE si le seuil est franchi, sinon SUGGESTION")
-                        return servir_reutilisation(
-                            db,
-                            job_id,
-                            ticket_uuid,
-                            question,
-                            domaine,
-                            user_uuid,
-                            reponse_liee,
-                            score_liee,
-                            question_suivi,
-                            est_suivi,
-                            self.request.retries,
-                            True,
-                            objet,
-                            score_lexical=candidat.score_lexical or 0.0,
-                        )
-
-                    # Judged refusal → RAG; Albert unreachable → SUGGESTION. Network failure must not decide a branch.
-                    refus_juge = non_jugeable or (decision is not None and not approuve and not decision.erreur)
-
-                    if not refus_juge and candidat.servable:
-                        logger.info(
-                            "garde → SUGGESTION (revue humaine) : %s",
-                            "OUI, mais réponse signalée a_relire ou non canonique"
-                            if approuve
-                            else (decision.erreur if decision else "aucune question indexée"),
-                        )
-                        return servir_reutilisation(
-                            db,
-                            job_id,
-                            ticket_uuid,
-                            question,
-                            domaine,
-                            user_uuid,
-                            reponse_liee,
-                            score_liee,
-                            question_suivi,
-                            est_suivi,
-                            self.request.retries,
-                            False,
-                            objet,
-                            score_lexical=candidat.score_lexical or 0.0,
-                        )
-                    logger.info("garde : NON → RAG (génération sur la question posée)")
-                else:
-                    # Lexical-only non-canonical → RAG whatever the verdict; only case where skipping the call is
-                    logger.info("candidat lexical seul, non canonique → RAG (juge inutile)")
-
+                if candidat.servable:
+                    logger.info(
+                        "garde → SUGGESTION (revue humaine) : %s",
+                        "OUI, mais réponse signalée a_relire ou non canonique"
+                        if approuve
+                        else (decision.erreur if decision else "aucune question indexée"),
+                    )
+                    return servir_reutilisation(
+                        db,
+                        job_id,
+                        ticket_uuid,
+                        question,
+                        domaine,
+                        user_uuid,
+                        reponse_liee,
+                        score_liee,
+                        question_suivi,
+                        est_suivi,
+                        self.request.retries,
+                        False,
+                        objet,
+                        score_lexical=candidat.score_lexical or 0.0,
+                    )
+                break
         finally:
             db.close()
 

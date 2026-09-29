@@ -163,8 +163,13 @@ class Candidat(NamedTuple):
 AUCUN_CANDIDAT = Candidat(None, None, None, None)
 
 
-def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
-    """Find the best reusable VALIDÉE/CORRIGÉE response. Relevance first (RRF), status as tiebreaker"""
+# Judged candidates per question: the second one is only judged when the first is refused (judge NON or
+# unjudgeable point) or not eligible — one extra judge call at most, and only on that path.
+MAX_CANDIDATS_JUGES = 2
+
+
+def trouver_candidats(db: Session, chunks: list[dict], limite: int = MAX_CANDIDATS_JUGES) -> list[Candidat]:
+    """Reusable VALIDÉE/CORRIGÉE responses, best first. Relevance first (RRF), status as tiebreaker."""
     # single dict per reponse_id: dominant chunk (for question_indexee and lexical), max cosine (for servable).
     meilleur_par_reponse: dict[str, dict] = {}
     for c in chunks:
@@ -180,9 +185,9 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
             meilleur_par_reponse[rid]["_score_cosinus_max"] = cos
 
     if not meilleur_par_reponse:
-        return AUCUN_CANDIDAT
+        return []
 
-    candidats = (
+    reponses = (
         db.query(Reponse)
         .filter(
             Reponse.id.in_([uuid.UUID(r) for r in meilleur_par_reponse]),
@@ -192,27 +197,36 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
         )
         .all()
     )
-    if not candidats:
-        return AUCUN_CANDIDAT
 
     # Relevance first (RRF), status as tiebreaker — canonical general used to outrank specific validated at higher RRF.
-    reponse_liee = max(
-        candidats,
+    reponses.sort(
         key=lambda r: (
             meilleur_par_reponse[str(r.id)].get("score_rrf", 0.0),
             r.canonique,
             r.nb_validations,
             str(r.id),
         ),
+        reverse=True,
     )
-    point = meilleur_par_reponse[str(reponse_liee.id)]
-    return Candidat(
-        reponse_liee,
-        point.get("score_cosinus", 0.0),
-        point.get("score_lexical", 0.0),
-        point.get("question_indexee"),
-        point.get("_score_cosinus_max", point.get("score_cosinus", 0.0)),
-    )
+    candidats = []
+    for r in reponses[:limite]:
+        point = meilleur_par_reponse[str(r.id)]
+        candidats.append(
+            Candidat(
+                r,
+                point.get("score_cosinus", 0.0),
+                point.get("score_lexical", 0.0),
+                point.get("question_indexee"),
+                point.get("_score_cosinus_max", point.get("score_cosinus", 0.0)),
+            )
+        )
+    return candidats
+
+
+def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
+    """The best reusable response (first of `trouver_candidats`)."""
+    candidats = trouver_candidats(db, chunks, limite=1)
+    return candidats[0] if candidats else AUCUN_CANDIDAT
 
 
 def servir_reutilisation(
