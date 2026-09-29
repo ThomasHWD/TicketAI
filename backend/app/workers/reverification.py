@@ -31,6 +31,7 @@ from app.services.reverification import (
     passages_actuels,
     rassembler_candidates,
     signaler_sans_juger,
+    signaler_voisines,
     tracer,
     unites_pertinentes,
 )
@@ -44,6 +45,9 @@ MAX_ECHECS = 3
 JUSTIF_PANNE = "Le service d'analyse n'a pas répondu : la réponse n'est plus servie sans revue, à vérifier à la main."
 JUSTIF_PARTIELLE = "Budget d'analyse épuisé pour cette mise à jour : aucun verdict rendu sur cette réponse."
 JUSTIF_MASSIVE = "Document réécrit en profondeur : trop de changements pour juger réponse par réponse."
+JUSTIF_MASSIVE_VOISINE = (
+    "Document réécrit en profondeur, proche de cette réponse sans qu'elle le cite : à vérifier à la main."
+)
 
 
 def unites_figees(db, doc_id: str, version: int) -> list[Unite]:
@@ -136,7 +140,9 @@ def reverification_job(
             # rewritten not modified — no model call would discriminate.
             touchees = marquer_a_relire(db, doc_id, version, RAISON_MASSIVE)
             tracer(db, touchees, JUSTIF_MASSIVE, None)
-            nb = len(racines(touchees))
+            # a rewrite is exactly when a non-citing canonical gets contradicted — citing ones alone left it served
+            voisines = signaler_voisines(db, doc_id, version, domaine, RAISON_MASSIVE, JUSTIF_MASSIVE_VOISINE)
+            nb = len(racines(touchees + voisines))
             logger.info("%d unités (> %d) — %d réponse(s) en relecture, 0 appel LLM", len(unites), MAX_UNITES, nb)
             return publier_bilan(doc_id, version, domaine, {"nb_a_relire": nb})
 

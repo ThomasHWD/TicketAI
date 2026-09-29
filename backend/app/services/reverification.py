@@ -16,6 +16,7 @@ from app.services.reverification_candidates import (  # noqa: F401
     passages_actuels,
     questions_des_reponses,
     rassembler_candidates,
+    voisines_du_document,
 )
 from app.services.reverification_scoring import (  # noqa: F401
     MAX_UNITES_PAR_REPONSE,
@@ -51,6 +52,7 @@ __all__ = [
     "passages_actuels",
     "decider",
     "signaler_sans_juger",
+    "signaler_voisines",
     "tracer",
 ]
 
@@ -119,6 +121,18 @@ def signaler_sans_juger(
         tracer(db, famille, justification, None)
     db.commit()
     return len(candidates)
+
+
+def signaler_voisines(
+    db: Session, doc_id: str, version: int, domaine: str, raison: str, justification: str
+) -> list[Reponse]:
+    """Neighbours of a document with no judgeable diff go to human review. Only citing responses were flagged: a
+    canonical built on another document, or written by hand, stayed served unreviewed after a full rewrite. Never
+    over an existing flag — that response is not served unreviewed anyway, and keeps its motive."""
+    voisines = [r for r in voisines_du_document(db, doc_id, version, domaine) if not r.a_relire]
+    poser_a_relire(voisines, raison, doc_id, version)
+    tracer(db, voisines, justification, None)
+    return voisines
 
 
 def _famille(db: Session, reponse: Reponse) -> list[Reponse]:

@@ -124,14 +124,70 @@ def _voisines(db: Session, domaine: str, unites: list[Unite]) -> list[Reponse]:
                 except ValueError:
                     continue
 
-    if not trouves:
-        return []
+    return _servies(db, trouves)
 
+
+def voisines_du_document(db: Session, doc_id: str, version: int, domaine: str) -> list[Reponse]:
+    """Served domain responses whose question resembles a passage of this version, recalled from the passages' own
+    stored vectors — zero Albert calls. For updates with no judgeable diff (massive rewrite, unreadable outgoing
+    version), where `_voisines` has no change unit to start from. Raises on Qdrant failure: an empty recall would
+    read as « nothing to review »."""
+    passages = Filter(
+        must=[
+            FieldCondition(key="doc_id", match=MatchValue(value=doc_id)),
+            FieldCondition(key="version", match=MatchValue(value=version)),
+        ]
+    )
+    reponses = Filter(
+        must=[FieldCondition(key="domaine", match=MatchValue(value=domaine))],
+        must_not=[IsEmptyCondition(is_empty=PayloadField(key="reponse_id"))],
+    )
+
+    trouves: set[uuid.UUID] = set()
+    offset = None
+    while True:
+        points, offset = client.scroll(
+            collection_name=COLLECTION_NAME,
+            scroll_filter=passages,
+            with_payload=False,
+            with_vectors=["dense"],
+            limit=256,
+            offset=offset,
+        )
+        for p in points:
+            vecteur = p.vector.get("dense") if isinstance(p.vector, dict) else p.vector
+            if not vecteur:
+                continue
+            res = client.query_points(
+                collection_name=COLLECTION_NAME,
+                query=vecteur,
+                using="dense",
+                query_filter=reponses,
+                limit=TOP_K_UNITE,
+                with_payload=["reponse_id"],
+            )
+            for point in res.points:
+                brut = (point.payload or {}).get("reponse_id")
+                if point.score >= SEUIL_RAPPEL and brut:
+                    try:
+                        trouves.add(uuid.UUID(str(brut)))
+                    except ValueError:
+                        continue
+        if offset is None:
+            break
+
+    return _servies(db, trouves)
+
+
+def _servies(db: Session, ids: set[uuid.UUID]) -> list[Reponse]:
+    """The recalled responses and their copies, restricted to what is still served."""
+    if not ids:
+        return []
     # fermeture_copies: a SUGGESTION/CANONIQUE copy has no Qdrant point of its own — withdrawing only the root leaves
     return (
         db.query(Reponse)
         .filter(
-            Reponse.id.in_(fermeture_copies(db, trouves)),
+            Reponse.id.in_(fermeture_copies(db, ids)),
             # CORRIGÉE included: a hand-corrected HORS_DOMAINE canonical cites no chunk — neighbours are its way in.
             Reponse.statut.in_(("VALIDÉE", "CORRIGÉE")),
             Reponse.obsolete.is_(False),
