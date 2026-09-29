@@ -1,4 +1,5 @@
 import logging
+import re
 
 import httpx
 from app.config import settings
@@ -39,6 +40,18 @@ def chat(
 
 
 _HORS_DOMAINE_MARKER = "[HORS_DOMAINE]"
+# Leading whitespace, markdown emphasis or quotes before the marker made `startswith` miss it: the answer went out as
+# « LLM » with chunks attached. Stray occurrences elsewhere are only removed — never shown raw, never reclassified.
+_MARQUEUR_EN_TETE = re.compile(r"^[\s*_`>\"'«]*\[HORS_DOMAINE\][\s*_`\"'»:.\-—]*")
+_MARQUEUR = re.compile(r"\s*\[HORS_DOMAINE\]\s*")
+
+
+def lire_marqueur(texte: str) -> tuple[str, bool]:
+    """(texte sans marqueur, hors_domaine)."""
+    en_tete = _MARQUEUR_EN_TETE.match(texte)
+    if en_tete:
+        texte = texte[en_tete.end():]
+    return _MARQUEUR.sub(" ", texte).strip(), en_tete is not None
 
 
 def generate(
@@ -110,8 +123,4 @@ Réponse :"""
         {"role": "user", "content": prompt_user},
     ]
 
-    texte = chat(messages, temperature=0.1, max_tokens=512, timeout=120)
-    hors_domaine = texte.startswith(_HORS_DOMAINE_MARKER)
-    if hors_domaine:
-        texte = texte[len(_HORS_DOMAINE_MARKER):].lstrip()
-    return texte, hors_domaine
+    return lire_marqueur(chat(messages, temperature=0.1, max_tokens=512, timeout=120))
