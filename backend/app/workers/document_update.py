@@ -23,21 +23,29 @@ from app.services.contextualisation import contextualiser, synopsis, texte_index
 from app.services.embedding import embed_texts
 from app.services.obsolescence import (
     RAISON_ILLISIBLE,
+    RAISON_INDISPONIBLE,
     RAISON_MAJ,
     analyser_changements,
     flaguer_en_analyse,
     indices_modifies,
-    marquer_a_relire,
     perimer_en_attente,
+    poser_a_relire,
     racines,
+    reponses_obsoletes,
     requeuer_en_attente,
 )
 from app.services.qdrant import COLLECTION_NAME, capturer_chunks, client, filtre_anciens
+from app.services.reverification import signaler_voisines
 from app.services.text_processing import chunk_text, extract_text, texte_complet
 from app.workers.celery_app import celery_app
 from app.workers.ingestion import chemin_du_fichier, point_id, store_file
 
 logger = logging.getLogger(__name__)
+
+JUSTIF_ILLISIBLE_VOISINE = (
+    "Ancienne version du document illisible, aucun diff possible ; réponse proche du document sans le citer : "
+    "à vérifier à la main."
+)
 
 
 def analyser_sortante(chemin_sortant: str | None, nouveau_texte: str) -> dict | None:
@@ -64,6 +72,12 @@ class TacheMaj(celery_app.Task):
             try:
                 doc = db.query(Document).filter(Document.doc_id == doc_id).first()
                 if doc is not None and doc.statut == "EN_MAJ":
+                    if doc.version == kwargs.get("new_version"):
+                        # switched but follow-ups lost: no re-verification will ever clear these flags
+                        from app.workers.reverification import JUSTIF_PANNE, rabattre  # noqa: PLC0415 — anti-circulaire
+
+                        nb = rabattre(db, doc_id, doc.version, RAISON_INDISPONIBLE, JUSTIF_PANNE)
+                        logger.error("v%d basculée sans ses suites — %d réponse(s) en relecture", doc.version, nb)
                     doc.statut = "ACTIF"
                     doc.update_job_id = None
                     doc.update_started_at = None
@@ -105,12 +119,22 @@ def document_update_job(
             if doc is None:
                 raise ValueError(f"Document introuvable : {doc_id}")
             if doc.version == new_version:
-                logger.info("v%d déjà en place — rien à faire", new_version)
-                return {"statut": "OK", "doc_id": doc_id, "version": new_version, "nb_a_analyser": 0}
+                if doc.statut != "EN_MAJ":
+                    logger.info("v%d déjà en place — rien à faire", new_version)
+                    return {"statut": "OK", "doc_id": doc_id, "version": new_version, "nb_a_analyser": 0}
+                # Switched but still locked: a retry after the commit. Concluding « already done » here dropped the
+                # re-verification and the EN_ATTENTE drafts' withdrawal, silently — replay the follow-ups instead.
+                logger.warning("v%d en place mais suites interrompues — reprise", new_version)
+                replay = True
+            else:
+                replay = False
             domaine = doc.domaine
             chemin_sortant = chemin_du_fichier(doc.doc_id, doc.filename, doc.stored_path)  # read here — session closes
         finally:
             db.close()
+
+        if replay:
+            return _terminer(doc_id, new_version, file_path, self.request.id)
 
         # Capture du texte sortant impérativement avant toute suppression.
         anciens = capturer_chunks(doc_id, new_version)
@@ -214,7 +238,13 @@ def document_update_job(
             ligne.uploaded_by = user_uuid
             ligne.restauree_depuis = restauree_depuis
             ligne.remplacee_at = None
-            ligne.changements = changements
+            # the version row carries what the follow-ups need: a retry after the commit can no longer recompute it
+            # (the outgoing chunks are gone from Qdrant).
+            ligne.changements = (
+                None
+                if changements is None
+                else {**changements, "indices_disparus": sorted(indices), "version_sortante": ancienne_version}
+            )
 
             doc.version = new_version
             doc.filename = filename
@@ -222,79 +252,114 @@ def document_update_job(
             doc.content_hash = content_hash or None
             doc.stored_path = stored_path
             doc.nb_chunks = len(chunks)
-            doc.statut = "ACTIF"
-            doc.update_job_id = None
-            doc.update_started_at = None
             doc.uploaded_by = user_uuid or doc.uploaded_by
+            # lifted by _terminer only: while EN_MAJ, a retry knows the follow-ups are still owed.
+            doc.statut = "EN_MAJ"
 
             db.add(DocumentUpload(doc_id=doc_id, user_id=user_uuid, domaine=domaine, filename=filename))
-            db.commit()
 
-            # EN_ATTENTE : jamais servies, renvoyer au RAG plutôt que demander à un humain de juger.
-            a_du_neuf = changements is None or bool(changements["nb_unites"])
-            if a_du_neuf:
-                requeuer_en_attente(db, perimer_en_attente(db, doc_id, RAISON_MAJ, new_version))
-
-            # Mise sous analyse après l'EN_ATTENTE, jamais avant.
+            # Flags in the switch's own commit: once v{new} is served, the responses citing it are under analysis
+            # (or up for review), whatever fails afterwards. Disjoint from the EN_ATTENTE withdrawal (VALIDÉE/
+            # CORRIGÉE only), so the order that once mattered no longer does.
             if changements is None:
-                nb_a_relire = len(racines(marquer_a_relire(db, doc_id, new_version, RAISON_ILLISIBLE)))
-                nb_a_analyser = 0
+                poser_a_relire(reponses_obsoletes(db, doc_id, indices=None), RAISON_ILLISIBLE, doc_id, new_version)
             elif changements["nb_unites"]:
-                nb_a_analyser = len(racines(flaguer_en_analyse(db, doc_id, new_version)))
-                nb_a_relire = 0
-            else:
-                nb_a_relire = nb_a_analyser = 0
+                flaguer_en_analyse(db, doc_id, new_version)
+            db.commit()
+            logger.info("v%d → v%d basculé", ancienne_version, new_version)
         finally:
             db.close()
 
-        # Le staging n'a plus d'utilité : plus aucun retry ne suivra.
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        return _terminer(doc_id, new_version, file_path, self.request.id)
 
-        logger.info("v%d → v%d : %d à analyser, %d à relire", ancienne_version, new_version, nb_a_analyser, nb_a_relire)
+    except Exception as exc:
+        logger.error("erreur document_update_job '%s' : %s", filename, exc)
+        raise self.retry(exc=exc) from exc
 
-        broadcast_sync(
-            f"sse:domain:{domaine}",
-            "document_updated",
-            {
-                "doc_id": doc_id,
-                "version": new_version,
-                "filename": filename,
-                "nb_chunks": len(chunks),
-                "nb_a_analyser": nb_a_analyser,
-                "nb_a_relire": nb_a_relire,
-                "job_id": self.request.id,
-            },
+
+def _terminer(doc_id: str, version: int, file_path: str, job_id: str | None) -> dict:
+    """Follow-ups of the switch, replayable: a retry after the commit comes back here. Everything read from the
+    database — the version row holds the diff. The lock is lifted last: while EN_MAJ, a retry still owes this."""
+    db = SessionLocal()
+    try:
+        doc = db.query(Document).filter(Document.doc_id == doc_id).first()
+        ligne = (
+            db.query(DocumentVersion)
+            .filter(DocumentVersion.doc_id == doc_id, DocumentVersion.version == version)
+            .first()
         )
+        changements = ligne.changements if ligne else None
+        domaine = doc.domaine
 
-        # Enqueued whenever something changed, not only when a response cites the document: a change can contradict
-        # a canonical built on another document, or written by hand — only the neighbour search reaches those.
-        if changements is not None and changements["nb_unites"]:
+        # EN_ATTENTE : jamais servies, renvoyer au RAG plutôt que demander à un humain de juger.
+        if changements is None or changements["nb_unites"]:
+            requeuer_en_attente(db, perimer_en_attente(db, doc_id, RAISON_MAJ, version))
+
+        # Re-verification enqueued whenever something changed, not only when a response cites the document: a
+        # change can contradict a canonical built on another document, or written by hand — only the neighbour
+        # search reaches those.
+        analyse = changements is not None and bool(changements["nb_unites"])
+        if analyse:
             from app.workers.reverification import reverification_job  # noqa: PLC0415 — anti-circulaire
 
             reverification_job.apply_async(
                 kwargs={
                     "doc_id": doc_id,
-                    "version": new_version,
+                    "version": version,
                     "domaine": domaine,
-                    "indices_disparus": sorted(indices),
+                    "indices_disparus": changements.get("indices_disparus") or [],
                     # the version those indices belong to — None on jobs enqueued before this field existed
-                    "version_sortante": ancienne_version,
+                    "version_sortante": changements.get("version_sortante"),
                 },
                 queue="queue_questions",
             )
 
-        return {
-            "statut": "OK",
+        # No diff, no re-verification: the neighbours' only way to review (citing ones were flagged at the switch).
+        voisines = (
+            signaler_voisines(db, doc_id, version, domaine, RAISON_ILLISIBLE, JUSTIF_ILLISIBLE_VOISINE)
+            if changements is None
+            else []
+        )
+
+        citantes = reponses_obsoletes(db, doc_id, indices=None)
+        nb_a_analyser = len(racines(citantes)) if analyse else 0
+        nb_a_relire = len(racines(citantes + voisines)) if changements is None else 0
+
+        doc.statut = "ACTIF"
+        doc.update_job_id = None
+        doc.update_started_at = None
+        db.commit()
+        filename, nb_chunks, stored_path = doc.filename, doc.nb_chunks, doc.stored_path
+    finally:
+        db.close()
+
+    # Le staging n'a plus d'utilité : plus aucun retry ne suivra.
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+    logger.info("v%d : %d à analyser, %d à relire", version, nb_a_analyser, nb_a_relire)
+
+    broadcast_sync(
+        f"sse:domain:{domaine}",
+        "document_updated",
+        {
             "doc_id": doc_id,
+            "version": version,
             "filename": filename,
-            "version": new_version,
-            "stored_path": stored_path,
-            "nb_chunks": len(chunks),
+            "nb_chunks": nb_chunks,
             "nb_a_analyser": nb_a_analyser,
             "nb_a_relire": nb_a_relire,
-        }
+            "job_id": job_id,
+        },
+    )
 
-    except Exception as exc:
-        logger.error("erreur document_update_job '%s' : %s", filename, exc)
-        raise self.retry(exc=exc) from exc
+    return {
+        "statut": "OK",
+        "doc_id": doc_id,
+        "filename": filename,
+        "version": version,
+        "stored_path": stored_path,
+        "nb_chunks": nb_chunks,
+        "nb_a_analyser": nb_a_analyser,
+        "nb_a_relire": nb_a_relire,
+    }

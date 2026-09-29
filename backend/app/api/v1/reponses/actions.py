@@ -2,13 +2,11 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import or_
 
 from app.config import settings
 from app.core.permissions import check_domain_write
 from app.core.security import BackofficeUser
 from app.database import SessionLocal
-from app.models.garde_decision import GardeDecision
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
@@ -45,21 +43,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _paire_jugee_equivalente(db, copie: Reponse, ticket: Ticket | None) -> bool:
-    """An OUI verdict recorded for this ticket against the copy's source (garde_decisions: ticket_id is null for a
-    new question, whose job id is the ticket's)."""
-    if copie.reponse_source_id is None or ticket is None:
-        return False
-    return (
-        db.query(GardeDecision.id)
-        .filter(
-            GardeDecision.reponse_id == copie.reponse_source_id,
-            GardeDecision.verdict.is_(True),
-            or_(GardeDecision.ticket_id == ticket.id, GardeDecision.job_id == ticket.job_id),
-        )
-        .first()
-        is not None
-    )
+def _paire_jugee_equivalente(copie: Reponse) -> bool:
+    """The guard said OUI on this copy's own question — not on another turn of the same ticket."""
+    return copie.reponse_source_id is not None and copie.jugee_equivalente
 
 
 @router.post("/reponses/{reponse_id}/valider")
@@ -228,7 +214,7 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest, current_us
         # indexed question) may be a specific case of a general answer: the correction then stays on the copy,
         # indexed under its own question, instead of rewriting the general answer for everyone.
         sources_a_reindexer: list[str] = []
-        ancetre_id = reponse.reponse_source_id if _paire_jugee_equivalente(db, reponse, ticket) else None
+        ancetre_id = reponse.reponse_source_id if _paire_jugee_equivalente(reponse) else None
         vus: set = {reponse.id}
         while ancetre_id and ancetre_id not in vus:
             ancetre = db.query(Reponse).filter(Reponse.id == ancetre_id).first()

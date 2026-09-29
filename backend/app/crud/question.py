@@ -47,6 +47,7 @@ def upsert_reponse(
     question_suivi: str | None = None,
     nouveau: bool = False,
     tag: str | None = None,
+    jugee_equivalente: bool = False,
 ) -> Reponse:
     # Only the initial question's draft may be overwritten — a validated answer or a follow-up turn never is
     # (re-processing used to overwrite the validated answer's contenu, left VALIDÉE: unreviewed text served).
@@ -76,10 +77,13 @@ def upsert_reponse(
             canonique=canonique,
             question_suivi=question_suivi,
             tag=tag,
+            jugee_equivalente=jugee_equivalente,
         )
         db.add(reponse)
     else:
         reponse.contenu = contenu
         reponse.score_similarite = top_score
+        # rewritten draft: the licence belongs to the new content, never inherited from the previous one
+        reponse.jugee_equivalente = jugee_equivalente
     db.flush()
     return reponse

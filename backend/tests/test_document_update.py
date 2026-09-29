@@ -131,6 +131,7 @@ def scenario_maj(tmp_path, monkeypatch, qdrant_mock, db_session):
     cette interception, chaque test parlerait au broker et le job d'analyse
     tournerait pour de bon, avec ses appels Albert.
     """
+    import app.services.reverification as services_reverif
     import app.workers.document_update as maj
     import app.workers.reverification as reverif
     from app.config import settings
@@ -139,6 +140,8 @@ def scenario_maj(tmp_path, monkeypatch, qdrant_mock, db_session):
 
     enfilees: list[dict] = []
     monkeypatch.setattr(reverif.reverification_job, "apply_async", lambda **kw: enfilees.append(kw))
+    # the neighbour recall talks to Qdrant — out of scope here unless a test opts in
+    monkeypatch.setattr(services_reverif, "voisines_du_document", lambda db, doc_id, version, domaine: [])
 
     monkeypatch.setattr(settings, "documents_storage_path", str(tmp_path / "storage"))
     monkeypatch.setattr(maj, "chunk_text", lambda pages: "\n\n".join(pages).split("\n\n"))
@@ -317,6 +320,46 @@ class TestJobComplet:
 
         assert second["nb_a_analyser"] == 0
         assert scenario_maj.fichier.exists()  # le job n'est pas allé jusqu'au ménage
+
+    @pytest.mark.parametrize("suite", ["reprise", "abandon"])
+    def test_echec_apres_la_bascule_ne_perd_pas_l_analyse(self, scenario_maj, monkeypatch, suite):
+        """Le broker tombe après le commit de la v2. Le retry concluait « déjà en place » :
+        ni mise sous analyse ni ré-vérification, la canonique restait servie sur un texte
+        changé, en silence. Les drapeaux sont désormais dans le commit de la bascule, et les
+        suites se rejouent — ou, si Celery abandonne, partent en relecture humaine."""
+        import app.workers.reverification as reverif
+        from app.models.document import Document
+        from app.workers.document_update import document_update_job
+
+        doc = scenario_maj.db.query(Document).filter(Document.doc_id == scenario_maj.doc_id).first()
+        doc.statut = "EN_MAJ"  # posé par l'endpoint avant d'enfiler le job
+        scenario_maj.db.commit()
+        r = TestMiseSousAnalyse._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
+
+        def broker_injoignable(**kw):
+            raise ConnectionError("broker injoignable")
+
+        monkeypatch.setattr(reverif.reverification_job, "apply_async", broker_injoignable)
+        with pytest.raises(ConnectionError):
+            document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r)
+        assert (r.a_relire, r.a_relire_raison) == (True, "ANALYSE_EN_COURS")  # dès la bascule, pas après
+
+        monkeypatch.setattr(reverif.reverification_job, "apply_async", lambda **kw: scenario_maj.enfilees.append(kw))
+        if suite == "reprise":
+            document_update_job(**scenario_maj.kwargs)
+            assert len(scenario_maj.enfilees) == 1
+            assert scenario_maj.enfilees[0]["kwargs"]["indices_disparus"] == [0]
+            assert scenario_maj.enfilees[0]["kwargs"]["version_sortante"] == 1
+        else:
+            document_update_job.on_failure(ConnectionError(), "job", (), scenario_maj.kwargs, None)
+            scenario_maj.db.refresh(r)
+            assert (r.a_relire, r.a_relire_raison) == (True, "ANALYSE_INDISPONIBLE")  # jamais bloquée en analyse
+
+        scenario_maj.db.expire_all()
+        doc = scenario_maj.db.query(Document).filter(Document.doc_id == scenario_maj.doc_id).first()
+        assert (doc.version, doc.statut) == (2, "ACTIF")
 
 
 @pytest.mark.integration
@@ -537,6 +580,33 @@ class TestSignalementARelire:
         scenario_maj.db.refresh(r)
         assert resultat["nb_a_relire"] == 1
         assert r.a_relire_raison == "VERSION_SORTANTE_ILLISIBLE"
+
+    def test_version_sortante_illisible_signale_aussi_les_voisines(self, scenario_maj, monkeypatch):
+        """Sans diff, pas de ré-vérification : les voisines n'étaient jamais examinées et une
+        canonique bâtie ailleurs restait servie sans revue sur un document qui a changé."""
+        import app.services.reverification as services_reverif
+        from app.models.reponse import Reponse
+        from app.models.ticket import Ticket
+        from app.workers.document_update import document_update_job
+
+        ticket = Ticket(question="Et le télétravail à l'étranger ?", domaine="RH", statut_job="TERMINÉ")
+        scenario_maj.db.add(ticket)
+        scenario_maj.db.flush()
+        voisine = Reponse(ticket_id=ticket.id, contenu="Non autorisé.", source="LLM", statut="VALIDÉE", canonique=True)
+        scenario_maj.db.add(voisine)
+        scenario_maj.db.commit()
+        monkeypatch.setattr(
+            services_reverif,
+            "voisines_du_document",
+            lambda db, doc_id, version, domaine: db.query(Reponse).filter(Reponse.id == voisine.id).all(),
+        )
+        scenario_maj.fichier_v1.unlink()
+
+        resultat = document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(voisine)
+        assert (voisine.a_relire, voisine.a_relire_raison) == (True, "VERSION_SORTANTE_ILLISIBLE")
+        assert resultat["nb_a_relire"] == 1
 
     def test_toutes_les_validees_partent_en_analyse_aucune_perimee(self, scenario_maj):
         """La règle centrale, après renversement : le job ne détruit plus rien.
