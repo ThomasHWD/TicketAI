@@ -152,6 +152,23 @@ def indexation_d_origine(r: Reponse) -> list[str] | None:
     return None  # CANONIQUE served without review — never had a point of its own
 
 
+def remettre_en_service(db: Session, reponses: list[Reponse]) -> list[list[str]]:
+    """Clears withdrawal and review flags, commits, and returns the `feedback_job` args to re-index them with."""
+    for r in reponses:
+        r.obsolete = False
+        r.obsolete_raison = None
+        r.obsolete_doc_id = None
+        r.obsolete_version = None
+        r.obsolete_at = None
+        r.a_relire = False
+        r.a_relire_raison = None
+        r.a_relire_doc_id = None
+        r.a_relire_version = None
+        r.a_relire_at = None
+    db.commit()
+    return [args for r in reponses if (args := indexation_d_origine(r))]
+
+
 def retirer_du_service(
     db: Session,
     reponses: list[Reponse],
