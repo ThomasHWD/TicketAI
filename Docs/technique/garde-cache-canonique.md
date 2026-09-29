@@ -169,6 +169,16 @@ Le refus est consigné dans `garde_decisions` avec `score_cosinus = NULL` : cett
 
 **Coût** : un appel juge par *validation humaine* de SUGGESTION — un événement rare, pas une question — et zéro quand les deux formulations sont typographiquement identiques.
 
+**Le verdict licencie aussi « Corriger ».** Corriger une SUGGESTION propage le texte à sa source
+(la canonique en profite) — seulement si le garde a dit OUI sur **la question de cette copie**.
+Le verdict est porté par la copie elle-même, `Reponse.jugee_equivalente`, posé à sa création par
+`servir_reutilisation` et remis à faux si le brouillon est réécrit. Le chercher dans
+`garde_decisions` par ticket trouvait aussi le OUI d'un **autre tour** : un suivi « et pour un
+apprenti ? » servi en SUGGESTION pendant une panne du juge, corrigé en « apprentis : 28 jours »,
+réécrivait la canonique générale pour tout le monde (audit du 29/09/2026). La migration
+`f0a9ac1a8399` ne reprend que les copies du tour initial dont un OUI porte exactement sur la
+question du ticket ; les suivis restent à faux — pas de propagation, côté sûr.
+
 **Portée délibérément limitée à l'alias.** `nb_validations` sur la source continue d'être incrémenté par l'endpoint HTTP. Le bloquer demanderait un appel LLM synchrone sur une requête web, pour un signal qui *promeut* sans *servir* ; c'est l'alias qui crée le cosinus à 1,0. À rouvrir si la mesure montre des promotions abusives.
 
 ---
