@@ -597,7 +597,12 @@ redeviennent valables.
   n'utilisent que les citations de la version concernée. Une ligne héritée sans version reste
   rapprochée par index, comme avant.
 - **Un seul signalement à la fois par réponse.** Si un second document la fait signaler, les
-  colonnes sont écrasées : dernier arrivé gagne.
+  colonnes sont écrasées : dernier arrivé gagne. **Sauf la mise sous analyse** (`mettre_en_analyse`,
+  mise à jour comme nouveau document) : elle ne se pose jamais sur une réponse déjà signalée. Elle
+  lui aurait donné le doc/version de la passe, et l'INTACTE de cette passe aurait levé un motif
+  qu'elle n'avait pas instruit — une `CONTREDITE_PROBABLE` venue d'un autre document repartait
+  ainsi en service sans revue (constaté à l'audit du 29/09/2026). La réponse déjà signalée est
+  jugée quand même ; seul un verdict défavorable remplace son motif.
 - **Un fichier renommé échappe au garde-fou homonyme** de la page Ingestion.
 - **Le domaine d'un document n'est pas modifiable** par une mise à jour.
 - **Supprimer un document efface aussi ses archives** — toutes les versions, définitivement.
@@ -827,15 +832,16 @@ sequenceDiagram
     W->>Q: upsert nouveaux points
     Note over W,Q: upsert avant delete des ANCIENS :<br/>l'inverse ouvrirait un trou de service
     W->>Q: delete anciens points
-    W->>PG: commit (version N+1 + changements sérialisés)
+    W->>PG: commit unique : version N+1 + changements sérialisés<br/>+ ANALYSE_EN_COURS (ou VERSION_SORTANTE_ILLISIBLE)<br/>statut reste EN_MAJ
 
+    Note over W,R: _terminer — rejoué tel quel par un retry tant que EN_MAJ
     alt changements illisible OU nb_unites ≥ 1
         W->>PG: perimer_en_attente + requeuer_en_attente
     end
     alt nb_unites ≥ 1
-        W->>PG: flaguer_en_analyse → ANALYSE_EN_COURS<br/>(dans la foulée du commit : ferme la race window)
         W->>R: reverification_job.apply_async()
     end
+    W->>PG: statut ACTIF (verrou levé en dernier)
 ```
 
 Une purge défensive précède l'upsert : elle supprime les points **de la version entrante**
@@ -844,8 +850,25 @@ l'index. Elle ne touche pas aux points de la version sortante, qui restent servi
 
 L'upsert précède ensuite le delete des anciens points : l'ordre inverse ouvrirait un trou de
 service pendant toute la durée des embeddings. Le prix est une fenêtre de quelques centaines de millisecondes où les deux
-versions coexistent dans l'index. L'étape 10 vient après la 9 : les EN_ATTENTE qui viennent d'être
-périmées n'ont pas à être analysées, et `reponses_obsoletes` les écarte une fois le commit passé.
+versions coexistent dans l'index.
+
+**Les drapeaux sont dans le commit de la bascule, les suites sont rejouables.** Tout ce qui suit le
+commit parle au réseau (Qdrant dans `perimer_en_attente`, le broker pour les renvois et la
+ré-vérification) et peut lever. Avant le 29/09/2026, le retry retombait alors sur le garde
+« v(N+1) déjà en place — rien à faire » : ni mise sous analyse ni ré-vérification, les réponses
+citantes restaient servies sans revue sur un texte changé, en silence. Désormais :
+
+- la mise sous analyse (ou le signalement `VERSION_SORTANTE_ILLISIBLE`) part **dans le même commit**
+  que `doc.version = N+1` — dès que la v(N+1) est servie, ses citantes ne le sont plus sans revue ;
+- `statut` reste `EN_MAJ` jusqu'à la fin de `_terminer` : un retry qui trouve la version en place
+  **et** le verrou posé rejoue les suites au lieu de conclure. `DocumentVersion.changements` porte
+  pour cela `indices_disparus` et `version_sortante`, que plus rien ne permet de recalculer (les
+  anciens points sont supprimés) ; `changements_allegees` les retire de l'API ;
+- si Celery abandonne, `TacheMaj.on_failure` rabat les `ANALYSE_EN_COURS` de la passe en
+  `ANALYSE_INDISPONIBLE` : relecture humaine explicite plutôt qu'un état transitoire éternel.
+
+L'ordre « EN_ATTENTE avant mise sous analyse » ne tient plus : les deux ensembles sont disjoints par
+statut (EN_ATTENTE d'un côté, VALIDÉE/CORRIGÉE de l'autre).
 Le chemin du fichier sortant se lit dans le pré-vol, avec le domaine : la session est fermée
 ensuite et `doc` devient détaché.
 
