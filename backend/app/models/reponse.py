@@ -19,6 +19,9 @@ class Reponse(Base):
     nb_validations = Column(Integer, nullable=False, default=0)
     canonique = Column(Boolean, nullable=False, default=False)
     reponse_source_id = Column(UUID(as_uuid=True), ForeignKey("reponses.id"), nullable=True)
+    # the guard said OUI on THIS copy's question vs its source's — the only licence for « Corriger » to rewrite the
+    # source. A verdict looked up by ticket also matched another turn's OUI (a follow-up's fix rewrote the general).
+    jugee_equivalente = Column(Boolean, nullable=False, default=False, server_default="false")
     contenu_corrige = Column(Text, nullable=True)
     correction_suggeree = Column(Text, nullable=True)
     passages_pertinents = Column(JSON, nullable=True)  # {"ajoutes": [...], "retires": [...]} ou null
