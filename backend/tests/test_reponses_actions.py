@@ -253,23 +253,34 @@ def test_corriger_transition(client, db_session, validator, auth_header):
     assert reloaded.contenu_corrige == "Texte corrigé"
 
 
-@pytest.mark.parametrize("verdict_enregistre, propagee", [(True, True), (False, False), (None, False)])
+@pytest.mark.parametrize(
+    "jugee_equivalente, oui_d_un_autre_tour, propagee",
+    [
+        pytest.param(True, False, True, id="oui-sur-cette-question"),
+        pytest.param(False, False, False, id="sans-verdict-favorable"),
+        pytest.param(False, True, False, id="oui-du-tour-initial-ne-vaut-pas-pour-le-suivi"),
+    ],
+)
 def test_corriger_suggestion_ne_propage_que_si_le_juge_a_dit_oui(
-    client, db_session, validator, auth_header, verdict_enregistre, propagee
+    client, db_session, validator, auth_header, jugee_equivalente, oui_d_un_autre_tour, propagee
 ):
     """Correction de détail sur la même question (juge OUI) : la canonique en profite.
     SUGGESTION servie sans verdict favorable (panne Albert, refus) : elle peut être un cas
-    spécifique d'une générale — la réécrire servirait la réponse spécifique à tous."""
+    spécifique d'une générale — la réécrire servirait la réponse spécifique à tous.
+
+    Le OUI doit porter sur la question de CETTE copie. Cherché par ticket, celui du tour initial
+    couvrait le suivi « et pour un apprenti ? » servi pendant une panne du juge : la correction
+    « apprentis : 28 jours » réécrivait la canonique générale."""
     from app.models.garde_decision import GardeDecision
     from app.models.reponse import Reponse
 
     _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
     ticket, copie = seed_ticket_reponse(db_session, reponse_source_id=source.id)
-    if verdict_enregistre is not None:
+    copie.jugee_equivalente = jugee_equivalente
+    if oui_d_un_autre_tour:
         db_session.add(GardeDecision(job_id=ticket.job_id, question_posee="q", question_indexee="q",
-                                     reponse_id=source.id, verdict=verdict_enregistre,
-                                     erreur=None if verdict_enregistre else "timeout"))
-        db_session.commit()
+                                     reponse_id=source.id, verdict=True))
+    db_session.commit()
 
     resp = client.put(
         f"{API}/reponses/{copie.id}/corriger",

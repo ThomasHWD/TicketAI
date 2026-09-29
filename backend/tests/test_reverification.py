@@ -416,6 +416,32 @@ class TestDecider:
         assert r.a_relire_raison == RAISON_CONTREDITE_PROB
         assert r.a_relire_version == 1
 
+    @pytest.mark.parametrize("entree", ["mise_a_jour", "nouveau_document"])
+    def test_la_mise_sous_analyse_n_ecrase_pas_un_signalement_en_attente(self, famille, entree):
+        """Le flux réel, pas `decider` seul : la mise sous analyse précède le verdict.
+
+        Poser ANALYSE_EN_COURS par-dessus un signalement d'un autre document lui
+        donnait le doc/version de cette passe — son INTACTE levait alors un motif
+        qu'elle n'avait pas instruit, et la canonique repartait sans revue.
+        """
+        from app.services.obsolescence import flaguer_en_analyse, mettre_en_analyse
+
+        r = famille(canonique=True, nb_validations=5)
+        decider(famille.db, _candidate(r, citante=False), VERDICT_CONTREDITE, "Probable.", [UNITE], "doc-a", 3)
+        famille.db.refresh(r)
+
+        # document_update_job (citantes) ou ingestion_job (cibles de la confrontation)
+        if entree == "mise_a_jour":
+            flaguer_en_analyse(famille.db, famille.doc_id, 2)
+        else:
+            mettre_en_analyse([r], famille.doc_id, 2)
+        famille.db.commit()
+        decider(famille.db, _candidate(r, citante=True), VERDICT_INTACTE, "", [], famille.doc_id, 2)
+
+        famille.db.refresh(r)
+        assert r.a_relire is True
+        assert (r.a_relire_raison, r.a_relire_doc_id) == (RAISON_CONTREDITE_PROB, "doc-a")
+
     def test_incertain_envoie_en_relecture_sans_retirer(self, famille):
         r = famille()
 

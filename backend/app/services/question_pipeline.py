@@ -244,6 +244,7 @@ def servir_reutilisation(
     autoriser_canonique: bool,
     objet: str | None = None,
     score_lexical: float = 0.0,
+    jugee_equivalente: bool = False,
 ) -> dict:
     """Persist and return a validated-response reuse. autoriser_canonique gates CANONIQUE (unreviewed serving)"""
     contenu = reponse_liee.contenu_corrige or reponse_liee.contenu
@@ -281,6 +282,7 @@ def servir_reutilisation(
             question_suivi=question_suivi,
             nouveau=est_suivi,
             tag=reponse_liee.tag,
+            jugee_equivalente=jugee_equivalente,
         )
 
         ticket_source = db.query(Ticket).filter(Ticket.id == reponse_liee.ticket_id).first()
@@ -342,6 +344,7 @@ def servir_reutilisation(
         question_suivi=question_suivi,
         nouveau=est_suivi,
         tag=reponse_liee.tag,
+        jugee_equivalente=jugee_equivalente,
     )
     ticket_id_str_sug = str(ticket.id)
     db.commit()

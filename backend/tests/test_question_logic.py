@@ -192,10 +192,13 @@ def test_upsert_reponse_met_a_jour_si_existante():
     reponse_existante = make_reponse(ticket_id=ticket.id, contenu="ancien")
     db.query.return_value.filter.return_value.first.return_value = reponse_existante
 
+    reponse_existante.jugee_equivalente = True
     reponse = _upsert_reponse(db, ticket, "nouveau contenu", 0.8)
 
     db.add.assert_not_called()
     assert reponse.contenu == "nouveau contenu"
+    # a rewritten draft never inherits the previous content's OUI — « Corriger » would propagate on it
+    assert reponse.jugee_equivalente is False
 
 
 # ── Tests seuil canonique ──────────────────────────────────────────────────
@@ -247,14 +250,15 @@ class _PartiAuRag(Exception):
 
 
 @pytest.mark.parametrize(
-    "a_relire, verdict, sans_revue",
+    "a_relire, verdict, erreur, sans_revue",
     [
-        pytest.param(False, True, True, id="intacte-approuvee-servie-sans-revue"),
-        pytest.param(True, True, False, id="signalee-approuvee-suggestion"),
-        pytest.param(True, False, None, id="signalee-refusee-rag"),
+        pytest.param(False, True, None, True, id="intacte-approuvee-servie-sans-revue"),
+        pytest.param(True, True, None, False, id="signalee-approuvee-suggestion"),
+        pytest.param(True, False, None, None, id="signalee-refusee-rag"),
+        pytest.param(False, False, "429", False, id="juge-injoignable-suggestion"),
     ],
 )
-def test_une_canonique_signalee_est_jugee_et_ne_sert_jamais_sans_revue(a_relire, verdict, sans_revue):
+def test_une_canonique_signalee_est_jugee_et_ne_sert_jamais_sans_revue(a_relire, verdict, erreur, sans_revue):
     """Un juge vient de dire qu'un document la contredit : plus de service sans revue.
 
     Les trois cas ne diffèrent que par `a_relire` et le verdict, tout le reste
@@ -289,7 +293,7 @@ def test_une_canonique_signalee_est_jugee_et_ne_sert_jamais_sans_revue(a_relire,
                 return_value=[Candidat(reponse, SEUIL_COSINUS + 0.05, 0.0, "Le télétravail est-il autorisé ?")],
             ),
             patch("app.workers.question.question_du_point_fiable", return_value=True),
-            patch("app.workers.question.statuer", return_value=Decision(verdict=verdict)) as juge,
+            patch("app.workers.question.statuer", return_value=Decision(verdict=verdict, erreur=erreur)) as juge,
             patch("app.workers.question.journaliser_garde"),
             patch("app.workers.question.servir_reutilisation", return_value={}) as servir,
             patch("app.workers.question.rerank", side_effect=_PartiAuRag) as rerankeur,
@@ -309,6 +313,8 @@ def test_une_canonique_signalee_est_jugee_et_ne_sert_jamais_sans_revue(a_relire,
     else:
         servir.assert_called_once()
         assert servir.call_args.args[11] is sans_revue
+        # the copy carries its own verdict — « Corriger » propagates to the source on nothing else
+        assert servir.call_args.kwargs["jugee_equivalente"] is verdict
         rerankeur.assert_not_called()
 
 

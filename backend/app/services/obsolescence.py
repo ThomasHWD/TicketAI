@@ -197,9 +197,19 @@ def marquer_a_relire(
     return reponses
 
 
+def mettre_en_analyse(reponses: list[Reponse], doc_id: str, version: int) -> None:
+    """Pose ANALYSE_EN_COURS, sans commit. Never over a flag already raised: it would take that flag's doc/version,
+    and this pass's INTACTE would then lift a signal it never judged — a CONTREDITE_PROBABLE from another document
+    went back to unreviewed serving that way. An already-flagged response is not served unreviewed anyway."""
+    poser_a_relire([r for r in reponses if not r.a_relire], RAISON_ANALYSE, doc_id, version)
+
+
 def flaguer_en_analyse(db: Session, doc_id: str, version: int) -> list[Reponse]:
-    """Marque ANALYSE_EN_COURS les réponses que la ré-vérification va juger. Posé dans la foulée de la bascule de"""
-    return marquer_a_relire(db, doc_id, version, RAISON_ANALYSE)
+    """Met sous analyse les réponses citant le document et les renvoie toutes (déjà signalées comprises — elles
+    seront jugées aussi). Sans commit : posé dans la transaction même de la bascule de version."""
+    reponses = reponses_obsoletes(db, doc_id, indices=None)
+    mettre_en_analyse(reponses, doc_id, version)
+    return reponses
 
 
 def confirmer_actualite(db: Session, reponses: list[Reponse]) -> None:
