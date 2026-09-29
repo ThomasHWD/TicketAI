@@ -318,6 +318,46 @@ class TestJobComplet:
         assert second["nb_a_analyser"] == 0
         assert scenario_maj.fichier.exists()  # le job n'est pas allé jusqu'au ménage
 
+    @pytest.mark.parametrize("suite", ["reprise", "abandon"])
+    def test_echec_apres_la_bascule_ne_perd_pas_l_analyse(self, scenario_maj, monkeypatch, suite):
+        """Le broker tombe après le commit de la v2. Le retry concluait « déjà en place » :
+        ni mise sous analyse ni ré-vérification, la canonique restait servie sur un texte
+        changé, en silence. Les drapeaux sont désormais dans le commit de la bascule, et les
+        suites se rejouent — ou, si Celery abandonne, partent en relecture humaine."""
+        import app.workers.reverification as reverif
+        from app.models.document import Document
+        from app.workers.document_update import document_update_job
+
+        doc = scenario_maj.db.query(Document).filter(Document.doc_id == scenario_maj.doc_id).first()
+        doc.statut = "EN_MAJ"  # posé par l'endpoint avant d'enfiler le job
+        scenario_maj.db.commit()
+        r = TestMiseSousAnalyse._reponse_sur(scenario_maj.db, scenario_maj.doc_id, 0)
+
+        def broker_injoignable(**kw):
+            raise ConnectionError("broker injoignable")
+
+        monkeypatch.setattr(reverif.reverification_job, "apply_async", broker_injoignable)
+        with pytest.raises(ConnectionError):
+            document_update_job(**scenario_maj.kwargs)
+
+        scenario_maj.db.refresh(r)
+        assert (r.a_relire, r.a_relire_raison) == (True, "ANALYSE_EN_COURS")  # dès la bascule, pas après
+
+        monkeypatch.setattr(reverif.reverification_job, "apply_async", lambda **kw: scenario_maj.enfilees.append(kw))
+        if suite == "reprise":
+            document_update_job(**scenario_maj.kwargs)
+            assert len(scenario_maj.enfilees) == 1
+            assert scenario_maj.enfilees[0]["kwargs"]["indices_disparus"] == [0]
+            assert scenario_maj.enfilees[0]["kwargs"]["version_sortante"] == 1
+        else:
+            document_update_job.on_failure(ConnectionError(), "job", (), scenario_maj.kwargs, None)
+            scenario_maj.db.refresh(r)
+            assert (r.a_relire, r.a_relire_raison) == (True, "ANALYSE_INDISPONIBLE")  # jamais bloquée en analyse
+
+        scenario_maj.db.expire_all()
+        doc = scenario_maj.db.query(Document).filter(Document.doc_id == scenario_maj.doc_id).first()
+        assert (doc.version, doc.statut) == (2, "ACTIF")
+
 
 @pytest.mark.integration
 class TestMiseSousAnalyse:

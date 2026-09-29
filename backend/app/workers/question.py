@@ -180,6 +180,7 @@ def question_job(
                         True,
                         objet,
                         score_lexical=candidat.score_lexical or 0.0,
+                        jugee_equivalente=approuve,
                     )
 
                 # Judged refusal → next candidate, then RAG; Albert unreachable → SUGGESTION. Network failure must not
@@ -211,6 +212,7 @@ def question_job(
                         False,
                         objet,
                         score_lexical=candidat.score_lexical or 0.0,
+                        jugee_equivalente=approuve,
                     )
                 break
         finally:

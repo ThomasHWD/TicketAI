@@ -96,8 +96,12 @@ def domaine_autorise(db, reponse: Reponse, current_user) -> bool:
     return True
 
 
+_CLES_WORKER = ("unites", "indices_disparus", "version_sortante")
+
+
 def changements_allegees(changements: dict | None) -> dict | None:
-    """Le diff de la version, sans les unités intégrales (trop volumineuses pour l'affichage)."""
+    """Le diff de la version, sans la matière du worker : unités intégrales (trop volumineuses pour l'affichage),
+    indices disparus et version sortante (relus par les suites de la bascule, cf. document_update._terminer)."""
     if not changements:
         return changements
-    return {k: v for k, v in changements.items() if k != "unites"}
+    return {k: v for k, v in changements.items() if k not in _CLES_WORKER}
