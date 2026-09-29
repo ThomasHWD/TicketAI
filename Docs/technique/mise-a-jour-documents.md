@@ -143,7 +143,7 @@ vers « fais lire un humain »** — jamais vers « laisse passer », jamais ver
 | Une réponse qui **ne cite pas** le document ne peut jamais être retirée automatiquement, même jugée CONTREDITE. Elle plafonne à *À relire*. | Elle n'a été rapprochée du changement que par similarité vectorielle entre un paragraphe et une question — deux objets de nature différente. Détruire à tort une canonique à douze validations coûte bien plus cher que vingt relectures. |
 | Le modèle **n'a pas le droit de rédiger une correction**. | Le verdict est « cette réponse ne tient plus », pas « voici la nouvelle ». Réécrire à la place d'un humain, c'est publier du contenu que personne n'a validé. |
 | Une panne d'Albert ne détruit **rien**. | La réponse reste réutilisable et part en relecture avec la mention explicite que l'analyse n'a pas eu lieu. Elle cesse simplement d'être servie sans relecteur. |
-| Un document réécrit de fond en comble (> 40 unités) déclenche **zéro** appel au modèle. | Quand tout a changé, il n'y a plus rien à discriminer : tout est signalé en bloc, ce qui est à la fois plus honnête et gratuit. |
+| Un document réécrit de fond en comble (> 40 unités) déclenche **zéro** appel au modèle. | Quand tout a changé, il n'y a plus rien à discriminer : tout est signalé en bloc, ce qui est à la fois plus honnête et gratuit. Le bloc comprend les **voisines** — les réponses proches du document sans le citer : une réécriture est justement le moment où elles se font contredire. |
 
 ## 3 bis. Un exemple pour chaque cas
 
@@ -764,7 +764,8 @@ Pas `queue_ingestion` : ce job n'est que de l'attente réseau Albert, il n'a rie
 file qui sérialise les ingestions. Enfilé par `apply_async` explicite et non par `chain()` ou
 `link()` — un `link` ne se rejoue pas depuis le retry admin, et le dépôt enfile déjà ainsi.
 
-Plafonds : `MAX_UNITES = 40` (au-delà, signalement en bloc, **zéro appel LLM**),
+Plafonds : `MAX_UNITES = 40` (au-delà, signalement en bloc des citantes **et des voisines**, **zéro appel
+Albert**),
 `MAX_JUGEMENTS = 25`, `TOP_K_UNITE = 20`, `SEUIL_RAPPEL = 0.35`, `SEUIL_RERANK = 0.15`,
 `MAX_UNITES_PAR_REPONSE = 3`, `MAX_ECHECS = 3`. Les trois seuils sont **calés empiriquement** :
 ce sont les seuls chiffres non déductibles du reste.
@@ -875,10 +876,20 @@ ensuite et `doc` devient détaché.
 **Ne jamais** reconstituer le texte sortant en concaténant les chunks capturés : le chevauchement
 de 128 tokens du splitter fabriquerait une fausse suppression à chaque couture.
 
-Sans texte sortant lisible (`changements is None`), aucun diff n'est calculable : on retombe sur
-`marquer_a_relire(..., RAISON_ILLISIBLE)` et **aucun job n'est enfilé**. Les EN_ATTENTE sont
-quand même périmées et remises en file RAG (`a_du_neuf = changements is None or nb_unites`).
-C'est le seul survivant du signalement en bloc côté mise à jour.
+Sans texte sortant lisible (`changements is None`), aucun diff n'est calculable : les citantes
+sont signalées `VERSION_SORTANTE_ILLISIBLE` dans le commit de la bascule et **aucun job n'est
+enfilé**. Les EN_ATTENTE sont quand même périmées et remises en file RAG
+(`a_du_neuf = changements is None or nb_unites`).
+
+**Les voisines des deux cas sans diff jugeable** (réécriture massive, version sortante illisible)
+partent elles aussi en relecture, avec la même raison et une justification qui dit qu'elles ne
+citent pas le document (`signaler_voisines`). Avant le 29/09/2026, seules les citantes l'étaient :
+une canonique bâtie sur un autre document, ou écrite à la main, restait servie sans revue après une
+réécriture complète. Pas de change unit à embarquer ici : `voisines_du_document` part des vecteurs
+**déjà stockés** des passages de la nouvelle version (zéro appel Albert), avec les mêmes
+`TOP_K_UNITE` et `SEUIL_RAPPEL` que `_voisines`. Une voisine déjà signalée garde son motif. Une
+panne Qdrant lève au lieu de rendre une liste vide, qui se lirait « rien à relire » : le job repart
+en retry (rejoué par `_terminer` côté illisible).
 
 ### Colonnes
 

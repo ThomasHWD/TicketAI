@@ -35,11 +35,17 @@ from app.services.obsolescence import (
     requeuer_en_attente,
 )
 from app.services.qdrant import COLLECTION_NAME, capturer_chunks, client, filtre_anciens
+from app.services.reverification import signaler_voisines
 from app.services.text_processing import chunk_text, extract_text, texte_complet
 from app.workers.celery_app import celery_app
 from app.workers.ingestion import chemin_du_fichier, point_id, store_file
 
 logger = logging.getLogger(__name__)
+
+JUSTIF_ILLISIBLE_VOISINE = (
+    "Ancienne version du document illisible, aucun diff possible ; réponse proche du document sans le citer : "
+    "à vérifier à la main."
+)
 
 
 def analyser_sortante(chemin_sortant: str | None, nouveau_texte: str) -> dict | None:
@@ -308,9 +314,16 @@ def _terminer(doc_id: str, version: int, file_path: str, job_id: str | None) -> 
                 queue="queue_questions",
             )
 
-        nb_concernees = len(racines(reponses_obsoletes(db, doc_id, indices=None)))
-        nb_a_analyser = nb_concernees if analyse else 0
-        nb_a_relire = nb_concernees if changements is None else 0
+        # No diff, no re-verification: the neighbours' only way to review (citing ones were flagged at the switch).
+        voisines = (
+            signaler_voisines(db, doc_id, version, domaine, RAISON_ILLISIBLE, JUSTIF_ILLISIBLE_VOISINE)
+            if changements is None
+            else []
+        )
+
+        citantes = reponses_obsoletes(db, doc_id, indices=None)
+        nb_a_analyser = len(racines(citantes)) if analyse else 0
+        nb_a_relire = len(racines(citantes + voisines)) if changements is None else 0
 
         doc.statut = "ACTIF"
         doc.update_job_id = None
