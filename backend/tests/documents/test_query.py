@@ -212,6 +212,43 @@ class TestDeleteDocument:
 
         assert r.status_code == 200
 
+    def test_reponses_retirees_mises_en_reexamen_avec_les_passages_lus_avant(
+        self, client, db_reelle, mock_qdrant, monkeypatch
+    ):
+        """The deleted passages are gone once the points are deleted — the judge gets them read beforehand."""
+        import app.api.v1.documents.core as docs_module
+        from app.models.reponse import Reponse
+        from app.models.reponse_chunk import ReponseChunk
+        from app.models.ticket import Ticket
+
+        doc = _doc_en_base(db_reelle)
+        ticket = Ticket(question="Forfait vélo ?", domaine="IT", statut_job="TERMINÉ")
+        db_reelle.add(ticket)
+        db_reelle.flush()
+        reponse = Reponse(ticket_id=ticket.id, contenu="300 €.", source="LLM", statut="VALIDÉE")
+        db_reelle.add(reponse)
+        db_reelle.flush()
+        db_reelle.add(ReponseChunk(reponse_id=reponse.id, doc_id=doc.doc_id, version=1, chunk_index=0))
+        db_reelle.commit()
+        ordre = []
+        monkeypatch.setattr(docs_module, "passages_du_document", lambda *_: ordre.append("lu") or ["passage"])
+        mock_qdrant.delete.side_effect = lambda **_: ordre.append("effacé")
+        envois = []
+        monkeypatch.setattr(docs_module.reexamen_retrait_job, "apply_async", lambda **kw: envois.append(kw["kwargs"]))
+
+        r = client.delete(f"/api/v1/documents/{doc.doc_id}")
+
+        assert r.json()["nb_a_reexaminer"] == 1
+        assert ordre == ["lu", "effacé"]
+        assert envois == [
+            {
+                "doc_id": doc.doc_id,
+                "examens": [
+                    {"reponse_id": str(reponse.id), "passages_retires": ["passage"], "passages_restants": []}
+                ],
+            }
+        ]
+
     def test_maj_en_cours_renvoie_409(self, client, db_reelle, mock_qdrant):
         doc = _doc_en_base(db_reelle, statut="EN_MAJ")
 

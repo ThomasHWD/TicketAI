@@ -14,6 +14,7 @@ celery_app = Celery(
         "app.workers.feedback",
         "app.workers.reverification",
         "app.workers.confrontation",
+        "app.workers.retrait",
         "app.workers.auto_cloture",
         "app.workers.replay_echoues",
     ],

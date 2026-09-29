@@ -164,7 +164,7 @@ def _formater(unite: Unite) -> str:
     return f"[MODIFIÉ]\nAVANT : {unite.avant}\nAPRÈS : {unite.apres}"
 
 
-def _lire_verdict(brut: str) -> tuple[str, str]:
+def _lire_verdict(brut: str, verdicts: tuple[str, ...] = VERDICTS) -> tuple[str, str]:
     """Extrait (verdict, justification) ; illisible ou inattendu → INCERTAIN, jamais INTACTE."""
     debut, fin = brut.find("{"), brut.rfind("}")
     if debut == -1 or fin <= debut:
@@ -178,7 +178,7 @@ def _lire_verdict(brut: str) -> tuple[str, str]:
         return VERDICT_INCERTAIN, "Réponse du modèle illisible."
 
     verdict = str(charge.get("verdict", "")).strip().upper()
-    if verdict not in VERDICTS:
+    if verdict not in verdicts:
         return VERDICT_INCERTAIN, "Verdict du modèle non reconnu."
 
     justification = " ".join(str(charge.get("justification") or "").split())
