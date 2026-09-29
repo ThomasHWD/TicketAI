@@ -63,9 +63,10 @@ export default function DeleteConfirm({
         </div>
 
         <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-          Les réponses déjà validées qui s'appuient sur ce document restent servies : la suppression
-          ne les relit pas. Pour les faire réexaminer, mettez le document à jour plutôt que de le
-          supprimer.
+          Les réponses validées construites avec ce document sont retirées du service. Celles que
+          leurs autres sources suffisent à justifier y sont remises automatiquement après
+          vérification ; les autres restent restaurables depuis l'onglet Obsolètes des réponses
+          enregistrées.
         </p>
 
         {erreur && (

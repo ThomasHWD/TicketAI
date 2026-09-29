@@ -20,8 +20,10 @@ from app.models.groupe import Groupe
 from app.services.document_service import STATUTS_VIVANTS, UPLOAD_DIR, get_document_vivant, valider_contenu
 from app.services.obsolescence import RAISON_SUPPRESSION, marquer_obsoletes, racines, requeuer_en_attente
 from app.services.qdrant import COLLECTION_NAME, client
+from app.services.retrait import candidats_au_reexamen, passages_du_document, passages_restants
 from app.workers.celery_app import celery_app
 from app.workers.ingestion import chemin_du_fichier, ingestion_job
+from app.workers.retrait import reexamen_retrait_job
 
 router = APIRouter()
 
@@ -228,6 +230,17 @@ async def delete_document(doc_id: str, current_user: BackofficeUser, db: DB):
     if doc.statut == "EN_MAJ":
         raise HTTPException(409, "Une mise à jour de ce document est en cours.")
 
+    # Read before the points go: the judge needs the deleted passages, and the withdrawal below clears the review
+    # flags that must keep a flagged family out of the re-examination.
+    examens = [
+        {
+            "reponse_id": str(r.id),
+            "passages_retires": passages_du_document(db, r, doc_id),
+            "passages_restants": passages_restants(db, r, doc_id),
+        }
+        for r in candidats_au_reexamen(db, doc_id)
+    ]
+
     client.delete(
         collection_name=COLLECTION_NAME,
         points_selector=FilterSelector(
@@ -246,8 +259,15 @@ async def delete_document(doc_id: str, current_user: BackofficeUser, db: DB):
 
     obsoletes, en_attente_obsoletes = marquer_obsoletes(db, doc_id, RAISON_SUPPRESSION, version=doc.version)
     requeuer_en_attente(db, en_attente_obsoletes)
+    if examens:
+        reexamen_retrait_job.apply_async(kwargs={"doc_id": doc_id, "examens": examens}, queue="queue_questions")
 
-    return {"statut": "OK", "doc_id": doc_id, "nb_obsoletes": len(racines(obsoletes))}
+    return {
+        "statut": "OK",
+        "doc_id": doc_id,
+        "nb_obsoletes": len(racines(obsoletes)),
+        "nb_a_reexaminer": len(examens),
+    }
 
 
 @router.get("/documents/{job_id}/status")

@@ -22,6 +22,7 @@ from app.services.obsolescence import (
     RAISON_MANUELLE,
     confirmer_actualite,
     fermeture_copies,
+    indexation_d_origine,
     lever_a_relire,
     requeuer_en_attente,
     retirer_et_requeuer,
@@ -303,9 +304,9 @@ async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
         check_reponse_write(db, reponse, current_user)
 
         famille = fermeture_copies(db, {reponse.id})
-        a_reindexer = [
-            str(r[0]) for r in db.query(Reponse.id).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(True)).all()
-        ]
+        restaurees = db.query(Reponse).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(True)).all()
+        indexations = [args for r in restaurees if (args := indexation_d_origine(r))]
+        nb_restaurees = len(restaurees)
         db.query(Reponse).filter(Reponse.id.in_(famille)).update(
             {
                 "obsolete": False,
@@ -325,13 +326,13 @@ async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
     finally:
         db.close()
 
-    for rid in a_reindexer:
-        feedback_job.apply_async(args=[rid], queue="queue_ingestion")
+    for args in indexations:
+        feedback_job.apply_async(args=args, queue="queue_ingestion")
 
     await broadcast_async("sse:admin", "saved_answers_updated", {"reponse_id": reponse_id})
     return {
         "reponse_id": reponse_id,
-        "nb_restaurees": len(a_reindexer),
+        "nb_restaurees": nb_restaurees,
         "message": "Réponse restaurée et en cours de réindexation.",
     }
 

@@ -287,4 +287,8 @@ def mock_side_effects(monkeypatch):
     # Même mock côté obsolescence : `marquer_obsoletes` retire lui aussi des points.
     monkeypatch.setattr(obsolescence_module, "delete_response_point", delete_point_mock)
     monkeypatch.setattr(main_module, "init_collection", MagicMock())
+    # Deleting a document enqueues its re-examination — without this, the suite posted real jobs to the broker.
+    import app.workers.retrait as retrait_module
+
+    monkeypatch.setattr(retrait_module.reexamen_retrait_job, "apply_async", MagicMock())
     return _SideEffectMocks(feedback_mock, delete_point_mock)

@@ -139,6 +139,36 @@ def perimer_en_attente(db: Session, doc_id: str, raison: str, version: int | Non
     return en_attente
 
 
+def indexation_d_origine(r: Reponse) -> list[str] | None:
+    """`feedback_job` args rebuilding the point this response had before it was withdrawn — nothing more.
+    A copy is not a source: indexed on its own it served its frozen text, blind to later edits of the source
+    (29/09/2026: source edited to 400 €, the question came back as a SUGGESTION of a copy still saying 300 €)."""
+    if r.statut not in ("VALIDÉE", "CORRIGÉE"):
+        return None
+    if r.reponse_source_id is None or r.statut == "CORRIGÉE":
+        return [str(r.id)]  # a source, or a corrected copy — « Corriger » indexes it under its own question
+    if r.source == "SUGGESTION":
+        return [str(r.reponse_source_id), str(r.id)]  # human-validated formulation: alias of its source, re-judged
+    return None  # CANONIQUE served without review — never had a point of its own
+
+
+def remettre_en_service(db: Session, reponses: list[Reponse]) -> list[list[str]]:
+    """Clears withdrawal and review flags, commits, and returns the `feedback_job` args to re-index them with."""
+    for r in reponses:
+        r.obsolete = False
+        r.obsolete_raison = None
+        r.obsolete_doc_id = None
+        r.obsolete_version = None
+        r.obsolete_at = None
+        r.a_relire = False
+        r.a_relire_raison = None
+        r.a_relire_doc_id = None
+        r.a_relire_version = None
+        r.a_relire_at = None
+    db.commit()
+    return [args for r in reponses if (args := indexation_d_origine(r))]
+
+
 def retirer_du_service(
     db: Session,
     reponses: list[Reponse],

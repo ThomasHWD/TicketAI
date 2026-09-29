@@ -189,3 +189,11 @@ def test_synopsis_en_panne_laisse_la_contextualisation_tourner(monkeypatch):
     assert resume == ""
     assert ctx.contextualiser([EXCEPTION], resume) == ["loc"]
     assert "(indisponible)" in appels[1][1]["content"]
+
+
+@pytest.mark.parametrize("echo", ["[1] : ", "[2] ", "[3]. ", "[12] – "])
+def test_le_repere_d_extrait_recopie_par_le_modele_ne_part_pas_dans_l_index(echo):
+    """mistral-small (29/09/2026) rendait « [1] : Le forfait… » dès N≥2 : le repère du prompt partait à l'embedding."""
+    brut = json.dumps([f"{echo}Guide RH, section forfait mobilités", "Guide RH, section fractionnement"])
+
+    assert ctx._lire_locateurs(brut, 2) == ["Guide RH, section forfait mobilités", "Guide RH, section fractionnement"]
