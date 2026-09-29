@@ -139,6 +139,19 @@ def perimer_en_attente(db: Session, doc_id: str, raison: str, version: int | Non
     return en_attente
 
 
+def indexation_d_origine(r: Reponse) -> list[str] | None:
+    """`feedback_job` args rebuilding the point this response had before it was withdrawn — nothing more.
+    A copy is not a source: indexed on its own it served its frozen text, blind to later edits of the source
+    (29/09/2026: source edited to 400 €, the question came back as a SUGGESTION of a copy still saying 300 €)."""
+    if r.statut not in ("VALIDÉE", "CORRIGÉE"):
+        return None
+    if r.reponse_source_id is None or r.statut == "CORRIGÉE":
+        return [str(r.id)]  # a source, or a corrected copy — « Corriger » indexes it under its own question
+    if r.source == "SUGGESTION":
+        return [str(r.reponse_source_id), str(r.id)]  # human-validated formulation: alias of its source, re-judged
+    return None  # CANONIQUE served without review — never had a point of its own
+
+
 def retirer_du_service(
     db: Session,
     reponses: list[Reponse],
