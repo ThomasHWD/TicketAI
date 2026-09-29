@@ -10,7 +10,8 @@ Enchaîne, sur un domaine TEST remis à plat :
      détectée par les voisines [pts 5 et 6]
   5. SUGGESTION de cette canonique signalée : l'API HTTP prévient le relecteur [pt 4]
   6. brouillon d'un employé lambda : l'API HTTP ne le lui livre pas, le relecteur le lit [pt 11]
-  7. nouveau document : la famille HORS_DOMAINE est retirée, son brouillon repart au pipeline [pt 3, confrontation]
+  7. document sans rapport : rien de retiré ; document qui répond : « pas d'information » retirée,
+     son brouillon renvoyé [pts 3 et 7]
   8. aperçu d'une MAJ v3 : rapprochement par version des citations [pt 9]
 
     docker compose -f docker-compose.dev.yml exec -T -e PYTHONPATH=/app backend \\
@@ -286,14 +287,30 @@ def main() -> int:
         verifier("le relecteur le lit", bool(vu_relecteur[0]["contenu"]), court(vu_relecteur[0]["contenu"], 80))
 
         # ── 7 ──────────────────────────────────────────────────────────────
-        titre("7. nouveau document : famille HORS_DOMAINE retirée, brouillon renvoyé")
+        titre("7. nouveau document qui répond : « pas d'information » retirée, son brouillon renvoyé")
+        brute = poser(db, "Combien de jours de RTT par an ?")
+        valider(db, brute["reponse_id"], a.validateur)
+        attendre(lambda: point_de(brute["reponse_id"]) or None, 180)
+        sug = poser(db, "Combien de jours de RTT par an ?")  # nb_val=1 : SUGGESTION, brouillon en attente
+        r7 = db.query(Reponse).filter(Reponse.id == uuid.UUID(brute["reponse_id"])).first()
+        r7.nb_validations, r7.canonique = 3, True
+        db.commit()
+        verifier("HORS_DOMAINE brute canonique avec un brouillon SUGGESTION",
+                 brute["branche"] == "HORS_DOMAINE" and sug["branche"] == "SUGGESTION")
         t7 = datetime.now(timezone.utc)
         ingerer(db, "note_mutuelle.txt", NOTE_MUTUELLE, a.validateur)
         attendre_analyses(db)
         db.expire_all()
+        verifier("document sans rapport : rien n'est retiré",
+                 not db.query(Reponse).filter(Reponse.id == r7.id).first().obsolete)
+        ingerer(db, "note_rtt.txt", "Note — Temps de travail\n\nLes salariés bénéficient de 10 jours de RTT par an.\n",
+                a.validateur)
+        attendre_analyses(db)
+        db.expire_all()
         ancien = db.query(Reponse).filter(Reponse.id == uuid.UUID(sug["reponse_id"])).first()
         n7 = attendre_renvoi(db, uuid.UUID(sug["ticket_id"]), t7, None)
-        verifier("brouillon SUGGESTION retiré avec la famille puis renvoyé", ancien.obsolete and n7 is not None,
+        verifier("document qui répond : retirée avec son brouillon, renvoyé au pipeline",
+                 db.query(Reponse).filter(Reponse.id == r7.id).first().obsolete and ancien.obsolete and n7 is not None,
                  f"nouveau {n7.source if n7 else '∅'} : {court(n7.contenu if n7 else None, 80)}")
 
         # ── 8 ──────────────────────────────────────────────────────────────

@@ -116,7 +116,8 @@ def poser(db, texte: str, ticket_id: str | None = None) -> dict:
         return db.query(Reponse).filter(Reponse.ticket_id == t.id).order_by(Reponse.created_at.desc()).first()
 
     r = attendre(abouti)
-    g = db.query(GardeDecision).filter(GardeDecision.job_id == job_id).order_by(GardeDecision.created_at.desc()).first()
+    jugements = db.query(GardeDecision).filter(GardeDecision.job_id == job_id).order_by(GardeDecision.created_at).all()
+    g = jugements[-1] if jugements else None
     resultat = {
         "question": texte,
         "ticket_id": str(r.ticket_id),
@@ -124,6 +125,7 @@ def poser(db, texte: str, ticket_id: str | None = None) -> dict:
         "branche": r.source,
         "source_id": str(r.reponse_source_id) if r.reponse_source_id else None,
         "contenu": r.contenu,
+        "nb_jugements": len(jugements),
         "garde": None
         if g is None
         else {
