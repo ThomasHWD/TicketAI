@@ -2,11 +2,13 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import or_
 
 from app.config import settings
 from app.core.permissions import check_domain_write
 from app.core.security import BackofficeUser
 from app.database import SessionLocal
+from app.models.garde_decision import GardeDecision
 from app.models.reponse import Reponse
 from app.models.reponse_chunk import ReponseChunk
 from app.models.ticket import Ticket
@@ -24,7 +26,7 @@ from app.services.obsolescence import (
     fermeture_copies,
     lever_a_relire,
     requeuer_en_attente,
-    retirer_du_service,
+    retirer_et_requeuer,
 )
 from app.services.qdrant import delete_response_point
 from app.services.reponse_service import (
@@ -41,6 +43,23 @@ from app.workers.feedback import feedback_job
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _paire_jugee_equivalente(db, copie: Reponse, ticket: Ticket | None) -> bool:
+    """An OUI verdict recorded for this ticket against the copy's source (garde_decisions: ticket_id is null for a
+    new question, whose job id is the ticket's)."""
+    if copie.reponse_source_id is None or ticket is None:
+        return False
+    return (
+        db.query(GardeDecision.id)
+        .filter(
+            GardeDecision.reponse_id == copie.reponse_source_id,
+            GardeDecision.verdict.is_(True),
+            or_(GardeDecision.ticket_id == ticket.id, GardeDecision.job_id == ticket.job_id),
+        )
+        .first()
+        is not None
+    )
 
 
 @router.post("/reponses/{reponse_id}/valider")
@@ -204,9 +223,12 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest, current_us
         ticket_id_str = str(reponse.ticket_id)
         user_id = str(ticket.user_id) if ticket and ticket.user_id else None
 
-        # Propagate correction to all ancestors so the canonical serves the corrected text
+        # Propagate correction to all ancestors so the canonical serves the corrected text — only when the judge said
+        # this question asks the same thing as the source's. A SUGGESTION served without a verdict (Albert down, no
+        # indexed question) may be a specific case of a general answer: the correction then stays on the copy,
+        # indexed under its own question, instead of rewriting the general answer for everyone.
         sources_a_reindexer: list[str] = []
-        ancetre_id = reponse.reponse_source_id
+        ancetre_id = reponse.reponse_source_id if _paire_jugee_equivalente(db, reponse, ticket) else None
         vus: set = {reponse.id}
         while ancetre_id and ancetre_id not in vus:
             ancetre = db.query(Reponse).filter(Reponse.id == ancetre_id).first()
@@ -270,9 +292,7 @@ async def retirer_reponse(reponse_id: str, current_user: BackofficeUser):
         doc_id, version = reponse.a_relire_doc_id, reponse.a_relire_version
         famille = fermeture_copies(db, {reponse.id})
         cibles = db.query(Reponse).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(False)).all()
-        en_attente_cibles = [r for r in cibles if r.statut == "EN_ATTENTE"]
-        retirer_du_service(db, cibles, RAISON_MANUELLE, doc_id, version)
-        requeuer_en_attente(db, en_attente_cibles)
+        retirer_et_requeuer(db, cibles, RAISON_MANUELLE, doc_id, version)
         nb = len(cibles)
     finally:
         db.close()

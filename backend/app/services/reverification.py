@@ -8,11 +8,12 @@ from app.services.obsolescence import (
     fermeture_copies,
     lever_a_relire,
     poser_a_relire,
-    retirer_du_service,
+    retirer_et_requeuer,
     serialiser_unites,
 )
 from app.services.reverification_candidates import (  # noqa: F401
     Candidate,
+    passages_actuels,
     questions_des_reponses,
     rassembler_candidates,
 )
@@ -47,6 +48,7 @@ __all__ = [
     "unites_pertinentes",
     "juger",
     "juger_confrontation",
+    "passages_actuels",
     "decider",
     "signaler_sans_juger",
     "tracer",
@@ -78,7 +80,7 @@ def decider(
     extraits = serialiser_unites(unites)["unites"]
 
     if verdict == VERDICT_CONTREDITE and candidate.citante:
-        retirer_du_service(db, famille, RAISON_CONTREDITE, doc_id, version)
+        retirer_et_requeuer(db, famille, RAISON_CONTREDITE, doc_id, version)
         tracer(db, famille, justification, extraits)
         return ACTION_RETIREE
 

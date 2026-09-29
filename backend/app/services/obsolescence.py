@@ -20,6 +20,7 @@ from app.services.diff import (  # noqa: F401 — ré-exportés pour la compatib
     unites_de_changement,
 )
 from app.services.qdrant import delete_response_point
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 # Raisons d'obsolescence stockées dans `Reponse.obsolete_raison`
@@ -58,6 +59,7 @@ def reponses_obsoletes(
     db: Session,
     doc_id: str,
     indices: set[int] | None = None,
+    version: int | None = None,
 ) -> list[Reponse]:
     """Réponses indexées dans Qdrant qui s'appuient sur les chunks visés. `indices=None` = tout le document (cas de"""
     if indices is not None and not indices:
@@ -66,6 +68,9 @@ def reponses_obsoletes(
     q = db.query(ReponseChunk.reponse_id).filter(ReponseChunk.doc_id == doc_id)
     if indices is not None:
         q = q.filter(ReponseChunk.chunk_index.in_(sorted(indices)))
+        if version is not None:
+            # indices name passages of `version` — the same index in another version is another passage
+            q = q.filter(or_(ReponseChunk.version == version, ReponseChunk.version.is_(None)))
 
     graines = {r[0] for r in q.distinct().all()}
     if not graines:
@@ -95,10 +100,24 @@ def marquer_obsoletes(
     version: int | None = None,
     indices: set[int] | None = None,
 ) -> tuple[list[Reponse], list[Reponse]]:
-    """Retire de Qdrant puis marque obsolètes les réponses concernées. Idempotent."""
+    """Retire de Qdrant puis marque obsolètes les réponses concernées. Idempotent. Second élément : les EN_ATTENTE
+    retirées, à renvoyer au pipeline par l'appelant — brouillons citants ET copies SUGGESTION des réponses retirées
+    (sans citation, `perimer_en_attente` ne les voit pas : elles restaient validables sur un document supprimé)."""
     reponses = reponses_obsoletes(db, doc_id, indices)
-    retirer_du_service(db, reponses, raison, doc_id, version)
-    return reponses, perimer_en_attente(db, doc_id, raison, version)
+    brouillons = (
+        db.query(Reponse)
+        .filter(
+            Reponse.id.in_(fermeture_copies(db, {r.id for r in reponses})),
+            Reponse.statut == "EN_ATTENTE",
+            Reponse.obsolete.is_(False),
+        )
+        .all()
+        if reponses
+        else []
+    )
+    retirer_du_service(db, reponses + brouillons, raison, doc_id, version)
+    citants = perimer_en_attente(db, doc_id, raison, version)
+    return reponses, brouillons + [r for r in citants if r not in brouillons]
 
 
 def perimer_en_attente(db: Session, doc_id: str, raison: str, version: int | None) -> list[Reponse]:
@@ -190,18 +209,38 @@ def confirmer_actualite(db: Session, reponses: list[Reponse]) -> None:
     db.commit()
 
 
+def retirer_et_requeuer(
+    db: Session,
+    reponses: list[Reponse],
+    raison: str,
+    doc_id: str | None,
+    version: int | None,
+) -> None:
+    """Retire une famille et renvoie au pipeline ses brouillons EN_ATTENTE. Sans le renvoi, la copie SUGGESTION
+    en attente devient obsolète, disparaît du fil (detail.py masque les obsolètes non validées) et le ticket reste
+    RÉPONDU sans réponse visible."""
+    en_attente = [r for r in reponses if r.statut == "EN_ATTENTE" and not r.obsolete]
+    retirer_du_service(db, reponses, raison, doc_id, version)
+    requeuer_en_attente(db, en_attente)
+
+
 def requeuer_en_attente(db: Session, reponses: list[Reponse]) -> None:
-    """Re-soumet au pipeline RAG les tickets dont la réponse EN_ATTENTE vient d'être rendue obsolète. Import différé"""
+    """Re-soumet au pipeline chaque réponse EN_ATTENTE rendue obsolète, sous SA question : une précision repart en
+    mode suivi (nouvelle réponse, contexte du fil) — la re-soumettre sous la question initiale écrasait la réponse
+    initiale du ticket. Import différé anti-circulaire."""
     if not reponses:
         return
 
     from app.workers.question import question_job  # noqa: PLC0415 — import différé anti-circulaire
 
-    ids_tickets = {r.ticket_id for r in reponses if r.ticket_id is not None}
-    if not ids_tickets:
+    questions_par_ticket: dict[uuid.UUID, set[str | None]] = {}
+    for r in reponses:
+        if r.ticket_id is not None:
+            questions_par_ticket.setdefault(r.ticket_id, set()).add(r.question_suivi)
+    if not questions_par_ticket:
         return
 
-    tickets = db.query(Ticket).filter(Ticket.id.in_(ids_tickets)).all()
+    tickets = db.query(Ticket).filter(Ticket.id.in_(questions_par_ticket)).all()
     for ticket in tickets:
         ticket.statut_job = "EN_ATTENTE"
         ticket.statut_ticket = "NOUVEAU"
@@ -209,12 +248,13 @@ def requeuer_en_attente(db: Session, reponses: list[Reponse]) -> None:
     db.commit()
 
     for ticket in tickets:
-        question_job.delay(
-            question=ticket.question,
-            domaine=ticket.domaine,
-            user_id=str(ticket.user_id) if ticket.user_id else None,
-            ticket_id=str(ticket.id),
-            objet=ticket.objet,
-            retraiter=True,
-        )
-        logging.getLogger(__name__).info("Ticket %s re-soumis au pipeline RAG", ticket.id)
+        for question_suivi in questions_par_ticket[ticket.id]:
+            question_job.delay(
+                question=question_suivi or ticket.question,
+                domaine=ticket.domaine,
+                user_id=str(ticket.user_id) if ticket.user_id else None,
+                ticket_id=str(ticket.id),
+                objet=ticket.objet,
+                retraiter=question_suivi is None,
+            )
+            logging.getLogger(__name__).info("Ticket %s re-soumis au pipeline RAG", ticket.id)

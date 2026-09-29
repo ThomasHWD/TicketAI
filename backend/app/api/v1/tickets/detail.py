@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import or_
 
-from app.core.permissions import check_ticket_read
+from app.core.permissions import check_ticket_read, user_domaines
 from app.core.security import CurrentUser
 from app.database import SessionLocal
 from app.models.reponse import Reponse as ReponseModel
@@ -38,12 +38,39 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
             .order_by(ReponseModel.created_at.asc())
             .all()
         )
+        # Unreviewed (EN_ATTENTE) and human-rejected text never leaves the server for someone who can't review it —
+        # the owner's UI hid it, but the API handed it over: the invariant rested on the frontend alone.
+        relecteur = current_user.role == "ADMIN" or ticket.domaine in user_domaines(current_user)
+
+        def lisible(r: ReponseModel) -> bool:
+            return relecteur or r.statut not in ("EN_ATTENTE", "REJETÉE")
+
+        # A SUGGESTION copy is created without its source's review flag — the reviewer must see that the answer
+        # being reused is under analysis or probably contradicted before validating it.
+        ids_sources = {r.reponse_source_id for r in reponses if r.reponse_source_id} if relecteur else set()
+        sources = (
+            {s.id: s for s in db.query(ReponseModel).filter(ReponseModel.id.in_(ids_sources)).all()}
+            if ids_sources
+            else {}
+        )
+
+        def etat_source(r: ReponseModel) -> dict:
+            source = sources.get(r.reponse_source_id)
+            signalee = source is not None and (source.a_relire or source.obsolete)
+            return {
+                "source_a_relire": signalee,
+                "source_a_relire_raison": (source.obsolete_raison if source.obsolete else source.a_relire_raison)
+                if signalee
+                else None,
+                "source_analyse_justification": source.analyse_justification if signalee else None,
+            }
+
         return [
             {
                 "id": str(r.id),
                 "ticket_id": str(r.ticket_id),
-                "contenu": r.contenu,
-                "contenu_corrige": r.contenu_corrige,
+                "contenu": r.contenu if lisible(r) else None,
+                "contenu_corrige": r.contenu_corrige if lisible(r) else None,
                 "question_suivi": r.question_suivi,
                 "statut": r.statut,
                 "source": r.source,
@@ -57,6 +84,7 @@ async def reponses_par_ticket(ticket_id: str, current_user: CurrentUser):
                 "tag": r.tag,
                 "obsolete": r.obsolete,
                 "obsolete_raison": r.obsolete_raison,
+                **etat_source(r),
             }
             for r in reponses
         ]

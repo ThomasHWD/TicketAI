@@ -426,6 +426,7 @@ retrait sec serait indéfendable.
 | Les **tickets clos ne bougent pas** | La réponse reste affichée telle quelle là où elle a été donnée : elle *était* correcte à l'époque, l'historique n'est pas réécrit. |
 | Elle est **consultable** | Onglet **Obsolètes**, avec le document, la version, la justification et les extraits qui ont fondé le verdict. |
 | Elle est **restaurable** | Un clic la remet en service, telle quelle. |
+| Ses **brouillons repartent** | Une copie SUGGESTION encore EN_ATTENTE est retirée avec la famille, puis renvoyée au pipeline sous **sa** question (une précision repart en mode suivi). Sans ce renvoi, elle disparaissait du fil et le ticket restait « Répondu » sans réponse. Un brouillon retiré n'est plus ni listé ni validable (409). |
 
 Le bouton **Restaurer** reste la soupape. Il sert moins souvent qu'avant — le retrait n'est plus
 prononcé sur un critère de sous-chaîne mais sur une lecture — et quand il sert, la justification
@@ -562,6 +563,23 @@ redeviennent valables.
   réponses continuent d'être servies. Elles le sont, mais plus jamais sans que l'interface le
   dise : elles portent `ANALYSE_EN_COURS`. Les retirer préventivement créerait un trou de service
   pour rien, l'écrasante majorité étant intacte.
+- **Le juge voit aussi le texte actuel, pas seulement le diff.** Avec le diff seul, une réponse
+  bâtie sur une exception inchangée était jugée contredite dès que la règle générale bougeait :
+  « apprentis : 28 jours » retirée 3/3 quand seule la règle générale passait de 25 à 30 jours
+  (mesuré le 28/09/2026). `passages_actuels` lui fournit les 3 passages de la nouvelle version les
+  plus proches de la question, sans appel Albert (le vecteur de requête est celui du point-réponse).
+  Mesuré sur 5 cas × 3 passes : 15/15 avec le texte actuel. Les vraies contradictions restent
+  CONTREDITE, y compris une exception *calculée* à partir de la règle changée (« générale majorée
+  de 3 jours »). Sans point-réponse ou si Qdrant est indisponible, on retombe sur le diff seul,
+  verdicts identiques à avant.
+- **Les voisines sont cherchées même sans citante.** La ré-vérification est enfilée dès qu'il y a
+  au moins une unité de changement, pas seulement quand une réponse cite le document : un changement
+  peut contredire une canonique bâtie sur un autre document, ou écrite à la main (HORS_DOMAINE
+  corrigée, statut `CORRIGÉE`, désormais incluse dans les voisines).
+- **Les citations sont versionnées.** `reponse_chunks.version` dit à quelle version l'index renvoie ;
+  les rapprochements *par passage* (prioritaires, écran d'impact, contexte de la confrontation)
+  n'utilisent que les citations de la version concernée. Une ligne héritée sans version reste
+  rapprochée par index, comme avant.
 - **Un seul signalement à la fois par réponse.** Si un second document la fait signaler, les
   colonnes sont écrasées : dernier arrivé gagne.
 - **Un fichier renommé échappe au garde-fou homonyme** de la page Ingestion.

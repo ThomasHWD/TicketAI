@@ -288,6 +288,7 @@ def test_une_canonique_signalee_est_jugee_et_ne_sert_jamais_sans_revue(a_relire,
                 "app.workers.question.trouver_reponse_reutilisable",
                 return_value=Candidat(reponse, SEUIL_COSINUS + 0.05, 0.0, "Le télétravail est-il autorisé ?"),
             ),
+            patch("app.workers.question.question_du_point_fiable", return_value=True),
             patch("app.workers.question.statuer", return_value=Decision(verdict=verdict)) as juge,
             patch("app.workers.question.journaliser_garde"),
             patch("app.workers.question.servir_reutilisation", return_value={}) as servir,
@@ -309,3 +310,34 @@ def test_une_canonique_signalee_est_jugee_et_ne_sert_jamais_sans_revue(a_relire,
         servir.assert_called_once()
         assert servir.call_args.args[11] is sans_revue
         rerankeur.assert_not_called()
+
+
+def test_un_point_de_suivi_sans_contexte_part_au_rag_sans_juge():
+    """Point écrit avant la reformulation, sous « et pour un apprenti ? » : la paire n'est pas
+    jugeable. En SUGGESTION, il a remis au relecteur la réponse « congé paternité » pour une
+    question sur la prime (mesuré le 28/09/2026) ; connu non fiable, il vaut un refus."""
+    from app.services.question_pipeline import Candidat
+    from app.workers.question import SEUIL_COSINUS, question_job
+
+    reponse = SimpleNamespace(id=uuid.uuid4(), ticket_id=uuid.uuid4(), canonique=True, a_relire=False,
+                              nb_validations=3, question_suivi="Et pour un apprenti ?")
+
+    question_job.push_request(id=str(uuid.uuid4()), retries=0)
+    try:
+        with (
+            patch("app.workers.question._ticket_existe", return_value=True),
+            patch("app.workers.question.search_hybrid", return_value=[]),
+            patch("app.workers.question.trouver_reponse_reutilisable",
+                  return_value=Candidat(reponse, SEUIL_COSINUS + 0.1, 0.0, "Et pour un apprenti ?")),
+            patch("app.workers.question.question_du_point_fiable", return_value=False),
+            patch("app.workers.question.statuer") as juge,
+            patch("app.workers.question.servir_reutilisation", return_value={}) as servir,
+            patch("app.workers.question.rerank", side_effect=_PartiAuRag),
+        ):
+            with pytest.raises(_PartiAuRag):
+                question_job.run(question="Et pour un apprenti ?", domaine="RH")
+    finally:
+        question_job.pop_request()
+
+    juge.assert_not_called()
+    servir.assert_not_called()

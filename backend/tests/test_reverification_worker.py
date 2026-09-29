@@ -145,6 +145,26 @@ class TestVerdictsAppliques:
         assert r.analyse_justification == "Le plafond passe de 200 a 300 euros."
         assert restees_en_analyse(lot.db, lot.doc_id, 2) == []
 
+    def test_le_juge_voit_le_texte_actuel_du_document(self, lot, monkeypatch):
+        """Le diff seul cachait l'exception inchangée : « apprentis : 28 j » jugée
+        CONTREDITE 3/3 quand seule la règle générale bougeait (mesuré le 28/09/2026)."""
+        import app.services.reverification_scoring as scoring
+        import app.workers.reverification as worker
+        from app.workers.reverification import reverification_job
+
+        [r] = lot()
+        vus = []
+        _repondre(monkeypatch, "INTACTE")
+        monkeypatch.setattr(scoring, "chat", lambda messages, **k: vus.append(messages[1]["content"])
+                            or '{"verdict": "INTACTE", "justification": "Exception inchangee."}')
+        monkeypatch.setattr(worker, "passages_actuels",
+                            lambda reponse, doc_id, version: ["Les apprentis gardent 28 jours."]
+                            if (reponse.id, doc_id, version) == (r.id, lot.doc_id, 2) else [])
+
+        reverification_job(doc_id=lot.doc_id, version=2, domaine=DOMAINE)
+
+        assert "Les apprentis gardent 28 jours." in vus[0]
+
     def test_intacte_leve_le_drapeau_et_laisse_servie(self, lot, monkeypatch):
         [r] = lot()
         _repondre(monkeypatch, "INTACTE", "Sans effet sur cette reponse.")
