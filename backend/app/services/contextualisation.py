@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 
 from app.config import settings
 from app.services.llm import chat
@@ -166,4 +167,13 @@ def _lire_locateurs(brut: str, attendus: int) -> list[str]:
         )
         return []
 
-    return [" ".join(str(valeur or "").split())[:MAX_CARACTERES_CONTEXTE] for valeur in charge]
+    return [_sans_repere(" ".join(str(valeur or "").split()))[:MAX_CARACTERES_CONTEXTE] for valeur in charge]
+
+
+# The extracts are numbered « [k] » in the prompt; the model echoes it (« [1] : Le forfait… », mistral-small, N≥2,
+# 29/09/2026) — it would then be embedded and BM25-indexed as if it were part of the locator.
+_REPERE = re.compile(r"^\[\d+\]\s*[:.)\-–—]?\s*")
+
+
+def _sans_repere(locateur: str) -> str:
+    return _REPERE.sub("", locateur)
