@@ -346,6 +346,22 @@ Et c'est le bon plafond. Une réponse *incomplète* — le cas nominal ici — s
 `SEUIL_CANONIQUE` revalidations pour un état final identique. Épinglé par
 `backend/tests/test_confrontation.py`.
 
+**Une seule exception : la HORS_DOMAINE jamais corrigée** (29/09/2026). Elle ne dit que « la base n'a rien sur
+ce sujet ». Jugée CONTREDITE par un document qui en traite, elle est retirée (sa famille aussi, brouillons renvoyés
+au pipeline) : la question repart alors au RAG avec ce document. Ces réponses ne citent aucun chunk, et Qdrant ne
+les atteint pas par similarité : l'ingestion les injecte donc avec tous les indices du document. Elles passent
+ensuite, comme les autres, par le **filtre de pertinence puis le juge**.
+
+Avant, elles étaient retirées dès l'arrivée de **n'importe quel** document du domaine, avant le reranker : une note
+sur la mutuelle a retiré la canonique « préavis de démission » (observé en campagne réelle le 28/09/2026). Une
+HORS_DOMAINE **corrigée à la main** est une réponse humaine : elle suit la règle commune et plafonne à la relecture.
+
+Mesuré le 29/09/2026 (juge seul, 6 cas × 3 passes : 18/18). Une réponse « pas d'information » face à un passage
+qui répond donne CONTREDITE ; face à un document sans rapport ou à un **sujet voisin** (préavis de *licenciement*,
+reranker 0,60), INTACTE. De bout en bout (`scripts/bout_en_bout_candidats_hd.py --phase hd`) : la note mutuelle
+laisse les deux canoniques HORS_DOMAINE intactes, alors qu'elles ont bien été confrontées. La note « RTT +
+préavis » retire la brute et envoie la corrigée (« un mois » contre « deux mois ») en relecture.
+
 ### Le juge reçoit un prompt différent
 
 `PROMPT_SYSTEME_CONFRONTATION` (`services/reverification_scoring.py`) dit explicitement que **les

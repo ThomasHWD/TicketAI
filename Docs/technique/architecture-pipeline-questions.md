@@ -189,6 +189,22 @@ ne l'a pas inventé. Coût assumé : à quasi-égalité, une réponse fraîche p
 une canonique — du CANONIQUE échangé contre du SUGGESTION, soit une relecture de plus et non un
 risque, puisque ce qui décide de servir sans revue reste le garde.
 
+**Deux candidats au plus sont jugés** (`MAX_CANDIDATS_JUGES`, 29/09/2026). Le second n'est soumis au garde
+qu'après un **refus** du premier (NON jugé, ou point de suivi non jugeable) ou si le premier n'est pas éligible
+(lexical seul, non canonique). Un OUI est servi aussitôt, et une panne d'Albert arrête la recherche : on ne rachète
+pas d'appels sur un juge injoignable. Chaque candidat servi a **son propre** OUI : un refus ne prête rien au suivant.
+Avant, le refus du premier envoyait au RAG même quand le suivant était la bonne réponse.
+
+Mesuré sur 7 formulations × 3 passes (`scripts/bout_en_bout_candidats_hd.py --phase candidats`) :
+- les 15 questions ordinaires coûtent **1 jugement**, comme avant ;
+- les 2 formulations où le premier candidat est refusé en coûtent 2, et **aucune** mauvaise réponse n'a été servie ;
+- « … salarié qui n'est pas apprenti ? » (canonique apprentis en tête, à tort) et « … à temps partiel ? » voient
+  leurs deux candidats refusés, puis partent au RAG.
+
+Le sauvetage lui-même n'a pas été observé sur ce corpus : le juge refuse aussi la générale pour « qui n'est pas
+apprenti », car toute condition ajoutée vaut NON. Il est épinglé par
+`test_le_second_candidat_n_est_juge_qu_apres_un_refus`.
+
 **Conditions pour CANONIQUE** (servie sans revue humaine) :
 - `peut_servir_sans_revue(reponse)` — c'est-à-dire `canonique == True` **et
   `a_relire == False`**. Une canonique que la réverification ou la confrontation soupçonne
