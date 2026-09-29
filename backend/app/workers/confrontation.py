@@ -21,18 +21,21 @@ from app.services.obsolescence import (
     fermeture_copies,
     racines,
     retirer_et_requeuer,
+    serialiser_unites,
 )
 from app.services.reverification import (
     ACTION_A_RELIRE,
     ACTION_INTACTE,
     ACTION_RETIREE,
     MAX_JUGEMENTS,
+    VERDICT_CONTREDITE,
     VERDICT_INTACTE,
     Candidate,
     decider,
     juger_confrontation,
     questions_des_reponses,
     signaler_sans_juger,
+    tracer,
     unites_pertinentes,
 )
 from app.workers.celery_app import celery_app
@@ -47,10 +50,6 @@ from app.workers.reverification import (
 logger = logging.getLogger(__name__)
 
 JUSTIF_SANS_TEXTE = "Les passages du nouveau document n'ont pas pu être relus : réponse signalée par précaution."
-JUSTIF_HORS_DOMAINE = (
-    "Un nouveau document traite d'un sujet couvert par cette question"
-    " — la réponse hors-domaine est peut-être désormais possible."
-)
 
 
 class TacheConfrontation(celery_app.Task):
@@ -138,22 +137,6 @@ def confrontation_job(
                 )
                 continue
 
-            # HORS_DOMAINE : retire du service immédiatement, sans passer par le reranker ni
-            # par la relecture humaine. La réponse dit « pas d'information dans notre base » ;
-            # l'existence même d'un nouveau document pertinent la rend obsolète — il n'y a rien
-            # à valider. La restauration reste possible depuis l'onglet Obsolètes si le nouveau
-            # document s'avère hors-sujet.
-            if candidate.reponse.source == "HORS_DOMAINE":
-                logger.info("HORS_DOMAINE détecté : %s — retrait du service", candidate.reponse.id)
-                famille = db.query(Reponse).filter(
-                    Reponse.id.in_(fermeture_copies(db, {candidate.reponse.id})),
-                    Reponse.obsolete.is_(False),
-                ).all()
-                logger.info("famille HORS_DOMAINE : %d réponse(s) à retirer", len(famille))
-                retirer_et_requeuer(db, famille, RAISON_NOUVEAU_DOC, doc_id, version)
-                comptes[ACTION_RETIREE] += 1
-                continue
-
             pertinentes, fiable = unites_pertinentes(candidate.question, unites)
             if fiable and not pertinentes:
                 comptes[decider(db, candidate, VERDICT_INTACTE, "", [], doc_id, version)] += 1
@@ -178,10 +161,23 @@ def confrontation_job(
                 continue
 
             echecs = 0
-            action = decider(
-                db, candidate, verdict, justification, pertinentes, doc_id, version,
-                raison_incertain=RAISON_NOUVEAU_DOC,
-            )
+            if _sans_information(candidate.reponse) and verdict == VERDICT_CONTREDITE:
+                # « pas d'information » contredit par un document qui en apporte : retirée, la question repart au
+                # RAG avec ce document. Relevance comes from the reranker + judge now, not from mere arrival — any
+                # new document used to withdraw every HORS_DOMAINE canonical of the domain (observed 28/09/2026).
+                famille = db.query(Reponse).filter(
+                    Reponse.id.in_(fermeture_copies(db, {candidate.reponse.id})),
+                    Reponse.obsolete.is_(False),
+                ).all()
+                retirer_et_requeuer(db, famille, RAISON_NOUVEAU_DOC, doc_id, version)
+                tracer(db, famille, justification, serialiser_unites(pertinentes)["unites"])
+                action = ACTION_RETIREE
+            else:
+                # a hand-corrected HORS_DOMAINE is a human answer: common rule, never withdrawn automatically.
+                action = decider(
+                    db, candidate, verdict, justification, pertinentes, doc_id, version,
+                    raison_incertain=RAISON_NOUVEAU_DOC,
+                )
             comptes[action] += 1
             logger.info("%s → %s (%s)", candidate.reponse.id, verdict, action)
 
@@ -205,6 +201,11 @@ def confrontation_job(
         raise self.retry(exc=exc) from exc
     finally:
         db.close()
+
+
+def _sans_information(reponse: Reponse) -> bool:
+    """HORS_DOMAINE answer nobody rewrote: it only says the base has nothing on the subject."""
+    return reponse.source == "HORS_DOMAINE" and not reponse.contenu_corrige
 
 
 def _candidates(db, cibles: dict[str, list[int]]) -> list[tuple[Candidate, list[int]]]:
