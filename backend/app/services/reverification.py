@@ -8,13 +8,15 @@ from app.services.obsolescence import (
     fermeture_copies,
     lever_a_relire,
     poser_a_relire,
-    retirer_du_service,
+    retirer_et_requeuer,
     serialiser_unites,
 )
 from app.services.reverification_candidates import (  # noqa: F401
     Candidate,
+    passages_actuels,
     questions_des_reponses,
     rassembler_candidates,
+    voisines_du_document,
 )
 from app.services.reverification_scoring import (  # noqa: F401
     MAX_UNITES_PAR_REPONSE,
@@ -47,8 +49,10 @@ __all__ = [
     "unites_pertinentes",
     "juger",
     "juger_confrontation",
+    "passages_actuels",
     "decider",
     "signaler_sans_juger",
+    "signaler_voisines",
     "tracer",
 ]
 
@@ -78,7 +82,7 @@ def decider(
     extraits = serialiser_unites(unites)["unites"]
 
     if verdict == VERDICT_CONTREDITE and candidate.citante:
-        retirer_du_service(db, famille, RAISON_CONTREDITE, doc_id, version)
+        retirer_et_requeuer(db, famille, RAISON_CONTREDITE, doc_id, version)
         tracer(db, famille, justification, extraits)
         return ACTION_RETIREE
 
@@ -117,6 +121,18 @@ def signaler_sans_juger(
         tracer(db, famille, justification, None)
     db.commit()
     return len(candidates)
+
+
+def signaler_voisines(
+    db: Session, doc_id: str, version: int, domaine: str, raison: str, justification: str
+) -> list[Reponse]:
+    """Neighbours of a document with no judgeable diff go to human review. Only citing responses were flagged: a
+    canonical built on another document, or written by hand, stayed served unreviewed after a full rewrite. Never
+    over an existing flag — that response is not served unreviewed anyway, and keeps its motive."""
+    voisines = [r for r in voisines_du_document(db, doc_id, version, domaine) if not r.a_relire]
+    poser_a_relire(voisines, raison, doc_id, version)
+    tracer(db, voisines, justification, None)
+    return voisines
 
 
 def _famille(db: Session, reponse: Reponse) -> list[Reponse]:

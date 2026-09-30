@@ -169,6 +169,16 @@ Le refus est consigné dans `garde_decisions` avec `score_cosinus = NULL` : cett
 
 **Coût** : un appel juge par *validation humaine* de SUGGESTION — un événement rare, pas une question — et zéro quand les deux formulations sont typographiquement identiques.
 
+**Le verdict licencie aussi « Corriger ».** Corriger une SUGGESTION propage le texte à sa source
+(la canonique en profite) — seulement si le garde a dit OUI sur **la question de cette copie**.
+Le verdict est porté par la copie elle-même, `Reponse.jugee_equivalente`, posé à sa création par
+`servir_reutilisation` et remis à faux si le brouillon est réécrit. Le chercher dans
+`garde_decisions` par ticket trouvait aussi le OUI d'un **autre tour** : un suivi « et pour un
+apprenti ? » servi en SUGGESTION pendant une panne du juge, corrigé en « apprentis : 28 jours »,
+réécrivait la canonique générale pour tout le monde (audit du 29/09/2026). La migration
+`f0a9ac1a8399` ne reprend que les copies du tour initial dont un OUI porte exactement sur la
+question du ticket ; les suivis restent à faux — pas de propagation, côté sûr.
+
 **Portée délibérément limitée à l'alias.** `nb_validations` sur la source continue d'être incrémenté par l'endpoint HTTP. Le bloquer demanderait un appel LLM synchrone sur une requête web, pour un signal qui *promeut* sans *servir* ; c'est l'alias qui crée le cosinus à 1,0. À rouvrir si la mesure montre des promotions abusives.
 
 ---
@@ -238,6 +248,27 @@ Le juge peut alors évaluer l'équivalence dans son contexte réel.
 **Le juge reçoit un prompt système distinct en mode suivi** (`_PROMPT_SYSTEME_SUIVI`). Sans lui, il compare deux questions empilées à une question unique, ce qui ne peut pratiquement jamais « exprimer exactement la même demande » : le refus devenait un artefact de format et non un jugement. Mesuré le 05/09/2026 sur la FAQ DFE : **5 refus sur 5 précisions réelles**, dont un seul justifié. Le prompt dédié lui indique que la dernière ligne est la demande et que les précédentes ne servent qu'à lever les références implicites.
 
 **Le court-circuit typographique est désactivé en mode suivi.** Comparer un fil entier à une question unique n'a pas de sens, et ne comparer que sa dernière ligne reviendrait à servir une réponse canonique après avoir jeté le contexte qui la rend sûre.
+
+**Côté indexation, la précision n'est jamais indexée nue** (28/09/2026). Une réponse de suivi validée était indexée sous `question_suivi` — *« et pour un apprenti ? »* — donc sans le contexte que ce paragraphe protège côté A. Un autre fil finissant par les mêmes mots la retrouvait à cosinus ≈ 1, et le juge voyait une question B identique à la dernière ligne du fil : OUI probable, et la réponse sur un tout autre sujet servie sans revue (pour une question neuve identique, le court-circuit répondait même OUI sans appel). Indexer la question initiale ne vaut pas mieux : la réponse spécifique servirait la question générale.
+
+`feedback_job` indexe désormais une **question autonome** (`services/reformulation.py`) : le fil est réécrit une fois, à la validation, en une question qui porte son contexte (*« Quel est le préavis de licenciement pour un apprenti ? »*), stockée dans `Reponse.question_autonome` et reprise telle quelle aux réindexations. Une sortie inexploitable (plusieurs lignes, vide, trop longue) n'est pas indexée ; une panne Albert relance la tâche. Coût : un appel au modèle du garde par suivi validé.
+
+Les points écrits avant ce correctif sont **neutralisés au service** : `question_du_point_fiable` reconnaît un point dont la question indexée est la précision nue d'une réponse (ou d'une de ses copies, pour un alias) sans reformulation qui la cautionne. La paire n'est pas jugeable, et c'est traité **comme un refus : RAG**. La première version les envoyait en SUGGESTION, et la mesure a montré que c'était pire : le relecteur recevait la réponse « congé paternité » pour une question sur la prime, là où le juge, lui, refusait. `scripts/reindexer_suivis.py` réécrit ces points (simulation par défaut, `--appliquer`).
+
+**Côté recherche, une précision est cherchée avec son fil** (`requete_recherche`), pour la réutilisation comme pour le RAG, qui faisait déjà cette recherche : un seul embedding au lieu de deux. Cherchée seule, « et pour un apprenti ? » n'atteignait jamais la question autonome sous laquelle elle avait été validée.
+
+Mesuré le 28/09/2026 sur la stack de dev, avec Albert (`scripts/bout_en_bout_suivis.py`). Un document porte deux sujets, chacun avec une exception « apprentis » ; chaque cas a été joué 3 fois :
+
+| Cas | Point rappelé (cosinus) | Issue |
+|---|---|---|
+| Fil paternité + « et pour un apprenti ? », précision cherchée seule | spécifique 0,65 : sous les portes | RAG 3/3, aucune CANONIQUE possible |
+| Même fil, précision cherchée avec son fil | spécifique 0,98, générale 0,90 | **CANONIQUE 3/3**, juge OUI, réponse juste |
+| Fil prime + « et pour un apprenti ? » | spécifique paternité 0,64 : non rappelée | RAG 3/3, juste (400 €) |
+| Fil paternité + « et pour un salarié à temps partiel ? », générale canonique | générale 0,90 : au-dessus du seuil CANONIQUE | **juge NON 3/3** → RAG (HORS_DOMAINE, juste) |
+| Question neuve « … pour un apprenti ? » | 1,00 | CANONIQUE 3/3 |
+| Fil prime face à la précision nue (point hérité), juge seul | — | NON 3/3 |
+
+La dernière ligne tempère le risque d'origine : sur ce cas, le juge en mode suivi refusait déjà la précision nue. Le correctif ferme surtout le court-circuit sans appel (question neuve typographiquement identique à une précision) et donne aux juges comme à la FAQ une question lisible. Une seule formulation a été mesurée : cela ne prouve pas que le juge ait toujours tenu.
 
 ---
 

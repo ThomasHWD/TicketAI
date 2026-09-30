@@ -14,6 +14,9 @@ class ReponseChunk(Base):
     reponse_id = Column(UUID(as_uuid=True), ForeignKey("reponses.id"), nullable=False)
     doc_id = Column(String, nullable=False)
     chunk_index = Column(Integer, nullable=False)
+    # document version the index refers to — after an update, the same index names another passage. NULL = legacy
+    # row of unknown version, matched by index as before.
+    version = Column(Integer, nullable=True)
     score_cosinus = Column(Float, nullable=True)
     rerank_score = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

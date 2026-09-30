@@ -24,21 +24,12 @@
       @keyframes tk-glide{0%{left:-40%}100%{left:100%}}
       @keyframes tk-dot{0%,100%{opacity:.25}50%{opacity:1}}
     </style> -->
-    <script>
-      (function () {
-        try {
-          var t = localStorage.getItem("theme");
-          if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-          if (t === "dark") document.documentElement.classList.add("dark");
-          window.__TK_THEME__ = t;
-        } catch (e) { window.__TK_THEME__ = "dark"; }
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="tk-preloader"></div>
      <div id="root"></div>
-       <script>
+       <!-- <script>
   //     (function() {
   //       var dark = (window.__TK_THEME__ || "dark") === "dark";
   //       var c = dark
@@ -112,7 +103,7 @@
   //         </div>
   //       `;
   //     })();
-    </script>
+    </script> -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

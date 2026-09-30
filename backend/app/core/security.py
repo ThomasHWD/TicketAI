@@ -4,9 +4,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
 from sqlalchemy.orm import joinedload
 
 from app.config import settings
@@ -39,7 +39,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> User:
         if not user_id:
             raise _CREDENTIALS_EXC
         uid = uuid.UUID(user_id)
-    except (JWTError, ValueError) as exc:
+    except (jwt.PyJWTError, ValueError) as exc:
         raise _CREDENTIALS_EXC from exc
 
     db = SessionLocal()

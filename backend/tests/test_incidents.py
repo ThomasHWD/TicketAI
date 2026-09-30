@@ -375,6 +375,10 @@ def test_retry_ticket_echoue(client, admin_headers, ticket_factory, db_session):
     assert t.erreur is None
     assert t.nb_retries == 1
     mock_dispatch.assert_called_once()
+    # A retry reprocesses the ticket — without retraiter the job reads ticket_id as a follow-up of itself.
+    appel = mock_dispatch.call_args
+    assert appel.kwargs["kwargs"]["retraiter"] is True
+    assert appel.kwargs["args"][:2] == [t.question, t.domaine]
 
 
 @pytest.mark.integration

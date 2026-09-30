@@ -1,5 +1,6 @@
 """LDAP/AD authentication. Two-bind protocol: service account to look up the user DN, then re-bind with user"""
 
+import re
 import ssl
 from dataclasses import dataclass
 
@@ -29,6 +30,23 @@ def authenticate(username: str, password: str) -> LdapIdentity | None:
         return None
 
 
+def _normaliser_dn(dn: str) -> str:
+    """Casse et espaces autour des virgules ignorés : AD renvoie `CN=a,OU=b`, un .env peut porter `CN=a, OU=b`."""
+    return re.sub(r"\s*,\s*", ",", dn.strip().lower())
+
+
+def membre_du_groupe(groupe: str, member_of: list[str]) -> bool:
+    """`groupe` : DN complet, ou nom seul comparé au CN de chaque groupe. Égalité, jamais sous-chaîne : `"" in dn`
+    rendait tout le monde ADMIN quand la variable était vide, et un nom capturait ses homonymes (…-ADM-LECTURE)."""
+    cible = _normaliser_dn(groupe)
+    if not cible:
+        return False
+    dns = [_normaliser_dn(dn) for dn in member_of]
+    if "=" in cible:
+        return cible in dns
+    return cible in {re.split(r"(?<!\\),", dn, maxsplit=1)[0].partition("=")[2] for dn in dns}
+
+
 def _identity_from_entry(username: str, entry) -> LdapIdentity:
     def attr(name: str) -> str | None:
         value = entry[name].value if name in entry else None
@@ -40,9 +58,9 @@ def _identity_from_entry(username: str, entry) -> LdapIdentity:
         v = entry[name].value
         return v if isinstance(v, list) else ([str(v)] if v else [])
 
-    member_of = [s.lower() for s in multi_attr("memberOf")]
-    is_gestionnaire = any(settings.ldap_group_gestionnaire.lower() in dn for dn in member_of)
-    is_admin = any(settings.ldap_group_admin.lower() in dn for dn in member_of)
+    member_of = multi_attr("memberOf")
+    is_gestionnaire = membre_du_groupe(settings.ldap_group_gestionnaire, member_of)
+    is_admin = membre_du_groupe(settings.ldap_group_admin, member_of)
 
     return LdapIdentity(
         username=username,
@@ -57,6 +75,7 @@ def _identity_from_entry(username: str, entry) -> LdapIdentity:
 
 def _search_filter(username: str) -> str:
     from ldap3.utils.conv import escape_filter_chars
+
     return settings.ldap_user_search_filter.format(username=escape_filter_chars(username))
 
 

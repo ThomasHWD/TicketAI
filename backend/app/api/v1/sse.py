@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["sse"])
 
 _PING_INTERVAL = 20.0  # secondes entre deux keepalive comments
+# get_message() defaults to timeout=0.0 — it returns at once, and the loop spun at ~50k turns/s per open tab, pinning
+# the event loop at 100 % CPU: broadcasts timed out and sync routes stalled > 150 s (measured 29/09/2026).
+_ATTENTE_MESSAGE = 0.5
+
+# Cleanup tasks detached from the cancelled stream — kept referenced so they are not garbage-collected mid-flight.
+_fermetures: set[asyncio.Task] = set()
 
 
 def _release_user_lock(user_id) -> None:
@@ -66,13 +72,7 @@ async def _stream(request: Request, user):
             if await request.is_disconnected():
                 break
 
-            try:
-                message = await asyncio.wait_for(
-                    pubsub.get_message(ignore_subscribe_messages=True),
-                    timeout=0.5,
-                )
-            except asyncio.TimeoutError:
-                message = None
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=_ATTENTE_MESSAGE)
 
             now = asyncio.get_event_loop().time()
 
@@ -90,14 +90,23 @@ async def _stream(request: Request, user):
                 yield ":ping\n\n"
 
     finally:
-        try:
-            await pubsub.unsubscribe()
-            if use_domain_pattern:
-                await pubsub.punsubscribe()
-            await r.aclose()
-        except Exception:
-            pass
+        # First, and with no await before it: on disconnect the stream is cancelled, and any await in this block
+        # re-raises CancelledError (a BaseException) — the release used to sit after the unsubscribe and never ran.
         _release_user_lock(user.id)
+        tache = asyncio.get_running_loop().create_task(_fermer(pubsub, r, use_domain_pattern))
+        _fermetures.add(tache)
+        tache.add_done_callback(_fermetures.discard)
+
+
+async def _fermer(pubsub, r, use_domain_pattern: bool) -> None:
+    try:
+        await pubsub.unsubscribe()
+        if use_domain_pattern:
+            await pubsub.punsubscribe()
+        await pubsub.aclose()
+        await r.aclose()
+    except Exception as e:
+        logger.warning("Fermeture du flux SSE incomplète : %s", e)
 
 
 @router.get("/sse/stream")

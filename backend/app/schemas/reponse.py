@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+REPONSE_MAX = 20_000
 
 # validator_id removed — identity is now derived from the JWT, not the request body.
 
@@ -12,17 +14,17 @@ class FaqVisibleRequest(BaseModel):
 
 
 class RejeterRequest(BaseModel):
-    raison: str
+    raison: str = Field(max_length=2000)
 
 
 class CorrigerRequest(BaseModel):
-    contenu_corrige: str
+    contenu_corrige: str = Field(max_length=REPONSE_MAX)
     tag: str | None = None
     faq_visible: bool = False
 
 
 class EditerCanoniqueRequest(BaseModel):
-    contenu: str
+    contenu: str = Field(max_length=REPONSE_MAX)
 
 
 class ConfirmerLotRequest(BaseModel):

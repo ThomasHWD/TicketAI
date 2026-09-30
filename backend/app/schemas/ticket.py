@@ -2,15 +2,19 @@ import uuid
 
 from pydantic import BaseModel, Field
 
+# Every question goes to Albert (embedding, generation, judge) on a quota shared by the whole organisation:
+# unbounded text let one account spend a day of it. Same caps as the form (NewTicket.tsx).
+QUESTION_MAX = 2000
+
 
 class QuestionRequest(BaseModel):
-    question: str
-    objet: str | None = None
-    domaine: str
+    question: str = Field(max_length=QUESTION_MAX)
+    objet: str | None = Field(default=None, max_length=255)  # tickets.objet VARCHAR(255)
+    domaine: str = Field(max_length=50)
 
 
 class SuiviRequest(BaseModel):
-    question: str
+    question: str = Field(max_length=QUESTION_MAX)
 
 
 class CloturerRequest(BaseModel):

@@ -153,6 +153,34 @@ def test_restaurer_remonte_toute_la_famille(client, db_session, validator, auth_
     assert db_session.get(Reponse, copie_id).obsolete is False
 
 
+@pytest.mark.parametrize(
+    ("source_copie", "statut_copie", "indexation_copie"),
+    [
+        ("SUGGESTION", "VALIDÉE", "alias"),  # formulation validée : alias de la source, rejugé
+        ("CANONIQUE", "VALIDÉE", None),  # servie sans revue : n'a jamais eu de point
+        ("SUGGESTION", "CORRIGÉE", "propre"),  # corrigée : indexée sous sa question, comme « Corriger »
+    ],
+)
+def test_restaurer_ne_fait_pas_d_une_copie_une_source(
+    client, db_session, validator, auth_header, mock_side_effects, source_copie, statut_copie, indexation_copie
+):
+    """Indexée seule, une copie servait son texte figé, aveugle aux éditions de la source
+    (29/09/2026 : source éditée à 400 €, la question est revenue en SUGGESTION d'une copie à 300 €)."""
+    _, source = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
+    _, copie = seed_ticket_reponse(db_session, statut=statut_copie, reponse_source_id=source.id)
+    copie.source = source_copie
+    db_session.commit()
+    rendre_obsolete(db_session, source)
+    rendre_obsolete(db_session, copie)
+    s, c = str(source.id), str(copie.id)
+
+    client.post(f"{API}/reponses/{s}/restaurer", headers=auth_header(validator))
+
+    indexations = [tuple(appel.kwargs["args"]) for appel in mock_side_effects.feedback.call_args_list]
+    attendu = {None: [(s,)], "alias": [(s,), (s, c)], "propre": [(s,), (c,)]}[indexation_copie]
+    assert sorted(indexations) == sorted(attendu)
+
+
 def test_restaurer_non_obsolete_renvoie_409(client, db_session, validator, auth_header):
     _, reponse = seed_ticket_reponse(db_session, statut="VALIDÉE", canonique=True)
 
