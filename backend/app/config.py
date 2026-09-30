@@ -80,6 +80,15 @@ class Settings(BaseSettings):
             raise ValueError("JWT_SECRET_KEY doit faire au moins 32 caractères (générer avec : openssl rand -hex 32)")
         return self
 
+    @model_validator(mode="after")
+    def _validate_groupes_ldap(self) -> "Settings":
+        # Fail at boot, not at login: an unset group silently strips its role from everyone (it used to grant ADMIN).
+        if self.ldap_server_url:
+            for nom in ("ldap_group_admin", "ldap_group_gestionnaire"):
+                if not getattr(self, nom).strip():
+                    raise ValueError(f"{nom.upper()} requis quand LDAP_SERVER_URL est renseigné (nom ou DN du groupe)")
+        return self
+
     @cached_property
     def database_url(self) -> str:
         return (
