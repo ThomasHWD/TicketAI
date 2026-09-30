@@ -35,9 +35,9 @@ export function AutoClotureTimer({ ticket, joursConfig }: { ticket: Ticket; jour
     <span
       aria-label={`Clôture automatique le ${new Date(dateClotureMs).toLocaleDateString("fr-FR")}`}
       className={`block text-[11px] leading-none mt-1.5 tabular-nums ${
-        isUrgent  ? "font-medium text-red-500 dark:text-red-400"
-        : isWarning ? "text-amber-500 dark:text-amber-400"
-        : "text-gray-500 dark:text-gray-400"
+        isUrgent  ? "font-medium text-red-600 dark:text-red-400"
+        : isWarning ? "text-amber-700 dark:text-amber-400"
+        : "text-muted-foreground"
       }`}
     >
       {clotureLabel(remaining, dateClotureMs)}

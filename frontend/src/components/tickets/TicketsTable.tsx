@@ -24,14 +24,14 @@ function EmptyState({ hasFilters, isClosed, colSpan }: { hasFilters: boolean; is
           }`}>
             {isSuccess
               ? <CheckCircle2 size={20} className="text-emerald-500 dark:text-emerald-400" aria-hidden="true" />
-              : <Inbox size={20} className="text-gray-500 dark:text-gray-400" aria-hidden="true" />
+              : <Inbox size={20} className="text-subtle" aria-hidden="true" />
             }
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {hasFilters ? "Aucun résultat" : isClosed ? "Aucun ticket clôturé" : "File d'attente vide"}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-muted-foreground">
               {hasFilters
                 ? "Essayez d'autres filtres."
                 : isClosed
@@ -78,12 +78,12 @@ export function TicketsTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 dark:border-white/5 bg-gray-50/60 dark:bg-white/[0.02]">
-              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-full">Objet</th>
-              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Créé</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide w-full">Objet</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Créé</th>
               {multiDomain && (
-                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">Domaine</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap hidden md:table-cell">Domaine</th>
               )}
-              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">Statut</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Statut</th>
               <th className="px-5 py-3 w-8 hidden sm:table-cell" aria-hidden="true" />
             </tr>
           </thead>
@@ -113,10 +113,10 @@ export function TicketsTable({
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{errorMsg.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{errorMsg.detail}</p>
+                      <p className="text-xs text-muted-foreground">{errorMsg.detail}</p>
                     </div>
                     {errorMsg.loginPath ? (
-                      <a href="/login" className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors">
+                      <a href="/login" className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground transition-colors">
                         Se reconnecter
                       </a>
                     ) : (
@@ -164,7 +164,7 @@ export function TicketsTable({
                     <div className="flex items-center gap-2 min-w-0">
                       {locked && (
                         <span
-                          className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 ring-1 ring-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20 text-[10px] font-medium"
+                          className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20 text-[10px] font-medium"
                           aria-label={`Pris en charge par ${lockedEmail}`}
                         >
                           <Lock size={11} aria-hidden="true" />
@@ -179,7 +179,7 @@ export function TicketsTable({
                           {title}
                         </span>
                         {t.user_email && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5 block">
+                          <span className="text-xs text-muted-foreground truncate mt-0.5 block">
                             {t.user_email}
                           </span>
                         )}
@@ -196,7 +196,7 @@ export function TicketsTable({
                     </div>
                   </td>
 
-                  <td className="px-5 py-4 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap hidden sm:table-cell">
+                  <td className="px-5 py-4 text-xs text-muted-foreground whitespace-nowrap hidden sm:table-cell">
                     <time dateTime={t.created_at ?? undefined} title={formatDateFull(t.created_at)}>
                       {formatDateShort(t.created_at)}
                     </time>
@@ -221,7 +221,7 @@ export function TicketsTable({
                   <td className="px-5 py-4 hidden sm:table-cell">
                     <ChevronRight
                       size={14}
-                      className="text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all duration-150"
+                      className="text-subtle group-hover:text-gray-500 dark:group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all duration-150"
                       aria-hidden="true"
                     />
                   </td>
@@ -234,10 +234,10 @@ export function TicketsTable({
 
       {!isLoading && total > 0 && (
         <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 dark:border-white/5 bg-gray-50/40 dark:bg-white/[0.01]">
-          <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums flex items-center gap-2">
+          <span className="text-xs text-muted-foreground tabular-nums flex items-center gap-2">
             {from}–{to} sur {total} ticket{total > 1 ? "s" : ""}
             {isFetchingBg && (
-              <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400" aria-live="polite" aria-label="Actualisation en cours">
+              <span className="inline-flex items-center gap-1 text-muted-foreground" aria-live="polite" aria-label="Actualisation en cours">
                 <Loader2 size={11} className="animate-spin" aria-hidden="true" />
                 Actualisation…
               </span>
@@ -247,18 +247,18 @@ export function TicketsTable({
             <button
               onClick={() => onPageChange((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
               aria-label="Page précédente"
             >
               <ChevronLeft size={14} aria-hidden="true" />
             </button>
-            <span className="text-xs text-gray-500 dark:text-gray-400 px-2 tabular-nums font-medium">
+            <span className="text-xs text-muted-foreground px-2 tabular-nums font-medium">
               {page} / {totalPages}
             </span>
             <button
               onClick={() => onPageChange((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
               aria-label="Page suivante"
             >
               <ChevronRight size={14} aria-hidden="true" />

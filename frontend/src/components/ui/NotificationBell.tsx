@@ -99,12 +99,12 @@ export default function NotificationBell() {
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={panelId}
-        className="relative min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md hover:bg-white/60 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 transition-colors"
+        className="relative min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md hover:bg-white/60 dark:hover:bg-white/10 text-gray-600 dark:text-muted-foreground transition-colors"
       >
         <Bell size={18} />
         {totalBadge > 0 && (
           <span
-            className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none tabular-nums"
+            className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-amber-500 text-amber-950 text-[9px] font-bold rounded-full flex items-center justify-center leading-none tabular-nums"
             aria-hidden="true"
           >
             {totalBadge > 9 ? "9+" : totalBadge}

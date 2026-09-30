@@ -25,7 +25,7 @@ export function TicketRatingPanel({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-gray-900 dark:text-white">Avant de partir…</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             Comment évaluez-vous votre expérience ? <span className="italic">Facultatif.</span>
           </p>
         </div>
@@ -33,7 +33,7 @@ export function TicketRatingPanel({
           type="button"
           onClick={onCancel}
           aria-label="Annuler"
-          className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 dark:hover:text-gray-200 transition-colors shrink-0"
+          className="p-2 rounded-md text-muted-foreground hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 dark:hover:text-gray-200 transition-colors shrink-0"
         >
           <X size={15} aria-hidden="true" />
         </button>
@@ -56,7 +56,7 @@ export function TicketRatingPanel({
           type="button"
           onClick={() => cloture.mutate(true)}
           disabled={cloture.isPending}
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {cloture.isPending
             ? <Loader2 size={15} className="animate-spin" aria-hidden="true" />
@@ -67,7 +67,7 @@ export function TicketRatingPanel({
           type="button"
           onClick={() => cloture.mutate(false)}
           disabled={cloture.isPending}
-          className="inline-flex items-center text-sm px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center text-sm px-4 py-2 text-muted-foreground hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Fermer le ticket sans noter
         </button>

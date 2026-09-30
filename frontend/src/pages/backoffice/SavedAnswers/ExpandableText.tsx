@@ -11,7 +11,7 @@ export default function ExpandableText({ text, label }: { text: string; label?: 
     <div>
       <p
         id={textId}
-        className={`text-sm leading-relaxed text-gray-500 dark:text-gray-400 ${
+        className={`text-sm leading-relaxed text-muted-foreground ${
           !expanded && long ? "line-clamp-3" : ""
         }`}
       >
@@ -29,7 +29,7 @@ export default function ExpandableText({ text, label }: { text: string; label?: 
                 : `Voir tout — ${label}`
               : undefined
           }
-          className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+          className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors"
         >
           {expanded ? "Réduire" : "Voir tout"}
         </button>

@@ -50,7 +50,7 @@ export default function TicketActions({
         </span>
         <div>
           <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Demande marquée comme résolue</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Vous avez indiqué que cette réponse vous convenait.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Vous avez indiqué que cette réponse vous convenait.</p>
         </div>
       </div>
     );
@@ -65,11 +65,11 @@ export default function TicketActions({
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Aucune réponse disponible</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+          <p className="text-xs text-muted-foreground mt-0.5 mb-4">
             Le service d'assistance n'a pas pu répondre à cette demande. Vous pouvez reformuler votre question ou fermer le ticket.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Link to="/nouveau-ticket" className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors">
+            <Link to="/nouveau-ticket" className="inline-flex items-center gap-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium px-4 py-2 transition-colors">
               <PenLine size={14} aria-hidden="true" />Reformuler ma question
             </Link>
             <button

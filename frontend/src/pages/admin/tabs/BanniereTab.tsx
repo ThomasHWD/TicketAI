@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Loader2, Megaphone, Save, TriangleAlert, Wrench } from "lucide-react";
 import { getSiteConfig, setSiteConfig } from "../../../lib/api";
 import MarqueeBanner from "../../../components/ui/MarqueeBanner";
+import { useDialogFocus } from "../../../hooks/useDialogFocus";
 
 const BANNER_MAX = 200;
 const MAINT_MAX  = 300;
@@ -62,13 +63,13 @@ function CardActions({
       <button
         onClick={onReset}
         disabled={!isDirty || isPending}
-        className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 transition-colors"
+        className="text-xs text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 transition-colors"
       >
         Réinitialiser
       </button>
       <div className="flex items-center gap-3">
         {isError && (
-          <p role="alert" aria-live="assertive" className="flex items-center gap-1.5 text-xs text-red-500">
+          <p role="alert" aria-live="assertive" className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
             <AlertCircle size={12} aria-hidden="true" />
             Échec de l'enregistrement
             {" · "}
@@ -78,7 +79,7 @@ function CardActions({
           </p>
         )}
         {isSuccess && (
-          <span className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+          <span className="flex items-center gap-1.5 text-sm text-emerald-700 dark:text-emerald-400">
             <CheckCircle2 size={14} aria-hidden="true" />
             Enregistré
           </span>
@@ -86,7 +87,7 @@ function CardActions({
         <button
           onClick={onSave}
           disabled={!isDirty || isPending}
-          className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors"
+          className="flex items-center gap-2 bg-primary hover:bg-primary-hover disabled:opacity-60 text-primary-foreground text-sm font-medium px-4 py-2 rounded-md transition-colors"
         >
           {isPending ? (
             <Loader2 size={14} className="motion-safe:animate-spin" aria-hidden="true" />
@@ -107,8 +108,12 @@ function MaintConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // Action destructive (déconnecte tout le monde) : le focus part sur « Annuler ».
+  useDialogFocus(dialogRef, { onClose: onCancel, initialFocus: cancelRef });
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="maint-confirm-title">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="maint-confirm-title">
       <div
         className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm"
         onClick={onCancel}
@@ -123,7 +128,7 @@ function MaintConfirmDialog({
             <p id="maint-confirm-title" className="text-sm font-semibold text-gray-800 dark:text-gray-100">
               Activer le mode maintenance ?
             </p>
-            <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
               Tous les utilisateurs non-admins seront déconnectés du service.
               <br />
               Vous conserverez votre accès en tant qu'admin.
@@ -131,6 +136,7 @@ function MaintConfirmDialog({
           </div>
           <div className="flex gap-2 w-full">
             <button
+              ref={cancelRef}
               onClick={onCancel}
               className="flex-1 text-sm font-medium text-gray-600 dark:text-gray-300 px-4 py-2 rounded-lg border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
             >
@@ -138,7 +144,7 @@ function MaintConfirmDialog({
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 text-sm font-medium text-white px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 transition-colors"
+              className="flex-1 text-sm font-medium text-amber-950 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 transition-colors"
             >
               Activer quand même
             </button>
@@ -151,7 +157,7 @@ function MaintConfirmDialog({
 
 function UnpublishedBadge() {
   return (
-    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-500/20">
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200/70 dark:border-amber-500/20">
       Non publié
     </span>
   );
@@ -252,11 +258,11 @@ export default function BanniereTab({
   };
 
   const Sep = () => <div className="h-px bg-gray-100 dark:bg-white/[0.06]" />;
-  const inputCls = "w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-white/[0.04] px-3.5 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 transition";
+  const inputCls = "w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-white/[0.04] px-3.5 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder:text-muted-foreground resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 transition";
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20 text-gray-400">
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
         <Loader2 size={18} className="motion-safe:animate-spin" aria-hidden="true" />
       </div>
     );
@@ -283,17 +289,17 @@ export default function BanniereTab({
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Bannière d'annonce</p>
                 {active ? (
-                  <span aria-hidden="true" className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+                  <span aria-hidden="true" className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
                     Active
                   </span>
                 ) : (
-                  <span aria-hidden="true" className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 dark:bg-white/[0.06] text-gray-400 dark:text-gray-500">
+                  <span aria-hidden="true" className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 dark:bg-white/[0.06] text-muted-foreground">
                     Inactive
                   </span>
                 )}
                 {isDirty && <UnpublishedBadge />}
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Bandeau défilant affiché dans la barre de navigation pour tous les utilisateurs.
               </p>
             </div>
@@ -304,10 +310,10 @@ export default function BanniereTab({
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label htmlFor="banner-message" className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                <label htmlFor="banner-message" className="text-xs font-medium text-muted-foreground">
                   Message
                 </label>
-                <span className={`text-xs tabular-nums ${message.length > BANNER_MAX * 0.9 ? "text-amber-500" : "text-gray-400"}`}>
+                <span className={`text-xs tabular-nums ${message.length > BANNER_MAX * 0.9 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>
                   {message.length} / {BANNER_MAX} car.
                 </span>
               </div>
@@ -323,7 +329,7 @@ export default function BanniereTab({
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="banner-url" className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              <label htmlFor="banner-url" className="text-xs font-medium text-muted-foreground">
                 Lien <span className="font-normal">(optionnel)</span>
               </label>
               <input
@@ -336,7 +342,7 @@ export default function BanniereTab({
                 className={`${inputCls} ${urlError ? "border-red-400 focus-visible:ring-red-400" : ""}`}
               />
               {urlError && (
-                <p id="banner-url-error" role="alert" className="flex items-center gap-1.5 text-xs text-red-500">
+                <p id="banner-url-error" role="alert" className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
                   <AlertCircle size={11} aria-hidden="true" /> {urlError}
                 </p>
               )}
@@ -345,15 +351,15 @@ export default function BanniereTab({
             <Sep />
 
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Prévisualisation</p>
+              <p className="text-xs font-medium text-muted-foreground">Prévisualisation</p>
               <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-white/10">
                 <div className="h-10 flex items-center gap-2 px-3 bg-white dark:bg-[#111113]">
                   {active && message ? (
                     <MarqueeBanner message={message} url={url || undefined} />
                   ) : (
                     <div className="flex-1 flex items-center gap-2 px-1 min-w-0">
-                      <Megaphone size={12} className="text-gray-300 dark:text-white/20 shrink-0" aria-hidden="true" />
-                      <span className="text-xs text-gray-400 italic truncate">
+                      <Megaphone size={12} className="text-subtle shrink-0" aria-hidden="true" />
+                      <span className="text-xs text-muted-foreground italic truncate">
                         {!active ? "Bannière désactivée" : "Aucun message saisi"}
                       </span>
                     </div>
@@ -368,7 +374,7 @@ export default function BanniereTab({
             </div>
 
             {validationError && (
-              <p className="flex items-center gap-1.5 text-xs text-red-500" role="alert">
+              <p className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400" role="alert">
                 <AlertCircle size={12} aria-hidden="true" /> {validationError}
               </p>
             )}
@@ -400,7 +406,7 @@ export default function BanniereTab({
                 ? "bg-amber-100 dark:bg-amber-500/15"
                 : "bg-gray-100 dark:bg-white/[0.06]"
             }`}>
-              <Wrench size={16} className={mActive ? "text-amber-600 dark:text-amber-400" : "text-gray-400 dark:text-gray-500"} aria-hidden="true" />
+              <Wrench size={16} className={mActive ? "text-amber-600 dark:text-amber-400" : "text-subtle"} aria-hidden="true" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -410,13 +416,13 @@ export default function BanniereTab({
                     Actif
                   </span>
                 ) : (
-                  <span aria-hidden="true" className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 dark:bg-white/[0.06] text-gray-400 dark:text-gray-500">
+                  <span aria-hidden="true" className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 dark:bg-white/[0.06] text-muted-foreground">
                     Inactif
                   </span>
                 )}
                 {isDirtyMaintenance && <UnpublishedBadge />}
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Bloque l'accès au site pour tous les utilisateurs non-admins.
               </p>
             </div>
@@ -427,10 +433,10 @@ export default function BanniereTab({
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label htmlFor="maint-message" className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                <label htmlFor="maint-message" className="text-xs font-medium text-muted-foreground">
                   Message <span className="font-normal">(optionnel)</span>
                 </label>
-                <span className={`text-xs tabular-nums ${mMessage.length > MAINT_MAX * 0.9 ? "text-amber-500" : "text-gray-400"}`}>
+                <span className={`text-xs tabular-nums ${mMessage.length > MAINT_MAX * 0.9 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>
                   {mMessage.length} / {MAINT_MAX} car.
                 </span>
               </div>
@@ -448,14 +454,14 @@ export default function BanniereTab({
             <Sep />
 
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Prévisualisation</p>
+              <p className="text-xs font-medium text-muted-foreground">Prévisualisation</p>
               <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#0d0d0d]">
                 <div className="py-5 flex flex-col items-center gap-2 px-4">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center">
                     <Wrench size={16} className="text-amber-500" aria-hidden="true" />
                   </div>
                   <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">Site en maintenance</p>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center leading-relaxed">
+                  <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
                     {mMessage || (
                       <span className="italic">Nous effectuons des opérations de maintenance. Le service sera bientôt disponible.</span>
                     )}

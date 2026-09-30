@@ -30,7 +30,7 @@ export default function StarPicker({ label, value, onChange }: StarPickerProps) 
               className={`transition-colors duration-100 ${
                 filled
                   ? "text-amber-400 hover:text-amber-500"
-                  : "text-gray-300 dark:text-gray-600 hover:text-amber-300"
+                  : "text-muted-foreground hover:text-amber-300"
               }`}
             >
               <svg
@@ -52,7 +52,7 @@ export default function StarPicker({ label, value, onChange }: StarPickerProps) 
           );
         })}
         {value !== null && (
-          <span className="ml-1 text-sm text-gray-500 dark:text-gray-400">
+          <span className="ml-1 text-sm text-muted-foreground">
             {value} / 5
           </span>
         )}

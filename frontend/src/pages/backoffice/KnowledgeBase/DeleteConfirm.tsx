@@ -53,7 +53,7 @@ export default function DeleteConfirm({
             <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
               {doc.filename ?? doc.doc_id}
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-red-700/85 dark:text-red-300/85">
+            <p className="mt-1 text-xs leading-relaxed text-red-700 dark:text-red-300">
               Ses {doc.nb_chunks} passage{doc.nb_chunks > 1 ? "s" : ""} seront retirés de l'index, et
               le fichier ainsi que ses {doc.nb_versions} version
               {doc.nb_versions > 1 ? "s" : ""} archivée{doc.nb_versions > 1 ? "s" : ""} seront
@@ -62,7 +62,7 @@ export default function DeleteConfirm({
           </div>
         </div>
 
-        <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           Les réponses validées construites avec ce document sont retirées du service. Celles que
           leurs autres sources suffisent à justifier y sont remises automatiquement après
           vérification ; les autres restent restaurables depuis l'onglet Obsolètes des réponses

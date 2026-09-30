@@ -16,8 +16,8 @@ function ModelQuotaRow({
   const dotClass    = maxPct >= 80 ? "bg-red-500"    : maxPct >= 60 ? "bg-amber-400"    : "bg-emerald-500";
   const reqBarClass = pctReq >= 80 ? "bg-red-500"    : pctReq >= 60 ? "bg-amber-400"    : "bg-emerald-500";
   const tokBarClass = pctTok >= 80 ? "bg-red-500"    : pctTok >= 60 ? "bg-amber-400"    : "bg-emerald-500";
-  const reqValueClass = pctReq >= 80 ? "text-red-600 dark:text-red-400" : pctReq >= 60 ? "text-amber-600 dark:text-amber-400" : "text-gray-700 dark:text-gray-200";
-  const tokValueClass = pctTok >= 80 ? "text-red-600 dark:text-red-400" : pctTok >= 60 ? "text-amber-600 dark:text-amber-400" : "text-gray-700 dark:text-gray-200";
+  const reqValueClass = pctReq >= 80 ? "text-red-600 dark:text-red-400" : pctReq >= 60 ? "text-amber-700 dark:text-amber-400" : "text-gray-700 dark:text-gray-200";
+  const tokValueClass = pctTok >= 80 ? "text-red-600 dark:text-red-400" : pctTok >= 60 ? "text-amber-700 dark:text-amber-400" : "text-gray-700 dark:text-gray-200";
 
   return (
     <li className="flex items-center gap-3 py-3 border-b border-gray-100 dark:border-white/[0.06] last:border-0">
@@ -46,14 +46,14 @@ export function AlbertQuotasCard({ quotas, isFetching, onRefresh }: AlbertQuotas
   return (
     <div className="glass-card rounded-2xl px-5 py-4">
       <div className="flex items-center justify-between pb-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Quotas Albert — aujourd'hui
         </p>
         <button
           onClick={onRefresh}
           disabled={isFetching}
           aria-label="Actualiser les quotas Albert"
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150 disabled:opacity-40"
+          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150 disabled:opacity-40"
         >
           <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} aria-hidden="true" />
           Actualiser
@@ -61,7 +61,7 @@ export function AlbertQuotasCard({ quotas, isFetching, onRefresh }: AlbertQuotas
       </div>
 
       {isFetching && !quotas ? (
-        <div className="flex items-center gap-2 py-4 text-gray-400">
+        <div className="flex items-center gap-2 py-4 text-muted-foreground">
           <Loader2 size={14} className="animate-spin" aria-hidden="true" />
           <span className="text-xs">Chargement…</span>
         </div>
@@ -69,18 +69,18 @@ export function AlbertQuotasCard({ quotas, isFetching, onRefresh }: AlbertQuotas
         <>
           <div className="flex items-center gap-3 pb-2 border-b border-gray-100 dark:border-white/[0.06]">
             <span className="w-1.5 shrink-0" />
-            <span className="flex-1 text-xs font-medium text-gray-400 dark:text-gray-500">Modèle</span>
+            <span className="flex-1 text-xs font-medium text-muted-foreground">Modèle</span>
             <div className="shrink-0 w-36">
-              <p className="text-xs font-medium text-gray-400 dark:text-gray-500">Requêtes / jour</p>
+              <p className="text-xs font-medium text-muted-foreground">Requêtes / jour</p>
               {quotas.limite_rpd != null && (
-                <p className="text-[10px] text-gray-300 dark:text-gray-600">max {quotas.limite_rpd}</p>
+                <p className="text-[10px] text-muted-foreground">max {quotas.limite_rpd}</p>
               )}
             </div>
             <div className="w-px self-stretch bg-gray-200 dark:bg-white/[0.06] shrink-0" />
             <div className="shrink-0 w-36">
-              <p className="text-xs font-medium text-gray-400 dark:text-gray-500">Jetons / jour</p>
+              <p className="text-xs font-medium text-muted-foreground">Jetons / jour</p>
               {quotas.limite_tpd != null && (
-                <p className="text-[10px] text-gray-300 dark:text-gray-600">max {formatTokens(quotas.limite_tpd)}</p>
+                <p className="text-[10px] text-muted-foreground">max {formatTokens(quotas.limite_tpd)}</p>
               )}
             </div>
           </div>
@@ -91,7 +91,7 @@ export function AlbertQuotasCard({ quotas, isFetching, onRefresh }: AlbertQuotas
           </ul>
         </>
       ) : (
-        <p className="text-xs text-gray-400 dark:text-gray-500 py-3">
+        <p className="text-xs text-muted-foreground py-3">
           {quotas ? "Aucune activité aujourd'hui." : "Données indisponibles."}
         </p>
       )}

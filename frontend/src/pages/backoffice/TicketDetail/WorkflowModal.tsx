@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRightLeft, Bot, History, Loader2, Lock, MessageCircle, Pencil, Plus, ThumbsUp, UserMinus, UserPlus, X } from "lucide-react";
 import { getTicketWorkflow } from "../../../lib/api";
 import type { WorkflowEvent, WorkflowEventType } from "../../../types";
 import { formatDate } from "./utils";
+import { useDialogFocus } from "../../../hooks/useDialogFocus";
 
 const EVENT_CONFIG: Record<WorkflowEventType, {
   icon: typeof Bot;
@@ -11,15 +12,15 @@ const EVENT_CONFIG: Record<WorkflowEventType, {
   iconColor: string;
   ring: string;
 }> = {
-  CREE:            { icon: Plus,          bg: "bg-emerald-100 dark:bg-emerald-500/25", iconColor: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-200/60 dark:ring-emerald-500/20" },
+  CREE:            { icon: Plus,          bg: "bg-emerald-100 dark:bg-emerald-500/25", iconColor: "text-emerald-700 dark:text-emerald-400", ring: "ring-emerald-200/60 dark:ring-emerald-500/20" },
   REPONSE_GENEREE: { icon: Bot,           bg: "bg-blue-100 dark:bg-blue-500/25",       iconColor: "text-blue-600 dark:text-blue-400",       ring: "ring-blue-200/60 dark:ring-blue-500/20" },
-  SUIVI:           { icon: MessageCircle, bg: "bg-amber-100 dark:bg-amber-500/25",     iconColor: "text-amber-600 dark:text-amber-400",     ring: "ring-amber-200/60 dark:ring-amber-500/20" },
-  VALIDE:          { icon: ThumbsUp,      bg: "bg-emerald-100 dark:bg-emerald-500/25", iconColor: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-200/60 dark:ring-emerald-500/20" },
+  SUIVI:           { icon: MessageCircle, bg: "bg-amber-100 dark:bg-amber-500/25",     iconColor: "text-amber-700 dark:text-amber-400",     ring: "ring-amber-200/60 dark:ring-amber-500/20" },
+  VALIDE:          { icon: ThumbsUp,      bg: "bg-emerald-100 dark:bg-emerald-500/25", iconColor: "text-emerald-700 dark:text-emerald-400", ring: "ring-emerald-200/60 dark:ring-emerald-500/20" },
   CORRIGE:         { icon: Pencil,        bg: "bg-blue-100 dark:bg-blue-500/25",       iconColor: "text-blue-600 dark:text-blue-400",       ring: "ring-blue-200/60 dark:ring-blue-500/20" },
   REJETE:          { icon: X,             bg: "bg-red-100 dark:bg-red-500/25",         iconColor: "text-red-600 dark:text-red-400",         ring: "ring-red-200/60 dark:ring-red-500/20" },
   ASSIGNE:         { icon: UserPlus,      bg: "bg-violet-100 dark:bg-violet-500/25",   iconColor: "text-violet-600 dark:text-violet-400",   ring: "ring-violet-200/60 dark:ring-violet-500/20" },
-  DESASSIGNE:      { icon: UserMinus,      bg: "bg-gray-100 dark:bg-white/10",           iconColor: "text-gray-500 dark:text-gray-400",        ring: "ring-gray-200/60 dark:ring-white/10" },
-  CLOTURE:         { icon: Lock,           bg: "bg-gray-100 dark:bg-white/10",           iconColor: "text-gray-500 dark:text-gray-400",        ring: "ring-gray-200/60 dark:ring-white/10" },
+  DESASSIGNE:      { icon: UserMinus,      bg: "bg-gray-100 dark:bg-white/10",           iconColor: "text-muted-foreground",        ring: "ring-gray-200/60 dark:ring-white/10" },
+  CLOTURE:         { icon: Lock,           bg: "bg-gray-100 dark:bg-white/10",           iconColor: "text-muted-foreground",        ring: "ring-gray-200/60 dark:ring-white/10" },
   RECHEMINE:       { icon: ArrowRightLeft, bg: "bg-orange-100 dark:bg-orange-500/25",    iconColor: "text-orange-600 dark:text-orange-400",    ring: "ring-orange-200/60 dark:ring-orange-500/20" },
 };
 
@@ -74,30 +75,7 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key !== "Tab" || !dialogRef.current) return;
-      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
-        e.preventDefault();
-        (e.shiftKey ? last : first).focus();
-      }
-    };
-
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      prev?.focus();
-    };
-  }, [onClose]);
+  useDialogFocus(dialogRef, { onClose, initialFocus: closeRef });
 
   return (
     <div
@@ -118,19 +96,19 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
         <div className="px-5 py-4 border-b border-gray-200/80 dark:border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="flex items-center justify-center w-7 h-7 rounded-md bg-gray-100 dark:bg-white/10">
-              <History size={14} className="text-gray-500 dark:text-gray-400" aria-hidden="true" />
+              <History size={14} className="text-subtle" aria-hidden="true" />
             </div>
             <div>
               <h2 id="workflow-modal-title" className="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-none">Historique</h2>
               {events.length > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{events.length} événement{events.length > 1 ? "s" : ""}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{events.length} événement{events.length > 1 ? "s" : ""}</p>
               )}
             </div>
           </div>
           <button
             ref={closeRef}
             onClick={onClose}
-            className="flex items-center justify-center w-7 h-7 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-full text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
             aria-label="Fermer"
           >
             <X size={14} aria-hidden="true" />
@@ -141,8 +119,8 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
         <div className="overflow-y-auto px-5 py-5">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center gap-3 py-14">
-              <Loader2 size={20} className="animate-spin text-gray-300 dark:text-gray-600" aria-hidden="true" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">Chargement de l'historique…</p>
+              <Loader2 size={20} className="animate-spin text-subtle" aria-hidden="true" />
+              <p className="text-xs text-muted-foreground">Chargement de l'historique…</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center gap-2 py-10">
@@ -154,7 +132,7 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
               </p>
             </div>
           ) : events.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-10">Aucun événement enregistré.</p>
+            <p className="text-sm text-muted-foreground text-center py-10">Aucun événement enregistré.</p>
           ) : (
             <ul aria-label="Historique du ticket (du plus récent au plus ancien)">
               {[...events].reverse().map((event, i, arr) => {
@@ -192,14 +170,14 @@ export default function WorkflowModal({ ticketId, onClose }: { ticketId: string;
 
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           {event.at && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                            <span className="text-xs text-muted-foreground">
                               {formatDate(event.at)}
                             </span>
                           )}
                           {actor && (
                             <>
-                              <span className="text-gray-300 dark:text-white/15 select-none">·</span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">par {actor}</span>
+                              <span className="text-muted-foreground select-none">·</span>
+                              <span className="text-xs text-muted-foreground">par {actor}</span>
                             </>
                           )}
                         </div>

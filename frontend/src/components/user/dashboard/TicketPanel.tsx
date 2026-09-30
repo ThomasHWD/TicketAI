@@ -44,13 +44,13 @@ export function UserTicketRow({
         <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-snug">
           {displayText(t)}
         </p>
-        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+        <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1.5">
           <span className="font-medium">{t.domaine}</span>
           <span className="opacity-40">·</span>
           {formatDate(t.created_at)}
         </p>
       </div>
-      <ChevronRight size={16} className="shrink-0 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors" />
+      <ChevronRight size={16} className="shrink-0 text-subtle group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors" />
     </div>
   );
 }
@@ -84,7 +84,7 @@ export function ErrorPanel({ onRetry }: { onRetry: () => void }) {
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
           Impossible de charger vos tickets
         </p>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Vérifiez votre connexion et réessayez.
           <br />
           <span className="text-xs">Vos questions ne sont pas affectées par cette erreur.</span>
@@ -112,7 +112,7 @@ export function AllUpToDate() {
       </div>
       <div>
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tout est à jour</p>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Vous n'avez aucune demande en attente.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Vous n'avez aucune demande en attente.</p>
       </div>
       <button
         type="button"
@@ -130,7 +130,7 @@ export function AllUpToDate() {
 export function SubLabel({ children, hasBorderTop = false }: { children: React.ReactNode; hasBorderTop?: boolean }) {
   return (
     <div className={`px-6 py-2 bg-gray-50/70 dark:bg-white/[0.025] ${hasBorderTop ? "border-t border-gray-100 dark:border-white/5" : ""}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-500 dark:text-gray-400">
+      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
         {children}
       </p>
     </div>

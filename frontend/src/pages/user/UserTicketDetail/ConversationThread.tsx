@@ -15,7 +15,7 @@ function UserAvatar() {
 function BotAvatar({ pulse = false }: { pulse?: boolean }) {
   return (
     <span
-      className={`inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 dark:bg-emerald-600 text-white shrink-0 ring-2 ring-white dark:ring-black/20 shadow-sm${pulse ? " motion-safe:animate-pulse" : ""}`}
+      className={`inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground shrink-0 ring-2 ring-white dark:ring-black/20 shadow-sm${pulse ? " motion-safe:animate-pulse" : ""}`}
       aria-hidden="true"
     >
       <Bot size={14} strokeWidth={1.75} />
@@ -48,7 +48,7 @@ function QuestionBubble({
     <li className="px-5 py-4 flex justify-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-200">
       <div className="min-w-0 max-w-[75%] space-y-1.5">
         <div className="flex items-center justify-end gap-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(date)}</span>
+          <span className="text-xs text-muted-foreground">{formatDate(date)}</span>
           <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
             {precision ? "Ma précision" : "Vous"}
           </span>
@@ -72,7 +72,7 @@ function PendingAnswer({ date }: { date: string | null }) {
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Assistant</span>
           {date && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(date)}</span>
+            <span className="text-xs text-muted-foreground">{formatDate(date)}</span>
           )}
         </div>
         <div className="bg-blue-50/70 dark:bg-blue-500/[0.07] border border-blue-100 dark:border-blue-500/20 rounded-2xl rounded-tl-sm px-4 py-3">
@@ -102,14 +102,14 @@ function RejectedBubble({ reponse }: { reponse: TicketReponse }) {
       <div className="flex-1 min-w-0 space-y-1.5">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-red-700 dark:text-red-400">Assistance</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(reponse.created_at)}</span>
+          <span className="text-xs text-muted-foreground">{formatDate(reponse.created_at)}</span>
         </div>
         <div className="bg-red-50/70 dark:bg-red-500/[0.07] border border-red-100 dark:border-red-500/20 rounded-2xl rounded-tl-sm px-4 py-3 space-y-1.5">
           <p className="text-sm text-red-700 dark:text-red-300">
             Cette réponse n'a pas pu être retenue par le service d'assistance.
           </p>
           {reponse.raison_rejet && (
-            <p className="text-xs text-red-600/80 dark:text-red-400/80 italic border-t border-red-100 dark:border-red-500/20 pt-1.5">
+            <p className="text-xs text-red-700 dark:text-red-300 italic border-t border-red-100 dark:border-red-500/20 pt-1.5">
               Le service d'assistance précise : {reponse.raison_rejet}
             </p>
           )}
@@ -145,7 +145,7 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
           >
             {authorLabel}
           </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-xs text-muted-foreground">
             {formatDate(reponse.created_at)}
           </span>
         </div>
@@ -162,7 +162,7 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
 function ReroutedNote({ event }: { event: WorkflowEvent }) {
   const to = event.meta?.to;
   return (
-    <li className="px-5 py-2.5 flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+    <li className="px-5 py-2.5 flex items-center gap-2 text-xs text-muted-foreground">
       <span className="flex-1 h-px bg-gray-100 dark:bg-white/[0.06]" aria-hidden="true" />
       <ArrowRightLeft size={11} className="shrink-0" aria-hidden="true" />
       <span>

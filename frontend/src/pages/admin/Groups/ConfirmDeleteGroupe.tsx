@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import type { Groupe } from "../../../types/index.tsx";
-import { useDialogFocus } from "./useDialogFocus";
+import { useDialogFocus } from "../../../hooks/useDialogFocus";
 
 type Props = {
   groupe: Groupe;
@@ -13,7 +13,7 @@ type Props = {
 
 export default function ConfirmDeleteGroupe({ groupe, onConfirm, onCancel, isPending, error }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(dialogRef, onCancel);
+  useDialogFocus(dialogRef, { onClose: onCancel });
 
   return (
     <div
@@ -42,12 +42,12 @@ export default function ConfirmDeleteGroupe({ groupe, onConfirm, onCancel, isPen
             <p id="delete-group-title" className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               Supprimer ce groupe ?
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[220px]">
+            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[220px]">
               {groupe.nom}
             </p>
           </div>
         </div>
-        <p className="text-xs text-gray-600 dark:text-gray-400">
+        <p className="text-xs text-gray-600 dark:text-muted-foreground">
           Le groupe sera supprimé ainsi que toutes ses associations membres. Cette action est
           irréversible. Les tickets déjà transmis à ce domaine resteront accessibles jusqu'à
           réaffectation.

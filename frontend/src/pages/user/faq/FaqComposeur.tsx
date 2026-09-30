@@ -58,20 +58,20 @@ export default function FaqComposeur({
           maxLength={500}
           autoFocus={autoFocus}
           placeholder="Posez votre question…"
-          className="flex-1 resize-none bg-transparent py-1.5 text-[15px] leading-6 text-gray-800 placeholder:text-gray-400 focus:outline-none dark:text-gray-100 dark:placeholder:text-gray-500"
+          className="flex-1 resize-none bg-transparent py-1.5 text-[15px] leading-6 text-gray-800 placeholder:text-muted-foreground focus:outline-none dark:text-gray-100"
         />
         <button
           type="submit"
           disabled={!peutChercher}
           aria-label="Rechercher"
-          className="mb-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-white transition-colors hover:bg-emerald-700 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/[0.07] dark:disabled:text-gray-500"
+          className="mb-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary-hover disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/[0.07] dark:disabled:text-gray-500"
         >
           <Search size={16} aria-hidden="true" />
         </button>
       </form>
 
       {astuce && (
-        <p className="mt-2 text-center text-[11px] text-gray-400 dark:text-gray-600">
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">
           Entrée pour rechercher · Maj+Entrée pour aller à la ligne
         </p>
       )}

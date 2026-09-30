@@ -54,7 +54,7 @@ export default function InfoTooltip({ content, size = 12, className = "" }: Prop
 
     const arrowLeft = Math.max(8, Math.min(t.width - 8, centerX - newLeft + t.width / 2));
     setState((s) => ({ ...s, left: newLeft, arrowLeft, measured: true }));
-  });
+  }, [state.open, state.measured, state.left]);
 
   return (
     <span className={`inline-flex ${className}`}>
@@ -68,7 +68,7 @@ export default function InfoTooltip({ content, size = 12, className = "" }: Prop
         onBlur={hide}
         className="cursor-help rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-gray-400/60"
       >
-        <Info size={size} className="text-gray-500 dark:text-gray-400" aria-hidden="true" />
+        <Info size={size} className="text-subtle" aria-hidden="true" />
       </span>
       {createPortal(
         <span

@@ -12,18 +12,18 @@ export default function FaqRepli({ question, sousTitre }: { question: string; so
         size={18}
         strokeWidth={1.7}
         aria-hidden="true"
-        className="shrink-0 text-gray-400 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
+        className="shrink-0 text-subtle transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
       />
       <span className="flex-1">
         <span className="block text-sm font-medium text-gray-800 dark:text-gray-100">
           Poser la question à un expert
         </span>
-        <span className="block text-xs text-gray-500 dark:text-gray-400">{sousTitre}</span>
+        <span className="block text-xs text-muted-foreground">{sousTitre}</span>
       </span>
       <ArrowRight
         size={16}
         aria-hidden="true"
-        className="shrink-0 text-gray-300 transition-all group-hover:translate-x-0.5 group-hover:text-emerald-600 dark:text-gray-600 dark:group-hover:text-emerald-400"
+        className="shrink-0 text-subtle transition-all group-hover:translate-x-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
       />
     </Link>
   );

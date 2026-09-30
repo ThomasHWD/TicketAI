@@ -89,7 +89,7 @@ export default function AnglesMorts({ periode }: { periode: PeriodeId }) {
           {filteredData.map((entry) => (
             <div key={entry.domaine}>
               <div className="flex items-center justify-between gap-3 bg-gray-50/60 dark:bg-white/[0.02] px-5 py-2.5 border-b border-gray-100 dark:border-white/[0.06]">
-                <span className="text-xs font-semibold uppercase tracking-[0.05em] text-gray-500 dark:text-gray-400">
+                <span className="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
                   {entry.domaine}
                 </span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-500/20">
@@ -110,17 +110,17 @@ export default function AnglesMorts({ periode }: { periode: PeriodeId }) {
                           {q.objet ?? q.question.slice(0, 100)}
                         </p>
                         {q.objet && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">
                             {q.question.slice(0, 120)}
                           </p>
                         )}
                       </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
+                      <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
                         {formatDate(q.created_at)}
                       </span>
                       <ArrowRight
                         size={13}
-                        className="text-gray-300 dark:text-white/20 shrink-0 group-hover:text-gray-500 dark:group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all duration-75"
+                        className="text-subtle shrink-0 group-hover:text-gray-500 dark:group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all duration-75"
                         aria-hidden="true"
                       />
                     </button>
@@ -129,7 +129,7 @@ export default function AnglesMorts({ periode }: { periode: PeriodeId }) {
                       onClick={() => handleDismiss(q.id)}
                       aria-label="Marquer comme traité"
                       title="Marquer comme traité"
-                      className="shrink-0 flex items-center justify-center w-10 border-l border-gray-100 dark:border-white/[0.05] text-gray-300 dark:text-white/20 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 opacity-40 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 transition-all duration-100"
+                      className="shrink-0 flex items-center justify-center w-10 border-l border-gray-100 dark:border-white/[0.05] text-muted-foreground hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 opacity-40 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 transition-all duration-100"
                     >
                       <X size={13} aria-hidden="true" />
                     </button>
@@ -216,7 +216,7 @@ function EmptyState() {
       </div>
       <div>
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Aucun angle mort sur cette période</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 max-w-xs mx-auto leading-relaxed">
+        <p className="text-xs text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
           Toutes les questions ont pu être traitées depuis les documents disponibles.
         </p>
       </div>

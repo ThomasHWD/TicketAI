@@ -52,13 +52,13 @@ export function GroupeHeader({
                 </span>
               )}
               {g.document_supprime && (
-                <span className="shrink-0 px-1.5 py-px rounded text-xs font-medium bg-gray-200/80 text-gray-600 dark:bg-white/10 dark:text-gray-400">
+                <span className="shrink-0 px-1.5 py-px rounded text-xs font-medium bg-gray-200/80 text-gray-700 dark:bg-white/10 dark:text-gray-300">
                   supprimé
                 </span>
               )}
             </div>
-            <p className="text-xs text-amber-800/70 dark:text-amber-300/60 mt-0.5">
-              {g.reponses.length} réponse{g.reponses.length > 1 ? "s" : ""} affichées
+            <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+              {g.reponses.length} réponse{g.reponses.length > 1 ? "s affichées" : " affichée"}
             </p>
           </div>
           {ouvert
@@ -69,7 +69,7 @@ export function GroupeHeader({
         {g.doc_id !== null && g.version !== null && (
           confirmingLot === g.cle ? (
             <div className="shrink-0 flex items-center gap-1.5">
-              <span role="alert" className="text-xs font-medium text-amber-900/80 dark:text-amber-200/70">
+              <span role="alert" className="text-xs font-medium text-amber-900 dark:text-amber-200">
                 Confirmer toutes les réponses de ce document ?
               </span>
               <button
@@ -80,7 +80,7 @@ export function GroupeHeader({
                   setConfirmingLot(null);
                 }}
                 disabled={confirmLotMutation.isPending}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-semibold disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
                 {confirmLotMutation.isPending
                   ? <Loader2 size={12} className="animate-spin" aria-hidden="true" />
@@ -100,7 +100,7 @@ export function GroupeHeader({
               disabled={confirmLotMutation.isPending}
               aria-label={`Tout confirmer pour ${g.filename ?? "ce document"} — s'applique à l'ensemble du document`}
               title={`Confirmer toutes les réponses de ce document (${g.reponses.length} affichées)`}
-              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             >
               {pendingLotCle === g.cle && confirmLotMutation.isPending
                 ? <Loader2 size={13} className="animate-spin" aria-hidden="true" />
@@ -146,7 +146,7 @@ export function GroupeHeader({
         className={`border-t border-amber-200/50 dark:border-amber-500/15 px-4 py-3 space-y-3${!ouvert ? " hidden" : ""}`}
       >
         {estRaisonDeGroupe(g.raison) ? (
-          <p className="text-xs text-amber-800/80 dark:text-amber-200/70">
+          <p className="text-xs text-amber-800 dark:text-amber-200">
             {RAISONS[g.raison!]} Ces réponses sont signalées par précaution.
           </p>
         ) : g.changements ? (
@@ -155,7 +155,7 @@ export function GroupeHeader({
             <SensDuChangement titre="retiré" total={g.changements.nb_retires} extraits={g.changements.extraits_retires} />
           </>
         ) : (
-          <p className="text-xs text-amber-800/70 dark:text-amber-200/60">
+          <p className="text-xs text-amber-800 dark:text-amber-200">
             Le détail de cette mise à jour n'a pas été conservé.
           </p>
         )}

@@ -28,7 +28,7 @@ export function StatusBadge({
 
 export function DomaineBadge({ domaine }: { domaine: string }) {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200 dark:bg-white/10 dark:text-gray-400 dark:border-white/10 whitespace-nowrap">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200 dark:bg-white/10 dark:text-muted-foreground dark:border-white/10 whitespace-nowrap">
       {domaine}
     </span>
   );

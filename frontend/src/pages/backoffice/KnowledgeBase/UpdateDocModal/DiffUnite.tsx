@@ -31,16 +31,16 @@ export default function DiffUnite({ unite }: { unite: UniteChangement }) {
 
       <div className="divide-y divide-gray-100 font-mono text-[11px] leading-relaxed dark:divide-white/8">
         {unite.extrait_avant && (
-          <div className="flex gap-2 bg-red-50/60 px-2.5 py-1.5 text-red-900 dark:bg-red-500/10 dark:text-red-200/90">
-            <span aria-hidden="true" className="select-none text-red-400 dark:text-red-500/60">
+          <div className="flex gap-2 bg-red-50/60 px-2.5 py-1.5 text-red-900 dark:bg-red-500/10 dark:text-red-200">
+            <span aria-hidden="true" className="select-none text-red-600 dark:text-red-300">
               −
             </span>
             {unite.extrait_avant}
           </div>
         )}
         {unite.extrait_apres && (
-          <div className="flex gap-2 bg-emerald-50/60 px-2.5 py-1.5 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200/90">
-            <span aria-hidden="true" className="select-none text-emerald-500 dark:text-emerald-500/60">
+          <div className="flex gap-2 bg-emerald-50/60 px-2.5 py-1.5 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">
+            <span aria-hidden="true" className="select-none text-emerald-700 dark:text-emerald-300">
               +
             </span>
             {unite.extrait_apres}

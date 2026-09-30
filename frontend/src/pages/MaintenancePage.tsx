@@ -1,12 +1,14 @@
 import { Wrench } from "lucide-react";
 import { useDark } from "../hooks/useDark";
 import TicketAIMark from "../assets/ticketai_mark_v2.svg";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 interface Props {
   message?: string;
 }
 
 export default function MaintenancePage({ message }: Props) {
+  useDocumentTitle("Maintenance en cours");
   const dark = useDark();
 
   const bg    = dark ? "#0d0d0d" : "#F8FAFC";

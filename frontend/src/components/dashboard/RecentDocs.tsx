@@ -13,7 +13,7 @@ function DocIcon({ filename }: { filename: string | null }) {
   const ext = filename?.split(".").pop()?.toLowerCase();
   if (ext === "pdf") return <FileType size={16} className="text-red-500" />;
   if (ext === "docx") return <FileText size={16} className="text-blue-500" />;
-  return <File size={16} className="text-gray-400" />;
+  return <File size={16} className="text-subtle" />;
 }
 
 interface RecentDocsProps {
@@ -51,7 +51,7 @@ export default function RecentDocs({ docs, loading = false, error = false, onRet
         </h3>
         <Link
           to="/base-de-connaissances"
-          className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
+          className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline font-medium"
           aria-label="Voir tous les documents"
         >
           Voir tous →
@@ -59,19 +59,19 @@ export default function RecentDocs({ docs, loading = false, error = false, onRet
       </div>
 
       {error ? (
-        <div className="flex items-center gap-2 py-4 text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
           <AlertTriangle size={14} className="text-red-400 shrink-0" />
           <span className="flex-1">Impossible de charger les documents</span>
           {onRetry && (
-            <button onClick={onRetry} className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline shrink-0">
+            <button onClick={onRetry} className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline shrink-0">
               Réessayer
             </button>
           )}
         </div>
       ) : displayed.length === 0 ? (
         <div className="py-5 text-center space-y-2">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Aucun document indexé</p>
-          <Link to="/base-de-connaissances" className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium">
+          <p className="text-sm text-muted-foreground">Aucun document indexé</p>
+          <Link to="/base-de-connaissances" className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline font-medium">
             Indexer votre premier document →
           </Link>
         </div>

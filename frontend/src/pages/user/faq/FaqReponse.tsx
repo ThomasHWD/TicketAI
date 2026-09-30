@@ -106,7 +106,7 @@ export default function FaqReponse({
 
       {secondaires.length > 0 && (
         <div className="space-y-1">
-          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-gray-400 dark:text-gray-600">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
             Autres réponses proches
           </h3>
           <ul className="divide-y divide-gray-100 dark:divide-white/5">

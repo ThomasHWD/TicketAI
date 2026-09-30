@@ -1,3 +1,4 @@
+import { setRaccourcisActifs, useRaccourcisActifs } from "../../hooks/useRaccourcisReponse";
 import type { RefObject } from "react";
 import { Check, Pencil, Tag, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import type { TicketReponse } from "../../types";
@@ -38,14 +39,14 @@ export function EditingPanel({
         aria-describedby={error ? errorId : undefined}
       />
       {isHorsDomaine && draft && (
-        <p className="text-[11px] text-gray-500 dark:text-gray-400">Brouillon sauvegardé localement.</p>
+        <p className="text-[11px] text-muted-foreground">Brouillon sauvegardé localement.</p>
       )}
       {isHorsDomaine && onTagChange && (
         <div className="space-y-2 pt-1 border-t border-gray-100 dark:border-white/[0.07]">
           <div className="space-y-1">
-            <label htmlFor="tag-hd-input" className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+            <label htmlFor="tag-hd-input" className="flex items-center gap-1 text-xs text-muted-foreground">
               <Tag size={10} aria-hidden="true" />
-              Catégorie <span className="text-gray-400/60 dark:text-gray-500/60">(optionnel)</span>
+              Catégorie <span className="font-normal">(optionnel)</span>
             </label>
             <input
               id="tag-hd-input"
@@ -55,7 +56,7 @@ export function EditingPanel({
               placeholder="Ex : congés, télétravail, paie…"
               maxLength={100}
               disabled={loading}
-              className="w-full px-2.5 py-1.5 text-xs rounded-md border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 disabled:opacity-50 transition-colors"
+              className="w-full px-2.5 py-1.5 text-xs rounded-md border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 disabled:opacity-50 transition-colors"
             />
             <datalist id="tag-hd-list">
               {(tags ?? []).map((t) => <option key={t} value={t} />)}
@@ -82,7 +83,7 @@ export function EditingPanel({
           disabled={loading || !draft.trim()}
           aria-label={`Valider la correction de la réponse du ${reponseDate}`}
           title="Soumettre la version corrigée — elle sera envoyée à l'employé"
-          className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 font-medium transition-colors"
+          className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-md bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-40 font-medium transition-colors"
         >
           <Check size={14} aria-hidden="true" />
           Valider la correction
@@ -101,6 +102,8 @@ export function EditingPanel({
 }
 
 interface ValidationConfirmPanelProps {
+  /** « suggestion » : réponse réutilisée — ni catégorie ni FAQ, elles appartiennent à la réponse source. */
+  variant: "rag" | "suggestion";
   confirmRef: RefObject<HTMLButtonElement | null>;
   loading: boolean;
   error: string | null;
@@ -114,44 +117,54 @@ interface ValidationConfirmPanelProps {
 }
 
 export function ValidationConfirmPanel({
-  confirmRef, loading, error, tagDraft, tags, faqVisible, onTagChange, onFaqVisibleChange, onConfirm, onCancel,
+  variant, confirmRef, loading, error, tagDraft, tags, faqVisible, onTagChange, onFaqVisibleChange, onConfirm, onCancel,
 }: ValidationConfirmPanelProps) {
   return (
     <div role="alert" className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 space-y-3">
-      <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
-        Confirmer la validation de cette réponse générée par l'IA ?
-      </p>
+      {variant === "suggestion" ? (
+        <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+          Cette réponse a été validée pour une autre question. Répond-elle précisément à celle-ci ?
+        </p>
+      ) : (
+        <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+          Confirmer la validation de cette réponse générée par l'IA ?
+        </p>
+      )}
 
-      <div className="space-y-1">
-        <label htmlFor="tag-validation-input" className="flex items-center gap-1 text-xs text-amber-700/70 dark:text-amber-400/70">
-          <Tag size={10} aria-hidden="true" />
-          Catégorie <span className="text-amber-600/50 dark:text-amber-500/50">(optionnel)</span>
-        </label>
-        <input
-          id="tag-validation-input"
-          list="tag-validation-list"
-          value={tagDraft}
-          onChange={(e) => onTagChange(e.target.value)}
-          placeholder="Ex : congés, télétravail, paie…"
-          maxLength={100}
-          disabled={loading}
-          className="w-full px-2.5 py-1.5 text-xs rounded-md border border-amber-200 dark:border-amber-500/30 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 disabled:opacity-50 transition-colors"
-        />
-        <datalist id="tag-validation-list">
-          {tags.map((t) => <option key={t} value={t} />)}
-        </datalist>
-      </div>
+      {variant === "rag" && (
+        <>
+          <div className="space-y-1">
+            <label htmlFor="tag-validation-input" className="flex items-center gap-1 text-xs text-amber-800 dark:text-amber-300">
+              <Tag size={10} aria-hidden="true" />
+              Catégorie <span className="font-normal text-amber-700 dark:text-amber-400">(optionnel)</span>
+            </label>
+            <input
+              id="tag-validation-input"
+              list="tag-validation-list"
+              value={tagDraft}
+              onChange={(e) => onTagChange(e.target.value)}
+              placeholder="Ex : congés, télétravail, paie…"
+              maxLength={100}
+              disabled={loading}
+              className="w-full px-2.5 py-1.5 text-xs rounded-md border border-amber-200 dark:border-amber-500/30 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 disabled:opacity-50 transition-colors"
+            />
+            <datalist id="tag-validation-list">
+              {tags.map((t) => <option key={t} value={t} />)}
+            </datalist>
+          </div>
 
-      <label className="flex items-center gap-2 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={faqVisible}
-          onChange={(e) => onFaqVisibleChange(e.target.checked)}
-          disabled={loading}
-          className="w-3.5 h-3.5 rounded border-amber-300 dark:border-amber-500/40 accent-emerald-600 disabled:opacity-50"
-        />
-        <span className="text-xs text-amber-700/80 dark:text-amber-400/80">Inclure dans la FAQ</span>
-      </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={faqVisible}
+              onChange={(e) => onFaqVisibleChange(e.target.checked)}
+              disabled={loading}
+              className="w-3.5 h-3.5 rounded border-amber-300 dark:border-amber-500/40 accent-emerald-600 disabled:opacity-50"
+            />
+            <span className="text-xs text-amber-800 dark:text-amber-300">Inclure dans la FAQ</span>
+          </label>
+        </>
+      )}
 
       {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
       <div className="flex items-center gap-2">
@@ -159,7 +172,7 @@ export function ValidationConfirmPanel({
           ref={confirmRef}
           onClick={onConfirm}
           disabled={loading}
-          className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 font-medium transition-colors"
+          className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-md bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-40 font-medium transition-colors"
         >
           <ThumbsUp size={14} aria-hidden="true" />
           Oui, valider
@@ -236,17 +249,19 @@ interface ActionButtonsProps {
 }
 
 export function ActionButtons({ isHorsDomaine, loading, reponseDate, error, onValider, onEdit, onReject, onDismissError }: ActionButtonsProps) {
+  const raccourcis = useRaccourcisActifs();
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div data-reponse-actions className="flex items-center gap-2 flex-wrap">
       {!isHorsDomaine && (
         <span className="inline-flex items-center gap-1.5">
           <button
             onClick={onValider}
             disabled={loading}
             data-action="valider"
+            aria-keyshortcuts={raccourcis ? "V" : undefined}
             aria-label={`Valider la réponse du ${reponseDate}`}
             title="Valider → envoie la réponse à l'employé et incrémente son score de validation (→ canonique à 3 validations)"
-            className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 font-medium transition-colors"
+            className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-md bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-40 font-medium transition-colors"
           >
             <ThumbsUp size={14} aria-hidden="true" />
             Valider
@@ -258,6 +273,7 @@ export function ActionButtons({ isHorsDomaine, loading, reponseDate, error, onVa
           onClick={onEdit}
           disabled={loading}
           data-action="corriger"
+          aria-keyshortcuts={raccourcis ? "E" : undefined}
           aria-label={isHorsDomaine ? `Rédiger une réponse pour la demande du ${reponseDate}` : `Corriger la réponse du ${reponseDate}`}
           title={isHorsDomaine ? "Rédiger une réponse manuelle pour ce sujet non couvert" : "Modifier la réponse avant validation"}
           className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-md border border-gray-200 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors"
@@ -271,9 +287,10 @@ export function ActionButtons({ isHorsDomaine, loading, reponseDate, error, onVa
           onClick={onReject}
           disabled={loading}
           data-action="rejeter"
+          aria-keyshortcuts={raccourcis ? "R" : undefined}
           aria-label={`Rejeter la réponse du ${reponseDate}`}
           title="Rejeter cette réponse — elle ne sera pas envoyée à l'employé"
-          className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-md border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+          className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-md border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40 transition-colors"
         >
           <ThumbsDown size={14} aria-hidden="true" />
           Rejeter
@@ -298,7 +315,7 @@ interface ContextualHelpProps {
 export function ContextualHelp({ reponse, isRag, nearCanonical }: ContextualHelpProps) {
   return (
     <details className="group mt-0.5">
-      <summary className="text-[11px] text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors list-none flex items-center gap-1 select-none">
+      <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors list-none flex items-center gap-1 select-none">
         <span className="transition-transform group-open:rotate-90 inline-block text-[10px]" aria-hidden="true">▶</span>
         À propos de ces actions
       </summary>
@@ -306,23 +323,42 @@ export function ContextualHelp({ reponse, isRag, nearCanonical }: ContextualHelp
         <p><span className="font-medium">Valider</span> : approuve et envoie la réponse à l'employé. Chaque validation incrémente son score (seuil canonique : 3).</p>
         <p><span className="font-medium">Corriger</span> : modifie la réponse avant envoi. Le brouillon est préservé localement.</p>
         {reponse.source === "SUGGESTION" && (
-          <p className="text-amber-600/80 dark:text-amber-400/80"><span className="font-medium">Suggestion</span> : réutilise une réponse validée. Assurez-vous qu'elle s'applique à ce cas précis.</p>
+          <p className="text-amber-800 dark:text-amber-300"><span className="font-medium">Suggestion</span> : réutilise une réponse validée. Assurez-vous qu'elle s'applique à ce cas précis.</p>
         )}
         {isRag && (
-          <p className="text-amber-600/80 dark:text-amber-400/80"><span className="font-medium">Réponse IA</span> : générée à partir des documents internes — peut contenir des imprécisions.</p>
+          <p className="text-amber-800 dark:text-amber-300"><span className="font-medium">Réponse IA</span> : générée à partir des documents internes — peut contenir des imprécisions.</p>
         )}
         {nearCanonical && (
-          <p className="text-emerald-600 dark:text-emerald-400"><span className="font-medium">Promotion imminente</span> : cette réponse a {reponse.nb_validations} validation(s). La prochaine la rendra canonique.</p>
+          <p className="text-emerald-700 dark:text-emerald-400"><span className="font-medium">Promotion imminente</span> : cette réponse a {reponse.nb_validations} validation(s). La prochaine la rendra canonique.</p>
         )}
         <p><span className="font-medium">Rejeter</span> : refuse la réponse — elle ne sera pas envoyée. Un motif est obligatoire.</p>
-        <p className="text-gray-500 dark:text-gray-400">
-          Raccourcis :{" "}
-          <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">V</kbd> Valider ·{" "}
-          <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">E</kbd> Corriger ·{" "}
-          <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">R</kbd> Rejeter ·{" "}
-          <kbd className="font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10">Alt+←</kbd> Retour
-        </p>
+        <RaccourcisAide />
       </div>
     </details>
+  );
+}
+
+const KBD = "font-mono px-0.5 py-px rounded border border-gray-200 dark:border-white/10";
+
+function RaccourcisAide() {
+  const actifs = useRaccourcisActifs();
+  return (
+    <div className="text-muted-foreground space-y-1.5">
+      {actifs && (
+        <p>
+          Raccourcis : <kbd className={KBD}>V</kbd> aller sur Valider (<kbd className={KBD}>Entrée</kbd> pour confirmer) ·{" "}
+          <kbd className={KBD}>E</kbd> Corriger · <kbd className={KBD}>R</kbd> Rejeter · <kbd className={KBD}>Alt+←</kbd> Retour
+        </p>
+      )}
+      <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={actifs}
+          onChange={(e) => setRaccourcisActifs(e.target.checked)}
+          className="w-3.5 h-3.5 rounded border-gray-300 dark:border-white/15 accent-emerald-700"
+        />
+        Raccourcis clavier actifs
+      </label>
+    </div>
   );
 }

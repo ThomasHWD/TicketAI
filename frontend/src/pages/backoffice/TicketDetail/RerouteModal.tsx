@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, ArrowRightLeft, Loader2, X } from "lucide-react";
 import { getDomaines, recheminerTicket } from "../../../lib/api";
 import type { Ticket } from "../../../types";
+import { useDialogFocus } from "../../../hooks/useDialogFocus";
 
 interface RerouteModalProps {
   ticket: Ticket;
@@ -27,30 +28,7 @@ export default function RerouteModal({ ticket, onClose, onSuccess }: RerouteModa
 
   const autresDomaines = domaines.filter((d) => d !== ticket.domaine);
 
-  useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key !== "Tab" || !dialogRef.current) return;
-      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
-        e.preventDefault();
-        (e.shiftKey ? last : first).focus();
-      }
-    };
-
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      prev?.focus();
-    };
-  }, [onClose]);
+  useDialogFocus(dialogRef, { onClose, initialFocus: closeRef });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -91,7 +69,7 @@ export default function RerouteModal({ ticket, onClose, onSuccess }: RerouteModa
               <h2 id="reroute-modal-title" className="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-none">
                 Réacheminer ce ticket
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Domaine actuel : <span className="font-medium text-gray-700 dark:text-gray-300">{ticket.domaine}</span>
               </p>
             </div>
@@ -99,7 +77,7 @@ export default function RerouteModal({ ticket, onClose, onSuccess }: RerouteModa
           <button
             ref={closeRef}
             onClick={onClose}
-            className="flex items-center justify-center w-7 h-7 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-full text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
             aria-label="Fermer"
           >
             <X size={14} aria-hidden="true" />
@@ -121,7 +99,7 @@ export default function RerouteModal({ ticket, onClose, onSuccess }: RerouteModa
 
           {/* Sélection du domaine */}
           <div className="space-y-1.5">
-            <label htmlFor="reroute-domaine" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-[0.06em]">
+            <label htmlFor="reroute-domaine" className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.06em]">
               Nouveau service
             </label>
             <select
@@ -143,7 +121,7 @@ export default function RerouteModal({ ticket, onClose, onSuccess }: RerouteModa
 
           {/* Raison */}
           <div className="space-y-1.5">
-            <label htmlFor="reroute-raison" className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-[0.06em]">
+            <label htmlFor="reroute-raison" className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.06em]">
               Motif du réacheminement
             </label>
             <textarea
@@ -154,7 +132,7 @@ export default function RerouteModal({ ticket, onClose, onSuccess }: RerouteModa
               required
               rows={3}
               placeholder="Ex. : question relevant du service juridique…"
-              className="w-full text-xs text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 disabled:opacity-40 resize-none placeholder:text-gray-400 dark:placeholder:text-gray-600"
+              className="w-full text-xs text-gray-700 dark:text-gray-100 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 disabled:opacity-40 resize-none placeholder:text-muted-foreground"
             />
           </div>
 

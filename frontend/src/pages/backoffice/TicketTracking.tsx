@@ -81,16 +81,16 @@ export default function TicketTracking() {
           <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm ${
             assignedEnAttente > 0
               ? "bg-emerald-50 border-emerald-200/80 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-300"
-              : "bg-gray-50 border-gray-200 text-gray-600 dark:bg-white/5 dark:border-white/10 dark:text-gray-400"
+              : "bg-gray-50 border-gray-200 text-gray-600 dark:bg-white/5 dark:border-white/10 dark:text-muted-foreground"
           }`}>
             <UserCheck size={13} className="opacity-70" aria-hidden="true" />
             <span className="font-semibold tabular-nums">{assignedEnAttente}</span>
-            <span className="text-xs opacity-70">à valider</span>
+            <span className="text-xs">à valider</span>
           </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm bg-gray-50 border-gray-200 text-gray-600 dark:bg-white/5 dark:border-white/10 dark:text-gray-400">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm bg-gray-50 border-gray-200 text-gray-600 dark:bg-white/5 dark:border-white/10 dark:text-muted-foreground">
             <MessageSquare size={13} className="opacity-70" aria-hidden="true" />
             <span className="font-semibold tabular-nums">{total}</span>
-            <span className="text-xs opacity-70">participations</span>
+            <span className="text-xs">participations</span>
           </div>
         </div>
       </div>
@@ -114,14 +114,14 @@ export default function TicketTracking() {
               className={`relative flex items-center gap-2 py-3.5 pr-5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60 ${
                 tab === key
                   ? "text-gray-900 dark:text-gray-100"
-                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  : "text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200"
               }`}
             >
               <Icon size={14} className={tab === key ? "text-emerald-500" : "opacity-50"} aria-hidden="true" />
               {label}
               {key === "assigned" && assignedTickets.length > 0 && (
                 <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
-                  tab === key ? "bg-emerald-500 text-white" : "bg-gray-200 text-gray-600 dark:bg-white/10 dark:text-gray-400"
+                  tab === key ? "bg-primary text-primary-foreground" : "bg-gray-200 text-gray-600 dark:bg-white/10 dark:text-muted-foreground"
                 }`}>
                   {assignedTickets.length}
                 </span>
@@ -132,7 +132,7 @@ export default function TicketTracking() {
         </div>
 
         {isFetchingBg && (
-          <div role="status" aria-live="polite" aria-label="Actualisation en cours" className="px-5 py-1.5 flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/5">
+          <div role="status" aria-live="polite" aria-label="Actualisation en cours" className="px-5 py-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground border-b border-gray-100 dark:border-white/5">
             <Loader2 size={11} className="animate-spin" aria-hidden="true" />
             Actualisation…
           </div>
@@ -162,7 +162,7 @@ export default function TicketTracking() {
 
           {/* Pagination — participations uniquement */}
           {tab === "participated" && !loading && total > 0 && (
-            <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100 dark:border-white/5 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100 dark:border-white/5 text-xs text-muted-foreground">
               <span className="tabular-nums">{from}–{to} sur {total}</span>
               <div className="flex items-center gap-1">
                 <button
@@ -187,7 +187,7 @@ export default function TicketTracking() {
         </div>
       </div>
 
-      <p role="note" aria-label="Raccourcis clavier" className="text-[11px] text-gray-500 dark:text-gray-400 text-right select-none">
+      <p role="note" aria-label="Raccourcis clavier" className="text-[11px] text-muted-foreground text-right select-none">
         Raccourcis&nbsp;: <kbd className="font-mono">j</kbd>/<kbd className="font-mono">k</kbd> naviguer · <kbd className="font-mono">/</kbd> rechercher · <kbd className="font-mono">1–4</kbd> filtres · <kbd className="font-mono">Échap</kbd> quitter la recherche
       </p>
     </div>

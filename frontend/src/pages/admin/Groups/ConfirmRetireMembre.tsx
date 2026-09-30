@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { Loader2, UserMinus } from "lucide-react";
 import type { UserSummary } from "../../../types/index.tsx";
 import { displayName } from "./utils";
-import { useDialogFocus } from "./useDialogFocus";
+import { useDialogFocus } from "../../../hooks/useDialogFocus";
 
 type Props = {
   membre: UserSummary;
@@ -15,7 +15,7 @@ type Props = {
 
 export default function ConfirmRetireMembre({ membre, onConfirm, onCancel, isPending, error, isLastChef }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(dialogRef, onCancel);
+  useDialogFocus(dialogRef, { onClose: onCancel });
 
   return (
     <div
@@ -44,12 +44,12 @@ export default function ConfirmRetireMembre({ membre, onConfirm, onCancel, isPen
             <p id="retire-membre-title" className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               Retirer ce membre ?
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[220px]">
+            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[220px]">
               {displayName(membre)}
             </p>
           </div>
         </div>
-        <p className="text-xs text-gray-600 dark:text-gray-400">
+        <p className="text-xs text-gray-600 dark:text-muted-foreground">
           Le gestionnaire perdra l'accès aux tickets et documents de ce domaine jusqu'à être
           réaffecté.
         </p>
