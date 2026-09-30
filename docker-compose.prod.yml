@@ -163,7 +163,7 @@ services:
     restart: unless-stopped
     logging: *logging
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost/"]
+      test: ["CMD", "curl", "-fsS", "http://localhost/nginx-health"]
       interval: 30s
       start_interval: 1s
       timeout: 5s
