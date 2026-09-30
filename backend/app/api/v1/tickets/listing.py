@@ -20,8 +20,8 @@ router = APIRouter()
 @router.get("/tickets")
 async def liste_tickets(
     current_user: CurrentUser,
-    page: int = 1,
-    limit: int = 10,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=500),  # UserTicketHistory demande 400
     domaine: str | None = None,
     domaines: str | None = None,
     statut: str | None = None,
@@ -146,8 +146,8 @@ async def validateurs_par_domaine(domaine: str, _: BackofficeUser):
 @router.get("/tickets/participated")
 async def tickets_avec_participation(
     current_user: BackofficeUser,
-    page: int = 1,
-    limit: int = 10,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=500),
 ):
     db = SessionLocal()
     try:

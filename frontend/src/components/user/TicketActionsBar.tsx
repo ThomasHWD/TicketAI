@@ -90,6 +90,7 @@ export function TicketActionsBar({
             id="precision"
             value={precision}
             onChange={handlePrecisionChange}
+            maxLength={2000}
             placeholder="Ex. : Et dans le cas d'un contrat à durée déterminée ?"
             className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-800 dark:text-gray-100 bg-white dark:bg-white/[0.03] placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none overflow-hidden transition-colors"
             style={{ minHeight: "80px", maxHeight: "200px" }}

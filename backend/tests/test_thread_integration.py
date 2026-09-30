@@ -155,6 +155,38 @@ def test_suivi_question_vide_renvoie_400(client, db_session, mock_question_job, 
     mock_question_job.assert_not_called()
 
 
+def test_suivi_compte_dans_le_quota_journalier(client, db_session, mock_question_job, owner, auth_header, monkeypatch):
+    """A follow-up runs the whole Albert pipeline: it used to have no brake at all."""
+    import app.api.v1.tickets.submit as submit
+
+    monkeypatch.setattr(submit.settings, "ticket_rate_limit_par_jour", 1)
+    ticket, _ = seed_ticket_reponse(db_session, user_id=owner.id)
+
+    url = f"{API}/tickets/{ticket.id}/suivi"
+    codes = [
+        client.post(url, json={"question": "Et pour un CDD ?"}, headers=auth_header(owner)).status_code
+        for _ in range(2)
+    ]
+
+    assert codes == [200, 429]
+    mock_question_job.assert_called_once()
+
+
+@pytest.mark.parametrize("route", ["suivi", "nouveau"])
+def test_question_trop_longue_renvoie_422(client, db_session, mock_question_job, owner, auth_header, route):
+    ticket, _ = seed_ticket_reponse(db_session, user_id=owner.id)
+    url, corps = (
+        (f"{API}/tickets/{ticket.id}/suivi", {})
+        if route == "suivi"
+        else (f"{API}/tickets", {"domaine": ticket.domaine})
+    )
+
+    resp = client.post(url, json={**corps, "question": "x" * 2001}, headers=auth_header(owner))
+
+    assert resp.status_code == 422
+    mock_question_job.assert_not_called()
+
+
 def test_suivi_ticket_introuvable_renvoie_404(client, db_session, mock_question_job, auth_headers):
     resp = client.post(
         f"{API}/tickets/{uuid.uuid4()}/suivi",
