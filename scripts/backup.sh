@@ -9,6 +9,9 @@
 # Un backup n'apparaît sous son nom daté qu'une fois complet et vérifié (écrit d'abord dans <date>.partiel).
 
 set -euo pipefail
+# Dumps en clair : noms, e-mails et questions des agents (RGPD). Fichiers et répertoires lisibles du seul
+# propriétaire — tout est écrit par redirection du shell, l'umask s'applique partout.
+umask 077
 
 RACINE="$(cd "$(dirname "$0")/.." && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-$RACINE/docker-compose.prod.yml}"
