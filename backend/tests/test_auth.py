@@ -30,9 +30,9 @@ def test_create_et_decode_token_roundtrip():
 
 def test_decode_token_invalide_leve():
     from app.core.security import decode_token
-    from jose import JWTError
+    from jwt import PyJWTError
 
-    with pytest.raises(JWTError):
+    with pytest.raises(PyJWTError):
         decode_token("pas-un-vrai-jwt")
 
 

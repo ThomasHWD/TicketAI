@@ -24,10 +24,10 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 import httpx
+import jwt
 from app.config import settings
 from app.database import SessionLocal
 from app.models.user import User
-from jose import jwt
 from sqlalchemy.orm import joinedload
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
