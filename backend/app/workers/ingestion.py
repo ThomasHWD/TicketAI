@@ -20,7 +20,7 @@ from app.services.confrontation import (
 )
 from app.services.contextualisation import contextualiser, synopsis, texte_indexe
 from app.services.embedding import embed_texts
-from app.services.obsolescence import RAISON_ANALYSE, poser_a_relire, racines
+from app.services.obsolescence import mettre_en_analyse, racines
 from app.services.qdrant import COLLECTION_NAME, client
 from app.services.text_processing import chunk_text, extract_text, texte_complet
 from app.workers.celery_app import celery_app
@@ -179,7 +179,7 @@ def ingestion_job(
             logger.info("cibles confrontation après injection HORS_DOMAINE : %d réponse(s)", len(cibles))
             # ANALYSE_EN_COURS flagged in same commit — closes the race window between document publication and verdict.
             famille = familles_servies(db, identifiants(cibles))
-            poser_a_relire(famille, RAISON_ANALYSE, doc_id, version)
+            mettre_en_analyse(famille, doc_id, version)
             nb_a_analyser = len(racines(famille))
             etat = "enfilé" if nb_a_analyser else "ignoré"
             logger.info("nb_a_analyser=%d — confrontation_job %s", nb_a_analyser, etat)

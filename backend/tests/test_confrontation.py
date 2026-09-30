@@ -406,3 +406,36 @@ class TestRaccordementIngestion:
         assert appel["queue"] == "queue_questions"
         assert appel["kwargs"]["cibles"] == {str(r.id): [0]}
         assert appel["kwargs"]["doc_id"] == resultat["doc_id"]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "contenu_corrige, rerank_score, obsolete, a_relire",
+    [
+        pytest.param(None, 0.9, True, False, id="pas-d-info-contredite-retiree"),
+        pytest.param(None, 0.01, False, False, id="pas-d-info-document-sans-rapport-intacte"),
+        pytest.param("Le préavis est d'un mois.", 0.9, False, True, id="corrigee-a-la-main-jamais-retiree"),
+    ],
+)
+def test_hors_domaine_passe_par_la_pertinence_et_le_juge(
+    lot, monkeypatch, mock_side_effects, contenu_corrige, rerank_score, obsolete, a_relire
+):
+    """Tout document ajouté retirait toutes les canoniques HORS_DOMAINE du domaine, avant
+    le reranker (observé : une note mutuelle a retiré « préavis de démission »). Seule une
+    « pas d'information » contredite est retirée ; une réponse écrite à la main suit la
+    règle commune."""
+    import app.services.reverification_scoring as scoring
+
+    [r] = lot()
+    r.source, r.contenu, r.contenu_corrige = "HORS_DOMAINE", "Aucune information sur ce sujet.", contenu_corrige
+    r.statut = "CORRIGÉE" if contenu_corrige else "VALIDÉE"
+    lot.db.commit()
+    monkeypatch.setattr(scoring, "rerank",
+                        lambda q, docs, top_k: [{**d, "rerank_score": rerank_score} for d in docs[:top_k]])
+    monkeypatch.setattr(scoring, "chat",
+                        lambda messages, **k: '{"verdict": "CONTREDITE", "justification": "Le document en traite."}')
+
+    confrontation_job(doc_id=lot.doc_id, version=1, domaine=DOMAINE, cibles={str(r.id): [0, 1]})
+
+    lot.db.expire_all()
+    assert (r.obsolete, r.a_relire) == (obsolete, a_relire)

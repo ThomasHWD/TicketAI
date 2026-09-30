@@ -15,6 +15,7 @@ from app.models.ticket import Ticket
 from app.services.broadcast import broadcast_sync
 from app.services.garde_cache import Decision
 from app.services.search import franchit_le_rappel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -86,14 +87,25 @@ def charger_contexte_fil(ticket_id: uuid.UUID, precision: str) -> tuple[list[dic
         if ticket is None:
             return [], precision
 
-        reponses = db.query(Reponse).filter(Reponse.ticket_id == ticket_id).order_by(Reponse.created_at.asc()).all()
+        # Obsolete turns skipped: a withdrawn answer must not seed generation, and a re-processed follow-up's
+        # obsolete draft would otherwise put its own question in the thread twice.
+        reponses = (
+            db.query(Reponse)
+            .filter(Reponse.ticket_id == ticket_id, Reponse.obsolete.is_(False))
+            .order_by(Reponse.created_at.asc())
+            .all()
+        )
 
         historique: list[dict] = []
         questions_utilisateur: list[str] = [ticket.question]
         premier = True
         for r in reponses:
             if premier:
-                historique.append({"role": "user", "content": ticket.question})
+                ouverture = ticket.question
+                if r.question_suivi:  # initial turn withdrawn — first surviving turn is a follow-up
+                    ouverture += "\n" + r.question_suivi
+                    questions_utilisateur.append(r.question_suivi)
+                historique.append({"role": "user", "content": ouverture})
                 premier = False
             elif r.question_suivi:
                 historique.append({"role": "user", "content": r.question_suivi})
@@ -105,6 +117,23 @@ def charger_contexte_fil(ticket_id: uuid.UUID, precision: str) -> tuple[list[dic
         return historique, requete_recherche
     finally:
         db.close()
+
+
+def question_du_point_fiable(db: Session, reponse: Reponse, question_indexee: str) -> bool:
+    """False for a follow-up point written before reformulation — indexed under its bare text (« et pour un
+    apprenti ? »), the judge compares a thread to an identical context-free question — not a judgeable pair (it
+    held NON 3/3 on one measured case, which proves nothing general). Checked on the response and its copies (alias
+    points carry the copy's question). scripts/reindexer_suivis.py rewrites them."""
+    tours = (
+        db.query(Reponse.question_autonome)
+        .filter(
+            or_(Reponse.id == reponse.id, Reponse.reponse_source_id == reponse.id),
+            Reponse.question_suivi == question_indexee,
+        )
+        .all()
+    )
+    # a follow-up already self-contained is rewritten verbatim — its stored rewrite vouches for the point
+    return all(t.question_autonome == question_indexee for t in tours)
 
 
 class Candidat(NamedTuple):
@@ -134,8 +163,13 @@ class Candidat(NamedTuple):
 AUCUN_CANDIDAT = Candidat(None, None, None, None)
 
 
-def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
-    """Find the best reusable VALIDÉE/CORRIGÉE response. Relevance first (RRF), status as tiebreaker"""
+# Judged candidates per question: the second one is only judged when the first is refused (judge NON or
+# unjudgeable point) or not eligible — one extra judge call at most, and only on that path.
+MAX_CANDIDATS_JUGES = 2
+
+
+def trouver_candidats(db: Session, chunks: list[dict], limite: int = MAX_CANDIDATS_JUGES) -> list[Candidat]:
+    """Reusable VALIDÉE/CORRIGÉE responses, best first. Relevance first (RRF), status as tiebreaker."""
     # single dict per reponse_id: dominant chunk (for question_indexee and lexical), max cosine (for servable).
     meilleur_par_reponse: dict[str, dict] = {}
     for c in chunks:
@@ -151,9 +185,9 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
             meilleur_par_reponse[rid]["_score_cosinus_max"] = cos
 
     if not meilleur_par_reponse:
-        return AUCUN_CANDIDAT
+        return []
 
-    candidats = (
+    reponses = (
         db.query(Reponse)
         .filter(
             Reponse.id.in_([uuid.UUID(r) for r in meilleur_par_reponse]),
@@ -163,27 +197,36 @@ def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
         )
         .all()
     )
-    if not candidats:
-        return AUCUN_CANDIDAT
 
     # Relevance first (RRF), status as tiebreaker — canonical general used to outrank specific validated at higher RRF.
-    reponse_liee = max(
-        candidats,
+    reponses.sort(
         key=lambda r: (
             meilleur_par_reponse[str(r.id)].get("score_rrf", 0.0),
             r.canonique,
             r.nb_validations,
             str(r.id),
         ),
+        reverse=True,
     )
-    point = meilleur_par_reponse[str(reponse_liee.id)]
-    return Candidat(
-        reponse_liee,
-        point.get("score_cosinus", 0.0),
-        point.get("score_lexical", 0.0),
-        point.get("question_indexee"),
-        point.get("_score_cosinus_max", point.get("score_cosinus", 0.0)),
-    )
+    candidats = []
+    for r in reponses[:limite]:
+        point = meilleur_par_reponse[str(r.id)]
+        candidats.append(
+            Candidat(
+                r,
+                point.get("score_cosinus", 0.0),
+                point.get("score_lexical", 0.0),
+                point.get("question_indexee"),
+                point.get("_score_cosinus_max", point.get("score_cosinus", 0.0)),
+            )
+        )
+    return candidats
+
+
+def trouver_reponse_reutilisable(db: Session, chunks: list[dict]) -> Candidat:
+    """The best reusable response (first of `trouver_candidats`)."""
+    candidats = trouver_candidats(db, chunks, limite=1)
+    return candidats[0] if candidats else AUCUN_CANDIDAT
 
 
 def servir_reutilisation(
@@ -201,6 +244,7 @@ def servir_reutilisation(
     autoriser_canonique: bool,
     objet: str | None = None,
     score_lexical: float = 0.0,
+    jugee_equivalente: bool = False,
 ) -> dict:
     """Persist and return a validated-response reuse. autoriser_canonique gates CANONIQUE (unreviewed serving)"""
     contenu = reponse_liee.contenu_corrige or reponse_liee.contenu
@@ -238,6 +282,7 @@ def servir_reutilisation(
             question_suivi=question_suivi,
             nouveau=est_suivi,
             tag=reponse_liee.tag,
+            jugee_equivalente=jugee_equivalente,
         )
 
         ticket_source = db.query(Ticket).filter(Ticket.id == reponse_liee.ticket_id).first()
@@ -299,6 +344,7 @@ def servir_reutilisation(
         question_suivi=question_suivi,
         nouveau=est_suivi,
         tag=reponse_liee.tag,
+        jugee_equivalente=jugee_equivalente,
     )
     ticket_id_str_sug = str(ticket.id)
     db.commit()

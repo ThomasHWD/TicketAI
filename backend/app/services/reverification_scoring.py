@@ -22,8 +22,9 @@ VERDICTS = (VERDICT_CONTREDITE, VERDICT_INTACTE, VERDICT_INCERTAIN)
 PROMPT_SYSTEME = """Tu vérifies si une réponse déjà publiée reste exacte après la modification
 d'un document de référence.
 
-On te donne la question posée, la réponse telle qu'elle est servie aujourd'hui, et les passages
-du document qui ont changé, sous la forme AVANT / APRÈS.
+On te donne la question posée, la réponse telle qu'elle est servie aujourd'hui, les passages
+du document qui ont changé, sous la forme AVANT / APRÈS, et quand ils existent des passages du
+texte ACTUEL du document proches de la question.
 
 Rends exactement l'un de ces trois verdicts :
 - CONTREDITE : le nouveau texte rend la réponse fausse ou périmée — un chiffre, un délai, un seuil,
@@ -37,6 +38,11 @@ Règles :
 - Ne juge que d'après les passages fournis. N'invente aucune règle absente.
 - Une simple reformulation, un changement de numérotation ou de ponctuation sans effet sur le fond
   est INTACTE.
+- Le texte actuel sert à voir ce que le document dit aujourd'hui du cas précis de la question.
+  Si la réponse repose sur une règle propre à son cas (une exception, une population, une
+  condition) qui figure inchangée dans le texte actuel, et que le changement porte sur une autre
+  règle, elle est INTACTE — sauf si la règle propre à son cas se calcule à partir de celle qui a
+  changé.
 - Ne rédige jamais de correction ni de réponse de remplacement.
 - Dans le doute, réponds INCERTAIN et non INTACTE : une réponse fausse laissée en service coûte
   plus cher qu'une relecture inutile.
@@ -97,9 +103,18 @@ def unites_pertinentes(question: str, unites: list[Unite]) -> tuple[list[Unite],
     return [c["_unite"] for c in classees if c.get("rerank_score", 0.0) >= SEUIL_RERANK], True
 
 
-def juger(question: str, reponse_servie: str, unites: list[Unite]) -> tuple[str, str]:
+def juger(
+    question: str, reponse_servie: str, unites: list[Unite], texte_actuel: list[str] | None = None
+) -> tuple[str, str]:
     """Demande au modèle si ces changements contredisent cette réponse. Shows the diff, not the document"""
     changements = "\n\n".join(_formater(u) for u in unites)
+    # the diff alone hid an unchanged exception: « apprentis : 28 j » judged CONTREDITE 3/3 when only the general
+    # rule moved (measured 28/09/2026) — the current text shows what the document still says about this case.
+    actuel = (
+        "\n\nTexte actuel du document, passages proches de la question :\n" + "\n\n---\n\n".join(texte_actuel)
+        if texte_actuel
+        else ""
+    )
     messages = [
         {"role": "system", "content": PROMPT_SYSTEME},
         {
@@ -108,6 +123,7 @@ def juger(question: str, reponse_servie: str, unites: list[Unite]) -> tuple[str,
                 f"Question posée :\n{question}\n\n"
                 f"Réponse actuellement servie :\n{reponse_servie}\n\n"
                 f"Changements apportés au document :\n{changements}"
+                f"{actuel}"
             ),
         },
     ]
@@ -148,7 +164,7 @@ def _formater(unite: Unite) -> str:
     return f"[MODIFIÉ]\nAVANT : {unite.avant}\nAPRÈS : {unite.apres}"
 
 
-def _lire_verdict(brut: str) -> tuple[str, str]:
+def _lire_verdict(brut: str, verdicts: tuple[str, ...] = VERDICTS) -> tuple[str, str]:
     """Extrait (verdict, justification) ; illisible ou inattendu → INCERTAIN, jamais INTACTE."""
     debut, fin = brut.find("{"), brut.rfind("}")
     if debut == -1 or fin <= debut:
@@ -162,7 +178,7 @@ def _lire_verdict(brut: str) -> tuple[str, str]:
         return VERDICT_INCERTAIN, "Réponse du modèle illisible."
 
     verdict = str(charge.get("verdict", "")).strip().upper()
-    if verdict not in VERDICTS:
+    if verdict not in verdicts:
         return VERDICT_INCERTAIN, "Verdict du modèle non reconnu."
 
     justification = " ".join(str(charge.get("justification") or "").split())

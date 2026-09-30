@@ -1,12 +1,15 @@
+import uuid
+
 from celery.result import AsyncResult
 from fastapi import APIRouter, Body, HTTPException
 
 from app.config import settings
-from app.core.permissions import check_ticket_read
+from app.core.permissions import check_ticket_read, user_domaines
 from app.core.rate_limit import limiter
 from app.core.security import CurrentUser
 from app.database import SessionLocal
 from app.models.groupe import Groupe
+from app.models.reponse import Reponse
 from app.models.ticket import Ticket
 from app.schemas.ticket import CloturerRequest, QuestionRequest, SuiviRequest
 from app.services.broadcast import broadcast_async
@@ -66,6 +69,8 @@ async def soumettre_suivi(
     current_user: CurrentUser,
 ):
     """Ajoute une précision au fil du ticket : relance le pipeline RAG."""
+    # Same counter as a new ticket: a follow-up runs the whole pipeline too, and had no brake at all.
+    limiter("ticket_jour", str(current_user.id), settings.ticket_rate_limit_par_jour, fenetre_secondes=86400)
     if not payload.question.strip():
         raise HTTPException(400, "La question ne peut pas être vide")
     from app.services.ticket_service import parse_ticket_id
@@ -138,10 +143,21 @@ async def cloturer_ticket(
     return result
 
 
+def _texte_lisible(db, ticket: Ticket, job_result: dict, current_user) -> str | None:
+    """The job's answer, as /tickets/{id}/reponses would show it: unreviewed or rejected text stays with reviewers.
+    The job result is frozen at generation — the served text is read from the row (a correction replaces it)."""
+    rid = job_result.get("reponse_id")
+    ligne = db.query(Reponse).filter(Reponse.id == uuid.UUID(rid)).first() if rid else None
+    relecteur = current_user.role == "ADMIN" or ticket.domaine in user_domaines(current_user)
+    if ligne is None:
+        return job_result.get("reponse") if relecteur else None
+    if not relecteur and ligne.statut not in ("VALIDÉE", "CORRIGÉE"):
+        return None
+    return ligne.contenu_corrige or ligne.contenu
+
+
 @router.get("/tickets/{job_id}/status")
 async def statut_ticket(job_id: str, current_user: CurrentUser):
-    import uuid
-
     result = AsyncResult(job_id, app=celery_app)
 
     reponse = {
@@ -155,7 +171,7 @@ async def statut_ticket(job_id: str, current_user: CurrentUser):
         reponse["branche"] = job_result.get("branche")
         reponse["question"] = job_result.get("question")
         reponse["domaine"] = job_result.get("domaine")
-        reponse["reponse"] = job_result.get("reponse")
+        reponse["reponse"] = None
 
         ticket_id = job_result.get("ticket_id")
         if ticket_id:
@@ -166,10 +182,12 @@ async def statut_ticket(job_id: str, current_user: CurrentUser):
                     check_ticket_read(ticket, current_user)
                     reponse["statut_ticket"] = ticket.statut_ticket
                     reponse["ticket_id"] = ticket_id
+                    reponse["reponse"] = _texte_lisible(db, ticket, job_result, current_user)
             finally:
                 db.close()
 
     elif result.status == "FAILURE":
-        reponse["erreur"] = str(result.result)
+        # The raw exception is for the admin incidents page, not for the ticket's author.
+        reponse["erreur"] = "La génération de la réponse a échoué."
 
     return reponse

@@ -143,7 +143,7 @@ vers « fais lire un humain »** — jamais vers « laisse passer », jamais ver
 | Une réponse qui **ne cite pas** le document ne peut jamais être retirée automatiquement, même jugée CONTREDITE. Elle plafonne à *À relire*. | Elle n'a été rapprochée du changement que par similarité vectorielle entre un paragraphe et une question — deux objets de nature différente. Détruire à tort une canonique à douze validations coûte bien plus cher que vingt relectures. |
 | Le modèle **n'a pas le droit de rédiger une correction**. | Le verdict est « cette réponse ne tient plus », pas « voici la nouvelle ». Réécrire à la place d'un humain, c'est publier du contenu que personne n'a validé. |
 | Une panne d'Albert ne détruit **rien**. | La réponse reste réutilisable et part en relecture avec la mention explicite que l'analyse n'a pas eu lieu. Elle cesse simplement d'être servie sans relecteur. |
-| Un document réécrit de fond en comble (> 40 unités) déclenche **zéro** appel au modèle. | Quand tout a changé, il n'y a plus rien à discriminer : tout est signalé en bloc, ce qui est à la fois plus honnête et gratuit. |
+| Un document réécrit de fond en comble (> 40 unités) déclenche **zéro** appel au modèle. | Quand tout a changé, il n'y a plus rien à discriminer : tout est signalé en bloc, ce qui est à la fois plus honnête et gratuit. Le bloc comprend les **voisines** — les réponses proches du document sans le citer : une réécriture est justement le moment où elles se font contredire. |
 
 ## 3 bis. Un exemple pour chaque cas
 
@@ -346,6 +346,22 @@ Et c'est le bon plafond. Une réponse *incomplète* — le cas nominal ici — s
 `SEUIL_CANONIQUE` revalidations pour un état final identique. Épinglé par
 `backend/tests/test_confrontation.py`.
 
+**Une seule exception : la HORS_DOMAINE jamais corrigée** (29/09/2026). Elle ne dit que « la base n'a rien sur
+ce sujet ». Jugée CONTREDITE par un document qui en traite, elle est retirée (sa famille aussi, brouillons renvoyés
+au pipeline) : la question repart alors au RAG avec ce document. Ces réponses ne citent aucun chunk, et Qdrant ne
+les atteint pas par similarité : l'ingestion les injecte donc avec tous les indices du document. Elles passent
+ensuite, comme les autres, par le **filtre de pertinence puis le juge**.
+
+Avant, elles étaient retirées dès l'arrivée de **n'importe quel** document du domaine, avant le reranker : une note
+sur la mutuelle a retiré la canonique « préavis de démission » (observé en campagne réelle le 28/09/2026). Une
+HORS_DOMAINE **corrigée à la main** est une réponse humaine : elle suit la règle commune et plafonne à la relecture.
+
+Mesuré le 29/09/2026 (juge seul, 6 cas × 3 passes : 18/18). Une réponse « pas d'information » face à un passage
+qui répond donne CONTREDITE ; face à un document sans rapport ou à un **sujet voisin** (préavis de *licenciement*,
+reranker 0,60), INTACTE. De bout en bout (`scripts/bout_en_bout_candidats_hd.py --phase hd`) : la note mutuelle
+laisse les deux canoniques HORS_DOMAINE intactes, alors qu'elles ont bien été confrontées. La note « RTT +
+préavis » retire la brute et envoie la corrigée (« un mois » contre « deux mois ») en relecture.
+
 ### Le juge reçoit un prompt différent
 
 `PROMPT_SYSTEME_CONFRONTATION` (`services/reverification_scoring.py`) dit explicitement que **les
@@ -426,6 +442,7 @@ retrait sec serait indéfendable.
 | Les **tickets clos ne bougent pas** | La réponse reste affichée telle quelle là où elle a été donnée : elle *était* correcte à l'époque, l'historique n'est pas réécrit. |
 | Elle est **consultable** | Onglet **Obsolètes**, avec le document, la version, la justification et les extraits qui ont fondé le verdict. |
 | Elle est **restaurable** | Un clic la remet en service, telle quelle. |
+| Ses **brouillons repartent** | Une copie SUGGESTION encore EN_ATTENTE est retirée avec la famille, puis renvoyée au pipeline sous **sa** question (une précision repart en mode suivi). Sans ce renvoi, elle disparaissait du fil et le ticket restait « Répondu » sans réponse. Un brouillon retiré n'est plus ni listé ni validable (409). |
 
 Le bouton **Restaurer** reste la soupape. Il sert moins souvent qu'avant — le retrait n'est plus
 prononcé sur un critère de sous-chaîne mais sur une lecture — et quand il sert, la justification
@@ -562,8 +579,30 @@ redeviennent valables.
   réponses continuent d'être servies. Elles le sont, mais plus jamais sans que l'interface le
   dise : elles portent `ANALYSE_EN_COURS`. Les retirer préventivement créerait un trou de service
   pour rien, l'écrasante majorité étant intacte.
+- **Le juge voit aussi le texte actuel, pas seulement le diff.** Avec le diff seul, une réponse
+  bâtie sur une exception inchangée était jugée contredite dès que la règle générale bougeait :
+  « apprentis : 28 jours » retirée 3/3 quand seule la règle générale passait de 25 à 30 jours
+  (mesuré le 28/09/2026). `passages_actuels` lui fournit les 3 passages de la nouvelle version les
+  plus proches de la question, sans appel Albert (le vecteur de requête est celui du point-réponse).
+  Mesuré sur 5 cas × 3 passes : 15/15 avec le texte actuel. Les vraies contradictions restent
+  CONTREDITE, y compris une exception *calculée* à partir de la règle changée (« générale majorée
+  de 3 jours »). Sans point-réponse ou si Qdrant est indisponible, on retombe sur le diff seul,
+  verdicts identiques à avant.
+- **Les voisines sont cherchées même sans citante.** La ré-vérification est enfilée dès qu'il y a
+  au moins une unité de changement, pas seulement quand une réponse cite le document : un changement
+  peut contredire une canonique bâtie sur un autre document, ou écrite à la main (HORS_DOMAINE
+  corrigée, statut `CORRIGÉE`, désormais incluse dans les voisines).
+- **Les citations sont versionnées.** `reponse_chunks.version` dit à quelle version l'index renvoie ;
+  les rapprochements *par passage* (prioritaires, écran d'impact, contexte de la confrontation)
+  n'utilisent que les citations de la version concernée. Une ligne héritée sans version reste
+  rapprochée par index, comme avant.
 - **Un seul signalement à la fois par réponse.** Si un second document la fait signaler, les
-  colonnes sont écrasées : dernier arrivé gagne.
+  colonnes sont écrasées : dernier arrivé gagne. **Sauf la mise sous analyse** (`mettre_en_analyse`,
+  mise à jour comme nouveau document) : elle ne se pose jamais sur une réponse déjà signalée. Elle
+  lui aurait donné le doc/version de la passe, et l'INTACTE de cette passe aurait levé un motif
+  qu'elle n'avait pas instruit — une `CONTREDITE_PROBABLE` venue d'un autre document repartait
+  ainsi en service sans revue (constaté à l'audit du 29/09/2026). La réponse déjà signalée est
+  jugée quand même ; seul un verdict défavorable remplace son motif.
 - **Un fichier renommé échappe au garde-fou homonyme** de la page Ingestion.
 - **Le domaine d'un document n'est pas modifiable** par une mise à jour.
 - **Supprimer un document efface aussi ses archives** — toutes les versions, définitivement.
@@ -725,7 +764,8 @@ Pas `queue_ingestion` : ce job n'est que de l'attente réseau Albert, il n'a rie
 file qui sérialise les ingestions. Enfilé par `apply_async` explicite et non par `chain()` ou
 `link()` — un `link` ne se rejoue pas depuis le retry admin, et le dépôt enfile déjà ainsi.
 
-Plafonds : `MAX_UNITES = 40` (au-delà, signalement en bloc, **zéro appel LLM**),
+Plafonds : `MAX_UNITES = 40` (au-delà, signalement en bloc des citantes **et des voisines**, **zéro appel
+Albert**),
 `MAX_JUGEMENTS = 25`, `TOP_K_UNITE = 20`, `SEUIL_RAPPEL = 0.35`, `SEUIL_RERANK = 0.15`,
 `MAX_UNITES_PAR_REPONSE = 3`, `MAX_ECHECS = 3`. Les trois seuils sont **calés empiriquement** :
 ce sont les seuls chiffres non déductibles du reste.
@@ -793,15 +833,16 @@ sequenceDiagram
     W->>Q: upsert nouveaux points
     Note over W,Q: upsert avant delete des ANCIENS :<br/>l'inverse ouvrirait un trou de service
     W->>Q: delete anciens points
-    W->>PG: commit (version N+1 + changements sérialisés)
+    W->>PG: commit unique : version N+1 + changements sérialisés<br/>+ ANALYSE_EN_COURS (ou VERSION_SORTANTE_ILLISIBLE)<br/>statut reste EN_MAJ
 
+    Note over W,R: _terminer — rejoué tel quel par un retry tant que EN_MAJ
     alt changements illisible OU nb_unites ≥ 1
         W->>PG: perimer_en_attente + requeuer_en_attente
     end
     alt nb_unites ≥ 1
-        W->>PG: flaguer_en_analyse → ANALYSE_EN_COURS<br/>(dans la foulée du commit : ferme la race window)
         W->>R: reverification_job.apply_async()
     end
+    W->>PG: statut ACTIF (verrou levé en dernier)
 ```
 
 Une purge défensive précède l'upsert : elle supprime les points **de la version entrante**
@@ -810,18 +851,45 @@ l'index. Elle ne touche pas aux points de la version sortante, qui restent servi
 
 L'upsert précède ensuite le delete des anciens points : l'ordre inverse ouvrirait un trou de
 service pendant toute la durée des embeddings. Le prix est une fenêtre de quelques centaines de millisecondes où les deux
-versions coexistent dans l'index. L'étape 10 vient après la 9 : les EN_ATTENTE qui viennent d'être
-périmées n'ont pas à être analysées, et `reponses_obsoletes` les écarte une fois le commit passé.
+versions coexistent dans l'index.
+
+**Les drapeaux sont dans le commit de la bascule, les suites sont rejouables.** Tout ce qui suit le
+commit parle au réseau (Qdrant dans `perimer_en_attente`, le broker pour les renvois et la
+ré-vérification) et peut lever. Avant le 29/09/2026, le retry retombait alors sur le garde
+« v(N+1) déjà en place — rien à faire » : ni mise sous analyse ni ré-vérification, les réponses
+citantes restaient servies sans revue sur un texte changé, en silence. Désormais :
+
+- la mise sous analyse (ou le signalement `VERSION_SORTANTE_ILLISIBLE`) part **dans le même commit**
+  que `doc.version = N+1` — dès que la v(N+1) est servie, ses citantes ne le sont plus sans revue ;
+- `statut` reste `EN_MAJ` jusqu'à la fin de `_terminer` : un retry qui trouve la version en place
+  **et** le verrou posé rejoue les suites au lieu de conclure. `DocumentVersion.changements` porte
+  pour cela `indices_disparus` et `version_sortante`, que plus rien ne permet de recalculer (les
+  anciens points sont supprimés) ; `changements_allegees` les retire de l'API ;
+- si Celery abandonne, `TacheMaj.on_failure` rabat les `ANALYSE_EN_COURS` de la passe en
+  `ANALYSE_INDISPONIBLE` : relecture humaine explicite plutôt qu'un état transitoire éternel.
+
+L'ordre « EN_ATTENTE avant mise sous analyse » ne tient plus : les deux ensembles sont disjoints par
+statut (EN_ATTENTE d'un côté, VALIDÉE/CORRIGÉE de l'autre).
 Le chemin du fichier sortant se lit dans le pré-vol, avec le domaine : la session est fermée
 ensuite et `doc` devient détaché.
 
 **Ne jamais** reconstituer le texte sortant en concaténant les chunks capturés : le chevauchement
 de 128 tokens du splitter fabriquerait une fausse suppression à chaque couture.
 
-Sans texte sortant lisible (`changements is None`), aucun diff n'est calculable : on retombe sur
-`marquer_a_relire(..., RAISON_ILLISIBLE)` et **aucun job n'est enfilé**. Les EN_ATTENTE sont
-quand même périmées et remises en file RAG (`a_du_neuf = changements is None or nb_unites`).
-C'est le seul survivant du signalement en bloc côté mise à jour.
+Sans texte sortant lisible (`changements is None`), aucun diff n'est calculable : les citantes
+sont signalées `VERSION_SORTANTE_ILLISIBLE` dans le commit de la bascule et **aucun job n'est
+enfilé**. Les EN_ATTENTE sont quand même périmées et remises en file RAG
+(`a_du_neuf = changements is None or nb_unites`).
+
+**Les voisines des deux cas sans diff jugeable** (réécriture massive, version sortante illisible)
+partent elles aussi en relecture, avec la même raison et une justification qui dit qu'elles ne
+citent pas le document (`signaler_voisines`). Avant le 29/09/2026, seules les citantes l'étaient :
+une canonique bâtie sur un autre document, ou écrite à la main, restait servie sans revue après une
+réécriture complète. Pas de change unit à embarquer ici : `voisines_du_document` part des vecteurs
+**déjà stockés** des passages de la nouvelle version (zéro appel Albert), avec les mêmes
+`TOP_K_UNITE` et `SEUIL_RAPPEL` que `_voisines`. Une voisine déjà signalée garde son motif. Une
+panne Qdrant lève au lieu de rendre une liste vide, qui se lirait « rien à relire » : le job repart
+en retry (rejoué par `_terminer` côté illisible).
 
 ### Colonnes
 

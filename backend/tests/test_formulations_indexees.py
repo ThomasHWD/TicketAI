@@ -375,7 +375,8 @@ def _lancer_garde(candidat, decision):
         with (
             patch("app.workers.question._ticket_existe", return_value=True),
             patch("app.workers.question.search_hybrid", return_value=[]),
-            patch("app.workers.question.trouver_reponse_reutilisable", return_value=candidat),
+            patch("app.workers.question.trouver_candidats", return_value=[candidat]),
+            patch("app.workers.question.question_du_point_fiable", return_value=True),
             patch("app.workers.question.statuer", return_value=decision) as juge,
             patch("app.workers.question.journaliser_garde"),
             patch("app.workers.question.servir_reutilisation", return_value={}) as servir,
@@ -449,3 +450,52 @@ def test_le_garde_est_consulte_sous_le_seuil_de_service():
     juge.assert_called_once()
     assert servir.called is False
     assert reranker.called is True
+
+
+@pytest.mark.parametrize(
+    "verdicts, servi, autorise_canonique, nb_jugements",
+    [
+        pytest.param([False, True], 1, True, 2, id="premier-refuse-second-juge-oui"),
+        pytest.param([False, False], None, None, 2, id="deux-refus-rag"),
+        pytest.param([True], 0, True, 1, id="premier-oui-second-jamais-juge"),
+        pytest.param(["panne"], 0, False, 1, id="panne-pas-d-appel-de-plus"),
+    ],
+)
+def test_le_second_candidat_n_est_juge_qu_apres_un_refus(verdicts, servi, autorise_canonique, nb_jugements):
+    """Un seul candidat jugé : son refus envoyait au RAG même quand le suivant était la bonne
+    réponse. Le suivant n'est jugé qu'après un refus (un appel de plus, au plus), et chaque
+    candidat servi a son propre OUI — un refus ne prête rien au suivant."""
+    from app.services.garde_cache import Decision
+    from app.workers.question import SEUIL_COSINUS, question_job
+
+    candidats = [Candidat(_canonique_servable(), SEUIL_COSINUS + 0.05, 0.0, q)
+                 for q in ("Combien de jours pour un apprenti ?", "Combien de jours de congé ?")]
+    decisions = [Decision(verdict=False, erreur="429") if v == "panne" else Decision(verdict=v) for v in verdicts]
+
+    question_job.push_request(id=str(uuid.uuid4()), retries=0)
+    try:
+        with (
+            patch("app.workers.question._ticket_existe", return_value=True),
+            patch("app.workers.question.search_hybrid", return_value=[]),
+            patch("app.workers.question.trouver_candidats", return_value=candidats),
+            patch("app.workers.question.question_du_point_fiable", return_value=True),
+            patch("app.workers.question.statuer", side_effect=decisions) as juge,
+            patch("app.workers.question.journaliser_garde"),
+            patch("app.workers.question.servir_reutilisation", return_value={}) as servir,
+            patch("app.workers.question.rerank", return_value=[]) as reranker,
+            patch("app.workers.question.generate", return_value=("", False)),
+            patch("app.workers.question.upsert_ticket"),
+            patch("app.workers.question.upsert_reponse"),
+            patch("app.workers.question.suggerer_tag", return_value=None),
+        ):
+            question_job.run(question="Combien de jours de congé ?", domaine="RH")
+    finally:
+        question_job.pop_request()
+
+    assert juge.call_count == nb_jugements
+    if servi is None:
+        servir.assert_not_called()
+        assert reranker.called
+    else:
+        assert servir.call_args.args[6] is candidats[servi].reponse
+        assert servir.call_args.args[11] is autorise_canonique

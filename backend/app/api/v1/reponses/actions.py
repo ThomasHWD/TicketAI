@@ -22,9 +22,10 @@ from app.services.obsolescence import (
     RAISON_MANUELLE,
     confirmer_actualite,
     fermeture_copies,
+    indexation_d_origine,
     lever_a_relire,
     requeuer_en_attente,
-    retirer_du_service,
+    retirer_et_requeuer,
 )
 from app.services.qdrant import delete_response_point
 from app.services.reponse_service import (
@@ -41,6 +42,11 @@ from app.workers.feedback import feedback_job
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _paire_jugee_equivalente(copie: Reponse) -> bool:
+    """The guard said OUI on this copy's own question — not on another turn of the same ticket."""
+    return copie.reponse_source_id is not None and copie.jugee_equivalente
 
 
 @router.post("/reponses/{reponse_id}/valider")
@@ -204,9 +210,12 @@ async def corriger_reponse(reponse_id: str, payload: CorrigerRequest, current_us
         ticket_id_str = str(reponse.ticket_id)
         user_id = str(ticket.user_id) if ticket and ticket.user_id else None
 
-        # Propagate correction to all ancestors so the canonical serves the corrected text
+        # Propagate correction to all ancestors so the canonical serves the corrected text — only when the judge said
+        # this question asks the same thing as the source's. A SUGGESTION served without a verdict (Albert down, no
+        # indexed question) may be a specific case of a general answer: the correction then stays on the copy,
+        # indexed under its own question, instead of rewriting the general answer for everyone.
         sources_a_reindexer: list[str] = []
-        ancetre_id = reponse.reponse_source_id
+        ancetre_id = reponse.reponse_source_id if _paire_jugee_equivalente(reponse) else None
         vus: set = {reponse.id}
         while ancetre_id and ancetre_id not in vus:
             ancetre = db.query(Reponse).filter(Reponse.id == ancetre_id).first()
@@ -270,9 +279,7 @@ async def retirer_reponse(reponse_id: str, current_user: BackofficeUser):
         doc_id, version = reponse.a_relire_doc_id, reponse.a_relire_version
         famille = fermeture_copies(db, {reponse.id})
         cibles = db.query(Reponse).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(False)).all()
-        en_attente_cibles = [r for r in cibles if r.statut == "EN_ATTENTE"]
-        retirer_du_service(db, cibles, RAISON_MANUELLE, doc_id, version)
-        requeuer_en_attente(db, en_attente_cibles)
+        retirer_et_requeuer(db, cibles, RAISON_MANUELLE, doc_id, version)
         nb = len(cibles)
     finally:
         db.close()
@@ -297,9 +304,9 @@ async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
         check_reponse_write(db, reponse, current_user)
 
         famille = fermeture_copies(db, {reponse.id})
-        a_reindexer = [
-            str(r[0]) for r in db.query(Reponse.id).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(True)).all()
-        ]
+        restaurees = db.query(Reponse).filter(Reponse.id.in_(famille), Reponse.obsolete.is_(True)).all()
+        indexations = [args for r in restaurees if (args := indexation_d_origine(r))]
+        nb_restaurees = len(restaurees)
         db.query(Reponse).filter(Reponse.id.in_(famille)).update(
             {
                 "obsolete": False,
@@ -319,13 +326,13 @@ async def restaurer_reponse(reponse_id: str, current_user: BackofficeUser):
     finally:
         db.close()
 
-    for rid in a_reindexer:
-        feedback_job.apply_async(args=[rid], queue="queue_ingestion")
+    for args in indexations:
+        feedback_job.apply_async(args=args, queue="queue_ingestion")
 
     await broadcast_async("sse:admin", "saved_answers_updated", {"reponse_id": reponse_id})
     return {
         "reponse_id": reponse_id,
-        "nb_restaurees": len(a_reindexer),
+        "nb_restaurees": nb_restaurees,
         "message": "Réponse restaurée et en cours de réindexation.",
     }
 

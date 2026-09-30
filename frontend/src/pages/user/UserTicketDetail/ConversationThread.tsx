@@ -151,7 +151,7 @@ function AnswerBubble({ reponse }: { reponse: TicketReponse }) {
         </div>
         <div className="bg-white/90 dark:bg-white/[0.06] border border-gray-200/70 dark:border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
           <p className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed whitespace-pre-wrap break-words">
-            {renderMarkdown(reponse.contenu_corrige ?? reponse.contenu)}
+            {renderMarkdown(reponse.contenu_corrige ?? reponse.contenu ?? "")}
           </p>
         </div>
       </div>

@@ -80,7 +80,8 @@ services:
 
   backend:
     build: ./backend
-    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"]
+    # --forwarded-allow-ips='*' : le port 8000 n'est pas publié, seul nginx (qui écrase X-Forwarded-For) joint uvicorn.
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips='*'"]
     volumes:
       - documents_storage:/app/storage
       - uploads_tmp:/app/uploads_tmp
@@ -162,7 +163,7 @@ services:
     restart: unless-stopped
     logging: *logging
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost/"]
+      test: ["CMD", "curl", "-fsS", "http://localhost/nginx-health"]
       interval: 30s
       start_interval: 1s
       timeout: 5s

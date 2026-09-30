@@ -56,6 +56,7 @@ def lot(db_session, monkeypatch):
     version basculée, `changements` écrits, réponses flaguées `ANALYSE_EN_COURS`.
     """
     import app.services.obsolescence as obso
+    import app.services.reverification as services_reverif
     import app.services.reverification_candidates as candidates
     import app.workers.reverification as worker
 
@@ -64,6 +65,7 @@ def lot(db_session, monkeypatch):
     # Le rappel vectoriel est hors sujet ici : on teste la politique du worker sur
     # un lot connu, pas la capacité de Qdrant à élargir le périmètre.
     monkeypatch.setattr(candidates, "_voisines", lambda db, domaine, unites: [])
+    monkeypatch.setattr(services_reverif, "voisines_du_document", lambda db, doc_id, version, domaine: [])
 
     doc_id = str(uuid.uuid4())
 
@@ -145,6 +147,26 @@ class TestVerdictsAppliques:
         assert r.analyse_justification == "Le plafond passe de 200 a 300 euros."
         assert restees_en_analyse(lot.db, lot.doc_id, 2) == []
 
+    def test_le_juge_voit_le_texte_actuel_du_document(self, lot, monkeypatch):
+        """Le diff seul cachait l'exception inchangée : « apprentis : 28 j » jugée
+        CONTREDITE 3/3 quand seule la règle générale bougeait (mesuré le 28/09/2026)."""
+        import app.services.reverification_scoring as scoring
+        import app.workers.reverification as worker
+        from app.workers.reverification import reverification_job
+
+        [r] = lot()
+        vus = []
+        _repondre(monkeypatch, "INTACTE")
+        monkeypatch.setattr(scoring, "chat", lambda messages, **k: vus.append(messages[1]["content"])
+                            or '{"verdict": "INTACTE", "justification": "Exception inchangee."}')
+        monkeypatch.setattr(worker, "passages_actuels",
+                            lambda reponse, doc_id, version: ["Les apprentis gardent 28 jours."]
+                            if (reponse.id, doc_id, version) == (r.id, lot.doc_id, 2) else [])
+
+        reverification_job(doc_id=lot.doc_id, version=2, domaine=DOMAINE)
+
+        assert "Les apprentis gardent 28 jours." in vus[0]
+
     def test_intacte_leve_le_drapeau_et_laisse_servie(self, lot, monkeypatch):
         [r] = lot()
         _repondre(monkeypatch, "INTACTE", "Sans effet sur cette reponse.")
@@ -177,6 +199,48 @@ class TestPlafonds:
         assert all(r.a_relire and r.a_relire_raison == RAISON_MASSIVE for r in reponses)
         assert all(r.obsolete is False for r in reponses), "une réécriture massive ne détruit rien"
         assert restees_en_analyse(lot.db, lot.doc_id, 2) == []
+
+    def test_reecriture_massive_signale_aussi_les_voisines(self, lot, monkeypatch):
+        """Une réécriture est précisément le moment où une canonique bâtie sur un autre
+        document, ou écrite à la main, se fait contredire. Seules les citantes partaient
+        en relecture : la voisine restait servie sans revue. Rappel sur les vecteurs déjà
+        stockés des passages — zéro appel Albert. Une voisine déjà signalée garde son motif."""
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        import app.services.reverification as services_reverif
+        import app.services.reverification_candidates as candidates
+        import app.services.reverification_scoring as scoring
+
+        lot(nb_reponses=1, nb_unites=41)
+        voisines = []
+        for signalee in (False, True):
+            ticket = Ticket(question="Plafond des frais ?", domaine=DOMAINE, statut_job="TERMINÉ")
+            lot.db.add(ticket)
+            lot.db.flush()
+            r = Reponse(ticket_id=ticket.id, contenu="200 euros.", source="HORS_DOMAINE", statut="CORRIGÉE",
+                        canonique=True, nb_validations=3, a_relire=signalee,
+                        a_relire_raison="CONTREDITE_PROBABLE" if signalee else None)
+            lot.db.add(r)
+            voisines.append(r)
+        lot.db.commit()
+
+        qdrant = MagicMock()
+        qdrant.scroll.return_value = ([SimpleNamespace(vector={"dense": [0.1] * 1024})], None)
+        qdrant.query_points.return_value = SimpleNamespace(
+            points=[SimpleNamespace(score=0.6, payload={"reponse_id": str(r.id)}) for r in voisines]
+        )
+        monkeypatch.setattr(candidates, "client", qdrant)
+        monkeypatch.setattr(services_reverif, "voisines_du_document", candidates.voisines_du_document)
+        monkeypatch.setattr(scoring, "chat", _interdit)
+
+        bilan = reverification_job(doc_id=lot.doc_id, version=2, domaine=DOMAINE)
+
+        lot.db.expire_all()
+        libre, deja = voisines
+        assert (libre.a_relire, libre.a_relire_raison) == (True, RAISON_MASSIVE)
+        assert deja.a_relire_raison == "CONTREDITE_PROBABLE"
+        assert bilan["nb_a_relire"] == 2  # la citante et la voisine libre
 
     def test_budget_epuise_ne_perd_aucune_reponse(self, lot, monkeypatch):
         """Le surplus n'est jamais tronqué en silence — c'est exactement ce que

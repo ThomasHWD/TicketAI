@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -23,6 +24,20 @@ from app.database import SessionLocal
 from app.middleware.maintenance import MaintenanceMiddleware
 from app.services.qdrant import client as qdrant_client
 from app.services.qdrant import init_collection
+
+logger = logging.getLogger(__name__)
+
+
+class _SansSondeDocker(logging.Filter):
+    """The compose healthcheck hits /health every 10 s: half the access log, nothing to learn from it —
+    its outcome is already the container's (un)healthy status. nginx drops its own /health lines too."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        return not (isinstance(args, tuple) and len(args) >= 3 and args[2] == "/health")
+
+
+logging.getLogger("uvicorn.access").addFilter(_SansSondeDocker())
 
 
 @asynccontextmanager
@@ -56,6 +71,7 @@ async def health():
     return {"status": "ok"}
 
 
+# Public through nginx: the exception text (host, port, user) goes to the logs, not to whoever polls.
 @app.get("/health/ready", include_in_schema=False)
 async def health_ready():
     erreurs: dict[str, str] = {}
@@ -63,15 +79,17 @@ async def health_ready():
     db = SessionLocal()
     try:
         db.execute(text("SELECT 1"))
-    except Exception as e:
-        erreurs["postgres"] = str(e)
+    except Exception:
+        logger.exception("readiness : Postgres injoignable")
+        erreurs["postgres"] = "injoignable"
     finally:
         db.close()
 
     try:
         qdrant_client.get_collections()
-    except Exception as e:
-        erreurs["qdrant"] = str(e)
+    except Exception:
+        logger.exception("readiness : Qdrant injoignable")
+        erreurs["qdrant"] = "injoignable"
 
     if erreurs:
         return JSONResponse({"status": "degraded", "erreurs": erreurs}, status_code=503)

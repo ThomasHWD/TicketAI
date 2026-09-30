@@ -146,7 +146,7 @@ Les quatre gardes appliquées à chaque verdict : état initial `EN_ATTENTE` (`4
 | `GET` | `/documents` | 🟢 📖 | Documents vivants (`domaine`, `domaines`, `limit` — défaut 500, max 1 000) |
 | `GET` | `/documents/{doc_id}/chunks` | 🟢 📖 | Chunks indexés, dans l'ordre, lus depuis Qdrant |
 | `GET` | `/documents/{doc_id}/download` | 🟢 📖 | Fichier d'origine |
-| `DELETE` | `/documents/{doc_id}` | 🟢 ✍️ | Suppression douce. `409` si `EN_MAJ`. Marque les réponses citantes obsolètes |
+| `DELETE` | `/documents/{doc_id}` | 🟢 ✍️ | Suppression douce. `409` si `EN_MAJ`. Marque les réponses citantes obsolètes, puis réexamine celles que d'autres sources soutiennent (`nb_a_reexaminer`) |
 | `GET` | `/documents/{job_id}/status` | 🔵 | État du job d'ingestion |
 
 ### Versions
