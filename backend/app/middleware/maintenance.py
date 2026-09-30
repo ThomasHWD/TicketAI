@@ -2,7 +2,7 @@ import logging
 import time
 
 from fastapi.responses import JSONResponse
-from jose import JWTError
+from jwt import PyJWTError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -64,7 +64,7 @@ class MaintenanceMiddleware(BaseHTTPMiddleware):
                 payload = decode_token(token)
                 if payload.get("role") == "ADMIN":
                     return await call_next(request)
-            except JWTError:
+            except PyJWTError:
                 pass
 
         return JSONResponse(
