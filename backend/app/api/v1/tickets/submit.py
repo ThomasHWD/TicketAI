@@ -69,6 +69,8 @@ async def soumettre_suivi(
     current_user: CurrentUser,
 ):
     """Ajoute une précision au fil du ticket : relance le pipeline RAG."""
+    # Same counter as a new ticket: a follow-up runs the whole pipeline too, and had no brake at all.
+    limiter("ticket_jour", str(current_user.id), settings.ticket_rate_limit_par_jour, fenetre_secondes=86400)
     if not payload.question.strip():
         raise HTTPException(400, "La question ne peut pas être vide")
     from app.services.ticket_service import parse_ticket_id
