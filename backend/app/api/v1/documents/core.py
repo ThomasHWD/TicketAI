@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.permissions import check_domain_read, check_domain_write, user_domaines
-from app.core.security import BackofficeUser, CurrentUser
+from app.core.security import BackofficeUser
 from app.database import SessionLocal
 from app.models.document import Document
 from app.models.document_version import DocumentVersion
@@ -22,6 +22,7 @@ from app.services.obsolescence import RAISON_SUPPRESSION, marquer_obsoletes, rac
 from app.services.qdrant import COLLECTION_NAME, client
 from app.services.retrait import candidats_au_reexamen, passages_du_document, passages_restants
 from app.workers.celery_app import celery_app
+from app.workers.document_update import document_update_job
 from app.workers.ingestion import chemin_du_fichier, ingestion_job
 from app.workers.retrait import reexamen_retrait_job
 
@@ -270,18 +271,26 @@ async def delete_document(doc_id: str, current_user: BackofficeUser, db: DB):
     }
 
 
+# AsyncResult resolves any task id: a question job's result carries the generated answer before review, and reading
+# it here bypassed the filtering of /tickets/{job_id}/status. Name is None until the worker picks the job up.
+_JOBS_DOCUMENT = {ingestion_job.name, document_update_job.name}
+
+
 @router.get("/documents/{job_id}/status")
-async def statut_document(job_id: str, current_user: CurrentUser):
+async def statut_document(job_id: str, current_user: BackofficeUser):
     result = AsyncResult(job_id, app=celery_app)
+    if result.name is not None and result.name not in _JOBS_DOCUMENT:
+        raise HTTPException(404, "Tâche introuvable")
 
     reponse = {
         "job_id": job_id,
         "statut": result.status,
     }
 
-    if result.status == "SUCCESS":
-        reponse["resultat"] = result.result
-    elif result.status == "FAILURE":
-        reponse["erreur"] = str(result.result)
+    if result.name in _JOBS_DOCUMENT:
+        if result.status == "SUCCESS":
+            reponse["resultat"] = result.result
+        elif result.status == "FAILURE":
+            reponse["erreur"] = str(result.result)
 
     return reponse

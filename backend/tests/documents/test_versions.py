@@ -550,6 +550,7 @@ class TestDocumentStatus:
     def test_statut_pending(self, client):
         with patch("app.api.v1.documents.core.AsyncResult") as mock_ar:
             mock_ar.return_value.status = "PENDING"
+            mock_ar.return_value.name = None
             r = client.get(f"{API}/documents/{uuid.uuid4()}/status")
         assert r.status_code == 200
         assert r.json()["statut"] == "PENDING"
@@ -557,6 +558,7 @@ class TestDocumentStatus:
     def test_statut_success_inclut_resultat(self, client):
         with patch("app.api.v1.documents.core.AsyncResult") as mock_ar:
             mock_ar.return_value.status = "SUCCESS"
+            mock_ar.return_value.name = "ingestion_job"
             mock_ar.return_value.result = {
                 "filename": "doc.md",
                 "doc_id": str(uuid.uuid4()),
@@ -571,8 +573,19 @@ class TestDocumentStatus:
     def test_statut_failure_inclut_erreur(self, client):
         with patch("app.api.v1.documents.core.AsyncResult") as mock_ar:
             mock_ar.return_value.status = "FAILURE"
+            mock_ar.return_value.name = "ingestion_job"
             mock_ar.return_value.result = RuntimeError("Echec embedding")
             r = client.get(f"{API}/documents/{uuid.uuid4()}/status")
         body = r.json()
         assert body["statut"] == "FAILURE"
         assert "erreur" in body
+
+    def test_job_de_question_introuvable(self, client):
+        """AsyncResult resolves any task id: a question job's result holds the answer before review."""
+        with patch("app.api.v1.documents.core.AsyncResult") as mock_ar:
+            mock_ar.return_value.status = "SUCCESS"
+            mock_ar.return_value.name = "question_job"
+            mock_ar.return_value.result = {"branche": "RAG", "reponse": "Texte non relu"}
+            r = client.get(f"{API}/documents/{uuid.uuid4()}/status")
+        assert r.status_code == 404
+        assert "Texte non relu" not in r.text
