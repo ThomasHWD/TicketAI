@@ -185,6 +185,7 @@ async def statut_ticket(job_id: str, current_user: CurrentUser):
                 db.close()
 
     elif result.status == "FAILURE":
-        reponse["erreur"] = str(result.result)
+        # The raw exception is for the admin incidents page, not for the ticket's author.
+        reponse["erreur"] = "La génération de la réponse a échoué."
 
     return reponse
