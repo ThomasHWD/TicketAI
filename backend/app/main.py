@@ -28,6 +28,18 @@ from app.services.qdrant import init_collection
 logger = logging.getLogger(__name__)
 
 
+class _SansSondeDocker(logging.Filter):
+    """The compose healthcheck hits /health every 10 s: half the access log, nothing to learn from it —
+    its outcome is already the container's (un)healthy status. nginx drops its own /health lines too."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        return not (isinstance(args, tuple) and len(args) >= 3 and args[2] == "/health")
+
+
+logging.getLogger("uvicorn.access").addFilter(_SansSondeDocker())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_collection()
