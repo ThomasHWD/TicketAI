@@ -111,3 +111,73 @@ def test_documents_delete_reserve_admin(client, db_session, user_factory, auth_h
     user = user_factory("USER")
     resp = client.delete(f"{API}/documents/{uuid.uuid4()}", headers=auth_header(user))
     assert resp.status_code == 403
+
+
+# --------------------------------------------------------------------------- #
+# Limiteur de login par compte (unitaire, Valkey simulé)
+# --------------------------------------------------------------------------- #
+class _ValkeyEnMemoire:
+    def __init__(self):
+        self.valeurs = {}
+
+    def incr(self, cle):
+        self.valeurs[cle] = self.valeurs.get(cle, 0) + 1
+        return self.valeurs[cle]
+
+    def get(self, cle):
+        return self.valeurs.get(cle)
+
+    def delete(self, cle):
+        self.valeurs.pop(cle, None)
+
+    def expire(self, *_a, **_k):
+        pass
+
+    def ttl(self, _cle):
+        return 60
+
+
+@pytest.fixture
+def valkey(monkeypatch):
+    import app.api.v1.auth as auth
+
+    faux = _ValkeyEnMemoire()
+    monkeypatch.setattr(auth.redis_lib, "from_url", lambda *_a, **_k: faux)
+    return faux
+
+
+def test_login_bloque_un_compte_apres_trop_d_echecs(client, valkey, monkeypatch):
+    """Per account, whatever the IP: 10 failures on alice, then even the right password waits — bob does not."""
+    appels = []
+    monkeypatch.setattr(ldap_auth, "authenticate", lambda u, _p: appels.append(u))
+    valkey.valeurs["rate:login:compte:alice"] = 10
+
+    assert client.post(f"{API}/auth/login", data={"username": "Alice", "password": "x"}).status_code == 429
+    assert client.post(f"{API}/auth/login", data={"username": "bob", "password": "x"}).status_code == 401
+    assert appels == ["bob"]
+    assert valkey.valeurs["rate:login:compte:bob"] == 1
+
+
+# --------------------------------------------------------------------------- #
+# Rôles LDAP : égalité de groupe, jamais sous-chaîne
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    ("groupe", "member_of", "attendu"),
+    [
+        ("PORTAIL-TICKETING-ADM", ["CN=PORTAIL-TICKETING-ADM,OU=G,DC=onacvg,DC=fr"], True),
+        ("PORTAIL-TICKETING-ADM", ["CN=PORTAIL-TICKETING-ADM-LECTURE,OU=G,DC=onacvg,DC=fr"], False),
+        ("PORTAIL-TICKETING-ADM", ["CN=X,OU=PORTAIL-TICKETING-ADM,DC=onacvg,DC=fr"], False),
+        ("CN=TicketAI-Admins, OU=G,DC=x", ["cn=ticketai-admins,ou=g,dc=x"], True),
+        ("CN=TicketAI-Admins,OU=G,DC=x", ["CN=TicketAI-Admins,OU=G,DC=x,DC=y"], False),
+        ("", ["CN=Tout-le-monde,DC=x"], False),
+    ],
+)
+def test_membre_du_groupe(groupe, member_of, attendu):
+    assert ldap_auth.membre_du_groupe(groupe, member_of) is attendu
+
+
+def test_groupe_ldap_vide_refuse_au_demarrage():
+    from app.config import Settings, settings
+
+    with pytest.raises(ValueError, match="LDAP_GROUP_ADMIN"):
+        Settings(**{**settings.model_dump(), "ldap_server_url": "ldaps://ad:636", "ldap_group_admin": ""})

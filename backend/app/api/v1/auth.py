@@ -21,23 +21,37 @@ logger = logging.getLogger(__name__)
 
 _LOGIN_MAX_ATTEMPTS = 10
 _LOGIN_WINDOW_SECONDS = 60
+# Per account, failures only: the per-IP counter alone let one address spray every account, and behind a shared
+# NAT it is the only brake that still tells users apart.
+_LOGIN_ECHECS_PAR_COMPTE = 10
+_LOGIN_ECHECS_FENETRE_SECONDES = 900
 
 
-def _check_login_rate(ip: str) -> None:
-    """Limite à 10 tentatives de login par minute et par IP. Fail-open si Valkey est indisponible."""
+def _cle_compte(username: str) -> str:
+    return f"rate:login:compte:{username.strip().lower()}"
+
+
+def _trop_de_tentatives(ttl: int) -> HTTPException:
+    ttl = max(ttl, 1)
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=f"Trop de tentatives de connexion. Réessayez dans {ttl} secondes.",
+        headers={"Retry-After": str(ttl)},
+    )
+
+
+def _check_login_rate(r, ip: str, username: str) -> None:
+    """10 tentatives/min par IP, 10 échecs/15 min par compte. Fail-closed : Valkey indisponible bloque le login."""
     try:
-        r = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=1)
         key = f"rate:login:{ip}"
         count = r.incr(key)
         if count == 1:
             r.expire(key, _LOGIN_WINDOW_SECONDS)
         if count > _LOGIN_MAX_ATTEMPTS:
-            ttl = max(r.ttl(key), 1)
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Trop de tentatives de connexion. Réessayez dans {ttl} secondes.",
-                headers={"Retry-After": str(ttl)},
-            )
+            raise _trop_de_tentatives(r.ttl(key))
+        cle_compte = _cle_compte(username)
+        if int(r.get(cle_compte) or 0) >= _LOGIN_ECHECS_PAR_COMPTE:
+            raise _trop_de_tentatives(r.ttl(cle_compte))
     except HTTPException:
         raise
     except Exception as e:
@@ -46,6 +60,19 @@ def _check_login_rate(ip: str) -> None:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service temporairement indisponible, réessayez dans un instant.",
         ) from e
+
+
+def _noter_resultat_login(r, username: str, *, succes: bool) -> None:
+    cle = _cle_compte(username)
+    try:
+        if succes:
+            r.delete(cle)
+        else:
+            r.incr(cle)
+            r.expire(cle, _LOGIN_ECHECS_FENETRE_SECONDES, nx=True)
+    except Exception as e:
+        logger.error("Compteur d'échecs de login non mis à jour : %s", e)
+
 
 router = APIRouter()
 
@@ -101,8 +128,10 @@ def _serialize_user(user: User, db: Session | None = None) -> dict:
 
 @router.post("/auth/login")
 async def login(request: Request, form: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    _check_login_rate(request.client.host if request.client else "unknown")
+    r = redis_lib.from_url(settings.valkey_url, socket_connect_timeout=1)
+    _check_login_rate(r, request.client.host if request.client else "unknown", form.username)
     identity = ldap_auth.authenticate(form.username, form.password)
+    _noter_resultat_login(r, form.username, succes=identity is not None)
     if identity is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
