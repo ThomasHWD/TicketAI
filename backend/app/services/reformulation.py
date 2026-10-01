@@ -39,10 +39,11 @@ def question_autonome(fil: list[str]) -> str | None:
 def lire_reformulation(brut: str) -> str | None:
     lignes = [ligne.strip() for ligne in brut.strip().splitlines() if ligne.strip()]
     if len(lignes) != 1:
-        logger.warning("reformulation inexploitable (%d lignes) : %r", len(lignes), brut)
+        # Length only: the output is the user's question rephrased.
+        logger.warning("reformulation inexploitable (%d lignes, %d caractères)", len(lignes), len(brut))
         return None
     texte = re.sub(r"^\d+[.)]\s*", "", lignes[0]).strip(" «»\"'")
     if not texte or len(texte) > LONGUEUR_MAX:
-        logger.warning("reformulation inexploitable : %r", brut)
+        logger.warning("reformulation inexploitable (%d caractères)", len(brut))
         return None
     return texte
