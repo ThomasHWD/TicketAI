@@ -40,7 +40,7 @@ function BlocChangements({ impact }: { impact: UpdateImpact }) {
         ))}
       </ul>
       {restantes > 0 && (
-        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+        <p className="text-[11px] text-muted-foreground">
           … et {restantes} autre{restantes > 1 ? "s" : ""}.
         </p>
       )}
@@ -55,7 +55,7 @@ function BlocARelire({ impact }: { impact: UpdateImpact }) {
   if (n === 0) {
     return (
       <section className="rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-xs text-muted-foreground">
           Aucune réponse enregistrée ne s'appuie sur ce document.
         </p>
       </section>
@@ -69,7 +69,7 @@ function BlocARelire({ impact }: { impact: UpdateImpact }) {
       <TitreSection icon={ScanSearch} ton="ambre">
         Ce qui sera relu
       </TitreSection>
-      <p className="text-xs leading-relaxed text-amber-900/80 dark:text-amber-200/80">
+      <p className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
         {n} réponse{n > 1 ? "s" : ""} enregistrée{n > 1 ? "s" : ""}{" "}
         {n > 1 ? "seront relues" : "sera relue"} après la mise à jour
         {impact.nb_canoniques > 0 &&
@@ -83,7 +83,7 @@ function BlocARelire({ impact }: { impact: UpdateImpact }) {
         ))}
       </ul>
       {reste > 0 && (
-        <p className="text-[11px] text-amber-900/60 dark:text-amber-200/60">
+        <p className="text-[11px] text-amber-900 dark:text-amber-200">
           … et {reste} autre{reste > 1 ? "s" : ""}.
         </p>
       )}
@@ -101,7 +101,7 @@ function BlocPrioritaires({ impact }: { impact: UpdateImpact }) {
       <TitreSection icon={Flag}>
         {n} réponse{n > 1 ? "s" : ""} {n > 1 ? "citent" : "cite"} un passage modifié
       </TitreSection>
-      <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         {n > 1 ? "Elles seront examinées" : "Elle sera examinée"} en premier. Un passage modifié ne
         condamne rien à lui seul — une virgule corrigée suffit à le faire apparaître ici. Le retrait
         du service n'est prononcé que si le changement contredit réellement la réponse.
@@ -110,7 +110,7 @@ function BlocPrioritaires({ impact }: { impact: UpdateImpact }) {
         {impact.items.slice(0, 3).map((item) => (
           <li
             key={item.reponse_id}
-            className="line-clamp-1 text-[11px] text-gray-500 dark:text-gray-400"
+            className="line-clamp-1 text-[11px] text-muted-foreground"
           >
             • {item.question}
           </li>
@@ -128,7 +128,7 @@ function BlocSansChangement({ impact }: { impact: UpdateImpact }) {
         <TitreSection icon={AlertTriangle} ton="ambre">
           La version en ligne n'a pas pu être relue.
         </TitreSection>
-        <p className="text-xs leading-relaxed text-amber-900/80 dark:text-amber-200/80">
+        <p className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
           Son fichier est introuvable sur le disque : aucune comparaison n'est possible et rien ne
           peut être jugé. Les réponses enregistrées du document seront déposées dans l'onglet À
           relire, à vérifier à la main.
@@ -143,7 +143,7 @@ function BlocSansChangement({ impact }: { impact: UpdateImpact }) {
         <CheckCircle2 size={15} className="shrink-0" aria-hidden="true" />
         Cette version ne dit rien de nouveau.
       </p>
-      <p className="text-xs leading-relaxed text-emerald-800/80 dark:text-emerald-200/80">
+      <p className="text-xs leading-relaxed text-emerald-800 dark:text-emerald-200">
         Mise en forme, espaces, export : le fond est identique. Aucune réponse enregistrée ne sera
         examinée ni dérangée.
       </p>
@@ -168,7 +168,7 @@ export default function EtapeImpact({ impact }: { impact: UpdateImpact }) {
       )}
 
       {aDuNeuf && enAttente > 0 && (
-        <p className="px-0.5 text-xs text-gray-500 dark:text-gray-400">
+        <p className="px-0.5 text-xs text-muted-foreground">
           {enAttente} réponse{enAttente > 1 ? "s" : ""} en attente de validation{" "}
           {enAttente > 1 ? "seront annulées et regénérées" : "sera annulée et regénérée"} sur la
           nouvelle version.

@@ -29,7 +29,7 @@ function SuccessView({ onReset }: { onReset: () => void }) {
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
           Merci pour votre retour&nbsp;!
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+        <p className="text-sm text-muted-foreground leading-relaxed">
           Votre suggestion a bien été transmise. Nous lisons chaque retour avec
           attention et agissons en conséquence.
         </p>
@@ -38,13 +38,13 @@ function SuccessView({ onReset }: { onReset: () => void }) {
       <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
         <button
           onClick={onReset}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-5 min-h-[44px] transition-colors"
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium px-5 min-h-[44px] transition-colors"
         >
           Faire une autre suggestion
         </button>
         <button
           onClick={() => navigate("/mon-espace")}
-          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors px-4 min-h-[44px]"
+          className="text-sm text-muted-foreground hover:text-gray-800 dark:hover:text-gray-200 transition-colors px-4 min-h-[44px]"
         >
           Retour à l'accueil
         </button>
@@ -105,7 +105,7 @@ export default function SuggestionBox() {
           <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
             Aidez-nous à améliorer la plateforme
           </h1>
-          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 leading-relaxed max-w-md mx-auto">
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-md mx-auto">
             Une idée de fonctionnalité, un bug ou un ajustement ergonomique ?
             <br className="hidden sm:block" />
             Dites-nous tout, nous lisons chaque retour.
@@ -126,7 +126,7 @@ export default function SuggestionBox() {
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
                   Votre message
-                  <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
+                  <span aria-hidden="true" className="text-red-600 dark:text-red-400 ml-0.5">*</span>
                   <span className="sr-only"> (obligatoire)</span>
                 </label>
 
@@ -142,7 +142,7 @@ export default function SuggestionBox() {
                   aria-invalid={submit.isError || undefined}
                   maxLength={MAX_LENGTH}
                   placeholder="Décrivez ce qui pourrait être amélioré sur le site…"
-                  className="w-full text-sm border border-gray-200 dark:border-white/15 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-white/[0.06] placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
+                  className="w-full text-sm border border-gray-200 dark:border-white/15 rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-white/[0.06] placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
                   style={{ minHeight: "140px" }}
                   aria-describedby="suggestion-counter suggestion-error"
                 />
@@ -153,8 +153,8 @@ export default function SuggestionBox() {
                     id="suggestion-min"
                     className={`text-xs transition-colors duration-150 ${
                       meetsMin
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-gray-500 dark:text-gray-400"
+                        ? "text-emerald-700 dark:text-emerald-400"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {meetsMin ? "✓ Prêt à envoyer" : `${MIN_LENGTH} caractères minimum`}
@@ -164,8 +164,8 @@ export default function SuggestionBox() {
                     aria-live="polite"
                     className={`text-xs tabular-nums shrink-0 ${
                       remaining < 100
-                        ? "text-amber-600 dark:text-amber-400"
-                        : "text-gray-500 dark:text-gray-400"
+                        ? "text-amber-700 dark:text-amber-400"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {contenu.length} / {MAX_LENGTH}
@@ -205,7 +205,7 @@ export default function SuggestionBox() {
                   type="submit"
                   disabled={!canSubmit}
                   aria-describedby={!meetsMin && !submit.isPending ? "suggestion-min" : undefined}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-5 min-h-[44px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-semibold px-5 min-h-[44px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {submit.isPending ? (
                     <>
@@ -229,7 +229,7 @@ export default function SuggestionBox() {
           <div className="text-center">
             <button
               onClick={() => navigate("/mon-espace")}
-              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="text-sm text-muted-foreground hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               Retour à l'accueil
             </button>

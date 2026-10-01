@@ -51,7 +51,7 @@ function LigneVersion({
           ${
             v.courante
               ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
-              : "border-gray-200 bg-white text-gray-500 dark:border-white/12 dark:bg-[#141416] dark:text-gray-400"
+              : "border-gray-200 bg-white text-muted-foreground dark:border-white/12 dark:bg-[#141416]"
           }`}
       >
         v{v.version}
@@ -63,12 +63,12 @@ function LigneVersion({
             <p className="truncate text-sm text-gray-900 dark:text-gray-100">
               {v.filename}
               {v.courante && (
-                <span className="ml-2 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                <span className="ml-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
                   version courante
                 </span>
               )}
             </p>
-            <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
               {dateCourte(v.created_at)}
               {v.auteur && ` · ${v.auteur}`}
               {v.taille_octets != null && ` · ${formatSize(v.taille_octets)}`}
@@ -92,7 +92,7 @@ function LigneVersion({
               title={
                 v.fichier_disponible ? "Télécharger cette version" : "Fichier archivé introuvable"
               }
-              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:hover:bg-white/10 dark:hover:text-gray-200"
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:hover:bg-white/10 dark:hover:text-gray-200"
             >
               {downloading ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -111,7 +111,7 @@ function LigneVersion({
                     ? "Restaurer cette version"
                     : "Fichier archivé introuvable : restauration impossible"
                 }
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:border-white/12 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:border-white/12 dark:text-muted-foreground dark:hover:bg-white/5 dark:hover:text-gray-200"
               >
                 {enAttente ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -171,7 +171,7 @@ export default function DocHistoryModal({
       widthClass="max-w-2xl"
       footer={
         peutRestaurer ? (
-          <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+          <p className="text-xs leading-relaxed text-muted-foreground">
             Restaurer une version ne revient pas en arrière : son contenu devient la version
             suivante. L'impact sur les réponses enregistrées est affiché avant confirmation.
           </p>
@@ -186,7 +186,7 @@ export default function DocHistoryModal({
 
       {isLoading ? (
         <div className="flex justify-center py-14">
-          <Loader2 size={20} className="animate-spin text-gray-400" />
+          <Loader2 size={20} className="animate-spin text-subtle" />
         </div>
       ) : isError ? (
         <div className="flex flex-col items-center gap-3 py-10 text-center">

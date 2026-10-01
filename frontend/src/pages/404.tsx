@@ -8,7 +8,7 @@ export default function NotFound() {
       <h1 className="text-6xl font-bold text-gray-800 dark:text-gray-100">
         404
       </h1>
-      <p className="text-xl text-gray-600 dark:text-gray-400 mt-4">
+      <p className="text-xl text-gray-600 dark:text-muted-foreground mt-4">
         Oups ! La page que vous recherchez n'existe pas.
       </p>
       <button

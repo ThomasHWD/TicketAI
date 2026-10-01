@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useDialogFocus } from "../../hooks/useDialogFocus";
 
 /** Centered dialog shell. Deliberately NOT in a portal — tests mount it directly and modals render at the page root. */
 export default function Modal({
@@ -20,40 +21,7 @@ export default function Modal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  useEffect(() => {
-    const el = dialogRef.current;
-    if (!el) return;
-    const selector =
-      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    const focusables = el.querySelectorAll<HTMLElement>(selector);
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    const prev = document.activeElement as HTMLElement | null;
-    first?.focus();
-
-    function trap(e: KeyboardEvent) {
-      if (e.key !== "Tab" || focusables.length === 0) return;
-      if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
-      } else {
-        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
-      }
-    }
-
-    document.addEventListener("keydown", trap);
-    return () => {
-      document.removeEventListener("keydown", trap);
-      prev?.focus();
-    };
-  }, []);
+  useDialogFocus(dialogRef, { onClose });
 
   return (
     <div
@@ -78,7 +46,7 @@ export default function Modal({
         <header className="flex items-start gap-4 border-b border-gray-100 px-6 py-4 dark:border-white/8">
           <div className="min-w-0 flex-1">
             {eyebrow && (
-              <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {eyebrow}
               </p>
             )}
@@ -90,7 +58,7 @@ export default function Modal({
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="-mr-1.5 shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200"
+            className="-mr-1.5 shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200"
           >
             <X size={16} />
           </button>

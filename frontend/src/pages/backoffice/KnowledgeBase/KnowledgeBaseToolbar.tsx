@@ -50,7 +50,7 @@ export function KnowledgeBaseToolbar({
             className={`relative flex items-center gap-1.5 px-0.5 mr-6 py-3 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${
               onglet === o.id
                 ? "text-gray-900 dark:text-gray-50"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                : "text-muted-foreground hover:text-gray-600 dark:hover:text-gray-300"
             }`}
           >
             {o.id === "angles-morts" ? (
@@ -73,17 +73,17 @@ export function KnowledgeBaseToolbar({
         {onglet === "documents" && (
           <>
             <div className="relative">
-              <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+              <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle" aria-hidden="true" />
               <input
                 type="search"
                 value={recherche}
                 onChange={(e) => onRecherche(e.target.value)}
                 placeholder="Rechercher un document…"
                 aria-label="Rechercher un document"
-                className="w-52 rounded-lg border border-gray-200 bg-white py-1.5 pl-7 pr-7 text-xs text-gray-700 placeholder:text-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:placeholder:text-gray-500"
+                className="w-60 rounded-lg border border-gray-200 bg-white py-1.5 pl-7 pr-7 text-xs text-gray-700 placeholder:text-muted-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-200"
               />
               {recherche && (
-                <button type="button" onClick={() => onRecherche("")} aria-label="Effacer la recherche" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-200">
+                <button type="button" onClick={() => onRecherche("")} aria-label="Effacer la recherche" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-gray-700 dark:hover:text-gray-200">
                   <X size={12} />
                 </button>
               )}
@@ -113,7 +113,7 @@ export function KnowledgeBaseToolbar({
                       className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                         domaine === d
                           ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                          : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                          : "text-muted-foreground hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-white/5 dark:hover:text-gray-200"
                       }`}
                     >
                       {d ?? "Tous"}
@@ -133,7 +133,7 @@ export function KnowledgeBaseToolbar({
                   className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                     filtreEnMaj
                       ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300"
-                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/5"
+                      : "text-muted-foreground hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-white/5"
                   }`}
                 >
                   En cours de mise à jour
@@ -141,7 +141,7 @@ export function KnowledgeBaseToolbar({
               </>
             )}
 
-            <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
+            <span className="text-xs tabular-nums text-muted-foreground">
               {isLoading
                 ? "…"
                 : `${docsCount} document${docsCount > 1 ? "s" : ""}${termes.length && docsCount !== total ? ` sur ${total}` : ""}`}
@@ -172,7 +172,7 @@ export function KnowledgeBaseToolbar({
                   className={`px-2.5 py-2 rounded-md text-xs font-medium transition-all duration-150 ${
                     periode === p.value
                       ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-100 shadow-sm"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      : "text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200"
                   }`}
                 >
                   {p.label}

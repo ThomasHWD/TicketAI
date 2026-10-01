@@ -11,6 +11,7 @@ interface UseReponseActionsOpts {
 export function useReponseActions(reponse: TicketReponse, { onChanged, onLockConflict }: UseReponseActionsOpts) {
   const isHorsDomaine = reponse.source === "HORS_DOMAINE";
   const isRag = reponse.source === "LLM";
+  const isSuggestion = reponse.source === "SUGGESTION";
   const canAct = reponse.statut === "EN_ATTENTE";
 
   const DRAFT_KEY = `ticketai-draft-${reponse.id}`;
@@ -43,7 +44,9 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
   }
 
   async function handleValider() {
-    if (isRag && !confirmingValidation) { setConfirmingValidation(true); return; }
+    // RAG : réponse générée, jamais éprouvée. SUGGESTION : réponse validée pour une AUTRE question — chaque
+    // validation la rapproche du service sans relecture ; le validateur confirme qu'elle répond à celle-ci.
+    if ((isRag || isSuggestion) && !confirmingValidation) { setConfirmingValidation(true); return; }
     setConfirmingValidation(false);
     setLoading(true); setError(null);
     try {
@@ -90,7 +93,7 @@ export function useReponseActions(reponse: TicketReponse, { onChanged, onLockCon
   }
 
   return {
-    isHorsDomaine, isRag, canAct,
+    isHorsDomaine, isRag, isSuggestion, canAct,
     editing, setEditing,
     draft, updateDraft,
     tagDraft, setTagDraft,

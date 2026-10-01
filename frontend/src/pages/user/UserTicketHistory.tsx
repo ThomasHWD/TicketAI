@@ -81,7 +81,7 @@ export default function UserTicketHistory() {
   });
   const joursAutoCloture = siteConfig?.jours_auto_cloture ?? 7;
 
-  const allTickets: Ticket[] = data?.items ?? [];
+  const allTickets: Ticket[] = useMemo(() => data?.items ?? [], [data]);
   const totalCount = data?.total ?? allTickets.length;
   const isTruncated = !isLoading && (data?.total ?? 0) > allTickets.length;
 
@@ -132,12 +132,12 @@ export default function UserTicketHistory() {
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 border-b-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${
                   active
                     ? "border-emerald-500 text-gray-900 dark:text-gray-100"
-                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-white/20"
+                    : "border-transparent text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-white/20"
                 }`}
               >
                 {tab.label}
                 {count > 0 && (
-                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold tabular-nums leading-none bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400">
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold tabular-nums leading-none bg-gray-100 text-muted-foreground dark:bg-white/10">
                     {count}
                   </span>
                 )}
@@ -149,14 +149,14 @@ export default function UserTicketHistory() {
         <div className="hidden sm:block w-px h-5 bg-gray-200 dark:bg-white/10 shrink-0" aria-hidden="true" />
 
         <div className="relative shrink-0 w-full sm:w-48">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 pointer-events-none" aria-hidden="true" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle pointer-events-none" aria-hidden="true" />
           <input
             type="search" placeholder="Rechercher…" aria-label="Rechercher dans l'historique"
             value={inputSearch} onChange={(e) => setInputSearch(e.target.value)}
-            className="pl-8 pr-7 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full transition-shadow"
+            className="pl-8 pr-7 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-800 dark:text-gray-100 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full transition-shadow"
           />
           {inputSearch && (
-            <button onClick={() => setInputSearch("")} aria-label="Effacer la recherche" className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+            <button onClick={() => setInputSearch("")} aria-label="Effacer la recherche" className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 text-muted-foreground hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
               <X size={12} aria-hidden="true" />
             </button>
           )}

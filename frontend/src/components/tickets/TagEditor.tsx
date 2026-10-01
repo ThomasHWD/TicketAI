@@ -76,7 +76,7 @@ export default function TagEditor({ reponseId, domaine, currentTag, onUpdated }:
     ) : (
       <button
         onClick={() => setEditing(true)}
-        className="inline-flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-sm"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-violet-600 dark:hover:text-violet-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-sm"
       >
         <Tag size={10} aria-hidden="true" />
         Ajouter un tag
@@ -104,7 +104,7 @@ export default function TagEditor({ reponseId, domaine, currentTag, onUpdated }:
           <button
             onMouseDown={(e) => { e.preventDefault(); save(null); }}
             aria-label="Supprimer le tag"
-            className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 focus-visible:outline-none rounded-sm"
+            className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-sm"
           >
             <X size={12} aria-hidden="true" />
           </button>

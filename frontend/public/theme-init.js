@@ -5,6 +5,5 @@
     var t = localStorage.getItem("theme");
     if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     if (t === "dark") document.documentElement.classList.add("dark");
-    window.__TK_THEME__ = t;
-  } catch (e) { window.__TK_THEME__ = "dark"; }
+  } catch { /* stockage indisponible : thème clair par défaut */ }
 })();

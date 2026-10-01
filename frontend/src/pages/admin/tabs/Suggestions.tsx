@@ -45,25 +45,25 @@ function SuggestionCard({ s }: { s: SuggestionOut }) {
               />
             )}
             <div className="min-w-0">
-              <p className={`text-sm font-medium truncate ${s.lu ? "text-gray-400 dark:text-gray-500" : "text-gray-800 dark:text-gray-100"}`}>
+              <p className={`text-sm font-medium truncate ${s.lu ? "text-muted-foreground" : "text-gray-800 dark:text-gray-100"}`}>
                 {s.user_nom || s.user_email || "Utilisateur supprimé"}
               </p>
               {s.user_nom && s.user_email && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
                   {s.user_email}
                 </p>
               )}
             </div>
           </div>
           <div className={`flex items-center gap-1.5 shrink-0 ${s.lu ? "opacity-50" : ""}`}>
-            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums mr-1">
+            <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums mr-1">
               {formatDate(s.created_at)}
             </span>
             <button
               onClick={() => toggle.mutate()}
               disabled={toggle.isPending || supprimer.isPending}
               aria-label={s.lu ? "Marquer comme non lu" : "Marquer comme lu"}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors disabled:opacity-40"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] text-muted-foreground hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors disabled:opacity-40"
             >
               {toggle.isPending ? (
                 <Loader2 size={13} className="animate-spin" aria-hidden="true" />
@@ -78,7 +78,7 @@ function SuggestionCard({ s }: { s: SuggestionOut }) {
                 onClick={() => supprimer.mutate()}
                 disabled={supprimer.isPending || toggle.isPending}
                 aria-label="Supprimer cette suggestion"
-                className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-40"
+                className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-muted-foreground hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-40"
               >
                 {supprimer.isPending ? (
                   <Loader2 size={13} className="animate-spin" aria-hidden="true" />
@@ -91,7 +91,7 @@ function SuggestionCard({ s }: { s: SuggestionOut }) {
         </div>
 
         {/* Content */}
-        <p className={`text-sm whitespace-pre-wrap leading-relaxed break-words ${s.lu ? "text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300"}`}>
+        <p className={`text-sm whitespace-pre-wrap leading-relaxed break-words ${s.lu ? "text-muted-foreground" : "text-gray-700 dark:text-gray-300"}`}>
           {s.contenu}
         </p>
       </div>
@@ -123,7 +123,7 @@ export default function AdminSuggestions() {
     <div className="space-y-4 max-w-3xl">
       {/* Counter + bulk action */}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-xs text-muted-foreground">
           {isLoading
             ? "Chargement…"
             : nonLues > 0
@@ -136,7 +136,7 @@ export default function AdminSuggestions() {
           <button
             onClick={() => marquerToutLu.mutate()}
             disabled={marquerToutLu.isPending}
-            className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-40 transition-colors"
           >
             {marquerToutLu.isPending ? (
               <Loader2 size={12} className="animate-spin" aria-hidden="true" />
@@ -149,14 +149,14 @@ export default function AdminSuggestions() {
       </div>
 
       {isLoading && (
-        <div className="flex justify-center py-16 text-gray-400">
+        <div className="flex justify-center py-16 text-muted-foreground">
           <Loader2 size={20} className="animate-spin" aria-hidden="true" />
         </div>
       )}
 
       {!isLoading && total === 0 && (
         <div className="glass-card rounded-2xl px-6 py-16 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Aucune suggestion pour le moment.
           </p>
         </div>

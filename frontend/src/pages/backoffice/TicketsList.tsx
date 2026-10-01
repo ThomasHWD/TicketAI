@@ -66,7 +66,7 @@ export default function TicketsList() {
             Tickets
           </h1>
           {!multiDomain && userDomaines.length > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{userDomaines[0]}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{userDomaines[0]}</p>
           )}
         </div>
         {total > 0 && (
@@ -94,7 +94,7 @@ export default function TicketsList() {
         onClearFilters={handleClearFilters}
       />
 
-      <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2 px-1">
+      <p className="text-xs text-muted-foreground -mt-2 px-1">
         {TAB_HINTS[filter]}
       </p>
 

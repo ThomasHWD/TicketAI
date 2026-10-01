@@ -32,7 +32,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
         <span className="font-bold text-gray-900 dark:text-gray-100">{item.count}</span>
         {" ticket"}{item.count > 1 ? "s" : ""}
       </div>
-      <div className="pl-4 text-gray-500 dark:text-gray-400 text-xs">
+      <div className="pl-4 text-muted-foreground text-xs">
         {item.pct}% du total
       </div>
     </div>
@@ -89,7 +89,7 @@ export default function DonutChart({ data, loading = false, periode = "semaine" 
 
   return (
     <div className="glass-card p-5 rounded-2xl space-y-4">
-      <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         Répartition — {PERIODE_LABEL[periode]}
       </h3>
 
@@ -127,7 +127,7 @@ export default function DonutChart({ data, loading = false, periode = "semaine" 
         {/* Centre du donut */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{total}</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">tickets</span>
+          <span className="text-xs text-muted-foreground">tickets</span>
         </div>
       </div>
 

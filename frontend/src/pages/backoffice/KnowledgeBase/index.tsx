@@ -21,7 +21,7 @@ export default function KnowledgeBase() {
           <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
             Base de connaissances
           </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Les documents internes sur lesquels le moteur s'appuie pour répondre. Chaque version est archivée, et toute mise à jour fait relire les réponses concernées.
           </p>
         </div>
@@ -55,7 +55,7 @@ export default function KnowledgeBase() {
           <div role="tabpanel" id="panel-documents" aria-labelledby="tab-documents">
             {kb.isLoading ? (
               <div role="status" aria-label="Chargement des documents…" className="flex justify-center py-20">
-                <svg className="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <svg className="animate-spin h-5 w-5 text-subtle" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>

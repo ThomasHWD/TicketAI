@@ -49,16 +49,16 @@ export default function BranchesDonut({ data, loading = false, periode }: Branch
   return (
     <div className="glass-card p-5 rounded-2xl flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Branches de traitement{periodeLabel ? ` — ${periodeLabel}` : ""}
         </h3>
-        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums">
           {total} ticket{total > 1 ? "s" : ""}
         </span>
       </div>
 
       {total === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">
+        <p className="text-sm text-muted-foreground text-center py-6">
           Aucune donnée sur cette période
         </p>
       ) : (
@@ -80,7 +80,7 @@ export default function BranchesDonut({ data, loading = false, periode }: Branch
                     <span id={descId} className="sr-only">{cfg.description}</span>
                   </span>
                   <div className="flex items-center gap-3 tabular-nums">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-muted-foreground">
                       {d.count} ticket{d.count > 1 ? "s" : ""}
                     </span>
                     <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 w-10 text-right">

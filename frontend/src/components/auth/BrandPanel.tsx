@@ -6,12 +6,11 @@ export function BrandPanel() {
     <div
       style={{
         position: "relative", flex: "1 1 46%", minWidth: 0,
-        display: "flex", flexDirection: "column", justifyContent: "space-between",
         padding: "48px 52px",
         background: "#081912",
         overflow: "hidden",
       }}
-      className="hidden md:flex"
+      className="hidden md:flex flex-col justify-between"
     >
       {/* Animated grid */}
       <div
@@ -56,8 +55,6 @@ export function BrandPanel() {
       {/* Footer */}
       <div style={{ position: "relative", display: "flex", gap: 24, fontSize: 12.5, color: "#5fb886" }}>
         <span>© 2026 ONaCVG</span>
-        <span>Confidentialité</span>
-        <span>Sécurité</span>
       </div>
     </div>
   );

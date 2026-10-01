@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { X, Frown, AlertTriangle } from "lucide-react";
 import { getTickets } from "../../lib/api/tickets";
 import { StarRating } from "./SatisfactionCard";
 import type { Ticket } from "../../types";
+import { useDialogFocus } from "../../hooks/useDialogFocus";
 
 interface Props {
   onClose: () => void;
@@ -13,15 +14,15 @@ interface Props {
 }
 
 function NoteCell({ label, value }: { label: string; value: number | null }) {
-  if (value === null) return <span className="text-gray-500 dark:text-gray-400 text-xs">—</span>;
+  if (value === null) return <span className="text-muted-foreground text-xs">—</span>;
   const mauvaise = value <= 2;
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
       <div className="flex items-center gap-1.5">
         <span
           className={`text-sm font-semibold tabular-nums ${
-            mauvaise ? "text-rose-500 dark:text-rose-400" : "text-amber-500 dark:text-amber-400"
+            mauvaise ? "text-rose-500 dark:text-rose-400" : "text-amber-700 dark:text-amber-400"
           }`}
         >
           {value}
@@ -44,34 +45,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
     staleTime: 30_000,
   });
 
-  useEffect(() => {
-    const trigger = document.activeElement as HTMLElement | null;
-
-    const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    firstFocusable?.focus();
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key !== "Tab" || !panelRef.current) return;
-      const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
-      } else {
-        if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      trigger?.focus();
-    };
-  }, [onClose]);
+  useDialogFocus(panelRef, { onClose });
 
   const tickets: Ticket[] = data?.items ?? [];
 
@@ -98,13 +72,13 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
             <h2 id={titleId} className="text-sm font-semibold text-gray-800 dark:text-gray-200">
               Tickets insatisfaits
             </h2>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-muted-foreground">
               note &lt; 3 sur au moins un critère
             </span>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
             aria-label="Fermer"
           >
             <X size={16} />
@@ -114,12 +88,12 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
         {/* Body */}
         <div className="overflow-y-auto flex-1">
           {isError ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-500 dark:text-gray-400">
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
               <AlertTriangle size={28} className="text-red-400 opacity-70" />
               <p className="text-sm">Impossible de charger les tickets</p>
               <button
                 onClick={() => queryClient.refetchQueries({ queryKey: ["tickets-insatisfaits", periode, domaine] })}
-                className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+                className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
               >
                 Réessayer
               </button>
@@ -137,7 +111,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
               ))}
             </div>
           ) : tickets.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-500 dark:text-gray-400">
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
               <Frown size={32} className="opacity-40" />
               <p className="text-sm">Aucun ticket avec une note inférieure à 3</p>
             </div>
@@ -153,7 +127,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                         {t.objet || "Sans objet"}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {t.domaine} · {t.closed_at ? new Date(t.closed_at).toLocaleDateString("fr-FR") : ""}
                       </p>
                     </div>
@@ -170,7 +144,7 @@ export default function TicketsInsatisfaitsModal({ onClose, periode, domaine }: 
 
         {!isLoading && !isError && tickets.length > 0 && (
           <div className="px-5 py-3 border-t border-gray-100 dark:border-white/8 shrink-0">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-muted-foreground">
               {tickets.length} ticket{tickets.length > 1 ? "s" : ""} · cliquez pour accéder au détail
             </p>
           </div>

@@ -85,9 +85,9 @@ export function useDashboard() {
   const variationLabel = { semaine: "vs sem. préc.", mois: "vs mois préc.", annee: "vs an préc." }[periode];
 
   function assignedColorClass(n: number): string {
-    if (n === 0) return "text-gray-400 dark:text-gray-500";
-    if (n <= 3)  return "text-emerald-600 dark:text-emerald-400";
-    if (n <= 7)  return "text-amber-600 dark:text-amber-400";
+    if (n === 0) return "text-muted-foreground";
+    if (n <= 3)  return "text-emerald-700 dark:text-emerald-400";
+    if (n <= 7)  return "text-amber-700 dark:text-amber-400";
     return "text-red-600 dark:text-red-400";
   }
 

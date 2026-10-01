@@ -30,7 +30,7 @@ export default function CreateGroupForm({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="create-group-nom"
-          className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
+          className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
         >
           Nom du groupe
         </label>
@@ -47,7 +47,7 @@ export default function CreateGroupForm({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="create-group-domaine"
-          className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400"
+          className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
         >
           Domaine
         </label>
@@ -67,14 +67,14 @@ export default function CreateGroupForm({
         <button
           type="submit"
           disabled={isPending}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-foreground text-sm font-medium transition-colors"
         >
           {isPending ? <Loader2 size={13} className="animate-spin" /> : "Créer le groupe"}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="px-3 py-2 rounded-md border border-gray-200 dark:border-white/10 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+          className="px-3 py-2 rounded-md border border-gray-200 dark:border-white/10 text-sm text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
         >
           Annuler
         </button>

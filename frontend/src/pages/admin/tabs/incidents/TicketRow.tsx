@@ -45,21 +45,21 @@ export default function TicketRow({ ticket }: { ticket: TicketIncident }) {
       <td className="px-4 py-3 max-w-xs">
         <p className="text-sm text-gray-800 dark:text-gray-200 truncate" title={ticket.question}>{ticket.question}</p>
         {ticket.erreur && (
-          <p className="text-xs text-red-500 dark:text-red-400 truncate mt-0.5" title={ticket.erreur}>{ticket.erreur}</p>
+          <p className="text-xs text-red-600 dark:text-red-400 truncate mt-0.5" title={ticket.erreur}>{ticket.erreur}</p>
         )}
       </td>
-      <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 tabular-nums whitespace-nowrap">{date}</td>
+      <td className="px-4 py-3 text-xs text-muted-foreground tabular-nums whitespace-nowrap">{date}</td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-3 flex-wrap">
           {retryDone ? (
-            <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+            <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 size={12} aria-hidden="true" /> Relancé
             </span>
           ) : (
             <button
               onClick={() => retryMutation.mutate()}
               disabled={retryMutation.isPending}
-              className="flex items-center gap-1 py-1 text-xs text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-40 transition-colors"
+              className="flex items-center gap-1 py-1 text-xs text-gray-600 dark:text-gray-300 hover:text-emerald-800 dark:hover:text-emerald-400 disabled:opacity-40 transition-colors"
             >
               {retryMutation.isPending ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <RotateCcw size={12} aria-hidden="true" />}
               Relancer
@@ -76,7 +76,7 @@ export default function TicketRow({ ticket }: { ticket: TicketIncident }) {
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="py-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                className="py-1 text-xs text-muted-foreground hover:text-gray-600 dark:hover:text-gray-200"
               >
                 Annuler
               </button>
@@ -84,13 +84,13 @@ export default function TicketRow({ ticket }: { ticket: TicketIncident }) {
           ) : (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+              className="flex items-center gap-1 py-1 text-xs text-muted-foreground hover:text-red-500 dark:hover:text-red-400 transition-colors"
             >
               <Trash2 size={12} aria-hidden="true" /> Supprimer
             </button>
           )}
           {retryMutation.isError && (
-            <p className="text-xs text-red-500 w-full">
+            <p className="text-xs text-red-600 dark:text-red-400 w-full">
               Échec du relancement — réessayez ou contactez le support si le problème persiste.
             </p>
           )}

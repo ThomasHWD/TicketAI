@@ -126,7 +126,7 @@ export default function SavedAnswers() {
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-50 tracking-tight">
           Réponses enregistrées
         </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Base de connaissances validée — gère les réponses validées, les conflits de mise à jour et les retraits de service.
         </p>
       </div>
@@ -165,7 +165,7 @@ export default function SavedAnswers() {
           aria-labelledby="tab-canoniques"
           tabIndex={onglet === "canoniques" ? 0 : -1}
           hidden={onglet !== "canoniques"}
-          className="focus-visible:outline-none"
+          className="rounded-b-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60"
         >
           <TabCanoniques
             items={canoniquesItems}
@@ -192,7 +192,7 @@ export default function SavedAnswers() {
           aria-labelledby="tab-a_relire"
           tabIndex={onglet === "a_relire" ? 0 : -1}
           hidden={onglet !== "a_relire"}
-          className="focus-visible:outline-none"
+          className="rounded-b-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60"
         >
           <TabARelire
             groupes={groupes}
@@ -223,7 +223,7 @@ export default function SavedAnswers() {
           aria-labelledby="tab-obsoletes"
           tabIndex={onglet === "obsoletes" ? 0 : -1}
           hidden={onglet !== "obsoletes"}
-          className="focus-visible:outline-none"
+          className="rounded-b-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60"
         >
           <TabObsoletes
             items={obsoletesItems}
@@ -241,7 +241,7 @@ export default function SavedAnswers() {
 
         {!loading && total > 0 && onglet !== "a_relire" && (
           <nav aria-label="Pagination des réponses" className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100 dark:border-white/8">
-            <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+            <span className="text-xs text-muted-foreground tabular-nums">
               {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} sur {total}
             </span>
             <div className="flex items-center gap-1">
@@ -249,18 +249,18 @@ export default function SavedAnswers() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 aria-label="Page précédente"
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
                 <ChevronLeft size={15} aria-hidden="true" />
               </button>
-              <span className="px-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+              <span className="px-2 text-xs text-muted-foreground tabular-nums">
                 {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 aria-label="Page suivante"
-                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
                 <ChevronRight size={15} aria-hidden="true" />
               </button>
@@ -285,7 +285,7 @@ export default function SavedAnswers() {
       {successMsg && (
         <div
           aria-hidden="true"
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-[0_4px_24px_0_rgba(0,0,0,0.18)]"
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-medium shadow-[0_4px_24px_0_rgba(0,0,0,0.18)]"
         >
           <CheckCircle2 size={15} aria-hidden="true" />
           {successMsg}

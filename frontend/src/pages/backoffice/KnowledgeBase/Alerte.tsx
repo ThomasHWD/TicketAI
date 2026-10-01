@@ -5,7 +5,7 @@ export const BTN_ALERTE_PRIMAIRE =
 export const BTN_ALERTE_SECONDAIRE =
   "inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white/70 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:border-white/15 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10";
 export const BTN_ALERTE_DISCRET =
-  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:text-gray-400 dark:hover:bg-white/10";
+  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 dark:text-muted-foreground dark:hover:bg-white/10";
 
 export function Alerte({
   ton,
@@ -40,7 +40,7 @@ export function Alerte({
       </p>
       <p
         className={`text-xs leading-relaxed ${
-          ambre ? "text-amber-900/80 dark:text-amber-200/80" : "text-red-700/80 dark:text-red-300/80"
+          ambre ? "text-amber-900 dark:text-amber-200" : "text-red-700 dark:text-red-300"
         }`}
       >
         {children}

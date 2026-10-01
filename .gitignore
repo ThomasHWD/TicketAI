@@ -10,6 +10,8 @@ backend/test_storage_dir/
 backend/.venv/
 TicketAI_Workflows.docx
 AUDIT_TICKETAI.md
+AUDIT_SECURITE.md
+AUDIT_FRONTEND.md
 .claude
 REVUE_DOCKER_HEALTHCHECKS.md
 storage/
@@ -23,6 +25,8 @@ DFE_FAQ*.xlsx
 # Sorties brutes des campagnes de test du cache sémantique : artefacts d'exécution,
 # les chiffres qui comptent sont consignés dans le rapport.
 backend/scripts/resultats_passe_*.json
+en.subject.pdf
+soutenance-42/
 
 # React / Node
 node_modules/
@@ -50,3 +54,7 @@ celerybeat.pid
 
 # Backups locaux
 backups/
+
+# Récapitulatif stack et schémas architecture (documents locaux, non versionnés)
+STACK.md
+ARCHITECTURE.md
