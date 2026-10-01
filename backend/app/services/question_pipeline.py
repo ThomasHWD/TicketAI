@@ -251,7 +251,6 @@ def servir_reutilisation(
     franchit = franchit_le_rappel({"score_cosinus": score_liee, "score_lexical": score_lexical}, SEUIL_COSINUS)
 
     if autoriser_canonique and peut_servir_sans_revue(reponse_liee) and franchit:
-        logger.info("Réponse canonique servie : %s (score=%.3f)", reponse_liee.id, score_liee)
         ticket = upsert_ticket(
             db,
             job_id,
@@ -299,6 +298,8 @@ def servir_reutilisation(
                 )
             )
         db.commit()
+        # After the commit, same shape as the RAG line: one line per question says which branch served which ticket.
+        logger.info("CANONIQUE → ticket %s (source %s, cosinus %.3f)", ticket_id_str, reponse_liee.id, score_liee)
 
         event = "ticket_followup" if est_suivi else "ticket_answered"
         broadcast_sync(f"sse:domain:{domaine}", event, {"ticket_id": ticket_id_str, "domaine": domaine})
@@ -317,7 +318,6 @@ def servir_reutilisation(
             "top_score_cosinus": score_liee,
         }
 
-    logger.info("Suggestion via réponse validée %s (score=%.3f)", reponse_liee.id, score_liee)
     ticket = upsert_ticket(
         db,
         job_id,
@@ -348,6 +348,7 @@ def servir_reutilisation(
     )
     ticket_id_str_sug = str(ticket.id)
     db.commit()
+    logger.info("SUGGESTION → ticket %s (source %s, cosinus %.3f)", ticket_id_str_sug, reponse_liee.id, score_liee)
 
     event = "ticket_followup" if est_suivi else "ticket_answered"
     broadcast_sync(f"sse:domain:{domaine}", event, {"ticket_id": ticket_id_str_sug, "domaine": domaine})

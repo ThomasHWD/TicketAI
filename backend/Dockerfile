@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1
 FROM python:3.14-slim
 
+# TRANSFORMERS_NO_ADVISORY_WARNINGS : « PyTorch was not found » à chaque démarrage de process — seul le tokenizer sert.
 ENV PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    TRANSFORMERS_NO_ADVISORY_WARNINGS=1
 
 WORKDIR /app
 

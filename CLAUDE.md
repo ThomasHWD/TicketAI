@@ -92,6 +92,7 @@ npm run dev && npm run build && npm run lint   # Vite dev, build, oxlint
 | `FAQ_SEUIL_PERTINENCE` | `0.75` | FAQ tier-1 threshold |
 | `FAQ_SEUIL_INCERTAIN` | `0.55` | FAQ tier-2 threshold (shown only when tier-1 empty) |
 | `FAQ_RATE_LIMIT_PAR_MINUTE` | `20` | Per-user rate limit (`0` disables) |
+| `LOG_LEVEL` | `INFO` | API + workers (`app/core/logs.py`; Celery's `-l` is ignored). `DEBUG` = each retrieval step |
 
 `SEUIL_SUGGESTION` is derived as `SEUIL_COSINUS − 0.05` in code. Do not declare it in `.env`. `model_config = {"extra": "ignore"}` means unknown keys are silently ignored.
 

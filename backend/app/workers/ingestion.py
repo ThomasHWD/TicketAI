@@ -226,7 +226,7 @@ def ingestion_job(
         return result
 
     except Exception as exc:
-        logger.error("erreur ingestion '%s' : %s", filename, exc)
+        logger.exception("erreur ingestion '%s'", filename)
         if self.request.retries >= self.max_retries and uploaded_by:
             broadcast_sync(
                 f"sse:user:{uploaded_by}",

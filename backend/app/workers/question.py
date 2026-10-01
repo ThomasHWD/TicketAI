@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from celery.exceptions import Retry
 
+from app.core.logs import lier
 from app.crud.question import TicketDisparu, upsert_reponse, upsert_ticket
 from app.database import SessionLocal
 from app.models.reponse import Reponse
@@ -93,14 +94,19 @@ def question_job(
     retraiter: bool = False,
 ):
     try:
-        logger.info("nouvelle question — domaine=%s question=%s", domaine, question)
-
         job_id = uuid.UUID(self.request.id)
         user_uuid = uuid.UUID(user_id) if user_id else None
 
         ticket_uuid = uuid.UUID(ticket_id) if ticket_id else None
         est_suivi = ticket_uuid is not None and not retraiter
         question_suivi = question if est_suivi else None
+
+        if ticket_uuid is not None:
+            lier(ticket=str(ticket_uuid)[:8])
+        # Never the question itself: HR questions carry health and family details, logs are kept and copied.
+        logger.info(
+            "%s — domaine=%s, %d caractères", "suivi" if est_suivi else "nouvelle question", domaine, len(question)
+        )
 
         if ticket_uuid is not None and not _ticket_existe(ticket_uuid):
             logger.info("ticket %s introuvable — job abandonné", ticket_uuid)
@@ -111,11 +117,11 @@ def question_job(
         if est_suivi:
             historique, requete_recherche = charger_contexte_fil(ticket_uuid, question)
 
-        logger.info("recherche hybride dans Qdrant...")
+        logger.debug("recherche hybride dans Qdrant...")
         # A follow-up is searched with its thread, for reuse and RAG alike: bare, « et pour un apprenti ? » never
         # reached the self-contained question it was validated under (cos 0.65 measured 28/09/2026, thread 0.98).
         chunks = search_hybrid(requete_recherche, domaine, top_k=15)
-        logger.info("%d chunks trouvés", len(chunks))
+        logger.debug("%d chunks trouvés", len(chunks))
 
         for i, chunk in enumerate(chunks[:3]):
             # both signals logged: the gate is a disjunction, reading one without the other is misleading.
@@ -164,7 +170,7 @@ def question_job(
                 # Each candidate served has its own OUI: a refusal of the first never lends anything to the second.
                 if approuve and peut_servir_sans_revue(reponse_liee):
                     # OUI on a_relire → SUGGESTION (not CANONIQUE); servir_reutilisation checks it again.
-                    logger.info("garde : OUI → CANONIQUE si le seuil est franchi, sinon SUGGESTION")
+                    logger.info("garde : OUI")
                     return servir_reutilisation(
                         db,
                         job_id,
@@ -218,17 +224,17 @@ def question_job(
         finally:
             db.close()
 
-        logger.info("reranking des chunks...")
+        logger.debug("reranking des chunks...")
         chunks_rerankes = rerank(requete_recherche, chunks, top_k=5)
         for i, chunk in enumerate(chunks_rerankes):
             logger.debug("rerank #%d score=%.4f source=%s", i + 1, chunk["rerank_score"], chunk["source"])
 
-        logger.info("génération LLM...")
+        logger.debug("génération LLM...")
         hors_domaine = False
         try:
             reponse_texte, hors_domaine = generate(question, chunks_rerankes, historique=historique)
             suffix = " [HORS_DOMAINE]" if hors_domaine else ""
-            logger.info("réponse générée (%d caractères)%s", len(reponse_texte), suffix)
+            logger.debug("réponse générée (%d caractères)%s", len(reponse_texte), suffix)
             statut_job = "TERMINÉ"
             erreur = None
         except Exception as llm_exc:
@@ -307,7 +313,8 @@ def question_job(
         finally:
             db.close()
 
-        logger.info("ticket créé (id=%s)", ticket_id_str)
+        branche = "ÉCHOUÉ" if statut_job == "ÉCHOUÉ" else ("HORS_DOMAINE" if hors_domaine else "RAG")
+        logger.info("%s → ticket %s (%d chunks, cosinus max %.3f)", branche, ticket_id_str, len(chunks), top_score)
 
         if statut_job == "ÉCHOUÉ":
             raise self.retry(exc=Exception(erreur), countdown=60)
@@ -337,5 +344,5 @@ def question_job(
         logger.info("ticket %s supprimé en cours de traitement — job abandonné", exc)
         return {"statut": "IGNORÉ", "raison": "TICKET_SUPPRIMÉ", "ticket_id": str(exc)}
     except Exception as exc:
-        logger.error("erreur question_job : %s", exc)
+        logger.exception("erreur question_job")
         raise self.retry(exc=exc) from exc

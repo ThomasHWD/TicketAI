@@ -20,21 +20,27 @@ from app.api.v1 import (
     tickets,
 )
 from app.config import settings
+from app.core.logs import configurer_logs
 from app.database import SessionLocal
 from app.middleware.maintenance import MaintenanceMiddleware
 from app.services.qdrant import client as qdrant_client
 from app.services.qdrant import init_collection
 
+configurer_logs(settings.log_level)
 logger = logging.getLogger(__name__)
 
 
 class _SansSondeDocker(logging.Filter):
     """The compose healthcheck hits /health every 10 s: half the access log, nothing to learn from it —
-    its outcome is already the container's (un)healthy status. nginx drops its own /health lines too."""
+    its outcome is already the container's (un)healthy status. nginx drops its own /health lines too.
+    Same for the maintenance poll (every 30 s per open tab: 79 % of the log) — while it answers 200.
+    Only matters in dev: prod runs --no-access-log, nginx keeps the access log."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         args = record.args
-        return not (isinstance(args, tuple) and len(args) >= 3 and args[2] == "/health")
+        if not (isinstance(args, tuple) and len(args) >= 5):
+            return True
+        return not (args[2] == "/health" or (args[2] == "/api/v1/public/maintenance" and args[4] == 200))
 
 
 logging.getLogger("uvicorn.access").addFilter(_SansSondeDocker())
