@@ -62,9 +62,12 @@ def configurer_logs(niveau: str = "INFO") -> None:
                 # Startup and errors in the common format. uvicorn.access is left alone: --no-access-log empties
                 # its handlers, re-adding one here would bring the access log back.
                 "uvicorn": {"handlers": ["stderr"], "propagate": False},
-                # One INFO line per outgoing HTTP call (Albert, Qdrant): volume, no information.
+                # One INFO line per outgoing HTTP call (Albert, Qdrant): volume, no information. httpx2 is the fork
+                # the app actually calls through — silencing only httpx left every Albert request in the log.
                 "httpx": {"level": "WARNING"},
                 "httpcore": {"level": "WARNING"},
+                "httpx2": {"level": "WARNING"},
+                "httpcore2": {"level": "WARNING"},
             },
         }
     )
