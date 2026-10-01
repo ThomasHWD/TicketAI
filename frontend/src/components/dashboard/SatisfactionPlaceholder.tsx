@@ -14,7 +14,7 @@ export default function SatisfactionPlaceholder() {
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             Satisfaction utilisateurs
           </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-xs">
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs">
             Le suivi de la satisfaction sera disponible prochainement.
           </p>
         </div>

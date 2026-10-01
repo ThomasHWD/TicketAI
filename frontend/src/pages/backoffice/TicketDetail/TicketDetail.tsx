@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Lock } from "lucide-react";
@@ -12,10 +12,12 @@ import {
 import type { MembreGroupe } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
 import { useTicketLock } from "../../../hooks/useTicketLock";
+import { useRaccourcisReponse } from "../../../hooks/useRaccourcisReponse";
 import BackofficeThread from "./BackofficeThread";
 import WorkflowModal from "./WorkflowModal";
 import RerouteModal from "./RerouteModal";
 import TicketSidebar from "./TicketSidebar";
+import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +45,7 @@ export default function TicketDetail() {
   });
 
   const ticket = ticketQuery.data;
+  useDocumentTitle(ticket ? ticket.objet ?? ticket.question : "Ticket");
   const reponses = reponsesQuery.data ?? [];
   const loading = ticketQuery.isLoading || reponsesQuery.isLoading;
   const error = ticketQuery.error || reponsesQuery.error;
@@ -54,25 +57,8 @@ export default function TicketDetail() {
     staleTime: 60_000,
   });
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if (e.altKey && e.key === "ArrowLeft" && !showWorkflow) { navigate(-1); return; }
-      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
-      if (e.altKey || e.ctrlKey || e.metaKey) return;
-      if (e.key === "v" || e.key === "V") {
-        document.querySelector<HTMLButtonElement>('[data-action="valider"]')?.click();
-      }
-      if (e.key === "e" || e.key === "E") {
-        document.querySelector<HTMLButtonElement>('[data-action="corriger"]')?.click();
-      }
-      if (e.key === "r" || e.key === "R") {
-        document.querySelector<HTMLButtonElement>('[data-action="rejeter"]')?.click();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [navigate, showWorkflow]);
+  const retour = useCallback(() => navigate(-1), [navigate]);
+  useRaccourcisReponse(retour);
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: ["ticket", id] });
@@ -97,7 +83,7 @@ export default function TicketDetail() {
 
   if (loading) {
     return (
-      <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400" aria-live="polite">
+      <div className="p-6 text-center text-sm text-muted-foreground" aria-live="polite">
         Chargement…
       </div>
     );
@@ -108,7 +94,7 @@ export default function TicketDetail() {
       <div className="p-6 space-y-4">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
         >
           <ArrowLeft size={14} aria-hidden="true" />
           Retour aux tickets
@@ -131,7 +117,7 @@ export default function TicketDetail() {
         <header className="space-y-3">
           <button
             onClick={() => navigate(-1)}
-            className="group inline-flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            className="group inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
             aria-label="Retour à la liste des tickets"
             title="Retour aux tickets (Alt + ←)"
           >

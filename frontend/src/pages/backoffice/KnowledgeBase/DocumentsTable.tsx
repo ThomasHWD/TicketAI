@@ -22,13 +22,13 @@ export interface ActionsDocument {
 }
 
 const TH =
-  "px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400";
+  "px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground";
 
 function IconeFichier({ filename }: { filename: string | null }) {
   const ext = filename?.split(".").pop()?.toLowerCase();
   if (ext === "pdf") return <FileType size={15} className="shrink-0 text-red-400" />;
   if (ext === "docx") return <FileText size={15} className="shrink-0 text-blue-400" />;
-  return <File size={15} className="shrink-0 text-gray-500 dark:text-gray-400" />;
+  return <File size={15} className="shrink-0 text-subtle" />;
 }
 
 function dateCourte(iso: string | null): string {
@@ -122,7 +122,7 @@ function LigneDocument({
             >
               {doc.filename ?? "—"}
             </button>
-            <p className="mt-0.5 max-w-md truncate text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-0.5 max-w-md truncate text-xs text-muted-foreground">
               {doc.description || <span className="italic">Aucune description</span>}
             </p>
             {erreurTelechargement && (
@@ -143,7 +143,7 @@ function LigneDocument({
 
       <td className="whitespace-nowrap px-5 py-3">
         {doc.domaine && (
-          <span className="inline-flex rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-white/8 dark:text-gray-400">
+          <span className="inline-flex rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-white/8 dark:text-muted-foreground">
             {doc.domaine}
           </span>
         )}
@@ -156,23 +156,23 @@ function LigneDocument({
             Mise à jour…
           </span>
         ) : (
-          <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
+          <span className="text-xs tabular-nums text-muted-foreground">
             v{doc.version}
           </span>
         )}
       </td>
 
-      <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-gray-500 dark:text-gray-400">
+      <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-muted-foreground">
         {doc.nb_chunks}
       </td>
 
-      <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-gray-500 dark:text-gray-400">
+      <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-muted-foreground">
         {dateCourte(doc.updated_at)}
       </td>
 
       <td className="px-2 py-3">
         <div className="flex items-center justify-end gap-1">
-          {telechargement && <Loader2 size={13} className="animate-spin text-gray-400" />}
+          {telechargement && <Loader2 size={13} className="animate-spin text-subtle" />}
           <DropdownMenu actions={menu} ariaLabel={`Actions sur ${doc.filename ?? doc.doc_id}`} />
         </div>
       </td>

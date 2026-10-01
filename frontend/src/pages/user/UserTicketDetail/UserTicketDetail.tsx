@@ -10,6 +10,7 @@ import { deriveFilStatut, FilBadge } from "./utils";
 import ConversationThread from "./ConversationThread";
 import TicketActions from "./TicketActions";
 import TicketInfoSidebar from "./TicketInfoSidebar";
+import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 
 function LoadingSkeleton() {
   return (
@@ -87,6 +88,7 @@ export default function UserTicketDetail() {
   });
 
   const ticket = ticketQuery.data;
+  useDocumentTitle(ticket ? ticket.objet ?? ticket.question : "Ma demande");
   const reponses = reponsesQuery.data ?? [];
   const loading = ticketQuery.isLoading || reponsesQuery.isLoading;
   const error = ticketQuery.error || reponsesQuery.error;
@@ -115,7 +117,7 @@ export default function UserTicketDetail() {
   const BackButton = (
     <button
       onClick={() => navigate("/historique")}
-      className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors group"
+      className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-gray-900 dark:hover:text-gray-100 transition-colors group"
       aria-label="Retour à mon historique"
     >
       <ArrowLeft
@@ -147,7 +149,7 @@ export default function UserTicketDetail() {
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-0.5 flex-1 min-w-0">
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             {ticket.domaine}
           </p>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white leading-snug">
@@ -177,7 +179,7 @@ export default function UserTicketDetail() {
                 className="w-2 h-2 rounded-full bg-blue-400 dark:bg-blue-500 motion-safe:animate-pulse shrink-0 mt-1.5"
                 aria-hidden="true"
               />
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-muted-foreground">
                 Votre question a bien été reçue et est en cours de traitement.
               </p>
             </div>
@@ -193,7 +195,7 @@ export default function UserTicketDetail() {
                   className="w-2 h-2 rounded-full bg-blue-400 dark:bg-blue-500 motion-safe:animate-pulse shrink-0"
                   aria-hidden="true"
                 />
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-600 dark:text-muted-foreground">
                   Votre précision est en cours de traitement — les actions seront disponibles dès réception de la réponse.
                 </p>
               </div>

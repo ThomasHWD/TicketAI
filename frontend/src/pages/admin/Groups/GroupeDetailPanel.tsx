@@ -57,7 +57,7 @@ export default function GroupeDetailPanel({
             >
               {groupe.domaine}
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-muted-foreground">
               {groupe.nb_membres} membre{groupe.nb_membres !== 1 ? "s" : ""}
             </span>
           </div>
@@ -77,7 +77,7 @@ export default function GroupeDetailPanel({
         <button
           onClick={onClose}
           aria-label="Fermer le panneau"
-          className="p-2 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shrink-0"
+          className="p-2 rounded-md text-muted-foreground hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors shrink-0"
         >
           <X size={14} aria-hidden="true" />
         </button>
@@ -117,7 +117,7 @@ export default function GroupeDetailPanel({
           <button
             onClick={onClearMemberError}
             aria-label="Fermer l'erreur"
-            className="p-0.5 text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
+            className="p-0.5 text-red-600 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
           >
             <X size={11} aria-hidden="true" />
           </button>
@@ -151,14 +151,14 @@ export function EmptyDetailPanel() {
         <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-white/8 flex items-center justify-center mx-auto mb-4">
           <Users
             size={22}
-            className="text-gray-300 dark:text-gray-600"
+            className="text-subtle"
             aria-hidden="true"
           />
         </div>
-        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+        <p className="text-sm font-medium text-muted-foreground">
           Sélectionnez un groupe
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-600 mt-1.5 leading-relaxed">
+        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
           Choisissez un groupe dans la liste
           <br />
           pour gérer ses membres.

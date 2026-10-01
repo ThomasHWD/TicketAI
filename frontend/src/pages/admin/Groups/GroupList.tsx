@@ -53,10 +53,10 @@ export default function GroupList({
       {/* Panel header */}
       <div className="px-4 py-3 border-b border-gray-200/80 dark:border-white/10 shrink-0">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Groupes
             {groupes.length > 0 && (
-              <span className="ml-2 font-medium normal-case tracking-normal text-gray-500 dark:text-gray-400">
+              <span className="ml-2 font-medium normal-case tracking-normal text-muted-foreground">
                 {groupes.length}
               </span>
             )}
@@ -68,8 +68,8 @@ export default function GroupList({
             aria-controls="create-group-form"
             className={`p-1.5 rounded-md transition-colors ${
               showCreate
-                ? "text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8"
-                : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-400/10"
+                ? "text-muted-foreground hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8"
+                : "text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-400/10"
             }`}
           >
             <Plus
@@ -104,7 +104,7 @@ export default function GroupList({
             <Search
               size={11}
               aria-hidden="true"
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle pointer-events-none"
             />
             <input
               type="text"
@@ -112,7 +112,7 @@ export default function GroupList({
               onChange={(e) => setGroupSearch(e.target.value)}
               placeholder="Filtrer les groupes…"
               aria-label="Filtrer les groupes"
-              className="w-full pl-7 pr-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
+              className="w-full pl-7 pr-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs text-gray-900 dark:text-gray-100 placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
             />
           </div>
         </div>
@@ -122,24 +122,24 @@ export default function GroupList({
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 size={16} className="animate-spin text-gray-300 dark:text-gray-600" />
+            <Loader2 size={16} className="animate-spin text-subtle" />
           </div>
         ) : groupes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
             <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/8 flex items-center justify-center mb-3">
-              <Users size={18} className="text-gray-400 dark:text-gray-600" aria-hidden="true" />
+              <Users size={18} className="text-subtle" aria-hidden="true" />
             </div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Aucun groupe</p>
-            <p className="text-xs text-gray-400 dark:text-gray-600 mt-1 leading-relaxed">
+            <p className="text-sm font-medium text-muted-foreground">Aucun groupe</p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               Utilisez le <Plus size={10} className="inline" aria-hidden="true" /> ci-dessus pour en créer un.
             </p>
           </div>
         ) : visibleGroupes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Aucun groupe trouvé</p>
+            <p className="text-sm text-muted-foreground">Aucun groupe trouvé</p>
             <button
               onClick={() => setGroupSearch("")}
-              className="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+              className="mt-1.5 text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
             >
               Effacer le filtre
             </button>
@@ -185,7 +185,7 @@ export default function GroupList({
                     >
                       {g.nom}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {g.nb_membres} membre{g.nb_membres !== 1 ? "s" : ""}
                     </p>
                   </div>
@@ -196,8 +196,8 @@ export default function GroupList({
                     aria-hidden="true"
                     className={`shrink-0 transition-opacity ${
                       isSelected
-                        ? "text-gray-500 dark:text-gray-400 opacity-100"
-                        : "text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100"
+                        ? "text-subtle opacity-100"
+                        : "text-subtle opacity-0 group-hover:opacity-100"
                     }`}
                   />
                 </button>

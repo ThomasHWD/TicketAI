@@ -51,7 +51,7 @@ export function ReponseItemARelire({
       {/* Question + badges */}
       <div className="flex items-start gap-2">
         <p className={`flex-1 min-w-0 text-sm font-semibold leading-snug ${
-          enAnalyse ? "text-gray-500 dark:text-gray-400" : "text-gray-900 dark:text-gray-50"
+          enAnalyse ? "text-muted-foreground" : "text-gray-900 dark:text-gray-50"
         }`}>
           {r.question}
         </p>
@@ -78,17 +78,17 @@ export function ReponseItemARelire({
       {isEditing ? (
         <div className="space-y-2">
           {filename && (
-            <p className="text-xs text-amber-700/70 dark:text-amber-300/60">
+            <p className="text-xs text-amber-800 dark:text-amber-300">
               Document : <span className="font-medium">{filename}</span>
               {version !== null && <span className="ml-1 opacity-70">v{version}</span>}
             </p>
           )}
           <details className="group/orig rounded-lg border border-gray-200/70 dark:border-white/8 bg-gray-50/50 dark:bg-white/[0.02]">
-            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 select-none list-none flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              <span className="text-gray-300 dark:text-gray-600 group-open/orig:rotate-90 transition-transform inline-block">▶</span>
+            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground select-none list-none flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+              <span className="text-muted-foreground group-open/orig:rotate-90 transition-transform inline-block">▶</span>
               Texte actuel (référence)
             </summary>
-            <p className="px-3 pb-3 text-xs text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">
+            <p className="px-3 pb-3 text-xs text-gray-600 dark:text-muted-foreground leading-relaxed whitespace-pre-wrap">
               {contenuServi(r)}
             </p>
           </details>
@@ -108,14 +108,14 @@ export function ReponseItemARelire({
       <MotifSignalement reponse={r} />
 
       {isConfirmError && !isEditing && (
-        <p role="alert" className="text-xs text-red-500 dark:text-red-400">
+        <p role="alert" className="text-xs text-red-600 dark:text-red-400">
           Erreur — signalement non levé. Réessayez.
         </p>
       )}
 
       {/* Actions */}
       {enAnalyse ? (
-        <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Loader2 size={12} className="animate-spin shrink-0" aria-hidden="true" />
           Analyse IA en cours — résultat dans quelques minutes
         </div>
@@ -127,7 +127,7 @@ export function ReponseItemARelire({
                 onClick={() => onSave(r.reponse_id)}
                 disabled={!draft.trim() || isPendingEdit}
                 aria-label={`Enregistrer les modifications — ${r.question}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
                 <Check size={12} aria-hidden="true" />
                 Enregistrer
@@ -152,7 +152,7 @@ export function ReponseItemARelire({
                 disabled={confirmMutation.isPending}
                 aria-label={`Toujours d'actualité — ${r.question}`}
                 title="Lever le signalement — confirmer que cette réponse reste valide malgré la mise à jour du document"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
                 {confirmMutation.isPending && confirmingId === r.reponse_id
                   ? <Loader2 size={12} className="animate-spin" aria-hidden="true" />
@@ -162,7 +162,7 @@ export function ReponseItemARelire({
               <button
                 onClick={() => onEdit(r)}
                 aria-label={`Modifier — ${r.question}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 dark:border-white/12 text-gray-500 dark:text-gray-400 text-xs font-medium hover:text-gray-700 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 dark:border-white/12 text-muted-foreground text-xs font-medium hover:text-gray-700 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
               >
                 <Pencil size={12} aria-hidden="true" />
                 Modifier
@@ -170,7 +170,7 @@ export function ReponseItemARelire({
               <button
                 onClick={() => onRetrait(r)}
                 aria-label={`Retirer du service — ${r.question}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
               >
                 <EyeOff size={12} aria-hidden="true" />
                 Retirer

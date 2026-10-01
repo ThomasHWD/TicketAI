@@ -17,7 +17,7 @@ import { Alerte, BTN_ALERTE_PRIMAIRE, BTN_ALERTE_SECONDAIRE, BTN_ALERTE_DISCRET 
 import type { Domaine, DocumentHomonyme } from "../../../types";
 
 const CHAMP =
-  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 dark:border-white/12 dark:bg-white/5 dark:text-gray-100 dark:placeholder:text-gray-600";
+  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 dark:border-white/12 dark:bg-white/5 dark:text-gray-100";
 const LABEL = "block text-xs font-medium text-gray-700 dark:text-gray-300";
 
 export default function IngestionDrawer({
@@ -68,9 +68,9 @@ export default function IngestionDrawer({
           </div>
           <div className="space-y-1">
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{dernierNom}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Découpage et indexation en cours en arrière-plan.</p>
+            <p className="text-xs text-muted-foreground">Découpage et indexation en cours en arrière-plan.</p>
           </div>
-          <p className="max-w-xs text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+          <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
             Le document apparaîtra dans la liste dès que ses chunks seront écrits dans l'index. La progression est suivie en bas à droite de l'écran.
           </p>
         </div>
@@ -104,7 +104,7 @@ export default function IngestionDrawer({
         <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-white/10 dark:bg-white/5">
           {([{ key: "upload", label: "Importer un fichier", icon: UploadCloud }, { key: "write", label: "Rédiger", icon: PenLine }] as const).map(({ key, label, icon: Icon }) => (
             <button key={key} type="button" onClick={() => !occupe && setMode(key)} disabled={occupe} aria-pressed={mode === key}
-              className={`flex items-center gap-1.5 rounded-[7px] px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${mode === key ? "bg-white text-gray-900 shadow-sm dark:bg-white/10 dark:text-gray-100" : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"}`}
+              className={`flex items-center gap-1.5 rounded-[7px] px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${mode === key ? "bg-white text-gray-900 shadow-sm dark:bg-white/10 dark:text-gray-100" : "text-muted-foreground hover:text-gray-800 dark:hover:text-gray-200"}`}
             >
               <Icon size={13} />{label}
             </button>
@@ -155,10 +155,10 @@ export default function IngestionDrawer({
             <div className="space-y-1.5">
               <label htmlFor="ing-contenu" className={LABEL}>Contenu</label>
               <textarea id="ing-contenu" value={contenu} onChange={(e) => setContenu(e.target.value)} disabled={occupe} rows={12} placeholder="Rédigez le contenu du document ici…" className={`${CHAMP} resize-y font-mono leading-relaxed`} />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Markdown ou texte brut — minimum {MIN_CARACTERES} caractères
                 {contenu.length > 0 && (
-                  <span className={`ml-1 tabular-nums ${contenu.trim().length >= MIN_CARACTERES ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400"}`}>
+                  <span className={`ml-1 tabular-nums ${contenu.trim().length >= MIN_CARACTERES ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}>
                     ({contenu.trim().length})
                   </span>
                 )}
@@ -171,12 +171,12 @@ export default function IngestionDrawer({
         <div className="space-y-1.5">
           <span id="dom-group-label" className={LABEL}>Domaine</span>
           {domaines.length === 0 ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">Aucun domaine ne vous est attribué : demandez un rattachement à un administrateur.</p>
+            <p className="text-xs text-muted-foreground">Aucun domaine ne vous est attribué : demandez un rattachement à un administrateur.</p>
           ) : (
             <div role="group" aria-labelledby="dom-group-label" className="flex flex-wrap gap-1.5 pt-0.5">
               {domaines.map((d) => (
                 <button key={d} type="button" onClick={() => !occupe && setDomaine(d)} disabled={occupe} aria-pressed={domaine === d}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${domaine === d ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/8 dark:text-gray-400 dark:hover:bg-white/12"}`}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${domaine === d ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/8 dark:text-muted-foreground dark:hover:bg-white/12"}`}
                 >
                   {d}
                 </button>
@@ -188,10 +188,10 @@ export default function IngestionDrawer({
         {/* Description */}
         <div className="space-y-1.5">
           <label htmlFor="ing-description" className={LABEL}>
-            Description <span className="text-red-500" aria-hidden="true">*</span>
+            Description <span className="text-red-600 dark:text-red-400" aria-hidden="true">*</span>
           </label>
           <input id="ing-description" type="text" value={description} onChange={(e) => setDescription(e.target.value)} disabled={occupe} placeholder="Résumez brièvement le contenu du document…" className={CHAMP} required />
-          <p className="text-xs text-gray-500 dark:text-gray-400">Obligatoire — sert à retrouver le document dans la liste (non indexée).</p>
+          <p className="text-xs text-muted-foreground">Obligatoire — sert à retrouver le document dans la liste (non indexée).</p>
         </div>
       </div>
     </Drawer>

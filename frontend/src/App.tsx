@@ -19,6 +19,8 @@ import MaintenancePage from "./pages/MaintenancePage";
 import { getMaintenancePublic } from "./lib/api/admin";
 import { USER_KEY } from "./lib/api/client";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
+import { titreRoute, useDocumentTitle } from "./hooks/useDocumentTitle";
+import { useSidebarReplie } from "./hooks/useSidebarReplie";
 
 const Dashboard = lazy(() => import("./pages/backoffice/Dashboard"));
 const UserDashboard = lazy(() => import("./pages/user/UserDashboard"));
@@ -38,11 +40,13 @@ const SuggestionBox = lazy(() => import("./pages/user/SuggestionBox"));
 const Faq = lazy(() => import("./pages/user/faq/Faq"));
 
 function Layout() {
-  const [collapsed, setCollapsed] = useState(false);
+  const { replie, basculer } = useSidebarReplie();
+  const { pathname } = useLocation();
+  useDocumentTitle(titreRoute(pathname));
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-gray-50 dark:bg-[#0d0d0d]">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
+      <Sidebar collapsed={replie} onToggle={basculer} />
 
       <div className="relative flex-1 overflow-hidden">
         <Navbar />

@@ -54,7 +54,7 @@ export default function UserDashboard() {
   const header = (
     <div>
       <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">{greeting}</h1>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Votre espace personnel</p>
+      <p className="mt-1 text-sm text-muted-foreground">Votre espace personnel</p>
     </div>
   );
 
@@ -68,7 +68,7 @@ export default function UserDashboard() {
           </div>
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Impossible de charger vos données</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
               Vérifiez votre connexion internet et réessayez.<br />
               <span className="text-xs">Vos questions et réponses ne sont pas affectées.</span>
             </p>
@@ -91,11 +91,11 @@ export default function UserDashboard() {
           </div>
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Posez votre première question</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
               Notre équipe traite votre demande et vous propose une réponse dans les meilleurs délais.
             </p>
           </div>
-          <button type="button" onClick={() => navigate("/nouveau-ticket")} className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors">
+          <button type="button" onClick={() => navigate("/nouveau-ticket")} className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium transition-colors">
             <Plus size={16} /> Poser une question
           </button>
         </div>
@@ -133,24 +133,24 @@ export default function UserDashboard() {
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{sectionTitle}</h2>
             {hasPendingReplies && (
-              <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[11px] font-semibold leading-none" aria-label={`${aConsulter.length} réponse${aConsulter.length > 1 ? "s" : ""} à consulter`}>
+              <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold leading-none" aria-label={`${aConsulter.length} réponse${aConsulter.length > 1 ? "s" : ""} à consulter`}>
                 <span aria-hidden="true">{aConsulter.length}</span>
               </span>
             )}
           </div>
           <div className="flex items-center gap-4">
-            <button type="button" onClick={() => navigate("/nouveau-ticket")} className="inline-flex items-center gap-1.5 py-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors">
+            <button type="button" onClick={() => navigate("/nouveau-ticket")} className="inline-flex items-center gap-1.5 py-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors">
               <Plus size={14} /> Nouvelle question
             </button>
             <span className="w-px h-4 bg-gray-200 dark:bg-white/10" />
-            <button type="button" onClick={() => navigate("/historique")} className="inline-flex items-center gap-1 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+            <button type="button" onClick={() => navigate("/historique")} className="inline-flex items-center gap-1 py-1.5 text-sm text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
               Historique <ArrowRight size={13} />
             </button>
           </div>
         </div>
 
         {!hasPendingReplies && hasInProgress && !hasRejected && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-muted-foreground">
             Votre question est en cours de traitement — la réponse sera disponible une fois validée par un expert, généralement sous 24 h.
           </p>
         )}
@@ -168,7 +168,7 @@ export default function UserDashboard() {
                     { color: "bg-blue-500",    label: "En cours" },
                     { color: "bg-red-400",     label: "Rejetée" },
                   ].map(({ color, label }) => (
-                    <span key={label} className="flex items-center gap-1.5 text-[10px] text-gray-500 dark:text-gray-400">
+                    <span key={label} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${color}`} aria-hidden="true" />
                       {label}
                     </span>
@@ -183,7 +183,7 @@ export default function UserDashboard() {
                     </div>
                     {aConsulter.length > LIST_THRESHOLD && (
                       <div className="px-6 py-2.5 border-t border-gray-100 dark:border-white/5 text-center">
-                        <button type="button" onClick={() => navigate("/historique")} className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:underline transition-colors">
+                        <button type="button" onClick={() => navigate("/historique")} className="text-xs text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 hover:underline transition-colors">
                           Voir les {aConsulter.length} réponses dans l'historique
                         </button>
                       </div>
@@ -199,7 +199,7 @@ export default function UserDashboard() {
                     </div>
                     {enCoursItems.length > LIST_THRESHOLD && (
                       <div className="px-6 py-2.5 border-t border-gray-100 dark:border-white/5 text-center">
-                        <button type="button" onClick={() => navigate("/historique")} className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:underline transition-colors">
+                        <button type="button" onClick={() => navigate("/historique")} className="text-xs text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 hover:underline transition-colors">
                           Voir les {enCoursItems.length} tickets en cours dans l'historique
                         </button>
                       </div>
@@ -214,9 +214,9 @@ export default function UserDashboard() {
                       {rejetees.map((t) => <UserTicketRow key={t.id} ticket={t} variant="rejected" onClick={() => navigate(`/historique/${t.id}`)} />)}
                     </div>
                     <div className="px-6 py-3 border-t border-red-100 dark:border-red-500/10 bg-red-50/40 dark:bg-red-500/[0.04] text-center">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-muted-foreground">
                         Consultez le détail du ticket pour connaître le motif du rejet.{" "}
-                        <button type="button" onClick={() => navigate("/nouveau-ticket")} className="text-emerald-600 dark:text-emerald-400 font-medium hover:underline">
+                        <button type="button" onClick={() => navigate("/nouveau-ticket")} className="text-emerald-700 dark:text-emerald-400 font-medium hover:underline">
                           Reformuler votre question
                         </button>
                       </p>
@@ -226,7 +226,7 @@ export default function UserDashboard() {
 
                 {hasOverflow && (
                   <div className="px-6 py-3 border-t border-gray-100 dark:border-white/5 text-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-muted-foreground">
                       {total - tickets.length} question{total - tickets.length > 1 ? "s" : ""} supplémentaire{total - tickets.length > 1 ? "s" : ""} —{" "}
                       <button type="button" onClick={() => navigate("/historique")} className="underline hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                         voir l'historique complet

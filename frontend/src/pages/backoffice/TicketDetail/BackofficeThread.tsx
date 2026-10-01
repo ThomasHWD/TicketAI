@@ -22,9 +22,9 @@ function UserBubble({
     >
       <div className="min-w-0 max-w-[72%] space-y-1.5">
         <div className="flex items-center justify-end gap-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(date)}</span>
+          <span className="text-xs text-muted-foreground">{formatDate(date)}</span>
           {precision && (
-            <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] font-medium text-muted-foreground bg-gray-100 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
               précision
             </span>
           )}
@@ -50,7 +50,7 @@ function UserBubble({
 
 function ReroutedNote({ from }: { from: string }) {
   return (
-    <li className="px-5 py-2.5 flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+    <li className="px-5 py-2.5 flex items-center gap-2 text-xs text-muted-foreground">
       <span className="flex-1 h-px bg-gray-100 dark:bg-white/[0.06]" aria-hidden="true" />
       <ArrowRightLeft size={11} className="shrink-0" aria-hidden="true" />
       <span>Ticket transmis depuis le service {from}</span>

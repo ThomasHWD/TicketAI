@@ -35,7 +35,7 @@ function FaqVisibleToggle({ reponseId, initial }: { reponseId: string; initial: 
         "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-50",
         visible
           ? "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20 focus-visible:ring-sky-500/60"
-          : "bg-gray-100 text-gray-400 dark:bg-white/5 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10 focus-visible:ring-gray-400/60",
+          : "bg-gray-100 text-muted-foreground dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 focus-visible:ring-gray-400/60",
       ].join(" ")}
     >
       FAQ
@@ -122,11 +122,11 @@ function ReponseCanoniqueItem({
       {isEditing ? (
         <div className="space-y-2">
           <details className="group/orig rounded-lg border border-gray-200/70 dark:border-white/8 bg-gray-50/50 dark:bg-white/[0.02]">
-            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 select-none list-none flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-              <span className="text-gray-300 dark:text-gray-600 group-open/orig:rotate-90 transition-transform inline-block">▶</span>
+            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground select-none list-none flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+              <span className="text-muted-foreground group-open/orig:rotate-90 transition-transform inline-block">▶</span>
               Texte actuel (référence)
             </summary>
-            <p className="px-3 pb-3 text-xs text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">
+            <p className="px-3 pb-3 text-xs text-gray-600 dark:text-muted-foreground leading-relaxed whitespace-pre-wrap">
               {contenuServi(r)}
             </p>
           </details>
@@ -145,7 +145,7 @@ function ReponseCanoniqueItem({
 
       {/* Meta + actions row */}
       <div className="mt-2.5 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 tabular-nums flex-wrap">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums flex-wrap">
           {r.validated_at && (
             <>
               <span aria-hidden="true" className="text-gray-200 dark:text-gray-700">·</span>
@@ -168,7 +168,7 @@ function ReponseCanoniqueItem({
                 onClick={() => onSave(r.reponse_id)}
                 disabled={!draft.trim() || isPendingEdit}
                 aria-label={`Enregistrer les modifications — ${r.question}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
                 <Check size={13} aria-hidden="true" />
                 Enregistrer
@@ -187,7 +187,7 @@ function ReponseCanoniqueItem({
               <button
                 onClick={() => onEdit(r)}
                 aria-label={`Modifier — ${r.question}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 dark:border-white/12 text-gray-500 dark:text-gray-400 text-xs font-medium hover:text-gray-700 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 dark:border-white/12 text-muted-foreground text-xs font-medium hover:text-gray-700 hover:bg-gray-50 dark:hover:text-gray-200 dark:hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60"
               >
                 <Pencil size={12} aria-hidden="true" />
                 Modifier
@@ -195,7 +195,7 @@ function ReponseCanoniqueItem({
               <button
                 onClick={() => onDeleteTarget({ reponse_id: r.reponse_id, question: r.question, obsolete: false })}
                 aria-label={`Supprimer — ${r.question}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-100 dark:border-red-500/15 text-red-500 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-100 dark:border-red-500/15 text-red-700 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
               >
                 <Trash2 size={12} aria-hidden="true" />
                 Supprimer
@@ -244,12 +244,12 @@ export default function TabCanoniques({
   if (error) {
     return (
       <div role="alert" className="px-5 py-12 text-center space-y-3">
-        <p className="text-sm text-red-500 dark:text-red-400">
+        <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Erreur de chargement"}
         </p>
         <button
           onClick={onRetry}
-          className="text-xs text-gray-500 dark:text-gray-400 underline underline-offset-2 hover:text-gray-700 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-sm"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-gray-700 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-sm"
         >
           Réessayer
         </button>
@@ -259,7 +259,7 @@ export default function TabCanoniques({
 
   if (total === 0 && q) {
     return (
-      <p className="px-5 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+      <p className="px-5 py-12 text-center text-sm text-muted-foreground">
         Aucun résultat pour <span className="font-medium text-gray-600 dark:text-gray-300">«&nbsp;{searchQuery}&nbsp;»</span>.
       </p>
     );
@@ -269,7 +269,7 @@ export default function TabCanoniques({
     return (
       <div className="px-5 py-16 text-center space-y-1">
         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Aucune réponse enregistrée</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">Les réponses validées 3 fois ou plus apparaissent ici.</p>
+        <p className="text-xs text-muted-foreground">Les réponses validées 3 fois ou plus apparaissent ici.</p>
       </div>
     );
   }

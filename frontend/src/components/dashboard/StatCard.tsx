@@ -1,4 +1,5 @@
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { nombreFr } from "../../lib/format";
 
 interface StatCardProps {
   title: string;
@@ -26,7 +27,7 @@ export default function StatCard({
   variation,
   hausse,
   icon: Icon,
-  iconColor = "text-emerald-500",
+  iconColor = "text-emerald-700 dark:text-emerald-400",
   iconBg,
   loading = false,
   suffix = "",
@@ -55,10 +56,10 @@ export default function StatCard({
   const TrendIcon = isNeutral ? Minus : hausse ? TrendingUp : TrendingDown;
   const isGood = positiveIsUp ? hausse : !hausse;
   const trendColor = isNeutral
-    ? "text-gray-500 dark:text-gray-400"
+    ? "text-muted-foreground"
     : isGood
-      ? "text-emerald-600 dark:text-emerald-400"
-      : "text-red-500 dark:text-red-400";
+      ? "text-emerald-700 dark:text-emerald-400"
+      : "text-red-600 dark:text-red-400";
   const trendBg = isNeutral
     ? "bg-gray-100 dark:bg-white/8"
     : isGood
@@ -79,7 +80,7 @@ export default function StatCard({
       className={`glass-card p-4 rounded-xl flex flex-col gap-2.5 ${featured ? "ring-1 ring-amber-300/50 dark:ring-amber-500/25" : ""}`}
     >
       {/* Label */}
-      <p id={titleId} title={description} className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider leading-none">
+      <p id={titleId} title={description} className="text-xs font-semibold text-muted-foreground uppercase tracking-wider leading-none">
         {title}
       </p>
       {description && <span id={descriptionId} className="sr-only">{description}</span>}
@@ -92,11 +93,11 @@ export default function StatCard({
         >
           {displayValue}
           {!formatter && suffix && (
-            <span className="text-base font-normal text-gray-500 dark:text-gray-400 ml-0.5">{suffix}</span>
+            <span className="text-base font-normal text-muted-foreground ml-0.5">{suffix}</span>
           )}
         </div>
         {subtitle && (
-          <p id={subtitleId} className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-snug">{subtitle}</p>
+          <p id={subtitleId} className="text-xs text-muted-foreground mt-1 leading-snug">{subtitle}</p>
         )}
       </div>
 
@@ -108,20 +109,20 @@ export default function StatCard({
         <div className="flex flex-col items-end gap-0.5">
           <div
             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${trendBg} ${trendColor}`}
-            aria-label={`Variation : ${isNeutral ? "Stable" : `${safeVariation > 0 ? "+" : ""}${safeVariation}${variationUnit}`}${!isNeutral && !positiveIsUp ? (isGood ? " (amélioration)" : " (dégradation)") : ""}`}
+            aria-label={`Variation : ${isNeutral ? "Stable" : `${safeVariation > 0 ? "+" : ""}${nombreFr(safeVariation)}${variationUnit}`}${!isNeutral && !positiveIsUp ? (isGood ? " (amélioration)" : " (dégradation)") : ""}`}
           >
             <TrendIcon size={9} aria-hidden="true" />
             <span>
               {isNeutral
                 ? "Stable"
-                : `${safeVariation > 0 ? "+" : ""}${safeVariation}${variationUnit}`}
+                : `${safeVariation > 0 ? "+" : ""}${nombreFr(safeVariation)}${variationUnit}`}
             </span>
             {!isNeutral && !positiveIsUp && (
               <span className="sr-only">{isGood ? " — amélioration" : " — dégradation"}</span>
             )}
           </div>
           {variationLabel && (
-            <span className="text-[10px] text-gray-500 dark:text-gray-400 tabular-nums">{variationLabel}</span>
+            <span className="text-[10px] text-muted-foreground tabular-nums">{variationLabel}</span>
           )}
         </div>
       </div>

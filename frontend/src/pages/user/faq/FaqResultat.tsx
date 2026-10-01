@@ -21,7 +21,7 @@ export default function FaqResultat({ resultat }: { resultat: Resultat }) {
         <ChevronDown
           size={15}
           aria-hidden="true"
-          className={`mt-0.5 shrink-0 text-gray-400 transition-transform duration-200 ${ouvert ? "rotate-180" : ""}`}
+          className={`mt-0.5 shrink-0 text-subtle transition-transform duration-200 ${ouvert ? "rotate-180" : ""}`}
         />
         <span className="flex-1 text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">
           {resultat.question}
@@ -32,7 +32,7 @@ export default function FaqResultat({ resultat }: { resultat: Resultat }) {
       {ouvert && (
         <p
           id={panneauId}
-          className="pb-4 pl-[1.625rem] text-sm leading-relaxed text-gray-600 dark:text-gray-400"
+          className="pb-4 pl-[1.625rem] text-sm leading-relaxed text-gray-600 dark:text-muted-foreground"
         >
           {renderMarkdown(resultat.contenu)}
         </p>

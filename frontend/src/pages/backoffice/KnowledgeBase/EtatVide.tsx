@@ -14,10 +14,10 @@ export function EtatVide({
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-20 text-center">
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/5">
-        <Icon size={18} className="text-gray-500 dark:text-gray-400" />
+        <Icon size={18} className="text-subtle" />
       </div>
       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{titre}</p>
-      <p className="max-w-sm text-xs leading-relaxed text-gray-500 dark:text-gray-400">{detail}</p>
+      <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">{detail}</p>
       {action}
     </div>
   );

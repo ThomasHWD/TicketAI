@@ -32,14 +32,14 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
     <div className="space-y-4">
       {/* Top bar */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-xs text-muted-foreground">
           {isFetching ? "Actualisation…" : lastUpdated ? `Mis à jour à ${lastUpdated} · auto toutes les 30 s` : ""}
         </p>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
           aria-label="Actualiser les données de santé"
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150 disabled:opacity-40"
+          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150 disabled:opacity-40"
         >
           <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} aria-hidden="true" />
           Actualiser
@@ -79,7 +79,7 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 py-20 text-gray-400">
+        <div className="flex items-center justify-center gap-2 py-20 text-muted-foreground">
           <Loader2 size={16} className="animate-spin" aria-hidden="true" />
           <span className="text-sm">Chargement…</span>
         </div>
@@ -102,7 +102,7 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
           {/* Services + Pipeline */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="glass-card rounded-2xl px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 pb-2">Infrastructure</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pb-2">Infrastructure</p>
               <ul>
                 {INFRA_SERVICES.map(({ key, label }) =>
                   health ? <ServiceRow key={key} svc={health[key] as ServiceHealth} label={label} /> : null
@@ -111,15 +111,15 @@ export default function HealthTab({ onGoIncidents }: { onGoIncidents: () => void
             </div>
 
             <div className="glass-card rounded-2xl px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 pb-2">Pipeline</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pb-2">Pipeline</p>
 
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-white/40 pt-1 pb-0.5">Incidents</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1 pb-0.5">Incidents</p>
               <PipelineRow label="Tickets échoués"   hint="Job Celery planté — nécessite une relance manuelle" value={stats?.tickets_echoues ?? null} danger={(stats?.tickets_echoues ?? 0) > 0} />
               <PipelineRow label="Documents échoués" value={stats?.documents_echoues ?? null} danger={(stats?.documents_echoues ?? 0) > 0} />
               <PipelineRow label="Tickets bloqués"   hint="En attente de traitement depuis plus de 10 min" value={stats?.tickets_bloques ?? null} warn={(stats?.tickets_bloques ?? 0) > 0} />
               <PipelineRow label="Réponses à relire" hint="Réponses validées affectées par une mise à jour documentaire" value={stats?.reponses_a_relire ?? null} warn={(stats?.reponses_a_relire ?? 0) > 0} />
 
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-white/40 pt-4 pb-0.5">Capacité</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-4 pb-0.5">Capacité</p>
               <PipelineRow label="File d'attente ingestion" value={stats?.celery_pending_ingestion ?? null} warn={(stats?.celery_pending_ingestion ?? 0) > 5} />
               <PipelineRow label="File d'attente questions" value={stats?.celery_pending_questions ?? null} warn={(stats?.celery_pending_questions ?? 0) > 10} />
               <PipelineRow label="Workers ingestion"        value={stats?.celery_workers_ingestion ?? null} danger={(stats?.celery_workers_ingestion ?? 1) === 0} />

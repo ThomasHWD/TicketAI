@@ -61,7 +61,7 @@ export function UpdateDocFooter({
               {restauration ? "Confirmer la restauration" : "Confirmer la mise à jour"}
             </button>
             {impact.nb_a_analyser > 0 && (
-              <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
+              <p className="text-center text-[11px] text-muted-foreground">
                 {impact.nb_a_analyser} réponse{impact.nb_a_analyser > 1 ? "s" : ""}{" "}
                 {impact.nb_a_analyser > 1 ? "seront relues" : "sera relue"}
               </p>

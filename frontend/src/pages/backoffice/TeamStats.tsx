@@ -39,7 +39,7 @@ export default function TeamStatsPanel({ periode }: Props) {
 
   if (!groupeId) {
     return (
-      <div className="glass-card rounded-2xl px-5 py-10 text-center text-sm text-gray-400">
+      <div className="glass-card rounded-2xl px-5 py-10 text-center text-sm text-muted-foreground">
         Vous n'êtes chef d'aucun groupe.
       </div>
     );
@@ -79,14 +79,14 @@ export default function TeamStatsPanel({ periode }: Props) {
                 <option key={g.id} value={g.id}>{g.nom} — {g.domaine}</option>
               ))}
             </select>
-            <ChevronDown size={14} aria-hidden="true" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <ChevronDown size={14} aria-hidden="true" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-subtle pointer-events-none" />
           </div>
         ) : currentGroupe && (
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {currentGroupe.nom} <span className="font-normal text-gray-400">—</span> {currentGroupe.domaine}
+            {currentGroupe.nom} <span className="font-normal text-muted-foreground">—</span> {currentGroupe.domaine}
           </p>
         )}
-        <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{periodeLabel}</span>
+        <span className="text-xs text-muted-foreground shrink-0">{periodeLabel}</span>
       </div>
 
       <div className="glass-card rounded-2xl overflow-hidden">
@@ -94,7 +94,7 @@ export default function TeamStatsPanel({ periode }: Props) {
           <table className="w-full text-sm">
             <caption className="sr-only">Statistiques des membres de l'équipe</caption>
             <thead>
-              <tr className="border-b border-gray-100 dark:border-white/10 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+              <tr className="border-b border-gray-100 dark:border-white/10 text-muted-foreground text-xs uppercase tracking-wide">
                 <th scope="col" className="text-left px-5 py-3 font-medium">Membre</th>
                 <th
                   scope="col"
@@ -120,7 +120,7 @@ export default function TeamStatsPanel({ periode }: Props) {
                       ? sortDir === "desc"
                         ? <ChevronDown size={11} aria-hidden="true" />
                         : <ChevronUp size={11} aria-hidden="true" />
-                      : <ChevronsUpDown size={11} className="text-gray-400 dark:text-gray-500" aria-hidden="true" />
+                      : <ChevronsUpDown size={11} className="text-subtle" aria-hidden="true" />
                     }
                   </button>
                 </th>
@@ -148,7 +148,7 @@ export default function TeamStatsPanel({ periode }: Props) {
                       ? sortDir === "desc"
                         ? <ChevronDown size={11} aria-hidden="true" />
                         : <ChevronUp size={11} aria-hidden="true" />
-                      : <ChevronsUpDown size={11} className="text-gray-400 dark:text-gray-500" aria-hidden="true" />
+                      : <ChevronsUpDown size={11} className="text-subtle" aria-hidden="true" />
                     }
                   </button>
                 </th>
@@ -183,10 +183,10 @@ export default function TeamStatsPanel({ periode }: Props) {
               {isError && (
                 <tr>
                   <td colSpan={3} className="px-5 py-10 text-center text-sm">
-                    <p className="text-red-500 dark:text-red-400 mb-3">Erreur de chargement.</p>
+                    <p className="text-red-600 dark:text-red-400 mb-3">Erreur de chargement.</p>
                     <button
                       onClick={() => refetch()}
-                      className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400 underline underline-offset-2 hover:no-underline transition-all duration-150"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400 underline underline-offset-2 hover:no-underline transition-all duration-150"
                     >
                       <RefreshCw size={13} aria-hidden="true" />
                       Réessayer
@@ -210,16 +210,16 @@ export default function TeamStatsPanel({ periode }: Props) {
                       )}
                     </div>
                     {(m.prenom || m.nom) && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{m.email}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{m.email}</p>
                     )}
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <span className={`font-semibold ${m.nb_reponses_validees > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400"}`}>
+                    <span className={`font-semibold ${m.nb_reponses_validees > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}>
                       {m.nb_reponses_validees}
                     </span>
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <span className={`font-semibold ${m.nb_documents > 0 ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`}>
+                    <span className={`font-semibold ${m.nb_documents > 0 ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"}`}>
                       {m.nb_documents}
                     </span>
                   </td>
@@ -228,7 +228,7 @@ export default function TeamStatsPanel({ periode }: Props) {
 
               {!isLoading && !isError && data?.membres.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-5 py-10 text-center text-sm text-gray-400">
+                  <td colSpan={3} className="px-5 py-10 text-center text-sm text-muted-foreground">
                     Aucun membre dans ce groupe.
                   </td>
                 </tr>
@@ -237,7 +237,7 @@ export default function TeamStatsPanel({ periode }: Props) {
 
             {!isLoading && !isError && sorted.length > 0 && (
               <tfoot>
-                <tr className="border-t border-gray-100 dark:border-white/10 text-xs text-gray-500 dark:text-gray-400">
+                <tr className="border-t border-gray-100 dark:border-white/10 text-xs text-muted-foreground">
                   <td className="px-5 py-3 font-medium">Total équipe</td>
                   <td className="px-5 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">
                     {data?.membres.reduce((s, m) => s + m.nb_reponses_validees, 0) ?? 0}

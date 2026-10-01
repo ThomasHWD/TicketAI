@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { BookX, ArrowRight } from "lucide-react";
+import { nombreFr } from "../../lib/format";
 
 interface HorsDomaineCardProps {
   count: number;
@@ -31,14 +32,14 @@ export default function HorsDomaineCard({ count, pct, loading = false }: HorsDom
         <BookX size={12} className="text-amber-600 dark:text-amber-400" />
       </div>
 
-      <span className="text-sm text-gray-600 dark:text-gray-400 flex-1 min-w-0">
+      <span className="text-sm text-gray-600 dark:text-muted-foreground flex-1 min-w-0">
         <span className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{count}</span>
         {" "}sujet{count > 1 ? "s" : ""} non couvert{count > 1 ? "s" : ""} cette période
-        <span className="text-gray-500 dark:text-gray-400 ml-1.5 tabular-nums">({pct}%)</span>
-        <span className="block text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">questions sans document correspondant</span>
+        <span className="text-muted-foreground ml-1.5 tabular-nums">({nombreFr(pct)} %)</span>
+        <span className="block text-[11px] text-muted-foreground mt-0.5">questions sans document correspondant</span>
       </span>
 
-      <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
+      <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
         Voir le détail
         <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform duration-100" />
       </span>

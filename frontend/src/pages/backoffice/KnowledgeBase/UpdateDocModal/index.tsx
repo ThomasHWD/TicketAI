@@ -62,7 +62,7 @@ export default function UpdateDocModal({
           />
           <div className="space-y-1.5">
             <label htmlFor="maj-description" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Description <span className="text-red-500" aria-hidden="true">*</span>
+              Description <span className="text-red-600 dark:text-red-400" aria-hidden="true">*</span>
             </label>
             <input
               id="maj-description"
@@ -70,12 +70,12 @@ export default function UpdateDocModal({
               value={m.description ?? ""}
               onChange={(e) => m.setDescription(e.target.value)}
               placeholder="Résumez brièvement le contenu du document…"
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-white/12 dark:bg-white/5 dark:text-gray-100 dark:placeholder:text-gray-600"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-white/12 dark:bg-white/5 dark:text-gray-100"
               required
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400">Obligatoire — sert à retrouver le document dans la liste.</p>
+            <p className="text-xs text-muted-foreground">Obligatoire — sert à retrouver le document dans la liste.</p>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-muted-foreground">
             Le document conservera son identifiant ; l'ancienne version sera archivée et restera téléchargeable.
           </p>
         </div>
@@ -83,13 +83,13 @@ export default function UpdateDocModal({
 
       {m.etape === "analyse" && (
         <div className="flex flex-col items-center gap-4 py-12">
-          <Loader2 size={22} className="animate-spin text-gray-400" />
+          <Loader2 size={22} className="animate-spin text-subtle" />
           <div className="space-y-1 text-center">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Comparaison avec la version en ligne…</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Détection des paragraphes modifiés · quelques secondes</p>
+            <p className="text-xs text-muted-foreground">Détection des paragraphes modifiés · quelques secondes</p>
           </div>
           <div className="h-0.5 w-40 animate-pulse rounded-full bg-emerald-300 dark:bg-emerald-500/40" />
-          <p className="max-w-xs text-center text-xs text-gray-500 dark:text-gray-400">
+          <p className="max-w-xs text-center text-xs text-muted-foreground">
             Aucune modification n'est appliquée avant votre confirmation.
           </p>
         </div>
@@ -108,11 +108,11 @@ export default function UpdateDocModal({
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               {m.restauration ? "Restauration lancée" : "Mise à jour lancée"}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Le document sera ré-indexé en arrière-plan.</p>
+            <p className="text-xs text-muted-foreground">Le document sera ré-indexé en arrière-plan.</p>
           </div>
           {m.nbAAnalyser > 0 && (
             <>
-              <p className="max-w-sm text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+              <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
                 {m.nbAAnalyser} réponse{m.nbAAnalyser > 1 ? "s" : ""}{" "}
                 {m.nbAAnalyser > 1 ? "sont" : "est"} en cours d'analyse. Celles que le changement
                 contredit basculeront dans Obsolètes ; les cas douteux seront déposés dans À relire,
@@ -137,7 +137,7 @@ export default function UpdateDocModal({
             <XCircle size={15} className="shrink-0" aria-hidden="true" />
             {m.restauration ? "Restauration impossible" : "Mise à jour impossible"}
           </p>
-          <p className="text-xs leading-relaxed text-red-700/80 dark:text-red-300/80">{m.erreur}</p>
+          <p className="text-xs leading-relaxed text-red-700 dark:text-red-300">{m.erreur}</p>
         </div>
       )}
     </Modal>

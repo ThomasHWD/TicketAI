@@ -69,7 +69,7 @@ export default function Navbar() {
       {/* Theme toggle */}
       <button
         onClick={toggle}
-        className="p-1.5 rounded-md text-gray-500 dark:text-gray-400
+        className="p-1.5 rounded-md text-muted-foreground
           hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:text-gray-800 dark:hover:text-gray-200
           transition-colors duration-150 shrink-0
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
@@ -88,8 +88,8 @@ export default function Navbar() {
       <button
         onClick={() => navigate("/nouveau-ticket")}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-md
-          bg-emerald-600 hover:bg-emerald-700
-          text-white text-sm font-medium
+          bg-primary hover:bg-primary-hover
+          text-primary-foreground text-sm font-medium
           transition-colors duration-150 shrink-0
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
       >
@@ -108,7 +108,7 @@ export default function Navbar() {
       {/* Déconnexion */}
       <button
         onClick={handleLogout}
-        className="p-1.5 rounded-md text-gray-500 dark:text-gray-400
+        className="p-1.5 rounded-md text-muted-foreground
           hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:text-gray-800 dark:hover:text-gray-200
           transition-colors duration-150 shrink-0
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"

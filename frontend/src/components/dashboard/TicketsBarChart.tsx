@@ -62,10 +62,10 @@ export default function TicketsBarChart({ nouveaux, traitement, loading = false,
   return (
     <div className="glass-card p-5 rounded-2xl h-full flex flex-col">
       <div className="flex items-center justify-between mb-5 shrink-0">
-        <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           {TITRE[periode]}
         </h3>
-        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: isDark ? "#60a5fa" : "#3b82f6" }} />
             Nouveaux

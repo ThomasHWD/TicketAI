@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   CheckCircle, Archive, Activity, Clock,
   ChevronDown, ChevronUp, UsersRound, RefreshCw,
@@ -7,8 +7,6 @@ import {
 import { useAuth } from "../../lib/auth";
 import { useDashboard, PERIODES, formatDuration } from "../../hooks/useDashboard";
 import StatCard from "../../components/dashboard/StatCard";
-import DonutChart from "../../components/dashboard/DonutChart";
-import TicketsBarChart from "../../components/dashboard/TicketsBarChart";
 import RecentDocs from "../../components/dashboard/RecentDocs";
 import RecentTickets from "../../components/dashboard/RecentTickets";
 import SatisfactionCard from "../../components/dashboard/SatisfactionCard";
@@ -16,6 +14,14 @@ import TicketsInsatisfaitsModal from "../../components/dashboard/TicketsInsatisf
 import HorsDomaineCard from "../../components/dashboard/HorsDomaineCard";
 import { QueueHero } from "../../components/dashboard/QueueHero";
 import TeamStatsPanel from "./TeamStats";
+
+// recharts (~110 Ko gzip) n'est chargé qu'à l'ouverture des analytiques, repliées par défaut.
+const DonutChart = lazy(() => import("../../components/dashboard/DonutChart"));
+const TicketsBarChart = lazy(() => import("../../components/dashboard/TicketsBarChart"));
+
+function ChartPlaceholder({ className = "" }: { className?: string }) {
+  return <div className={`glass-card rounded-2xl motion-safe:animate-pulse ${className}`} aria-hidden="true" />;
+}
 
 function TabButton({ id, controls, active, onClick, children }: {
   id: string; controls: string; active: boolean; onClick: () => void; children: React.ReactNode;
@@ -27,7 +33,7 @@ function TabButton({ id, controls, active, onClick, children }: {
       className={`flex items-center gap-1.5 px-1 py-3 mr-6 text-sm font-medium border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 ${
         active
           ? "border-emerald-500 text-gray-900 dark:text-gray-100"
-          : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-white/20"
+          : "border-transparent text-muted-foreground hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-white/20"
       }`}
     >
       {children}
@@ -68,11 +74,11 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">Tableau de bord</h1>
-              <button onClick={showOnboarding} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors" aria-label="Revoir le guide de démarrage">
+              <button onClick={showOnboarding} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors" aria-label="Revoir le guide de démarrage">
                 <HelpCircle size={13} aria-hidden="true" /><span>Aide</span>
               </button>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 capitalize">
+            <p className="text-sm text-muted-foreground mt-0.5 capitalize">
               {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
             </p>
           </div>
@@ -85,7 +91,7 @@ export default function Dashboard() {
                   <option value="">Tous les domaines</option>
                   {userDomaines.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-subtle pointer-events-none" />
               </div>
             )}
 
@@ -102,7 +108,7 @@ export default function Dashboard() {
                 <button key={p.value} role="radio" aria-checked={periode === p.value} tabIndex={periode === p.value ? 0 : -1}
                   onClick={() => setPeriode(p.value)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 ${
-                    periode === p.value ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-100 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                    periode === p.value ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-100 shadow-sm" : "text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200"
                   }`}
                 >
                   {p.label}
@@ -111,14 +117,14 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
-              {refreshError && !refreshing && <span role="alert" className="text-xs text-red-500 dark:text-red-400">Échec du rafraîchissement</span>}
+              {refreshError && !refreshing && <span role="alert" className="text-xs text-red-600 dark:text-red-400">Échec du rafraîchissement</span>}
               {lastUpdated && !refreshing && !refreshError && (
-                <span role="status" aria-live="polite" className={`text-xs ${isDataStale ? "text-amber-500 dark:text-amber-400" : "text-gray-500 dark:text-gray-400"}`}>
+                <span role="status" aria-live="polite" className={`text-xs ${isDataStale ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>
                   {isDataStale && <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1 align-middle animate-pulse" aria-hidden="true" />}
                   Mis à jour {formatLastUpdated(lastUpdated)}
                 </span>
               )}
-              <button onClick={handleRefresh} disabled={refreshing} className="p-1.5 rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Rafraîchir les données" title="Rafraîchir">
+              <button onClick={handleRefresh} disabled={refreshing} className="p-1.5 rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-muted-foreground hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Rafraîchir les données" title="Rafraîchir">
                 <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               </button>
             </div>
@@ -153,13 +159,13 @@ export default function Dashboard() {
               <div role="note" className="glass-card rounded-2xl px-5 py-4 flex items-start gap-4 border border-emerald-200 dark:border-emerald-500/20">
                 <div className="flex-1 space-y-1">
                   <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Bienvenue dans votre tableau de bord</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
                     La <strong className="font-medium text-gray-700 dark:text-gray-300">file d'attente</strong> liste les tickets auxquels l'IA a répondu et qui attendent votre avis.
                     Les tickets <strong className="font-medium">Hors Domaine</strong> et les <strong className="font-medium">Suggestions</strong> nécessitent votre validation.
                     Les tickets <strong className="font-medium">Auto</strong> (canoniques) sont déjà validés — aucune action requise.
                   </p>
                 </div>
-                <button onClick={dismissOnboarding} className="shrink-0 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors" aria-label="Fermer le message d'accueil">
+                <button onClick={dismissOnboarding} className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors" aria-label="Fermer le message d'accueil">
                   <X size={14} />
                 </button>
               </div>
@@ -179,17 +185,17 @@ export default function Dashboard() {
             {statsError ? (
               <div className="glass-card rounded-2xl p-5 flex items-center gap-3">
                 <AlertTriangle size={16} className="text-red-500 shrink-0" />
-                <p className="text-sm text-gray-600 dark:text-gray-400 flex-1">Impossible de charger les statistiques. Réessayez dans quelques instants.</p>
-                <button onClick={() => queryClient.refetchQueries({ queryKey: ["dashboard-stats", filterDomaine, periode] })} className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline shrink-0">Réessayer</button>
+                <p className="text-sm text-gray-600 dark:text-muted-foreground flex-1">Impossible de charger les statistiques. Réessayez dans quelques instants.</p>
+                <button onClick={() => queryClient.refetchQueries({ queryKey: ["dashboard-stats", filterDomaine, periode] })} className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline shrink-0">Réessayer</button>
               </div>
             ) : (
               <div className="space-y-2">
-                <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-0.5">
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
                   Indicateurs · {PERIODES.find((p) => p.value === periode)?.label}
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-                  <StatCard title="En cours" value={stats?.stats_cartes.en_cours.valeur ?? 0} variation={stats?.stats_cartes.en_cours.variation ?? 0} hausse={stats?.stats_cartes.en_cours.hausse ?? true} icon={Activity} iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-500/10" loading={statsLoading} subtitle="tickets ouverts sur la période" variationLabel={variationLabel} featured />
-                  <StatCard title="Réponses auto" value={stats?.stats_cartes.repondu_canonique.valeur ?? 0} variation={stats?.stats_cartes.repondu_canonique.variation ?? 0} hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true} icon={CheckCircle} iconColor="text-emerald-500" loading={statsLoading} suffix="%" subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} tickets sans validation humaine`} variationUnit=" pts" variationLabel={variationLabel} />
+                  <StatCard title="En cours" value={stats?.stats_cartes.en_cours.valeur ?? 0} variation={stats?.stats_cartes.en_cours.variation ?? 0} hausse={stats?.stats_cartes.en_cours.hausse ?? true} icon={Activity} iconColor="text-amber-700 dark:text-amber-400" iconBg="bg-amber-50 dark:bg-amber-500/10" loading={statsLoading} subtitle="tickets ouverts sur la période" variationLabel={variationLabel} featured />
+                  <StatCard title="Réponses auto" value={stats?.stats_cartes.repondu_canonique.valeur ?? 0} variation={stats?.stats_cartes.repondu_canonique.variation ?? 0} hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true} icon={CheckCircle} iconColor="text-emerald-700 dark:text-emerald-400" loading={statsLoading} suffix="%" subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} tickets sans validation humaine`} variationUnit=" pts" variationLabel={variationLabel} />
                   <StatCard title="Clôturés" value={stats?.stats_cartes.tickets_clotures.valeur ?? 0} variation={stats?.stats_cartes.tickets_clotures.variation ?? 0} hausse={stats?.stats_cartes.tickets_clotures.hausse ?? true} icon={Archive} iconColor="text-violet-500" loading={statsLoading} subtitle="validés sur la période" variationLabel={variationLabel} />
                   <StatCard title="Délai 1ère réponse" value={stats?.stats_cartes.temps_premiere_reponse.valeur ?? 0} variation={stats?.stats_cartes.temps_premiere_reponse.variation ?? 0} hausse={stats?.stats_cartes.temps_premiere_reponse.hausse ?? true} icon={Clock} iconColor="text-orange-500" formatter={formatDuration} loading={statsLoading} positiveIsUp={false} subtitle="dépôt ticket → 1ère réponse humaine" variationLabel={variationLabel} />
                   <StatCard title="Délai clôture" value={stats?.stats_cartes.temps_cloture.valeur ?? 0} variation={stats?.stats_cartes.temps_cloture.variation ?? 0} hausse={stats?.stats_cartes.temps_cloture.hausse ?? true} icon={Timer} iconColor="text-rose-500" formatter={formatDuration} loading={statsLoading} positiveIsUp={false} subtitle="dépôt ticket → clotûre" variationLabel={variationLabel} />
@@ -205,7 +211,7 @@ export default function Dashboard() {
             {/* Analytics toggle */}
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-gray-100 dark:bg-white/8" />
-              <button type="button" aria-expanded={analyticsOpen} aria-controls="analytics-section" onClick={toggleAnalytics} className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-white/8 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/14 hover:text-gray-700 dark:hover:text-gray-300 transition-colors shrink-0">
+              <button type="button" aria-expanded={analyticsOpen} aria-controls="analytics-section" onClick={toggleAnalytics} className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-white/8 text-muted-foreground hover:bg-gray-200 dark:hover:bg-white/14 hover:text-gray-700 dark:hover:text-gray-300 transition-colors shrink-0">
                 {(docsError || statsError) && !analyticsOpen && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" aria-label="Erreur dans les analytiques" />}
                 {analyticsOpen ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
                 {analyticsOpen ? "Masquer les analytiques" : "Afficher les analytiques"}
@@ -214,17 +220,25 @@ export default function Dashboard() {
             </div>
 
             <div id="analytics-section" className="space-y-4" hidden={!analyticsOpen}>
-              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-0.5">Tendances</h2>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">Tendances</h2>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2">
-                  <TicketsBarChart nouveaux={stats?.tickets_par_jour ?? []} traitement={stats?.traitement_par_jour ?? []} loading={statsLoading} periode={periode} />
+                  {analyticsOpen && (
+                    <Suspense fallback={<ChartPlaceholder className="h-full min-h-72" />}>
+                      <TicketsBarChart nouveaux={stats?.tickets_par_jour ?? []} traitement={stats?.traitement_par_jour ?? []} loading={statsLoading} periode={periode} />
+                    </Suspense>
+                  )}
                 </div>
                 <div className="flex flex-col gap-4">
-                  <DonutChart data={stats?.repartition_statuts ?? []} loading={statsLoading} periode={periode} />
+                  {analyticsOpen && (
+                    <Suspense fallback={<ChartPlaceholder className="h-56" />}>
+                      <DonutChart data={stats?.repartition_statuts ?? []} loading={statsLoading} periode={periode} />
+                    </Suspense>
+                  )}
                   <SatisfactionCard data={stats?.satisfaction ?? null} loading={statsLoading} onVoirInsatisfaits={() => setShowInsatisfaits(true)} />
                 </div>
               </div>
-              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-0.5">Activité récente</h2>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">Activité récente</h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <RecentTickets tickets={stats?.derniers_tickets ?? []} loading={statsLoading} />
                 <RecentDocs docs={docsData?.items ?? []} loading={docsLoading} error={docsError} onRetry={() => queryClient.refetchQueries({ queryKey: ["dashboard-docs", filterDomaine] })} />
