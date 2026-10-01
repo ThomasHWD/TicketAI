@@ -197,7 +197,7 @@ def confrontation_job(
         )
 
     except Exception as exc:
-        logger.error("erreur confrontation_job doc %s v%d : %s", doc_id, version, exc)
+        logger.exception("erreur confrontation_job doc %s v%d", doc_id, version)
         raise self.retry(exc=exc) from exc
     finally:
         db.close()

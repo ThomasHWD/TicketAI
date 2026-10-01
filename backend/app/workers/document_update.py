@@ -273,7 +273,7 @@ def document_update_job(
         return _terminer(doc_id, new_version, file_path, self.request.id)
 
     except Exception as exc:
-        logger.error("erreur document_update_job '%s' : %s", filename, exc)
+        logger.exception("erreur document_update_job '%s'", filename)
         raise self.retry(exc=exc) from exc
 
 

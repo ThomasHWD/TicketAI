@@ -35,7 +35,12 @@ def chat(
     data = response.json()
     content = (data["choices"][0]["message"]["content"] or "").strip()
     if not content:
-        logger.warning("Réponse LLM vide — body complet : %s", data)
+        # Not the whole body: a reasoning model's trace there rephrases the user's question.
+        logger.warning(
+            "Réponse LLM vide — finish_reason=%s usage=%s",
+            data["choices"][0].get("finish_reason"),
+            data.get("usage"),
+        )
     return content
 
 

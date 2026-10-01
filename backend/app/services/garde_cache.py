@@ -52,7 +52,7 @@ def statuer(question_posee: str, question_indexee: str, *, est_suivi: bool = Fal
     """Decide if the question asked calls exactly the same answer as the indexed question. In follow-up mode"""
     # Short-circuit disabled in follow-up mode: comparing a full thread to a single question is meaningless.
     if not est_suivi and _normaliser(question_posee) == _normaliser(question_indexee):
-        logger.info("Garde : répétition exacte → OUI (sans appel LLM)")
+        logger.debug("Garde : répétition exacte → OUI (sans appel LLM)")
         return Decision(verdict=True, court_circuit=True)
 
     modele = settings.albert_garde_model_name or settings.albert_llm_model_name
@@ -66,7 +66,7 @@ def statuer(question_posee: str, question_indexee: str, *, est_suivi: bool = Fal
     try:
         verdict = chat(messages, temperature=0, max_tokens=20, model=modele)
         approuve = verdict.strip().upper() == "OUI"
-        logger.info("Garde : %s", "OUI" if approuve else "NON")
+        logger.debug("Garde : %s", "OUI" if approuve else "NON")
         return Decision(verdict=approuve, modele=modele)
     except Exception as exc:
         logger.warning("Garde inaccessible, refus par défaut : %s", exc)
