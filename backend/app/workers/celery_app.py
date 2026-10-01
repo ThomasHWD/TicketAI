@@ -1,7 +1,9 @@
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import setup_logging, task_postrun, task_prerun
 
 from app.config import settings
+from app.core.logs import configurer_logs, delier, lier
 
 celery_app = Celery(
     "ticketai",
@@ -46,3 +48,22 @@ celery_app.conf.update(
         },
     },
 )
+
+
+@setup_logging.connect
+def _configurer_logs(**_):
+    """Connected → Celery leaves logging alone (its -l flag included): same format and level as the API."""
+    configurer_logs(settings.log_level)
+
+
+@task_prerun.connect
+def _lier_tache(task_id, task, **_):
+    delier()
+    lier(tache=f"{task.name.rsplit('.', 1)[-1]}:{task_id[:8]}")
+
+
+@task_postrun.connect
+def _delier_tache(**_):
+    # Sent after the « succeeded »/retry line. Without it the prefix outlived the task in its thread: an eager task
+    # (tests, or a caller's thread) stamped every later line of that thread with its id (CI, 01/10/2026).
+    delier()

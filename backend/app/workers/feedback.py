@@ -86,7 +86,7 @@ def _alias_juge(tache, source, copie, nouvelle_question: str, ticket_source, dom
     if decision.erreur:
         raise tache.retry(exc=RuntimeError(f"garde injoignable pour l'alias : {decision.erreur}"))
     if not decision.verdict:
-        logger.info("Alias refusé par le garde : %r ≠ %r", nouvelle_question, question_source)
+        logger.info("Alias refusé par le garde pour la réponse %s", source.id)
     return decision.verdict
 
 

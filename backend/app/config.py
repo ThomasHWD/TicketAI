@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     # second tier shown only when no confident result — sub-threshold band mixes true and false positives with no
     faq_seuil_incertain: float = 0.55
 
+    log_level: str = "INFO"  # DEBUG shows each retrieval step of a question (scores, rerank)
+
     lock_ttl_seconds: int = 300  # bail prolongé par heartbeat
     jours_auto_cloture: int = 7
     documents_storage_path: str
