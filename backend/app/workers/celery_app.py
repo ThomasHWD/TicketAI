@@ -1,6 +1,6 @@
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import setup_logging, task_prerun
+from celery.signals import setup_logging, task_postrun, task_prerun
 
 from app.config import settings
 from app.core.logs import configurer_logs, delier, lier
@@ -58,6 +58,12 @@ def _configurer_logs(**_):
 
 @task_prerun.connect
 def _lier_tache(task_id, task, **_):
-    # Reset first: a pool thread runs task after task, the previous prefix must not leak into the next one.
     delier()
     lier(tache=f"{task.name.rsplit('.', 1)[-1]}:{task_id[:8]}")
+
+
+@task_postrun.connect
+def _delier_tache(**_):
+    # Sent after the « succeeded »/retry line. Without it the prefix outlived the task in its thread: an eager task
+    # (tests, or a caller's thread) stamped every later line of that thread with its id (CI, 01/10/2026).
+    delier()
