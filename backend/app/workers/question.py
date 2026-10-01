@@ -170,7 +170,7 @@ def question_job(
                 # Each candidate served has its own OUI: a refusal of the first never lends anything to the second.
                 if approuve and peut_servir_sans_revue(reponse_liee):
                     # OUI on a_relire → SUGGESTION (not CANONIQUE); servir_reutilisation checks it again.
-                    logger.info("garde : OUI → CANONIQUE si le seuil est franchi, sinon SUGGESTION")
+                    logger.info("garde : OUI")
                     return servir_reutilisation(
                         db,
                         job_id,
