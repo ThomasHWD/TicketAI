@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { SmilePlus } from "lucide-react";
 import { STAR_PATH } from "../ui/StarPicker";
+import { noteFr } from "../../lib/format";
 
 interface SatisfactionData {
   avg_qualite: number | null;
@@ -29,7 +30,7 @@ export function StarRating({ value, size = 15 }: { value: number; size?: number 
       height={size}
       viewBox={`0 0 ${w} 24`}
       className="text-gray-200 dark:text-gray-700"
-      aria-label={`${value.toFixed(1)} sur 5`}
+      aria-label={`${noteFr(value)} sur 5`}
     >
       <defs>
         {/* gradient pour l'étoile partiellement remplie */}
@@ -63,14 +64,14 @@ function SubMetric({ label, value }: { label: string; value: number | null }) {
   const pct = value !== null ? Math.round((value / 5) * 100) : 0;
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
       {value !== null ? (
         <>
           <div className="flex items-baseline gap-1.5">
             <span className="text-xl font-bold text-gray-800 dark:text-gray-100 leading-none">
-              {value.toFixed(1)}
+              {noteFr(value)}
             </span>
             <StarRating value={value} size={12} />
           </div>
@@ -82,12 +83,12 @@ function SubMetric({ label, value }: { label: string; value: number | null }) {
               aria-valuenow={pct}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label={`${label} : ${value!.toFixed(1)} sur 5`}
+              aria-label={`${label} : ${noteFr(value!)} sur 5`}
             />
           </div>
         </>
       ) : (
-        <span className="text-xl font-bold text-gray-500 dark:text-gray-400">—</span>
+        <span className="text-xl font-bold text-muted-foreground">—</span>
       )}
     </div>
   );
@@ -139,7 +140,7 @@ export default function SatisfactionCard({ data, loading = false, onVoirInsatisf
           </h3>
         </div>
         {!isEmpty && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-xs text-muted-foreground">
             {data!.nb_avec_notes} avis
           </span>
         )}
@@ -160,7 +161,7 @@ export default function SatisfactionCard({ data, loading = false, onVoirInsatisf
                 <path key={i} d={STAR_PATH} fill="currentColor" transform={`translate(${i * 27}, 0)`} />
               ))}
             </svg>
-            <p className="text-xs text-gray-400 dark:text-gray-600 text-center max-w-[160px]">
+            <p className="text-xs text-muted-foreground text-center max-w-[160px]">
               Aucune évaluation sur cette période
             </p>
           </>
@@ -169,13 +170,13 @@ export default function SatisfactionCard({ data, loading = false, onVoirInsatisf
             <div className="flex flex-col items-center gap-1">
               <div className="flex items-baseline gap-2">
                 <span className="text-5xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-none tabular-nums">
-                  {globalScore!.toFixed(1)}
+                  {noteFr(globalScore!)}
                 </span>
-                <span className="text-lg text-gray-500 dark:text-gray-400 font-normal">/&nbsp;5</span>
+                <span className="text-lg text-muted-foreground font-normal">/&nbsp;5</span>
               </div>
             </div>
             <StarRating value={globalScore!} size={22} />
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Score moyen
             </span>
           </>
@@ -196,7 +197,7 @@ export default function SatisfactionCard({ data, loading = false, onVoirInsatisf
       {!isEmpty && onVoirInsatisfaits && (
         <button
           onClick={onVoirInsatisfaits}
-          className="relative mt-3 w-full text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors text-center py-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20"
+          className="relative mt-3 w-full text-xs font-medium text-amber-700 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors text-center py-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20"
         >
           Voir les tickets insatisfaits →
         </button>

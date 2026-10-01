@@ -94,7 +94,7 @@ export default function AdminDashboard() {
             <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
               Dashboard
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 capitalize">
+            <p className="text-sm text-muted-foreground mt-0.5 capitalize">
               {new Date().toLocaleDateString("fr-FR", {
                 weekday: "long",
                 day: "numeric",
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
                 </select>
                 <ChevronDown
                   size={12}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-subtle pointer-events-none"
                 />
               </div>
             )}
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                     periode === p.value
                       ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-100 shadow-sm"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      : "text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200"
                   }`}
                 >
                   {p.label}
@@ -151,7 +151,7 @@ export default function AdminDashboard() {
                 await queryClient.invalidateQueries({ queryKey: ["admin-health"] });
                 setRefreshing(false);
               }}
-              className="p-1.5 rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
+              className="p-1.5 rounded-lg border border-gray-200 dark:border-white/12 bg-white dark:bg-white/6 text-muted-foreground hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
               title="Rafraîchir"
             >
               <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
@@ -196,7 +196,7 @@ export default function AdminDashboard() {
             variation={stats?.stats_cartes.en_cours.variation ?? 0}
             hausse={stats?.stats_cartes.en_cours.hausse ?? true}
             icon={Clock}
-            iconColor="text-amber-500"
+            iconColor="text-amber-700 dark:text-amber-400"
             loading={statsLoading}
           />
           <StatCard
@@ -205,7 +205,7 @@ export default function AdminDashboard() {
             variation={stats?.stats_cartes.repondu_canonique.variation ?? 0}
             hausse={stats?.stats_cartes.repondu_canonique.hausse ?? true}
             icon={CheckCircle}
-            iconColor="text-emerald-500"
+            iconColor="text-emerald-700 dark:text-emerald-400"
             loading={statsLoading}
             suffix="%"
             subtitle={`${stats?.stats_cartes.repondu_canonique.count ?? 0} réponses auto`}

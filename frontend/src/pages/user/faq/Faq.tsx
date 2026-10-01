@@ -38,7 +38,7 @@ export default function Faq() {
                 key={exemple}
                 type="button"
                 onClick={() => faq.soumettre(exemple)}
-                className="rounded-full border border-gray-200 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/10 dark:text-gray-400 dark:hover:border-white/20 dark:hover:text-gray-200"
+                className="rounded-full border border-gray-200 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-gray-300 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/10 dark:hover:border-white/20 dark:hover:text-gray-200"
               >
                 {exemple}
               </button>

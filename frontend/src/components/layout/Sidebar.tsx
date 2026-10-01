@@ -9,7 +9,7 @@ function SectionLabel({ label, collapsed }: { label: string; collapsed: boolean 
   return (
     <p
       className={`px-2 pt-4 pb-1 text-xs font-semibold tracking-[0.06em] uppercase
-        text-gray-400 dark:text-gray-600 select-none
+        text-muted-foreground select-none
         transition-all duration-200 ease-in-out
         ${collapsed ? "opacity-0 h-0 pt-0 pb-0 overflow-hidden" : "opacity-100"}`}
     >
@@ -36,7 +36,7 @@ function NavItem({
   return (
     <NavLink
       to={to}
-      end
+      end={to === "/" || to === "/admin"}
       title={collapsed ? label : undefined}
       className={({ isActive }) =>
         [
@@ -48,7 +48,7 @@ function NavItem({
             : "px-2.5 py-[7px] mx-2",
           isActive
             ? "bg-emerald-50 dark:bg-emerald-500/[0.08] text-emerald-700 dark:text-emerald-400 font-medium"
-            : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.05] hover:text-gray-900 dark:hover:text-gray-200",
+            : "text-gray-600 dark:text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/[0.05] hover:text-gray-900 dark:hover:text-gray-200",
         ].join(" ")
       }
     >
@@ -58,7 +58,7 @@ function NavItem({
           <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-red-500" />
         )}
         {count > 0 && (
-          <span className="absolute -top-1.5 -right-2 min-w-[1rem] px-0.5 rounded-full bg-amber-500 text-white text-[9px] leading-4 font-semibold text-center tabular-nums">
+          <span className="absolute -top-1.5 -right-2 min-w-[1rem] px-0.5 rounded-full bg-amber-500 text-amber-950 text-[9px] leading-4 font-semibold text-center tabular-nums">
             {count > 99 ? "99+" : count}
           </span>
         )}
@@ -109,7 +109,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             whitespace-nowrap transition-all duration-200 ease-in-out
             ${collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}
         >
-          ONaC<span className="text-emerald-600 dark:text-emerald-400">VG</span>
+          ONaC<span className="text-emerald-700 dark:text-emerald-400">VG</span>
         </span>
       </div>
 
@@ -174,7 +174,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           aria-label={collapsed ? "Déplier le menu latéral" : "Replier le menu latéral"}
           className={`flex items-center gap-2.5 text-sm rounded-md w-full
             transition-colors duration-150
-            text-gray-500 dark:text-gray-400
+            text-muted-foreground
             hover:bg-gray-100 dark:hover:bg-white/[0.05] hover:text-gray-700 dark:hover:text-gray-200
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1
             ${collapsed ? "w-9 h-9 justify-center mx-auto px-0 py-0" : "px-2.5 py-[7px]"}`}

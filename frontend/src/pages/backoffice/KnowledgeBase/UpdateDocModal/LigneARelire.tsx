@@ -12,7 +12,7 @@ export default function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
           className="line-clamp-2 flex-1 text-xs font-medium text-gray-900 hover:underline dark:text-gray-100"
         >
           {reponse.question || (
-            <span className="font-normal italic text-gray-400">Question indisponible</span>
+            <span className="font-normal italic text-muted-foreground">Question indisponible</span>
           )}
         </a>
         {reponse.canonique && (
@@ -20,12 +20,12 @@ export default function LigneARelire({ reponse }: { reponse: ReponseARelire }) {
             canonique
           </span>
         )}
-        <span className="shrink-0 text-[10px] tabular-nums text-gray-500 dark:text-gray-400">
+        <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
           {reponse.nb_validations} val.
         </span>
       </div>
       {reponse.contenu && (
-        <p className="mt-1.5 line-clamp-2 text-[11px] text-gray-500 dark:text-gray-400">
+        <p className="mt-1.5 line-clamp-2 text-[11px] text-muted-foreground">
           {reponse.contenu}
         </p>
       )}

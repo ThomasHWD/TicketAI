@@ -90,7 +90,7 @@ export default function DropdownMenu({
           setOpen((v) => !v);
         }}
         className={`rounded-lg p-1.5 transition-colors
-          ${open ? "bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200"}
+          ${open ? "bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-200" : "text-muted-foreground hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200"}
           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500`}
       >
         <MoreHorizontal size={16} />

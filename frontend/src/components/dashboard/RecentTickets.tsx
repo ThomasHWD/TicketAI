@@ -66,7 +66,7 @@ export default function RecentTickets({ tickets, loading = false }: RecentTicket
         </h3>
         <Link
           to="/tickets"
-          className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
+          className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline font-medium"
           aria-label="Voir tous les tickets"
         >
           Voir tous →
@@ -75,8 +75,8 @@ export default function RecentTickets({ tickets, loading = false }: RecentTicket
 
       {tickets.length === 0 ? (
         <div className="py-5 text-center space-y-2">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Aucun ticket pour le moment</p>
-          <Link to="/tickets" className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium">
+          <p className="text-sm text-muted-foreground">Aucun ticket pour le moment</p>
+          <Link to="/tickets" className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline font-medium">
             Commencer à traiter les tickets →
           </Link>
         </div>
@@ -94,14 +94,14 @@ export default function RecentTickets({ tickets, loading = false }: RecentTicket
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   {t.created_at && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-muted-foreground">
                        {new Date(t.created_at).toLocaleDateString("fr-FR")}
                     </span>
                   )}
                 </div>
               </div>
               <StatutBadge statut={t.statut_ticket} />
-              <ChevronRight size={14} className="shrink-0 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors" aria-hidden="true" />
+              <ChevronRight size={14} className="shrink-0 text-subtle group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors" aria-hidden="true" />
             </Link>
           ))}
         </div>

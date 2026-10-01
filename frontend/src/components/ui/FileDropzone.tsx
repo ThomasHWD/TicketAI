@@ -63,23 +63,23 @@ export default function FileDropzone({
             <FileText size={36} className="text-green-600 dark:text-emerald-400" />
             <div className="text-center">
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{file.name}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-gray-600 dark:text-muted-foreground mt-0.5">
                 {formatSize(file.size)}
               </p>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Cliquez pour changer de fichier
             </p>
           </>
         ) : (
           <>
-            <UploadCloud size={36} className="text-gray-400 dark:text-white/20" />
+            <UploadCloud size={36} className="text-subtle" />
             <div className="text-center">
               <p className="text-sm text-gray-700 dark:text-gray-300">
                 Glissez un fichier ici ou{" "}
-                <span className="text-green-600 dark:text-emerald-400 font-medium">parcourez</span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-medium">parcourez</span>
               </p>
-              <p className="text-xs text-gray-600 dark:text-gray-500 mt-1">
+              <p className="text-xs text-gray-600 dark:text-muted-foreground mt-1">
                 PDF, DOCX, TXT, MD — max {MAX_SIZE_MB} Mo
               </p>
             </div>

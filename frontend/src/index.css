@@ -23,16 +23,12 @@
 
 /* ─── Glass design system ──────────────────────────────────────────────────
    glass-card  : cartes avec rounded-2xl.
-   Le backdrop-filter inclut saturate() + brightness() pour coller au rendu
-   de GlassSurface--fallback, ce qui manquait aux classes Tailwind seules.
+   Pas de backdrop-filter : le fond derrière les cartes est uni depuis le retrait
+   de l'aurora, le flou coûtait une couche GPU par carte sans rien changer à l'œil.
    ─────────────────────────────────────────────────────────────────────── */
 
 .glass-card {
-  /* Opacité portée à 0.76 (≈ white/80 du design system) : assure ≥4.5:1
-     sur tout texte gray-500+ tout en laissant l'aurora fumer derrière. */
   background: rgba(255, 255, 255, 0.76);
-  backdrop-filter: blur(20px) saturate(1.5) brightness(1.02);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5) brightness(1.02);
   border: 1px solid rgba(255, 255, 255, 0.55);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
@@ -42,11 +38,8 @@
 }
 
 .dark .glass-card {
-  /* Monté à 0.11 + brightness 1.22 : surface effective ~lum 0.15, soit ≥4.5:1
-     pour gray-300 (lum 0.60) et ≥7:1 pour gray-100 (lum 0.78). */
-  background: rgba(255, 255, 255, 0.11);
-  backdrop-filter: blur(20px) saturate(1.6) brightness(1.22);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6) brightness(1.22);
+  /* 0.12 compense le brightness(1.22) retiré avec le backdrop-filter. */
+  background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.15),
@@ -112,6 +105,8 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-subtle: var(--subtle);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -134,12 +129,19 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  /* Action principale : entre emerald-600 (3,65:1 sous du blanc, sous le seuil) et emerald-700
+     (5,4:1, jugé trop sombre). Le vert le plus clair qui tienne AA avec du texte blanc.
+     Survol : emerald-700. Ne pas éclaircir sans remesurer. */
+  --primary: oklch(0.54 0.125 164.5);
+  --primary-hover: oklch(0.508 0.118 165.612);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* Texte secondaire : ≥5:1 sur blanc, gray-50, gray-100 et glass-card. Plancher de tout texte d'aide. */
+  --muted-foreground: oklch(0.52 0.027 264.4);
+  /* Icônes non décoratives : ≥3:1 (WCAG 1.4.11). Jamais pour du texte. */
+  --subtle: oklch(0.62 0.022 261.3);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -154,8 +156,8 @@
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
@@ -169,12 +171,15 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.54 0.125 164.5);
+  --primary-hover: oklch(0.508 0.118 165.612);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  /* ≥5,7:1 jusque sur glass-card sombre, où gray-400 tombait à 4,47. */
+  --muted-foreground: oklch(0.74 0.022 261.3);
+  --subtle: oklch(0.6 0.027 264.4);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
@@ -188,8 +193,8 @@
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);

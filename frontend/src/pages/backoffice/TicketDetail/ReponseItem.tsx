@@ -32,14 +32,14 @@ function reponseStatutClass(statut: StatutReponse, _canonique: boolean, source?:
   if (statut === "VALIDÉE" || statut === "CORRIGÉE")
     return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
   if (statut === "EN_ATTENTE" && source === "SUGGESTION")
-    return "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20";
+    return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20";
   return "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20";
 }
 
 function confidenceChip(score: number) {
-  if (score >= 0.85) return { label: "Confiance élevée",  className: "text-emerald-600 dark:text-emerald-400" };
-  if (score >= 0.70) return { label: "Confiance moyenne", className: "text-amber-600 dark:text-amber-400" };
-  return                    { label: "Confiance faible",  className: "text-red-500 dark:text-red-400" };
+  if (score >= 0.85) return { label: "Confiance élevée",  className: "text-emerald-700 dark:text-emerald-400" };
+  if (score >= 0.70) return { label: "Confiance moyenne", className: "text-amber-700 dark:text-amber-400" };
+  return                    { label: "Confiance faible",  className: "text-red-600 dark:text-red-400" };
 }
 
 export default function ReponseItem({
@@ -89,6 +89,7 @@ export default function ReponseItem({
 
   return (
     <li
+      data-reponse-item
       className="px-5 py-4 flex gap-3.5 items-start motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 duration-300"
       aria-label={`Réponse — ${authorLabel}`}
     >
@@ -101,13 +102,13 @@ export default function ReponseItem({
         {/* Author row */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className={authorClass}>{authorLabel}</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{reponseDate}</span>
+          <span className="text-xs text-muted-foreground">{reponseDate}</span>
           <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${reponseStatutClass(reponse.statut, reponse.canonique, reponse.source)}`}>
             <span className="w-1 h-1 rounded-full bg-current" aria-hidden="true" />
             {reponseStatutLabel(reponse.statut, reponse.canonique, reponse.source)}
           </span>
           {sourceInfo && reponse.source !== "CANONIQUE" && (
-            <span className={`text-xs flex items-center gap-1 ${reponse.source === "HORS_DOMAINE" ? "text-purple-500 dark:text-purple-400 font-medium" : "text-gray-500 dark:text-gray-400"}`}>
+            <span className={`text-xs flex items-center gap-1 ${reponse.source === "HORS_DOMAINE" ? "text-purple-500 dark:text-purple-400 font-medium" : "text-muted-foreground"}`}>
               <sourceInfo.icon size={11} aria-hidden="true" />
               {sourceInfo.label}
             </span>
@@ -121,12 +122,12 @@ export default function ReponseItem({
             );
           })()}
           {nearCanonical && (
-            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium" title="Une validation supplémentaire la rendra canonique">
+            <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium" title="Une validation supplémentaire la rendra canonique">
               · Promotion imminente
             </span>
           )}
           {reponse.obsolete && (
-            <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400" title={`Retirée du service actif${reponse.obsolete_raison ? ` — ${reponse.obsolete_raison}` : ""}`}>
+            <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400" title={`Retirée du service actif${reponse.obsolete_raison ? ` — ${reponse.obsolete_raison}` : ""}`}>
               <Archive size={11} aria-hidden="true" />
               Obsolète
             </span>
@@ -135,7 +136,7 @@ export default function ReponseItem({
 
         {/* Source context */}
         {isPending && reponse.source === "SUGGESTION" && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+          <p className="text-xs text-muted-foreground -mt-1">
             Réutilise une réponse validée antérieure — vérifiez qu'elle s'applique à ce cas.
           </p>
         )}
@@ -154,7 +155,7 @@ export default function ReponseItem({
           </div>
         )}
         {isPending && isRag && (
-          <p className="text-xs text-amber-600/80 dark:text-amber-400/80 -mt-1">
+          <p className="text-xs text-amber-800 dark:text-amber-300 -mt-1">
             Générée par l'IA à partir des documents — relisez attentivement avant de valider.
           </p>
         )}
@@ -178,7 +179,7 @@ export default function ReponseItem({
             onFaqVisibleChange={actions.setFaqVisible}
           />
         ) : isHorsDomaine && !reponse.contenu_corrige ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+          <p className="text-sm text-muted-foreground italic">
             Sujet non couvert — une réponse manuelle est attendue.
           </p>
         ) : (
@@ -191,12 +192,13 @@ export default function ReponseItem({
         {canAct && !actions.editing && (
           <div className="flex flex-col gap-2 pt-1 border-t border-gray-100 dark:border-white/[0.07] mt-1">
             {actions.justValidated ? (
-              <div role="status" className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium py-1">
+              <div role="status" className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 font-medium py-1">
                 <Check size={14} aria-hidden="true" />
                 Réponse validée
               </div>
             ) : actions.confirmingValidation ? (
               <ValidationConfirmPanel
+                variant={actions.isSuggestion ? "suggestion" : "rag"}
                 confirmRef={validateConfirmRef}
                 loading={actions.loading}
                 error={actions.error}

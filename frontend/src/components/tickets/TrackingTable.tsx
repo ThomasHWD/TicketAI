@@ -31,7 +31,7 @@ const variantClasses: Record<BadgeVariant, string> = {
   success:    "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20",
   warn:       "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20",
   danger:     "bg-red-50 text-red-700 border-red-200/80 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20",
-  muted:      "bg-gray-100 text-gray-500 border-gray-200/80 dark:bg-white/10 dark:text-gray-400 dark:border-white/10",
+  muted:      "bg-gray-100 text-muted-foreground border-gray-200/80 dark:bg-white/10 dark:border-white/10",
   processing: "bg-sky-50 text-sky-700 border-sky-200/80 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20",
 };
 
@@ -108,15 +108,15 @@ export function FilterBar({
             className={`inline-flex items-center gap-1.5 px-2.5 min-h-[44px] border-b-2 -mb-px text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60 ${
               filter === f.key
                 ? "border-emerald-500 text-gray-900 dark:text-gray-100"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-white/20"
+                : "border-transparent text-muted-foreground hover:text-gray-700 hover:border-gray-300 dark:hover:text-gray-200 dark:hover:border-white/20"
             }`}
           >
             {f.label}
             {counts[f.key] > 0 && f.key !== "tous" && (
               <span className={`inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[10px] font-semibold tabular-nums leading-none ${
                 filter === f.key
-                  ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300"
-                  : "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                  : "bg-gray-100 text-muted-foreground dark:bg-white/10"
               }`}>
                 {counts[f.key]}
               </span>
@@ -125,7 +125,7 @@ export function FilterBar({
         ))}
       </div>
       <div className="relative ml-auto">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" aria-hidden="true" />
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle pointer-events-none" aria-hidden="true" />
         <input
           ref={searchRef}
           type="text"
@@ -134,15 +134,19 @@ export function FilterBar({
           onKeyDown={(e) => {
             if (e.key === "Escape" && search) { e.preventDefault(); setSearch(""); searchRef.current?.blur(); }
           }}
-          placeholder="Rechercher… (/ pour cibler)"
+          placeholder="Rechercher un ticket"
           aria-label="Rechercher un ticket"
-          className="pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:border-transparent dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:placeholder:text-gray-500 w-48"
+          aria-keyshortcuts="/"
+          className="pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 bg-white text-gray-700 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:border-transparent dark:bg-white/5 dark:border-white/10 dark:text-gray-200 w-56"
         />
+        {!search && (
+          <kbd aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-gray-200 px-1 font-mono text-[11px] leading-4 text-muted-foreground dark:border-white/10">/</kbd>
+        )}
         {search && (
           <button
             onClick={() => { setSearch(""); searchRef.current?.focus(); }}
             aria-label="Effacer la recherche"
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md text-muted-foreground hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             <X size={12} aria-hidden="true" />
           </button>
@@ -172,10 +176,10 @@ export function TrackingTicketRow({ ticket }: { ticket: Ticket }) {
         </span>
       </td>
       <td className="px-5 py-3.5 whitespace-nowrap">
-        <span className="text-xs text-gray-500 dark:text-gray-400">{ticket.domaine}</span>
+        <span className="text-xs text-muted-foreground">{ticket.domaine}</span>
       </td>
       <td className="px-5 py-3.5 whitespace-nowrap">
-        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{formatDate(ticket.created_at)}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">{formatDate(ticket.created_at)}</span>
       </td>
       <td className="px-5 py-3.5">
         <StatutBadge
@@ -224,14 +228,14 @@ function EmptyState({ icon: Icon, title, subtitle, onClear }: {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
       <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
-        <Icon size={18} className="text-gray-500 dark:text-gray-400" aria-hidden="true" />
+        <Icon size={18} className="text-subtle" aria-hidden="true" />
       </div>
       <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</p>
-      <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">{subtitle}</p>
+      <p className="text-xs text-muted-foreground max-w-xs">{subtitle}</p>
       {onClear && (
         <button
           onClick={onClear}
-          className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-md px-1"
+          className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-md px-1"
         >
           Effacer les filtres
         </button>
@@ -258,7 +262,7 @@ export function TrackingTicketTable({
     const { text, canRetry, canReload } = getErrorMessage(error);
     return (
       <div role="alert" className="py-16 text-center space-y-3">
-        <p className="text-sm text-red-500 dark:text-red-400">{text}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">{text}</p>
         {canRetry && onRetry && (
           <button
             onClick={onRetry}
@@ -270,7 +274,7 @@ export function TrackingTicketTable({
         {canReload && (
           <button
             onClick={() => window.location.reload()}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-primary hover:bg-primary-hover text-primary-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
             Recharger la page
           </button>
@@ -289,7 +293,7 @@ export function TrackingTicketTable({
         <thead>
           <tr className="border-b border-gray-100 dark:border-white/5 text-left">
             {["Objet", "Domaine", "Créé le", "Statut"].map((h) => (
-              <th key={h} scope="col" className="px-5 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{h}</th>
+              <th key={h} scope="col" className="px-5 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{h}</th>
             ))}
           </tr>
         </thead>

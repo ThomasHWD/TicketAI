@@ -30,10 +30,10 @@ export default function Stepper({ etape }: { etape: Etape }) {
               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums transition-colors
                 ${
                   fait
-                    ? "bg-emerald-500 text-white"
+                    ? "bg-primary text-primary-foreground"
                     : actif
                       ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                      : "bg-gray-100 text-gray-400 dark:bg-white/8 dark:text-gray-500"
+                      : "bg-gray-100 text-muted-foreground dark:bg-white/8"
                 }`}
             >
               {fait ? <Check size={11} strokeWidth={3} /> : i + 1}
@@ -43,8 +43,8 @@ export default function Stepper({ etape }: { etape: Etape }) {
                 actif
                   ? "text-gray-900 dark:text-gray-100"
                   : fait
-                    ? "text-gray-500 dark:text-gray-400"
-                    : "text-gray-400 dark:text-gray-600"
+                    ? "text-muted-foreground"
+                    : "text-muted-foreground"
               }`}
             >
               {libelle}

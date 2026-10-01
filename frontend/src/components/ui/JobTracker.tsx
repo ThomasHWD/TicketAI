@@ -60,7 +60,7 @@ function JobCard({ job }: { job: TrackedJob }) {
         ) : job.statut === "FAILURE" ? (
           <XCircle size={15} className="text-red-600 dark:text-red-400" />
         ) : (
-          <Loader2 size={15} className="animate-spin text-gray-500 dark:text-gray-400" />
+          <Loader2 size={15} className="animate-spin text-subtle" />
         )}
       </div>
 
@@ -77,7 +77,7 @@ function JobCard({ job }: { job: TrackedJob }) {
               {job.erreur ?? (job.kind === "maj" ? "Échec de la mise à jour" : "Échec de l'indexation")}
             </span>
           ) : (
-            <span className="text-gray-500 dark:text-gray-400">
+            <span className="text-muted-foreground">
               {job.statut !== "STARTED"
                 ? "En attente…"
                 : job.kind === "maj"
@@ -92,7 +92,7 @@ function JobCard({ job }: { job: TrackedJob }) {
       {isTerminal && (
         <button
           onClick={() => dismissJob(job.jobId)}
-          className="shrink-0 mt-0.5 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          className="shrink-0 mt-0.5 p-0.5 rounded text-muted-foreground hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
         >
           <X size={13} />
         </button>
@@ -113,8 +113,8 @@ export default function JobTracker() {
       {/* En-tête discret si plusieurs jobs */}
       {jobs.length > 1 && (
         <div className="flex items-center gap-2 px-1">
-          <FileText size={12} className="text-gray-400" />
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <FileText size={12} className="text-subtle" />
+          <span className="text-xs text-muted-foreground">
             {active > 0 ? `${active} traitement${active > 1 ? "s" : ""} en cours` : "Traitements terminés"}
           </span>
         </div>

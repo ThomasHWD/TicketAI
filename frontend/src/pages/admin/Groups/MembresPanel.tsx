@@ -45,16 +45,16 @@ export default function MembresPanel({ groupe, pendingChefId, onChef, onRetirer 
         <div className="flex items-center justify-between">
           <div className="relative" ref={helpRef}>
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Membres actuels
               </span>
             </div>
-            <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5 leading-snug">
+            <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
               Le chef valide dispose de statistiques sur les membres de son épuipe.
             </p>
           </div>
           {groupe.membres.length > 0 && (
-            <span className="text-[11px] tabular-nums text-gray-500 dark:text-gray-400 self-start mt-0.5">
+            <span className="text-[11px] tabular-nums text-muted-foreground self-start mt-0.5">
               {groupe.membres.length}
             </span>
           )}
@@ -65,9 +65,9 @@ export default function MembresPanel({ groupe, pendingChefId, onChef, onRetirer 
       <div className="flex-1 overflow-y-auto">
         {groupe.membres.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 px-5 text-center">
-            <Users size={20} className="text-gray-300 dark:text-gray-600 mb-3" aria-hidden="true" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Aucun membre</p>
-            <p className="text-xs text-gray-400 dark:text-gray-600 mt-1 leading-relaxed">
+            <Users size={20} className="text-subtle mb-3" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Aucun membre</p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               Ajoutez des gestionnaires<br />depuis le panneau de droite.
             </p>
           </div>
@@ -102,21 +102,21 @@ export default function MembresPanel({ groupe, pendingChefId, onChef, onRetirer 
                     {m.is_chef && (
                       <span
                         title="Le chef valide en priorité les réponses IA de ce domaine."
-                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-400/10 border border-amber-200/60 dark:border-amber-400/20 text-amber-600 dark:text-amber-400 text-[10px] font-semibold shrink-0 leading-none cursor-help"
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-400/10 border border-amber-200/60 dark:border-amber-400/20 text-amber-700 dark:text-amber-400 text-[10px] font-semibold shrink-0 leading-none cursor-help"
                       >
                         <Crown size={8} strokeWidth={2.5} aria-hidden="true" />
                         Chef
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate leading-snug mt-0.5">
+                  <p className="text-xs text-muted-foreground truncate leading-snug mt-0.5">
                     {m.departement ?? m.email}
                   </p>
                   {/* Live region for popconfirm — must be in DOM before content appears */}
                   <div aria-live="polite">
                     {isConfirming && (
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        <span className="text-[11px] text-gray-600 dark:text-gray-400 leading-tight">
+                        <span className="text-[11px] text-gray-600 dark:text-muted-foreground leading-tight">
                           {confirmCrown?.type === "demote-last"
                             ? "Retirer le seul chef ? Plus aucun validateur prioritaire ne sera désigné."
                             : "Désigner comme chef d'équipe ?"}
@@ -139,7 +139,7 @@ export default function MembresPanel({ groupe, pendingChefId, onChef, onRetirer 
                         <button
                           onClick={() => setConfirmCrown(null)}
                           aria-label="Annuler"
-                          className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 text-[11px] font-medium transition-colors"
+                          className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/10 text-[11px] font-medium transition-colors"
                         >
                           <X size={10} aria-hidden="true" />
                           Non
@@ -166,8 +166,8 @@ export default function MembresPanel({ groupe, pendingChefId, onChef, onRetirer 
                         }
                         className={`p-2 rounded-md transition-colors ${
                           m.is_chef
-                            ? "text-amber-500 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-400/10"
-                            : "text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-400/10"
+                            ? "text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-400/10"
+                            : "text-muted-foreground hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-400/10"
                         }`}
                       >
                         <Crown size={13} strokeWidth={m.is_chef ? 2.5 : 1.5} aria-hidden="true" />
@@ -176,7 +176,7 @@ export default function MembresPanel({ groupe, pendingChefId, onChef, onRetirer 
                     <button
                       onClick={() => onRetirer(m)}
                       aria-label={`Retirer ${displayName(m)} du groupe`}
-                      className="p-2 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-400/10 transition-colors"
+                      className="p-2 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-400/10 transition-colors"
                     >
                       <UserMinus size={13} aria-hidden="true" />
                     </button>

@@ -16,7 +16,7 @@ export function SidebarSection({ children }: { children: React.ReactNode }) {
 
 export function SidebarLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-[0.06em]">
+    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.06em]">
       {children}
     </p>
   );
@@ -40,7 +40,7 @@ function ticketStatutClass(statut: StatutTicket, canonique: boolean, closed: boo
   if (statut === "REJETÉ") return "bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20";
   if (canonique || statut === "VALIDÉ") return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20";
   if (statut === "RÉPONDU") return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/20";
-  return "bg-gray-100 text-gray-500 border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/15";
+  return "bg-gray-100 text-muted-foreground border-gray-200 dark:bg-white/10 dark:text-gray-300 dark:border-white/15";
 }
 
 export function StatutBadge({ statut, canonique, closed, processing, failed }: {
@@ -82,24 +82,24 @@ export function DetailsSection({ ticket, processing, failed }: { ticket: Ticket;
       <SidebarLabel>Détails</SidebarLabel>
       <dl className="space-y-2.5 text-sm">
         <div className="flex items-start justify-between gap-2">
-          <dt className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 shrink-0">Statut</dt>
+          <dt className="text-xs text-muted-foreground mt-0.5 shrink-0">Statut</dt>
           <dd>
             <StatutBadge statut={ticket.statut_ticket} canonique={ticket.canonique} closed={!!ticket.closed_at} processing={processing} failed={failed} />
           </dd>
         </div>
         <div className="flex items-start justify-between gap-2">
-          <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Créé le</dt>
+          <dt className="text-xs text-muted-foreground mt-px shrink-0">Créé le</dt>
           <dd className="text-xs text-gray-600 dark:text-gray-300 text-right">{formatDate(ticket.created_at)}</dd>
         </div>
         {ticket.closed_at && (
           <div className="flex items-start justify-between gap-2">
-            <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Clôturé le</dt>
+            <dt className="text-xs text-muted-foreground mt-px shrink-0">Clôturé le</dt>
             <dd className="text-xs text-gray-600 dark:text-gray-300 text-right">{formatDate(ticket.closed_at)}</dd>
           </div>
         )}
         {ticket.reroute_source_domaine && (
           <div className="flex items-start justify-between gap-2">
-            <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Provenance</dt>
+            <dt className="text-xs text-muted-foreground mt-px shrink-0">Provenance</dt>
             <dd>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-500/10 dark:text-orange-300 dark:border-orange-500/20">
                 <ArrowRightLeft size={9} aria-hidden="true" />
@@ -109,12 +109,12 @@ export function DetailsSection({ ticket, processing, failed }: { ticket: Ticket;
           </div>
         )}
         <div className="flex items-start justify-between gap-2">
-          <dt className="text-xs text-gray-500 dark:text-gray-400 mt-px shrink-0">Référence</dt>
+          <dt className="text-xs text-muted-foreground mt-px shrink-0">Référence</dt>
           <dd className="flex items-center gap-1 min-w-0">
-            <span className="text-xs font-mono text-gray-500 dark:text-gray-400 cursor-default" title={`Référence complète : ${ticket.id}`}>
+            <span className="text-xs font-mono text-muted-foreground cursor-default" title={`Référence complète : ${ticket.id}`}>
               {ticket.id.slice(0, 8)}…
             </span>
-            <button onClick={copyRef} className="shrink-0 p-0.5 rounded text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-colors" aria-label="Copier la référence" title="Copier la référence complète">
+            <button onClick={copyRef} className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-gray-500 dark:hover:text-gray-400 transition-colors" aria-label="Copier la référence" title="Copier la référence complète">
               {copied ? <Check size={11} className="text-emerald-500" aria-hidden="true" /> : <Copy size={11} aria-hidden="true" />}
             </button>
           </dd>
@@ -134,27 +134,27 @@ export function RequesterSection({ ticket }: { ticket: Ticket }) {
         <UserAvatar name={userName ?? "?"} size={32} />
         <div className="min-w-0">
           <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{userName ?? "Utilisateur inconnu"}</p>
-          {ticket.user_titre && <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{ticket.user_titre}</p>}
+          {ticket.user_titre && <p className="text-xs text-muted-foreground truncate mt-0.5">{ticket.user_titre}</p>}
         </div>
       </div>
       <div className="space-y-1.5">
         {ticket.user_email && (
-          <a href={`mailto:${ticket.user_email}`} className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate">
+          <a href={`mailto:${ticket.user_email}`} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-emerald-800 dark:hover:text-emerald-400 transition-colors truncate">
             <User size={11} className="shrink-0" aria-hidden="true" />{ticket.user_email}
           </a>
         )}
         {ticket.user_telephone && (
-          <a href={`tel:${ticket.user_telephone}`} className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+          <a href={`tel:${ticket.user_telephone}`} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-emerald-800 dark:hover:text-emerald-400 transition-colors">
             <Phone size={11} className="shrink-0" aria-hidden="true" />{ticket.user_telephone}
           </a>
         )}
         {ticket.user_departement && (
-          <p className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <Building2 size={11} className="shrink-0" aria-hidden="true" />{ticket.user_departement}
           </p>
         )}
         {ticket.user_localisation && (
-          <p className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
             <MapPin size={11} className="shrink-0" aria-hidden="true" />{ticket.user_localisation}
           </p>
         )}
@@ -227,7 +227,7 @@ export function AssignSection({
               <UserAvatar name={assigneeName} size={28} />
               <div className="min-w-0">
                 <p className="text-xs font-medium text-gray-800 dark:text-gray-100 truncate leading-tight">{assigneeName}</p>
-                {ticket.assigned_to_email && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ticket.assigned_to_email}</p>}
+                {ticket.assigned_to_email && <p className="text-xs text-muted-foreground truncate">{ticket.assigned_to_email}</p>}
               </div>
             </div>
             {assignError && (
@@ -236,7 +236,7 @@ export function AssignSection({
                 {onClearAssignError && <button onClick={onClearAssignError} className="underline hover:no-underline shrink-0" aria-label="Fermer l'erreur">Fermer</button>}
               </p>
             )}
-            <button onClick={onUnassign} disabled={assignLoading} className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-white/15 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors">
+            <button onClick={onUnassign} disabled={assignLoading} className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-md border border-gray-200 dark:border-white/15 text-muted-foreground hover:bg-gray-50 dark:hover:bg-white/10 disabled:opacity-40 transition-colors">
               <X size={11} aria-hidden="true" />Remettre dans le pot commun
             </button>
           </div>
@@ -254,7 +254,7 @@ export function AssignSection({
                 {onClearAssignError && <button onClick={onClearAssignError} className="underline hover:no-underline shrink-0" aria-label="Fermer l'erreur">Fermer</button>}
               </p>
             )}
-            <button onClick={onAssign} disabled={assignLoading || !selectedAssignee} className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 font-medium transition-colors">
+            <button onClick={onAssign} disabled={assignLoading || !selectedAssignee} className="w-full flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-40 font-medium transition-colors">
               <UserPlus size={11} aria-hidden="true" />Assigner
             </button>
           </div>
@@ -265,7 +265,7 @@ export function AssignSection({
           <p className="text-xs text-gray-700 dark:text-gray-200 truncate">{assigneeName}</p>
         </div>
       ) : (
-        <p className="text-xs text-gray-500 dark:text-gray-400">Non assigné</p>
+        <p className="text-xs text-muted-foreground">Non assigné</p>
       )}
     </SidebarSection>
   );

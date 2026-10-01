@@ -34,13 +34,13 @@ export function NotificationDropdown({
       <div ref={scrollRef} className="max-h-[28rem] overflow-y-auto rounded-2xl">
         {/* Header — solid semi-transparent bg avoids nesting two backdrop-filter layers */}
         <div className="px-4 py-3 border-b border-white/50 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#141416]/95 backdrop-blur-sm rounded-t-2xl flex items-center justify-between">
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Notifications
           </p>
           {notifications.length > 0 && (
             <button
               onClick={onToutLire}
-              className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+              className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
             >
               <CheckCheck size={12} />
               Tout lire
@@ -49,7 +49,7 @@ export function NotificationDropdown({
         </div>
 
         {visibleAssigned.length === 0 && notifications.length === 0 && (
-          <p className="px-4 py-6 text-sm text-center text-gray-500 dark:text-gray-400">
+          <p className="px-4 py-6 text-sm text-center text-muted-foreground">
             Aucune notification
           </p>
         )}
@@ -78,7 +78,7 @@ export function NotificationDropdown({
                     <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
                       {t.objet ?? t.question}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.domaine}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t.domaine}</p>
                   </button>
                 </li>
               ))}
@@ -89,7 +89,7 @@ export function NotificationDropdown({
         {notifications.length > 0 && (
           <>
             <div className="px-4 pt-3 pb-1">
-              <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+              <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
                 <MessageSquare size={10} /> Notifications
               </p>
             </div>
@@ -106,7 +106,7 @@ export function NotificationDropdown({
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
                           {n.ticket_objet ?? n.ticket_question ?? "Ticket"}
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           Réponse disponible · {formatNotifDate(n.created_at)}
                         </p>
                       </div>

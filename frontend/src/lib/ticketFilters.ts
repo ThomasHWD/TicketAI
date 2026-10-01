@@ -52,7 +52,7 @@ export function getStatutMeta(
   if (closed) return {
     label: "Clôturé",
     title: "Ticket fermé",
-    badgeClass: "bg-gray-100 text-gray-500 border-gray-200 dark:bg-white/10 dark:text-gray-400 dark:border-white/10",
+    badgeClass: "bg-gray-100 text-muted-foreground border-gray-200 dark:bg-white/10 dark:border-white/10",
   };
   if (processing) return {
     label: "En cours",
@@ -78,7 +78,7 @@ export function getStatutMeta(
   if (statut === "RÉPONDU") return {
     label: "Suggestion",
     title: "Réponse proposée — votre vérification est demandée",
-    badgeClass: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+    badgeClass: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
   };
   if (statut === "REJETÉ") return {
     label: "Rejetée",

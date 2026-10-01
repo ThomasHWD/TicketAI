@@ -39,10 +39,10 @@ function Tab({
       id={id} role="tab" aria-selected={active} aria-controls={controls}
       tabIndex={tabIndex} onClick={onClick} onKeyDown={onKeyDown}
       className={`relative flex items-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
-        active ? "text-gray-900 dark:text-gray-50" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+        active ? "text-gray-900 dark:text-gray-50" : "text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200"
       }`}
     >
-      <Icon size={15} className={active ? iconActiveClass : "text-gray-500 dark:text-gray-400"} aria-hidden="true" />
+      <Icon size={15} className={active ? iconActiveClass : "text-subtle"} aria-hidden="true" />
       {label}
       {badge !== undefined && badge > 0 && (
         <span aria-label={badgeAriaLabel} className={`inline-flex items-center justify-center min-w-[1.25rem] px-1.5 rounded-full text-xs font-semibold tabular-nums ${
@@ -69,7 +69,7 @@ function FilterPill({
       className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
         active
           ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-          : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/8 dark:hover:text-gray-200"
+          : "text-muted-foreground hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-white/8 dark:hover:text-gray-200"
       }`}
     >
       {label}
@@ -91,7 +91,7 @@ function SortSegment({
 }) {
   return (
     <div className="flex items-center gap-1.5 shrink-0">
-      <ArrowUpDown size={12} className="text-gray-400 dark:text-gray-500 shrink-0" aria-hidden="true" />
+      <ArrowUpDown size={12} className="text-subtle shrink-0" aria-hidden="true" />
       <div
         role="radiogroup"
         aria-label="Trier par"
@@ -108,7 +108,7 @@ function SortSegment({
               "px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 whitespace-nowrap",
               value === opt
                 ? "bg-white dark:bg-white/15 text-gray-900 dark:text-gray-50 shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200",
+                : "text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200",
             ].join(" ")}
           >
             {label}
@@ -164,11 +164,11 @@ function TagCombobox({
           className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 ${
             value
               ? "bg-violet-600 text-white dark:bg-violet-500"
-              : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/8 dark:hover:text-gray-200"
+              : "text-muted-foreground hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-white/8 dark:hover:text-gray-200"
           }`}
         >
           <Tag size={10} aria-hidden="true" />
-          <span className="max-w-[12rem] truncate">{value ?? "Tag"}</span>
+          <span className="max-w-[12rem] truncate">{value ?? "Tous"}</span>
           {!value && <ChevronDown size={10} aria-hidden="true" className="opacity-50 shrink-0" />}
         </button>
         {value && (
@@ -191,20 +191,20 @@ function TagCombobox({
           {showSearch && (
             <div className="p-2 border-b border-gray-100 dark:border-white/8">
               <div className="relative">
-                <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" aria-hidden="true" />
+                <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-subtle pointer-events-none" aria-hidden="true" />
                 <input
                   ref={inputRef}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Chercher un tag…"
-                  className="w-full pl-6 pr-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-800 dark:text-gray-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500/60 placeholder:text-gray-400"
+                  className="w-full pl-6 pr-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-800 dark:text-gray-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-500/60 placeholder:text-muted-foreground"
                 />
               </div>
             </div>
           )}
           <ul role="listbox" aria-label="Tags disponibles" className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500 text-center">
+              <li className="px-3 py-2 text-xs text-muted-foreground text-center">
                 Aucun résultat
               </li>
             ) : (
@@ -271,13 +271,13 @@ export default function SavedAnswersHeader({
           <Tab
             id="tab-canoniques" controls="panel-canoniques"
             active={onglet === "canoniques"} onClick={() => onOngletChange("canoniques")}
-            Icon={BadgeCheck} iconActiveClass="text-emerald-500" label="Canoniques"
+            Icon={BadgeCheck} iconActiveClass="text-emerald-700 dark:text-emerald-400" label="Canoniques"
             tabIndex={onglet === "canoniques" ? 0 : -1} onKeyDown={(e) => handleTabKeyDown(e, 0)}
           />
           <Tab
             id="tab-a_relire" controls="panel-a_relire"
             active={onglet === "a_relire"} onClick={() => onOngletChange("a_relire")}
-            Icon={AlertTriangle} iconActiveClass="text-amber-500" label="À relire"
+            Icon={AlertTriangle} iconActiveClass="text-amber-700 dark:text-amber-400" label="À relire"
             badge={nbDocsARelire}
             badgeAriaLabel={`${nbDocsARelire} document${nbDocsARelire > 1 ? "s" : ""} à relire`}
             badgeVariant="amber"
@@ -297,20 +297,20 @@ export default function SavedAnswersHeader({
           <div className="relative">
             {searching
               ? <Loader2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-500 animate-spin pointer-events-none" aria-hidden="true" />
-              : <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" aria-hidden="true" />
+              : <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle pointer-events-none" aria-hidden="true" />
             }
             <input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Chercher par question…"
               aria-label="Chercher par question"
-              className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-white/12 bg-gray-50 dark:bg-white/5 text-gray-800 dark:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 placeholder:text-gray-400 transition-colors"
+              className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-white/12 bg-gray-50 dark:bg-white/5 text-gray-800 dark:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 placeholder:text-muted-foreground transition-colors"
             />
             {searchQuery && (
               <button
                 onClick={() => onSearchChange("")}
                 aria-label="Effacer la recherche"
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-gray-600 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 transition-colors"
               >
                 <X size={12} aria-hidden="true" />
               </button>
@@ -325,14 +325,14 @@ export default function SavedAnswersHeader({
           className="px-5 py-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-gray-100 dark:border-white/8 bg-gray-50/40 dark:bg-white/[0.01]"
           aria-label="Filtres"
         >
-          <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 shrink-0">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
             <SlidersHorizontal size={12} aria-hidden="true" />
             Filtres
           </div>
 
           {hasDomainFilter && (
             <div className="flex items-center gap-1.5" role="group" aria-label="Filtrer par domaine">
-              <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">Domaine</span>
+              <span className="text-xs text-muted-foreground shrink-0">Domaine</span>
               <div className="flex items-center gap-1">
                 <FilterPill label="Tous" active={domaine === undefined} onClick={() => onDomaine(undefined)} />
                 {domaines.map((d) => (
@@ -344,7 +344,7 @@ export default function SavedAnswersHeader({
 
           {hasTagFilter && (
             <div className="flex items-center gap-1.5" role="group" aria-label="Filtrer par tag">
-              <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">Tag</span>
+              <span className="text-xs text-muted-foreground shrink-0">Tag</span>
               <TagCombobox tags={tagsDisponibles} value={tag} onChange={onTag} />
             </div>
           )}
@@ -357,7 +357,7 @@ export default function SavedAnswersHeader({
             <button
               type="button"
               onClick={() => { onDomaine(undefined); onTag(undefined); }}
-              className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60 rounded-sm shrink-0"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400/60 rounded-sm shrink-0"
             >
               <X size={11} aria-hidden="true" />
               Réinitialiser
@@ -371,13 +371,13 @@ export default function SavedAnswersHeader({
         <div className="px-5 py-3 flex items-start gap-3 border-b border-amber-100 dark:border-amber-500/15 bg-amber-50/60 dark:bg-amber-400/5">
           <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="space-y-1">
-            <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+            <p className="text-xs text-amber-900 dark:text-amber-200">
               <span className="font-semibold">{nbDocsARelire} document{nbDocsARelire > 1 ? "s" : ""} concerné{nbDocsARelire > 1 ? "s" : ""}</span>
               {" — "}
               {total} réponse{total > 1 ? "s" : ""} concernée{total > 1 ? "s" : ""} à vérifier{" "}
               <span className="italic">(plus servies sans relecture jusqu'à votre décision).</span>
             </p>
-            <p className="text-xs text-amber-800/60 dark:text-amber-300/50">
+            <p className="text-xs text-amber-800 dark:text-amber-300">
               Pour chaque réponse : confirmez si elle reste valide, modifiez-la si besoin, ou retirez-la du service si elle est dépassée.
             </p>
           </div>
@@ -386,7 +386,7 @@ export default function SavedAnswersHeader({
 
       {onglet === "obsoletes" && (
         <div className="px-5 py-3 border-b border-gray-100 dark:border-white/8">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-muted-foreground">
             Ces réponses ne sont plus servies. Leurs validations sont conservées — les restaurer les remet en service telles quelles.
           </p>
         </div>
@@ -395,7 +395,7 @@ export default function SavedAnswersHeader({
       {/* Barre de stats (canoniques) */}
       {onglet === "canoniques" && !loading && !error && total > 0 && (
         <div className="px-5 py-2.5 flex items-center gap-2 border-b border-gray-100 dark:border-white/8">
-          <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {total} réponse{total > 1 ? "s" : ""} canonique{total > 1 ? "s" : ""}
           </span>
           {tag && (
@@ -409,7 +409,7 @@ export default function SavedAnswersHeader({
           {searchQuery.trim() && (
             <>
               <span aria-hidden="true" className="text-gray-200 dark:text-gray-700">·</span>
-              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+              <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
                 {canoniquesCount} résultat{canoniquesCount !== 1 ? "s" : ""} pour «&nbsp;{searchQuery.trim()}&nbsp;»
               </span>
             </>

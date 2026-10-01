@@ -51,7 +51,7 @@ export function TicketActionsBar({
           <button
             type="button"
             onClick={() => { setShowPrecision(false); setPrecision(""); onResolve(); }}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-3 py-2 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-medium px-3 py-2 transition-colors"
           >
             <CheckCheck size={13} aria-hidden="true" />
             Oui, c'est résolu
@@ -79,7 +79,7 @@ export function TicketActionsBar({
               type="button"
               onClick={() => { setShowPrecision(false); setPrecision(""); }}
               aria-label="Fermer"
-              className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 dark:hover:text-gray-200 transition-colors"
+              className="p-1.5 rounded-md text-muted-foreground hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 dark:hover:text-gray-200 transition-colors"
             >
               <X size={14} aria-hidden="true" />
             </button>
@@ -92,7 +92,7 @@ export function TicketActionsBar({
             onChange={handlePrecisionChange}
             maxLength={2000}
             placeholder="Ex. : Et dans le cas d'un contrat à durée déterminée ?"
-            className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-800 dark:text-gray-100 bg-white dark:bg-white/[0.03] placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none overflow-hidden transition-colors"
+            className="w-full text-sm border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-800 dark:text-gray-100 bg-white dark:bg-white/[0.03] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none overflow-hidden transition-colors"
             style={{ minHeight: "80px", maxHeight: "200px" }}
             aria-describedby={suivi.isError ? "suivi-error" : undefined}
           />
@@ -109,7 +109,7 @@ export function TicketActionsBar({
               type="button"
               onClick={() => suivi.mutate()}
               disabled={!canSubmitSuivi}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {suivi.isPending
                 ? <Loader2 size={15} className="animate-spin" aria-hidden="true" />

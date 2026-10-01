@@ -20,7 +20,7 @@ function clotureValue(remaining: number, dateMs: number): string {
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-1">
-      <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</dt>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
       <dd className="text-sm text-gray-800 dark:text-gray-100">{children}</dd>
     </div>
   );
@@ -37,11 +37,11 @@ function StarDisplay({ value }: { value: number }) {
           className={
             i < value
               ? "text-amber-400 fill-amber-400"
-              : "text-gray-300 dark:text-gray-600"
+              : "text-subtle"
           }
         />
       ))}
-      <span className="ml-1.5 text-xs text-gray-500 dark:text-gray-400">{value} / 5</span>
+      <span className="ml-1.5 text-xs text-muted-foreground">{value} / 5</span>
     </div>
   );
 }
@@ -83,7 +83,7 @@ export default function TicketInfoSidebar({ ticket, filStatut: _filStatut, jours
   return (
     <div className="w-full lg:w-72 shrink-0">
       <div className="glass-card rounded-2xl p-5 space-y-5">
-        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Informations
         </h2>
 
@@ -98,7 +98,7 @@ export default function TicketInfoSidebar({ ticket, filStatut: _filStatut, jours
                   isUrgent
                     ? "font-medium text-red-600 dark:text-red-400"
                     : isWarning
-                    ? "text-amber-600 dark:text-amber-400"
+                    ? "text-amber-700 dark:text-amber-400"
                     : "text-gray-800 dark:text-gray-100"
                 }`}
               >
@@ -114,7 +114,7 @@ export default function TicketInfoSidebar({ ticket, filStatut: _filStatut, jours
 
         {hasRatings && (
           <div className="pt-4 border-t border-gray-100 dark:border-white/[0.06] space-y-4">
-            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Évaluation
             </h2>
             <dl className="space-y-3.5">
@@ -134,12 +134,12 @@ export default function TicketInfoSidebar({ ticket, filStatut: _filStatut, jours
 
         <div className="pt-4 border-t border-gray-100 dark:border-white/[0.06]">
           <dl>
-            <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Référence</dt>
+            <dt className="text-xs font-medium text-muted-foreground mb-1">Référence</dt>
             <dd className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500 dark:text-gray-400 font-mono cursor-default" title={`Référence complète : ${ticket.id}`}>
+              <span className="text-xs text-muted-foreground font-mono cursor-default" title={`Référence complète : ${ticket.id}`}>
                 {ticket.id.slice(0, 8)}…
               </span>
-              <button onClick={copyRef} className="shrink-0 p-0.5 rounded text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 transition-colors" aria-label="Copier la référence" title="Copier la référence complète">
+              <button onClick={copyRef} className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-gray-500 dark:hover:text-gray-400 transition-colors" aria-label="Copier la référence" title="Copier la référence complète">
                 {copied ? <Check size={11} className="text-emerald-500" aria-hidden="true" /> : <Copy size={11} aria-hidden="true" />}
               </button>
             </dd>

@@ -20,10 +20,10 @@ type Props = {
 
 function RaisonBadge({ raison }: { raison: ReponseObsolete["obsolete_raison"] }) {
   const map: Record<NonNullable<typeof raison>, { label: string; cls: string }> = {
-    CONTREDITE_PAR_MAJ: { label: "contredite", cls: "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400" },
-    DOC_MIS_A_JOUR:     { label: "doc mis à jour", cls: "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400" },
-    DOC_SUPPRIMÉ:       { label: "doc supprimé", cls: "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400" },
-    RETIRÉ_À_LA_MAIN:   { label: "retrait manuel", cls: "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400" },
+    CONTREDITE_PAR_MAJ: { label: "contredite", cls: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300" },
+    DOC_MIS_A_JOUR:     { label: "doc mis à jour", cls: "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300" },
+    DOC_SUPPRIMÉ:       { label: "doc supprimé", cls: "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300" },
+    RETIRÉ_À_LA_MAIN:   { label: "retrait manuel", cls: "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300" },
   };
   if (!raison || !map[raison]) return null;
   const { label, cls } = map[raison];
@@ -63,12 +63,12 @@ export default function TabObsoletes({
   if (error) {
     return (
       <div role="alert" className="px-5 py-12 text-center space-y-3">
-        <p className="text-sm text-red-500 dark:text-red-400">
+        <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Erreur de chargement"}
         </p>
         <button
           onClick={onRetry}
-          className="text-xs text-gray-500 dark:text-gray-400 underline underline-offset-2 hover:text-gray-700 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-sm"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-gray-700 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 rounded-sm"
         >
           Réessayer
         </button>
@@ -78,7 +78,7 @@ export default function TabObsoletes({
 
   if (total === 0 && q) {
     return (
-      <p className="px-5 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+      <p className="px-5 py-12 text-center text-sm text-muted-foreground">
         Aucun résultat pour <span className="font-medium text-gray-600 dark:text-gray-300">«&nbsp;{searchQuery}&nbsp;»</span>.
       </p>
     );
@@ -88,7 +88,7 @@ export default function TabObsoletes({
     return (
       <div className="px-5 py-16 text-center space-y-1">
         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Aucune réponse obsolète</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">Les réponses retirées du service apparaissent ici.</p>
+        <p className="text-xs text-muted-foreground">Les réponses retirées du service apparaissent ici.</p>
       </div>
     );
   }
@@ -107,7 +107,7 @@ export default function TabObsoletes({
                 <p className="text-sm font-semibold text-gray-900 dark:text-gray-50 leading-snug">
                   {r.question}
                 </p>
-                <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   {r.canonique && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                       canonique
@@ -131,7 +131,7 @@ export default function TabObsoletes({
                     {r.document_filename ?? "Document inconnu"}
                   </span>
                   {r.obsolete_version && (
-                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-white/8 dark:text-gray-400 text-xs">
+                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-muted-foreground dark:bg-white/8 text-xs">
                       v{r.obsolete_version}
                     </span>
                   )}
@@ -151,7 +151,7 @@ export default function TabObsoletes({
             {r.analyse_justification && (
               <div className="mt-2.5 flex items-start gap-1.5 px-3 py-2 rounded-lg bg-amber-50/70 dark:bg-amber-400/5 border border-amber-100 dark:border-amber-500/15">
                 <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
-                <p className="text-xs text-amber-800/90 dark:text-amber-200/80 leading-relaxed">
+                <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
                   {r.analyse_justification}
                 </p>
               </div>
@@ -163,7 +163,7 @@ export default function TabObsoletes({
                 onClick={() => onRestore(r.reponse_id)}
                 disabled={isPendingRestore}
                 aria-label={`Restaurer — ${r.question}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
                 <RotateCcw size={12} aria-hidden="true" />
                 Restaurer
@@ -171,7 +171,7 @@ export default function TabObsoletes({
               <button
                 onClick={() => onDeleteTarget({ reponse_id: r.reponse_id, question: r.question, obsolete: true })}
                 aria-label={`Supprimer définitivement — ${r.question}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-100 dark:border-red-500/15 text-red-500 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-100 dark:border-red-500/15 text-red-700 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
               >
                 <Trash2 size={12} aria-hidden="true" />
                 Supprimer
@@ -182,7 +182,7 @@ export default function TabObsoletes({
       </div>
 
       {restoreError && (
-        <p role="alert" className="px-5 py-3 text-xs text-red-500 dark:text-red-400 border-t border-gray-100 dark:border-white/8">
+        <p role="alert" className="px-5 py-3 text-xs text-red-600 dark:text-red-400 border-t border-gray-100 dark:border-white/8">
           {restoreError instanceof Error ? restoreError.message : "Erreur de restauration"}
         </p>
       )}

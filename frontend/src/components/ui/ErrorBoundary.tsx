@@ -23,7 +23,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             Une erreur inattendue s'est produite.
           </p>
           <button
-            className="px-4 py-2 rounded-md bg-emerald-600 text-white text-sm hover:bg-emerald-700"
+            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary-hover"
             onClick={() => window.location.reload()}
           >
             Recharger la page

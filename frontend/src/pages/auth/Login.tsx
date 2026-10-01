@@ -4,8 +4,10 @@ import { useDark } from "../../hooks/useDark";
 import TicketAIMark from "../../assets/ticketai_mark_v2.svg";
 import { BrandPanel } from "../../components/auth/BrandPanel";
 import LoginForm from "./LoginForm";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 
 export default function Login() {
+  useDocumentTitle("Connexion");
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -54,12 +56,13 @@ export default function Login() {
         .tk-submit-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 
         .tk-pw-toggle {
-          position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-          width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+          position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+          width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
           border: none; background: transparent; color: var(--tk-sub); cursor: pointer; padding: 0;
           transition: color .15s;
         }
         .tk-pw-toggle:hover { color: var(--tk-text); }
+        .tk-pw-toggle:focus-visible { outline: 2px solid #2FE272; outline-offset: 1px; color: var(--tk-text); }
 
         @media (prefers-reduced-motion: reduce) {
           .tk-illus-float, .tk-grid-bg { animation: none !important; }
@@ -89,7 +92,7 @@ export default function Login() {
         >
           <div style={{ width: "100%", maxWidth: 392, animation: "tk-rise .7s ease-out both" }}>
             {/* Mobile-only logo */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }} className="md:hidden">
+            <div style={{ alignItems: "center", gap: 12, marginBottom: 32 }} className="flex md:hidden">
               <img src={TicketAIMark} alt="ONaCVG" style={{ width: 32, height: 32 }} />
               <span style={{ fontWeight: 700, fontSize: 18, color: theme.text, letterSpacing: "-.01em" }}>ONaCVG</span>
             </div>

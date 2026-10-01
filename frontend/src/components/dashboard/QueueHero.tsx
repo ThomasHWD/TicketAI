@@ -35,8 +35,8 @@ export function QueueHero({
     return (
       <div id="queue-hero" className="glass-card rounded-2xl px-6 py-4 flex items-center gap-3 border border-red-200 dark:border-red-500/20">
         <AlertTriangle size={16} className="text-red-500 shrink-0" />
-        <p className="text-sm text-gray-600 dark:text-gray-400 flex-1">Impossible de charger la file d'attente.</p>
-        <button onClick={onRetry} className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline shrink-0">
+        <p className="text-sm text-gray-600 dark:text-muted-foreground flex-1">Impossible de charger la file d'attente.</p>
+        <button onClick={onRetry} className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline shrink-0">
           Réessayer
         </button>
       </div>
@@ -47,9 +47,9 @@ export function QueueHero({
     return (
       <div id="queue-hero" className="glass-card rounded-2xl px-6 py-3.5 flex items-center gap-3 ring-1 ring-emerald-300/50 dark:ring-emerald-500/25">
         <CheckCircle2 size={15} className="text-emerald-500 dark:text-emerald-400 shrink-0" />
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="text-sm text-gray-600 dark:text-muted-foreground">
           File vide —{" "}
-          <span className="font-medium text-emerald-600 dark:text-emerald-400">aucun ticket en attente</span>
+          <span className="font-medium text-emerald-700 dark:text-emerald-400">aucun ticket en attente</span>
           {" "}de validation.
         </span>
       </div>
@@ -80,7 +80,7 @@ export function QueueHero({
         </div>
       </div>
       <div className="ml-auto flex items-center gap-2 shrink-0">
-        <span className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 group-hover:bg-emerald-700 text-white text-sm font-medium transition-colors">
+        <span className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary group-hover:bg-primary-hover text-primary-foreground text-sm font-medium transition-colors">
           <ClipboardList size={14} />
           Commencer la validation
         </span>

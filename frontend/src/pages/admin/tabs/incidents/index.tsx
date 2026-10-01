@@ -31,7 +31,7 @@ export default function IncidentsTab() {
     <div className="space-y-4">
       {/* Top bar */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-xs text-muted-foreground">
           {isFetching
             ? "Actualisation…"
             : lastUpdated
@@ -42,7 +42,7 @@ export default function IncidentsTab() {
           onClick={() => refetch()}
           disabled={isFetching}
           aria-label="Actualiser la liste des incidents"
-          className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150 disabled:opacity-40"
+          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-150 disabled:opacity-40"
         >
           <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} aria-hidden="true" />
           Actualiser
@@ -59,7 +59,7 @@ export default function IncidentsTab() {
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
               Aucun incident en cours
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 max-w-xs mx-auto leading-relaxed">
+            <p className="text-xs text-muted-foreground mt-1.5 max-w-xs mx-auto leading-relaxed">
               Tous les tickets et documents ont été traités avec succès.
             </p>
           </div>
@@ -75,7 +75,7 @@ export default function IncidentsTab() {
               Documents échoués
             </p>
             {!isLoading && (
-              <span className="ml-auto text-xs tabular-nums font-mono text-gray-500 dark:text-gray-400">
+              <span className="ml-auto text-xs tabular-nums font-mono text-muted-foreground">
                 {totalDocs}
               </span>
             )}
@@ -106,15 +106,15 @@ export default function IncidentsTab() {
               Tickets échoués / bloqués
             </p>
             {!isLoading && (
-              <span className="ml-auto text-xs tabular-nums font-mono text-gray-500 dark:text-gray-400">
+              <span className="ml-auto text-xs tabular-nums font-mono text-muted-foreground">
                 {totalTickets}
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
-            <span className="font-medium text-red-500 dark:text-red-400">ÉCHOUÉ</span>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            <span className="font-medium text-red-600 dark:text-red-400">ÉCHOUÉ</span>
             {" — job Celery planté, nécessite une relance manuelle. "}
-            <span className="font-medium text-amber-500 dark:text-amber-400">BLOQUÉ</span>
+            <span className="font-medium text-amber-700 dark:text-amber-400">BLOQUÉ</span>
             {" — en attente depuis plus de 10 min, le worker est peut-être saturé."}
           </p>
           <div className="overflow-x-auto -mx-1">
@@ -122,19 +122,19 @@ export default function IncidentsTab() {
               <caption className="sr-only">Tickets échoués et bloqués</caption>
               <thead>
                 <tr className="border-b border-gray-100 dark:border-white/[0.06]">
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-muted-foreground">
                     Statut
                   </th>
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-muted-foreground">
                     Domaine
                   </th>
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-muted-foreground">
                     Question
                   </th>
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-muted-foreground whitespace-nowrap">
                     Date
                   </th>
-                  <th scope="col" className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <th scope="col" className="px-4 py-2 text-xs font-medium text-muted-foreground">
                     Action
                   </th>
                 </tr>

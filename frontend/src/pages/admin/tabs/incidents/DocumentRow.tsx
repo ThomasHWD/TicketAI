@@ -53,32 +53,32 @@ export default function DocumentRow({ doc }: { doc: DocumentIncident }) {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{doc.filename ?? "—"}</span>
           {doc.domaine && (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/8 text-gray-500 dark:text-gray-400 font-mono">
+            <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/8 text-muted-foreground font-mono">
               {doc.domaine}
             </span>
           )}
         </div>
         {doc.erreur && (
-          <p className="text-xs text-red-500 dark:text-red-400 mt-0.5 line-clamp-2" title={doc.erreur}>{doc.erreur}</p>
+          <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 line-clamp-2" title={doc.erreur}>{doc.erreur}</p>
         )}
-        {retryError && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{retryError}</p>}
+        {retryError && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{retryError}</p>}
       </div>
       <div className="flex items-center gap-3 shrink-0">
         <button
           onClick={handleDownload}
-          className="flex items-center gap-1 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          className="flex items-center gap-1 py-1 text-xs text-muted-foreground hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
         >
           <Download size={12} aria-hidden="true" /> Télécharger
         </button>
         {retryDone ? (
-          <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+          <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
             <CheckCircle2 size={12} aria-hidden="true" /> Relancé
           </span>
         ) : (
           <button
             onClick={() => { setRetryError(null); retryMutation.mutate(); }}
             disabled={retryMutation.isPending}
-            className="flex items-center gap-1 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-1 py-1 text-xs text-muted-foreground hover:text-emerald-800 dark:hover:text-emerald-400 disabled:opacity-40 transition-colors"
           >
             {retryMutation.isPending ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <RotateCcw size={12} aria-hidden="true" />}
             Relancer
@@ -95,7 +95,7 @@ export default function DocumentRow({ doc }: { doc: DocumentIncident }) {
             </button>
             <button
               onClick={() => setConfirmDelete(false)}
-              className="py-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              className="py-1 text-xs text-muted-foreground hover:text-gray-600 dark:hover:text-gray-200"
             >
               Annuler
             </button>
@@ -103,7 +103,7 @@ export default function DocumentRow({ doc }: { doc: DocumentIncident }) {
         ) : (
           <button
             onClick={() => setConfirmDelete(true)}
-            className="flex items-center gap-1 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+            className="flex items-center gap-1 py-1 text-xs text-muted-foreground hover:text-red-500 dark:hover:text-red-400 transition-colors"
           >
             <Trash2 size={12} aria-hidden="true" /> Supprimer
           </button>
